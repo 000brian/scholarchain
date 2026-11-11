@@ -1,0 +1,15 @@
+Tue Nov 10 23:32:09 CST 2026
+ProductName:		macOS
+ProductVersion:		26.6.2
+BuildVersion:		25G83
+openjdk version "17.0.21" 2026-10-20
+OpenJDK Runtime Environment Temurin-17.0.21+9 (build 17.0.21+9)
+OpenJDK 64-Bit Server VM Temurin-17.0.21+9 (build 17.0.21+9, mixed mode, sharing)
+2.0.12
+Terraform v1.17.1
+on darwin_arm64
+
+aws-cli/2.40.0 Python/3.15.2 Darwin/25.6.0 source/arm64
+Docker version 29.9.3, build 5457199
+gh version 2.103.3 (2026-10-26)
+git version 2.50.1 (Apple Git-155)
