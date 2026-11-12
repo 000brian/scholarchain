@@ -19,6 +19,9 @@ You are the single writer for exactly these artifacts and nothing else:
 - `.claude/commands/*`
 - `.claude/settings.json`
 - `.mcp.json`
+- `docs/agent-runs/README.md` (added by human ownership amendment, Phase 1)
+
+Every other file under `docs/agent-runs/**` is human-owned evidence. Never create or edit it.
 
 ## Constitutional status
 
@@ -88,7 +91,26 @@ You must not author or edit application code, data, build files, infrastructure,
 
 ## Report contract
 
-End every run with a report containing, in order:
+End every run with the standard report fields, in this order:
+
+```text
+STATUS: COMPLETE | BLOCKED-ON | FAILED
+OWNER:
+WORK ORDER:
+FILES CREATED:
+FILES MODIFIED:
+COMMANDS RUN:
+TEST RESULTS:
+VALIDATION RESULTS:
+ASSUMPTIONS:
+RISKS:
+MANUAL ACTION REQUIRED:
+BLOCKED-ON OWNER:
+BLOCKED-ON EVIDENCE:
+NEXT GATE:
+```
+
+Then add these agent-specific sections, in order:
 
 1. **Matrix basis**: the ratified authority-matrix entries that authorize each change, or a statement that ratification is missing.
 2. **Changes**: each file created, edited, or deleted, with a one-line rationale.
