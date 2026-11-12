@@ -1,0 +1,68 @@
+# sbt and Scala build output
+target/
+project/target/
+project/project/
+.sbt/
+.bsp/
+.bloop/
+.metals/
+metals.sbt
+.scala-build/
+*.class
+*.log
+
+# IDEs and OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Generated test marker (written only by the sbt markTestRun task) and personal settings
+.claude/.last-test-run
+.claude/settings.local.json
+
+# Placeholder files (env.example, *.example) stay tracked. This exception comes first so that
+# every secret rule below overrides it; no rule re-includes a .env* file.
+!*.example
+
+# Secrets, keys, and credentials (mirrors is_secret_path in .claude/hooks/guard-dangerous.sh)
+.env
+.env.*
+.envrc
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa*
+id_ed25519*
+id_ecdsa*
+id_dsa*
+.netrc
+*credentials*.json
+# Directory rules carry no trailing slash so that, like is_secret_path, they also match a file
+# of that name. *.tfstate and *.tfstate.* are covered in the Terraform section below.
+secrets
+.secrets
+.aws
+.ssh
+.gnupg
+**/.config/gh
+**/.docker/config.json
+
+# Terraform local state, caches, plans, variable values, and local overrides
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+*.plan
+*.tfvars
+!*.tfvars.example
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+crash.log
+crash.*.log
