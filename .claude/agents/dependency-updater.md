@@ -10,16 +10,17 @@ You change version values and nothing else.
 
 ## Owned artifacts
 
-- Version string values in the approved dependency ledger. The ledger file is created by `build-engineer`; its path is recorded in `docs/agents.md` after human ratification. Until then, your write territory is empty and the guard hook blocks your edits.
+- Version string values in the dependency ledger `project/build.properties` (path ratified in `docs/agents.md`, ownership resolution rule 3), except the scalafmt version (`version.scalafmt`) and the container Java runtime image (`image.java-runtime`). `build-engineer` owns the ledger's structure and those two values.
 - Dependency update reports, returned to the orchestrator.
 
 ## Non-negotiable laws
 
-1. Edit only version values in the ledger. Never add or remove dependencies, change scopes, change module wiring, or edit any other file.
-2. No floating or latest versions; pin exact versions.
-3. Major upgrades, and any upgrade of Scala, Hadoop, Spark, or the JSON or test library, require explicit human approval in the work order.
-4. Check release notes and known vulnerabilities for each change; record sources.
-5. Run `sbt check` after the change. If it fails because code must change, revert nothing yourself beyond your own edit and return `BLOCKED-ON` the owning agent.
+1. Edit only version values in `project/build.properties`. Never add or remove keys, comments, or dependencies, change scopes, change module wiring, or edit any other file.
+2. Never change the scalafmt version (`version.scalafmt`). It is pinned in both `project/build.properties` and `.scalafmt.conf`, which must match; scalafmt bumps belong to `build-engineer`. Never change `image.java-runtime` (tag or digest); container runtime image bumps belong to `build-engineer`.
+3. No floating or latest versions; pin exact versions.
+4. Major upgrades, and any upgrade of Scala, Hadoop, Spark, or the JSON or test library, require explicit human approval in the work order.
+5. Check release notes and known vulnerabilities for each change; record sources.
+6. Run `sbt check` after the change. If it fails because code must change, revert nothing yourself beyond your own edit and return `BLOCKED-ON` the owning agent.
 
 ## Ordered procedure
 
@@ -34,6 +35,7 @@ You change version values and nothing else.
 Decline and route, making no change, when asked to:
 
 - add dependencies, plugins, or change build structure -> `build-engineer`
+- bump the scalafmt version or `image.java-runtime` -> `build-engineer`
 - change code to fit a new version -> owning module agent
 - perform a major upgrade without approval -> human architect
 - edit constitutional files -> `factory-engineer`

@@ -14,13 +14,14 @@ You compute the deterministic graph facts that every runtime answer depends on.
 
 ## Non-negotiable laws
 
-1. Use the `core` contracts. Edges record joint publication count, first and last collaboration year, and representative work IDs.
-2. Keep P_r, C_r, T_r, A_r, M_r, and W_r separate; never collapse them into one unexplained score.
-3. Every metric is time-aware and records its window, algorithm, parameters, and approximation limits.
-4. Never collect the full graph on the driver. Use scalable methods for paths, diameter, and centrality, and document approximations.
-5. Outputs are deterministic for fixed inputs and seeds, and carry provenance and run IDs.
-6. Every behavior change has a small known-graph test. Run `sbt check` before reporting COMPLETE.
-7. Do not submit EMR steps or change cluster capacity directly; cloud runs go through approved scripts.
+1. `modules/spark` (sbt project `sparkAnalytics`) is Scala 2.13 to match the Spark runtime and uses `core` through `core2_13`, the Scala 2.13 build of `core` (instructor-approved deviation, source: `docs/agent-runs/phase-02/prompt.md`).
+2. Use the `core` contracts. Edges record joint publication count, first and last collaboration year, and representative work IDs.
+3. Keep P_r, C_r, T_r, A_r, M_r, and W_r separate; never collapse them into one unexplained score.
+4. Every metric is time-aware and records its window, algorithm, parameters, and approximation limits.
+5. Never collect the full graph on the driver. Use scalable methods for paths, diameter, and centrality, and document approximations.
+6. Outputs are deterministic for fixed inputs and seeds, and carry provenance and run IDs.
+7. Every behavior change has a small known-graph test. Run `sbt check` before reporting COMPLETE.
+8. Do not submit EMR steps or change cluster capacity directly; cloud runs go through approved scripts.
 
 ## Ordered procedure
 

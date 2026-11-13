@@ -70,8 +70,12 @@ PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(jget cwd)}"
 PROJECT_DIR="${PROJECT_DIR%/}"
 
 # Dependency-ledger file(s) that dependency-updater may edit (version values only).
-# Empty until the human ratifies the ledger path created by build-engineer (Phase 2).
-DEPENDENCY_LEDGER_PATHS=""
+# Ratified in Amendment 01. The guard enforces the path only; the value-level rules
+# (version values only; never version.scalafmt, which build-engineer bumps together with
+# .scalafmt.conf; never image.java-runtime, whose tag and digest build-engineer bumps)
+# live in docs/agents.md rule 3 and are enforced by role rules and code review.
+# sbt ledgerCheck checks only that version.scalafmt equals the .scalafmt.conf version.
+DEPENDENCY_LEDGER_PATHS="project/build.properties"
 
 matches() { printf '%s' "$1" | grep -Eiq -- "$2"; }
 
@@ -86,7 +90,7 @@ owner_of() {
     docs/agent-runs/*) echo "human" ;;
     docs/incidents/*) echo "incident-responder" ;;
     README.md|docs/*|reports/*) echo "documentation-engineer" ;;
-    build.sbt|project/*|.scalafmt.conf|.gitignore|.jvmopts|.sbtopts|docker/*|compose.yml|compose.yaml|docker-compose.yml|docker-compose.yaml|docker-compose.*.yml|docker-compose.*.yaml) echo "build-engineer" ;;
+    build.sbt|project/*|.scalafmt.conf|.sbt/*|.gitignore|.jvmopts|.sbtopts|docker/*|compose.yml|compose.yaml|docker-compose.yml|docker-compose.yaml|docker-compose.*.yml|docker-compose.*.yaml) echo "build-engineer" ;;
     modules/core/*) echo "domain-engineer" ;;
     datasets/*) echo "dataset-engineer" ;;
     modules/hadoop/*) echo "hadoop-engineer" ;;

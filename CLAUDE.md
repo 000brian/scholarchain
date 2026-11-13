@@ -8,32 +8,39 @@ ScholarChain is a Scala 3, Hadoop, Spark, AWS, Graph-RAG project. It builds an e
 
 Pipeline: S3 raw zone -> Hadoop MapReduce on EMR (parse, normalize, author mentions, blocking, coauthor-pair candidates) -> S3 curated zone -> entity resolution -> Spark on EMR (graph construction and analytics) -> Neptune, DynamoDB, ordinary S3, S3 Vectors (optional OpenSearch) -> runtime collaboration-analysis agents -> REST microservices on ECS Fargate.
 
-Stack: Scala 3, sbt multi-project build, one pinned JSON library, one test framework (ScalaTest or MUnit, chosen once), Terraform, Amazon EMR, S3, Neptune, DynamoDB, S3 Vectors, Bedrock, ECS Fargate, Step Functions, SQS, ECR, Secrets Manager, KMS, CloudWatch.
+Stack: Scala 3 (with the instructor-approved Scala 2.13 deviation below), sbt multi-project build, uPickle as the one pinned JSON library, MUnit as the one test framework, Terraform, Amazon EMR, S3, Neptune, DynamoDB, S3 Vectors, Bedrock, ECS Fargate, Step Functions, SQS, ECR, Secrets Manager, KMS, CloudWatch.
+
+Scala versions (instructor-approved deviation from "Scala 3 everywhere"; source: `docs/agent-runs/phase-02/prompt.md`, human architect decision 1, recorded in `docs/agent-runs/phase-02/human-gate.md`): `sparkAnalytics` compiles with Scala 2.13 to match the Spark runtime; `core` is cross-built for Scala 3 and Scala 2.13 (sbt projects `core` and `core2_13`, same sources); every other project is Scala 3.
+
+Target runtimes: Spark jobs target Amazon EMR release `emr-spark-8.1.0`; Hadoop MapReduce jobs target Amazon EMR 7.x; Java 17 for all projects and container images.
 
 ## Module dependency boundaries
 
-| sbt project | Directory | May depend on |
-|---|---|---|
-| `core` | `modules/core` | no internal module |
-| `hadoop` | `modules/hadoop` | `core` |
-| `entityResolution` | `modules/entity-resolution` | `core` |
-| `sparkAnalytics` | `modules/spark` | `core` |
-| `storage` | `modules/storage` | `core` |
-| `rag` | `modules/rag` | `core`, `storage` |
-| `services` | `modules/services` | `core`, `rag`, `storage` |
+| sbt project | Directory | Scala | May depend on |
+|---|---|---|---|
+| `core` | `modules/core` | 3 (cross-built with `core2_13`) | no internal module |
+| `core2_13` | `modules/core` (same sources as `core`) | 2.13 | no internal module; used only by `sparkAnalytics` |
+| `hadoop` | `modules/hadoop` | 3 | `core` |
+| `entityResolution` | `modules/entity-resolution` | 3 | `core` |
+| `sparkAnalytics` | `modules/spark` | 2.13 | `core2_13` (the Scala 2.13 build of `core`) |
+| `storage` | `modules/storage` | 3 | `core` |
+| `rag` | `modules/rag` | 3 | `core`, `storage` |
+| `services` | `modules/services` | 3 | `core`, `rag`, `storage` |
+| `contractTests` | `tests/contracts` | 3 | test project, not a module; Phase 2 build wires `core`, `hadoop`, `entityResolution`, `storage`, `rag`, `services` |
 
 Rules:
 
 - `core` holds shared domain records, stable identifiers, serialization contracts, and configuration contracts. It has no Hadoop, Spark, AWS SDK, or HTTP dependency.
 - Pipeline stages (`hadoop`, `entityResolution`, `sparkAnalytics`) never depend on one another in code. They exchange data only through versioned files in S3 whose schemas are defined in `core`.
 - Only `storage` talks to AWS data stores. `rag` reaches stores only through `storage` ports. `services` is the only HTTP layer.
-- No module depends on `services`. No dependency cycles.
+- No production module (`core`, `core2_13`, `hadoop`, `entityResolution`, `sparkAnalytics`, `storage`, `rag`, `services`) depends on `services`. `contractTests` is a test project, not a production module, and may depend on `services`. No dependency cycles.
 - Cross-module and adversarial tests live under `tests/**`; module feature tests live in each module's own test tree.
 
 ## Commands
 
 - `sbt check` is the repository definition of done. It runs format checking, compilation, tests, contract tests that do not need AWS, and `markTestRun`, which refreshes `.claude/.last-test-run` only when tests pass.
 - `sbt fmt` formats sources. `sbt Test/compile` compiles tests.
+- Formatter dialects (`.scalafmt.conf`, owned by `build-engineer`): Scala 3 by default; `core` (`modules/core/src/**`) and `sparkAnalytics` (`modules/spark/src/**`) are formatted with the Scala 2.13 dialect (`scala213source3`), a consequence of the Scala deviation above.
 - `.claude/hooks/validate-agent-files.sh` validates the agent system.
 - Build aliases are defined by `build-engineer` in `build.sbt`; until `build.sbt` exists, no Scala gate can pass and source-changing agents report `BLOCKED-ON` with owner `build-engineer`.
 
