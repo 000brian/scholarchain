@@ -29,5 +29,9 @@ None.
 2. docs/agent-runs/README.md, which Phase 1 must create, was not in its owned list. Again to be adjusted in Phase 1.
 3. The report format differed from the spec's standard report fields. Again to be adjusted in Phase 1.
 
+## Addendum (Nov 12, 2026)
+I accept the Phase 0 seed agent as of commit a2e6c929f8ac06c73494b7d785521a6127bf281d
+(Added after the fact; the original record pointed to commit.txt without stating it.)
+
 ## Accepted commit
 See commit.txt.

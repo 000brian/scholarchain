@@ -143,5 +143,9 @@ None.
 ## Ratification
 I ratify the Phase 1 agent constitution.
 
+## Addendum (Nov 12, 2026)
+I ratify the Phase 1 agent constitution as of commit 684c610bbcb2d314e4177677a08fdf2be0302ba6. 
+(Added after the fact; the original record pointed to commit.txt without stating it.)
+
 ## Accepted commit
 See commit.txt.

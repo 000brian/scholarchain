@@ -56,5 +56,9 @@ None to agent-generated files.
 - git ignores any folder named `secrets`, `.aws`, `.ssh` or `.gnupg`. storage-engineer (or any other agent) must not name a package `secrets`.
 - The guard sometimes has false positives and asks about harmless commands because of matching text. I'm leaving it to let me approve it.
 
+## Addendum (Nov 12, 2026)
+I accept Phase 2 as of commit 41eaea2956f1608ba7f0631a5e9eba6b87f957e8.
+(Added after the fact; the original record pointed to commit.txt without stating it.)
+
 ## Accepted commit
 See commit.txt.
