@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SYNTHETIC DATA. NOT REAL PUBLICATIONS, NOT REAL PEOPLE.
+  Hand-written by the ScholarChain dataset-engineer to exercise parser, subset
+  and identifier edge cases that the real sample does not cover. Structure
+  follows https://dblp.org/xml/dblp.dtd. Every title starts with [SYNTHETIC];
+  every person name contains "Synthetic". DOIs use prefix 10.5555, which the
+  Crossref REST API reports as member 7822 "Test accounts" (checked
+  2026-11-12; https://api.crossref.org/prefixes/10.5555); the suffixes used
+  here returned HTTP 404 from https://api.crossref.org/works/{doi}.
+  License: CC0 1.0 (ScholarChain project contribution).
+  Expected outcomes are listed in datasets/dataset-manifest.yaml
+  (samples[].expected) and asserted by datasets/scripts/test_datasets.py.
+-->
+<!DOCTYPE dblp [
+<!ENTITY eacute "&#233;">
+]>
+<dblp>
+<inproceedings mdate="2026-11-12" key="conf/sigir/SyntheticA24">
+<author>Synthetic Author 0001</author>
+<author>Synthetic Author 0002</author>
+<author>&#26446;&#26126; Synthetic</author>
+<author orcid="0000-0000-0000-0000">Synth&eacute;tique Bertrand</author>
+<author>Synthetic Author 0001</author>
+<title>[SYNTHETIC] Duplicate author, homonym numbers, non-Latin-1 name, invalid ORCID check digit, two DOI spellings.</title>
+<year>2024</year>
+<booktitle>SIGIR</booktitle>
+<ee>https://doi.org/10.5555/ScholarChain-Synthetic-0001</ee>
+<ee>http://dx.doi.org/10.5555/scholarchain-synthetic-0001</ee>
+</inproceedings>
+<inproceedings mdate="2026-11-12" key="conf/sigir/SyntheticB25">
+<author>Synthetic Solo</author>
+<title>[SYNTHETIC] Single author, upper year boundary, no ee.</title>
+<year>2025</year>
+<booktitle>SIGIR</booktitle>
+</inproceedings>
+<inproceedings mdate="2026-11-12" key="conf/sigir/SyntheticC26">
+<author>Synthetic Author 0001</author>
+<author>Synthetic Late</author>
+<title>[SYNTHETIC] Year after the subset window.</title>
+<year>2026</year>
+<booktitle>SIGIR</booktitle>
+</inproceedings>
+<inproceedings mdate="2026-11-12" key="conf/sigir/SyntheticD24" publtype="informal">
+<author>Synthetic Author 0001</author>
+<author>Synthetic Informal</author>
+<title>[SYNTHETIC] Informal record inside the venue and window.</title>
+<year>2024</year>
+<booktitle>SIGIR</booktitle>
+</inproceedings>
+<article mdate="2026-11-12" key="journals/pvldb/SyntheticE15">
+<author>Synthetic Author 0002</author>
+<author>Synthetic Journal</author>
+<title>[SYNTHETIC] Journal article at the lower year boundary with a percent-encoded DOI URL.</title>
+<year>2015</year>
+<journal>Proc. VLDB Endow.</journal>
+<ee>https://doi.org/10.5555/scholarchain%2Dsynthetic%2D0005</ee>
+</article>
+</dblp>

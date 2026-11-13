@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "sourceType": "dblp",
+  "datasetId": "dblp",
+  "snapshotId": "2026-11-01",
+  "sourceRecordIds": [
+    "conf/sigir/Sousa0J23"
+  ],
+  "runId": "run:v1:044e0b57adf2607d9573368a2117394d",
+  "jobName": "hadoop.parse-dblp",
+  "policyVersion": "parse-policy/1",
+  "contentHash": null
+}

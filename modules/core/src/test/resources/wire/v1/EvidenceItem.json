@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "evidence:v1:d8c6bb9bae6ed5cee33a778a8dd6e743",
+  "evidenceType": "work",
+  "subjectIds": [
+    "work:v1:9908f02cfc6bda3f54556ffdc400f581"
+  ],
+  "window": null,
+  "metric": null,
+  "snippet": "tieval: An Evaluation Framework for Temporal Information Extraction Systems.",
+  "provenance": {
+    "schemaVersion": 1,
+    "sourceType": "runtime",
+    "datasetId": "scholarchain-graph",
+    "snapshotId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+    "sourceRecordIds": [
+      "conf/sigir/Sousa0J23"
+    ],
+    "runId": "run:v1:d5b4e52fdf1171ad6d9e1f1251db9278",
+    "jobName": "rag.answer",
+    "policyVersion": "prompt-policy/1",
+    "contentHash": "sha256:097a8f0395a0f0d7b24339481fe72249a3325ae0b0e33a60d6f56208713afe33"
+  }
+}

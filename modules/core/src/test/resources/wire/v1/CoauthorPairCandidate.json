@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "workId": "work:v1:9908f02cfc6bda3f54556ffdc400f581",
+  "year": 2023,
+  "left": "Alípio Mário Jorge",
+  "right": "Hugo O. Sousa",
+  "teamSize": 3,
+  "provenance": {
+    "schemaVersion": 1,
+    "sourceType": "dblp",
+    "datasetId": "dblp",
+    "snapshotId": "2026-11-01",
+    "sourceRecordIds": [
+      "conf/sigir/Sousa0J23"
+    ],
+    "runId": "run:v1:044e0b57adf2607d9573368a2117394d",
+    "jobName": "hadoop.parse-dblp",
+    "policyVersion": "parse-policy/1",
+    "contentHash": null
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "edgeId": "edge:v1:4bb65089a2a14df5a532c14ba4a10cb4",
+  "label": "coauthored_with",
+  "from": "researcher:v1:6d39fb31017461bdf6bbe118864d1809",
+  "to": "researcher:v1:b09b464e25f55dd98a87bd4f0c20577c",
+  "window": {
+    "startYear": 2015,
+    "endYear": 2025
+  },
+  "weight": 0.5,
+  "provenance": {
+    "schemaVersion": 1,
+    "sourceType": "pipeline",
+    "datasetId": "scholarchain-graph",
+    "snapshotId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+    "sourceRecordIds": [
+      "conf/sigir/Sousa0J23"
+    ],
+    "runId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+    "jobName": "spark.build-graph",
+    "policyVersion": "graph-policy/1",
+    "contentHash": null
+  }
+}

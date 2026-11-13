@@ -1,0 +1,717 @@
+# ScholarChain dataset manifest
+# Owner: dataset-engineer (datasets/**). Validated by datasets/scripts/validate_datasets.py.
+#
+# Conventions
+#   * Every fact below was observed on `checked_on` at the `evidence` URL(s).
+#   * A value that could not be verified is the string "unknown" and MUST have a
+#     sibling key "<field>_unknown_reason" (enforced by the validator).
+#   * "estimate" values are never measurements; each carries `basis`.
+#   * No bucket names, credentials, account IDs or contact addresses appear here.
+#     S3 locations are templates; {raw_bucket} is resolved from configuration
+#     (the configuration contract is owned by domain-engineer).
+#   * Scripts never upload to or mutate AWS. Movement into S3 is done by
+#     approved scripts under scripts/** (infra-engineer), not by datasets/**.
+
+manifest_schema: scholarchain.dataset-manifest
+manifest_version: 1
+checked_on: "2026-11-12"
+owner: dataset-engineer
+validation_command: "bash datasets/scripts/validate.sh"
+validation_note: "Offline. Runs bash -n on all datasets/scripts/*.sh, validate_datasets.py, and test_datasets.py."
+
+s3_layout:
+  bucket_resolution: "configuration; never hard-coded (placeholders {raw_bucket})"
+  raw_zone_root_template: "s3://{raw_bucket}/raw/"
+  rules:
+    - "Raw objects are immutable; a new snapshot or retrieval gets a new prefix."
+    - "Each raw prefix holds a _provenance.json written by the transfer script: dataset id, snapshot id, source URL, checksum, retrieved_at, subset_rule id."
+    - "Curated-zone layout is defined by hadoop-engineer and domain-engineer, not here."
+
+# ---------------------------------------------------------------------------
+# Subset rule (bounded corpus). Status: proposed; requires human ratification.
+# ---------------------------------------------------------------------------
+subset_rule:
+  id: dblp-subset-v1
+  status: proposed
+  summary: >-
+    DBLP article and inproceedings records whose key starts with one of 16
+    venue key prefixes (IR, web, data mining, databases, multimedia, vision,
+    AI, NLP, ML), with 2015 <= year <= 2025, excluding records whose publtype
+    contains "informal". Enrichment data is restricted to records that link
+    to those works by normalised DOI or ORCID iD.
+  dblp:
+    record_elements: [article, inproceedings]
+    year_min: 2015
+    year_max: 2025
+    exclude_publtype_tokens: [informal]
+    key_prefix_semantics: >-
+      A record is in a venue if its dblp key starts with dblp_key_prefix.
+      Observed in the 2026-11-01 release: the conf/sigir/ block also contains
+      co-located workshop papers (example conf/sigir/KemmererGMAE14,
+      booktitle "ERD@SIGIR"). Workshop and companion volumes under the same
+      prefix are therefore IN the subset unless a later rule version narrows it.
+    venues:
+      - dblp_key_prefix: "conf/sigir/"
+        openalex_source_id: S4363608773
+        openalex_display_name: "International ACM SIGIR Conference on Research and Development in Information Retrieval (SIGIR)"
+        openalex_evidence: {url: "https://api.openalex.org/sources/S4363608773?select=id,display_name,type", checked_on: "2026-11-12", observed: "id resolves to itself (no merge redirect); type conference"}
+        dblp_prefix_observed_in_release: true
+      - dblp_key_prefix: "conf/kdd/"
+        openalex_source_id: S4363608767
+        openalex_display_name: "ACM SIGKDD Conference on Knowledge Discovery and Data Mining (KDD)"
+        openalex_evidence: {url: "https://api.openalex.org/sources/S4363608767?select=id,display_name,type", checked_on: "2026-11-12", observed: "id resolves to itself (no merge redirect); type conference"}
+        dblp_prefix_observed_in_release: false
+      - dblp_key_prefix: "conf/www/"
+        openalex_source_id: S7407088480
+        openalex_display_name: "International World Wide Web Conference (WWW)"
+        openalex_evidence: {url: "https://api.openalex.org/sources/S7407088480?select=id,display_name,type", checked_on: "2026-11-12", observed: "id resolves to itself (no merge redirect); type conference"}
+        dblp_prefix_observed_in_release: false
+      - dblp_key_prefix: "conf/cikm/"
+        openalex_source_id: S4393918199
+        openalex_display_name: "ACM International Conference on Information and Knowledge Management (CIKM)"
+        openalex_evidence: {url: "https://api.openalex.org/sources/S4393918199?select=id,display_name,type", checked_on: "2026-11-12", observed: "id resolves to itself (no merge redirect); type conference"}
+        dblp_prefix_observed_in_release: false
+      - dblp_key_prefix: "conf/wsdm/"
+        openalex_source_id: S4363608885
+        openalex_display_name: "ACM International Conference on Web Search and Data Mining (WSDM)"
+        openalex_evidence: {url: "https://api.openalex.org/sources/S4363608885?select=id,display_name,type", checked_on: "2026-11-12", observed: "id resolves to itself (no merge redirect); type conference"}
+        dblp_prefix_observed_in_release: false
+      - dblp_key_prefix: "conf/icde/"
+        openalex_source_id: S4210210321
+        openalex_display_name: "IEEE International Conference on Data Engineering (ICDE)"
+        openalex_evidence: {url: "https://api.openalex.org/sources/S4210210321?select=id,display_name,type", checked_on: "2026-11-12", observed: "id resolves to itself (no merge redirect); type conference"}
+        dblp_prefix_observed_in_release: false
+      - dblp_key_prefix: "conf/sigmod/"
+        openalex_source_id: S4393915683
+        openalex_display_name: "ACM SIGMOD International Conference on Management of Data (SIGMOD)"
+        openalex_evidence: {url: "https://api.openalex.org/sources/S4393915683?select=id,display_name,type", checked_on: "2026-11-12", observed: "id resolves to itself (no merge redirect); type conference"}
+        dblp_prefix_observed_in_release: false
+      - dblp_key_prefix: "journals/pvldb/"
+        openalex_source_id: S4210226185
+        openalex_display_name: "Proceedings of the VLDB Endowment"
+        openalex_evidence: {url: "https://api.openalex.org/sources/S4210226185?select=id,display_name,type", checked_on: "2026-11-12", observed: "id resolves to itself (no merge redirect); type conference"}
+        dblp_prefix_observed_in_release: false
+      - dblp_key_prefix: "conf/mm/"
+        openalex_source_id: S4363608757
+        openalex_display_name: "ACM International Conference on Multimedia (ACM MM)"
+        openalex_evidence: {url: "https://api.openalex.org/sources/S4363608757?select=id,display_name,type", checked_on: "2026-11-12", observed: "id resolves to itself (no merge redirect); type conference"}
+        dblp_prefix_observed_in_release: false
+      - dblp_key_prefix: "conf/cvpr/"
+        openalex_source_id: S4210176548
+        openalex_display_name: "IEEE Computer Society Conference on Computer Vision and Pattern Recognition/Proceedings - IEEE Computer Society Conference on Computer Vision and Pattern Recognition/Proceedings"
+        openalex_evidence: {url: "https://api.openalex.org/sources/S4210176548?select=id,display_name,type", checked_on: "2026-11-12", observed: "id resolves to itself (no merge redirect); type conference"}
+        dblp_prefix_observed_in_release: false
+      - dblp_key_prefix: "conf/iccv/"
+        openalex_source_id: S4363607764
+        openalex_display_name: "IEEE/CVF International Conference on Computer Vision (ICCV)"
+        openalex_evidence: {url: "https://api.openalex.org/sources/S4363607764?select=id,display_name,type", checked_on: "2026-11-12", observed: "id resolves to itself (no merge redirect); type conference"}
+        dblp_prefix_observed_in_release: false
+      - dblp_key_prefix: "conf/aaai/"
+        openalex_source_id: S4210191458
+        openalex_display_name: "Proceedings of the AAAI Conference on Artificial Intelligence"
+        openalex_evidence: {url: "https://api.openalex.org/sources/S4210191458?select=id,display_name,type", checked_on: "2026-11-12", observed: "id resolves to itself (no merge redirect); type conference"}
+        dblp_prefix_observed_in_release: false
+      - dblp_key_prefix: "conf/ijcai/"
+        openalex_source_id: S4306419999
+        openalex_display_name: "International Joint Conference on Artificial Intelligence"
+        openalex_evidence: {url: "https://api.openalex.org/sources/S4306419999?select=id,display_name,type", checked_on: "2026-11-12", observed: "id resolves to itself (no merge redirect); type conference"}
+        dblp_prefix_observed_in_release: false
+      - dblp_key_prefix: "conf/emnlp/"
+        openalex_source_id: S4363608991
+        openalex_display_name: "Conference on Empirical Methods in Natural Language Processing (EMNLP)"
+        openalex_evidence: {url: "https://api.openalex.org/sources/S4363608991?select=id,display_name,type", checked_on: "2026-11-12", observed: "id resolves to itself (no merge redirect); type conference"}
+        dblp_prefix_observed_in_release: false
+      - dblp_key_prefix: "conf/acl/"
+        openalex_source_id: S4393915740
+        openalex_display_name: "Proceedings of the conference - Association for Computational Linguistics. Meeting"
+        openalex_evidence: {url: "https://api.openalex.org/sources/S4393915740?select=id,display_name,type", checked_on: "2026-11-12", observed: "id resolves to itself (no merge redirect); type conference"}
+        dblp_prefix_observed_in_release: false
+      - dblp_key_prefix: "conf/nips/"
+        openalex_source_id: S4363606243
+        openalex_display_name: "neural information processing systems"
+        openalex_evidence: {url: "https://api.openalex.org/sources/S4363606243?select=id,display_name,type", checked_on: "2026-11-12", observed: "id resolves to itself (no merge redirect); type conference"}
+        dblp_prefix_observed_in_release: false
+    venue_prefix_verification: >-
+      Only conf/sigir/ was observed in the bounded 16 MiB prefix of the
+      release. The other 15 prefixes follow dblp's stream naming but are NOT
+      verified; dblp_subset_stats.py reports prefixes_with_zero_works, and
+      with --require-all-prefixes (used by verification_plan) it exits 3 if
+      that list is non-empty or the input is truncated.
+    openalex_source_mapping_verification: >-
+      Each venue's openalex_source_id was resolved against the official
+      OpenAlex API on 2026-11-12 (openalex_evidence); the returned id equalled
+      the requested id and display_name is recorded verbatim.
+      estimate_subset_openalex.py re-resolves every source id (16 venues + 3
+      calibration venues) and aborts if the id or display_name differs. The
+      mapping dblp prefix -> OpenAlex source is a manual judgement by
+      dataset-engineer from the display names; OpenAlex may hold further
+      sources for the same venue (for example per-year proceedings sources)
+      that are not counted, which would bias the OpenAlex counts low.
+  edge_definition_for_sizing: >-
+    Pre-entity-resolution coauthor edge = unordered pair of distinct
+    entity-decoded, whitespace-collapsed DBLP author name strings that occur
+    together on at least one subset work (duplicates on one work counted once).
+    This is the sizing definition only; the production edge model is owned by
+    domain-engineer and spark-engineer.
+  enrichment_restriction:
+    openalex_works: "normalised OpenAlex doi is in the set of normalised DOIs from subset works' <ee> doi.org links"
+    openalex_authors: "OpenAlex author id appears in authorships of a linked OpenAlex work"
+    crossref_works: "normalised Crossref DOI is in the subset DOI set"
+    orcid_records: "ORCID iD is a valid dblp author@orcid on a subset work, or a valid ORCID on a linked OpenAlex authorship or Crossref author"
+  targets: {works_min: 100000, coauthor_edges_approx: 1000000}
+  estimate:
+    kind: estimate
+    verified: false
+    computed_on: "2026-11-12"
+    works:
+      openalex_count_2015_2025: 127818
+      dblp_estimate_low: 123534
+      dblp_estimate_high: 140371
+    coauthor_edges:
+      pair_instances_estimate: 1499982
+      distinct_pairs_estimate_low: 1024488
+      distinct_pairs_estimate_high: 1273485
+      caveat: >-
+        Distinct pairs are estimated per venue; pairs shared across venues are
+        de-duplicated in the real measurement, so the true union is lower than
+        the per-venue sum by an unmeasured amount.
+    basis:
+      - >-
+        Step 1 (measured on DBLP): dblp_subset_stats.py over a 16 MiB HTTP
+        Range prefix of dblp-2026-11-01.xml.gz. The prefix contains the
+        complete, contiguous blocks of conf/sigir/, conf/dac/, conf/wcnc/ and
+        conf/igarss/ (each followed by another venue's block). See
+        calibration.measured_dblp_2015_2024.
+      - >-
+        Step 2 (measured on OpenAlex API, 2026-11-12): works per OpenAlex
+        source with publication_year 2015-2024 and 2015-2025, and a
+        100-work random sample (seed 20261112) per source for authors per work.
+        Reproduce with estimate_subset_openalex.py.
+      - >-
+        Step 3 (derived): DBLP/OpenAlex count ratio on the four calibration
+        venues ranges 0.966-1.098 (exact: 2422/2506 to 5468/4979); applied to
+        the 2015-2025 OpenAlex total (127,818) of the 16 subset venues gives
+        123,534-140,371 DBLP works.
+      - >-
+        Step 4 (derived): count-weighted mean pair instances per work from the
+        OpenAlex samples is 11.74 (mean authors 4.74), giving about 1.50M
+        pair instances. The DBLP-measured distinct/instance ratio on the
+        calibration venues ranges 0.683-0.849, giving 1,024,488-1,273,485
+        distinct pairs before cross-venue de-duplication. Values are the
+        output of estimate_subset_openalex.py run on 2026-11-12.
+      - >-
+        Limits: 100-work samples have heavy-tailed author counts (one large
+        author list moves a venue mean); DBLP and OpenAlex venue boundaries
+        differ (e.g. workshops); 15 of 16 DBLP prefixes are unverified.
+    calibration:
+      measured_dblp_2015_2024:
+        source: "dblp_subset_stats.py on bytes 0-16777215 of dblp-2026-11-01.xml.gz (sha256 of prefix recorded below)"
+        prefix_sha256: 62d59ff664ae15fdf4a3dfb0a64b4e1e2559642198477b09555d92658ca07c2f
+        prefix_bytes: 16777216
+        kind: measurement
+        per_prefix:
+          "conf/sigir/":  {works: 3521,  pair_instances: 33157,  distinct_pairs: 26587,  distinct_per_instance: 0.802}
+          "conf/dac/":    {works: 2422,  pair_instances: 29741,  distinct_pairs: 24960,  distinct_per_instance: 0.839}
+          "conf/wcnc/":   {works: 5468,  pair_instances: 37590,  distinct_pairs: 31922,  distinct_per_instance: 0.849}
+          "conf/igarss/": {works: 19688, pair_instances: 252480, distinct_pairs: 172408, distinct_per_instance: 0.683}
+        dblp_over_openalex_ratio:
+          "conf/sigir/": 0.989
+          "conf/dac/": 0.966
+          "conf/wcnc/": 1.098
+          "conf/igarss/": 0.995
+      openalex_2015_2024:
+        "conf/sigir/": 3561
+        "conf/dac/": 2506
+        "conf/wcnc/": 4979
+        "conf/igarss/": 19793
+      openalex_sources:
+        "conf/dac/":
+          id: S4210231368
+          display_name: "ACM/IEEE Design Automation Conference (DAC)"
+          evidence: {url: "https://api.openalex.org/sources/S4210231368?select=id,display_name,type", checked_on: "2026-11-12", observed: "id resolves to itself (no merge redirect); type conference"}
+        "conf/wcnc/":
+          id: S4210195247
+          display_name: "IEEE Wireless Communications and Networking Conference"
+          evidence: {url: "https://api.openalex.org/sources/S4210195247?select=id,display_name,type", checked_on: "2026-11-12", observed: "id resolves to itself (no merge redirect); type conference"}
+        "conf/igarss/":
+          id: S4363604196
+          display_name: "IEEE International Geoscience and Remote Sensing Symposium (IGARSS)"
+          evidence: {url: "https://api.openalex.org/sources/S4363604196?select=id,display_name,type", checked_on: "2026-11-12", observed: "id resolves to itself (no merge redirect); type conference"}
+    openalex_2015_2025_per_venue:
+      "conf/sigir/": {works: 4101, sample_mean_authors: 4.28, sample_pair_instances_per_work: 11.18}
+      "conf/kdd/": {works: 4886, sample_mean_authors: 5.10, sample_pair_instances_per_work: 14.37}
+      "conf/www/": {works: 6591, sample_mean_authors: 4.33, sample_pair_instances_per_work: 9.37}
+      "conf/cikm/": {works: 5644, sample_mean_authors: 5.02, sample_pair_instances_per_work: 14.56}
+      "conf/wsdm/": {works: 1544, sample_mean_authors: 4.68, sample_pair_instances_per_work: 11.44}
+      "conf/icde/": {works: 3400, sample_mean_authors: 5.24, sample_pair_instances_per_work: 14.23}
+      "conf/sigmod/": {works: 2009, sample_mean_authors: 4.13, sample_pair_instances_per_work: 9.86}
+      "journals/pvldb/": {works: 3393, sample_mean_authors: 4.94, sample_pair_instances_per_work: 14.42}
+      "conf/mm/": {works: 7534, sample_mean_authors: 5.10, sample_pair_instances_per_work: 12.33}
+      "conf/cvpr/": {works: 17730, sample_mean_authors: 4.60, sample_pair_instances_per_work: 9.77}
+      "conf/iccv/": {works: 8750, sample_mean_authors: 5.32, sample_pair_instances_per_work: 15.23}
+      "conf/aaai/": {works: 18770, sample_mean_authors: 4.44, sample_pair_instances_per_work: 9.70}
+      "conf/ijcai/": {works: 8874, sample_mean_authors: 4.26, sample_pair_instances_per_work: 8.68}
+      "conf/emnlp/": {works: 9205, sample_mean_authors: 4.34, sample_pair_instances_per_work: 8.68}
+      "conf/acl/": {works: 7407, sample_mean_authors: 5.91, sample_pair_instances_per_work: 23.77}
+      "conf/nips/": {works: 17980, sample_mean_authors: 4.70, sample_pair_instances_per_work: 10.61}
+  verification_plan: >-
+    After the human approves the full DBLP download (download_dblp.sh --full),
+    run dblp_subset_stats.py --input dblp-2026-11-01.xml.gz --dtd dblp.dtd
+    --per-prefix --require-all-prefixes and record the measured works and
+    distinct_pairs here as kind: measurement. The flag makes the run exit 3
+    if prefixes_with_zero_works is non-empty or the input is truncated. If it
+    exits 3 or works < 100000, return to the human with a revised rule
+    (dblp-subset-v2).
+
+# ---------------------------------------------------------------------------
+# Cross-dataset identifiers (field names are the contract input for
+# domain-engineer; full rules in datasets/schemas/identifiers-and-linkage.md)
+# ---------------------------------------------------------------------------
+identifiers:
+  dblp_key:
+    format: "slash-separated path, e.g. conf/sigir/Sousa0J23; first two segments are the stream prefix"
+    canonical: "verbatim value of the record element's key attribute (case-sensitive, no normalisation)"
+    example: conf/sigir/Sousa0J23
+  dblp_author_name:
+    format: "entity-decoded <author> text; optional homonym suffix of a space and exactly 4 digits (e.g. 'Ricardo Campos 0001')"
+    canonical: "decoded text with internal whitespace collapsed; homonym suffix kept as part of the name"
+    example: "Ricardo Campos 0001"
+  doi:
+    format: "DOI name 10.<registrant>/<suffix>"
+    canonical: "bare DOI, resolver prefix removed (https://doi.org/, http://doi.org/, http(s)://dx.doi.org/, doi:), percent-escapes decoded once for URL inputs, ASCII A-Z lowercased only"
+    regex: '^10\.[0-9]+(\.[0-9]+)*/\S+$'
+    example: "10.1109/dac56929.2023.10247992"
+    evidence: "DOI Handbook 2025 PDF (https://www.doi.org/doi-handbook/DOIHandbook_2025.pdf): DOI names are case-insensitive only for U+0041..U+005A vs U+0061..U+007A"
+  orcid:
+    format: "16 characters in four hyphenated groups; last character digit or X; ISO 7064 11,2 check digit"
+    canonical: "bare uppercase form 0000-0003-3226-9189 (no https://orcid.org/ prefix)"
+    regex: '^[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{3}[0-9X]$'
+    regex_note: "ASCII digits 0-9 only; non-ASCII decimal digits (e.g. U+0660..U+0669, U+FF10..U+FF19) are rejected, matching modules/core Orcid.Pattern"
+    example: "0000-0003-3226-9189"
+    evidence:
+      - "ORCID v3.0 XSD orcid-path pattern (\\d{4}-){3,}\\d{3}[\\dX]: https://raw.githubusercontent.com/ORCID/orcid-model/master/src/main/resources/common_3.0/common-3.0.xsd"
+      - "ISO 7064 11,2 implementation: https://raw.githubusercontent.com/ORCID/ORCID-Source/master/orcid-core/src/main/java/org/orcid/core/crypto/OrcidCheckDigitGenerator.java"
+    note: "The XSD allows more than four groups; ScholarChain accepts exactly four (all observed iDs)."
+  openalex_id:
+    format: "entity letter + digits: W works, A authors, S sources, I institutions; case-insensitive"
+    canonical: "uppercase key without https://openalex.org/ prefix"
+    regex: '^[WASI][1-9][0-9]*$'
+    example: "W4366851189"
+    evidence: "https://help.openalex.org/how-to-use-the-api/get-single-entities"
+
+# ---------------------------------------------------------------------------
+# Datasets
+# ---------------------------------------------------------------------------
+datasets:
+
+  - id: dblp
+    name: dblp computer science bibliography XML
+    role: primary
+    status: usable
+    source:
+      publisher: "Schloss Dagstuhl - Leibniz Center for Informatics"
+      homepage: "https://dblp.org"
+      access: "anonymous HTTPS; monthly persistent snapshots on Dagstuhl DROPS; rolling daily dump at https://dblp.org/xml/dblp.xml.gz"
+      evidence:
+        - {url: "https://dblp.org/xml/", checked_on: "2026-11-12", observed: "directory listing: dblp.xml.gz 1.0G (2026-11-12), dblp.xml.gz.md5, dblp.dtd 13K, release/ redirects to DROPS"}
+        - {url: "https://drops.dagstuhl.de/entities/collection/10.4230/dblp.xml", checked_on: "2026-11-12", observed: "latest monthly releases 2026-11-01, 2026-10-03, 2026-09-01"}
+        - {url: "https://drops.dagstuhl.de/entities/artifact/10.4230/dblp.xml.2026-11-01", checked_on: "2026-11-12", observed: "file dblp-2026-11-01.xml.gz, 1.03 GB, MD5 18ad5db59592406ec74289975c4b44cb, license CC0 1.0"}
+      api_note: "dblp.org search API and record pages were behind an Anubis bot challenge on 2026-11-12; not used, not bypassed."
+    license:
+      spdx: CC0-1.0
+      name: "Creative Commons Zero 1.0 (secondary: ODC-BY 1.0)"
+      url: "https://creativecommons.org/publicdomain/zero/1.0/"
+      evidence:
+        - {url: "https://dblp.org/xml/README.txt", checked_on: "2026-11-12", observed: "metadata ... XML ... released under the CC0 1.0 Public Domain Dedication license; also ODC-BY 1.0 as secondary license"}
+        - {url: "https://drops.dagstuhl.de/entities/artifact/10.4230/dblp.xml.2026-11-01", checked_on: "2026-11-12", observed: "Creative Commons Zero v1.0 Universal"}
+      attribution: "Requested, not required: link to dblp (https://dblp.org) as the source."
+    snapshot:
+      id: "2026-11-01"
+      doi: "10.4230/dblp.xml.2026-11-01"
+      publication_date: "2026-11-01"
+      url: "https://drops.dagstuhl.de/storage/artifacts/dblp/xml/2026/dblp-2026-11-01.xml.gz"
+      md5_url: "https://drops.dagstuhl.de/storage/artifacts/dblp/xml/2026/dblp-2026-11-01.xml.gz.md5"
+      http_last_modified: "Tue, 03 Nov 2026 09:01:15 GMT"
+      dtd:
+        declared_system_id: "dblp-2023-06-28.dtd"
+        fetched_from: "https://dblp.org/xml/dblp.dtd"
+        dated_file_available: false
+        dated_file_note: "https://dblp.org/xml/dblp-2023-06-28.dtd and the DROPS equivalents returned HTTP 404 on 2026-11-12; dblp.dtd (listing date 2023-06-28) contains the 2023-06-28 rel@sort change, so it is assumed equivalent; equivalence is not verified."
+    format:
+      container: gzip (single member)
+      encoding: "ISO-8859-1 declared; non-ASCII characters appear as named entities from the DTD (e.g. &eacute;) or numeric character references (e.g. &#1057;)"
+      structure: "root <dblp>; one child element per record (article, inproceedings, proceedings, book, incollection, phdthesis, mastersthesis, www, data); records are written back-to-back, often several per line; records of one key prefix are contiguous (observed in prefix)"
+      notes: datasets/schemas/dblp-xml.md
+    size_estimate:
+      compressed_bytes: 1116142729
+      compressed_bytes_basis: "HTTP Content-Length of the snapshot URL on 2026-11-12 (measurement)"
+      decompressed_bytes_estimate: 5490000000
+      decompressed_bytes_basis: "estimate: compression ratio 4.92 observed on the first 16 MiB (16,777,216 -> 82,509,824 bytes) applied to the full file"
+      record_count: unknown
+      record_count_unknown_reason: "requires the full download, not performed in Phase 3"
+      subset_works_estimate: "123,534-140,371 (see subset_rule.estimate; not a measurement)"
+    s3_prefixes:
+      raw: "s3://{raw_bucket}/raw/dblp/release=2026-11-01/"
+      raw_objects: ["dblp-2026-11-01.xml.gz", "dblp-2026-11-01.xml.gz.md5", "dblp.dtd", "_provenance.json"]
+    checksums:
+      snapshot_md5: 18ad5db59592406ec74289975c4b44cb
+      snapshot_md5_source: published (DROPS artifact page and .md5 file)
+      dtd_sha256: 2d864498f9eef9298662df11e3874171ff24cd4a21ab5974f1369c90acdb1ef6
+      dtd_sha256_source: computed by dataset-engineer on 2026-11-12 (dblp.dtd is not versioned in its URL; this pins the copy used)
+      dtd_bytes: 13134
+      rolling_dump_md5_observed: dc811597c40e4115d5dc36f18fb1899e
+      rolling_dump_md5_note: "https://dblp.org/xml/dblp.xml.gz.md5 on 2026-11-12; rolling file, not used for reproducible runs"
+    subset:
+      rule_id: dblp-subset-v1
+      rule: "see subset_rule.dblp"
+    schema:
+      notes: datasets/schemas/dblp-xml.md
+      fields_used: ["@key", "@mdate", "@publtype", "author", "author@orcid", "title", "year", "booktitle", "journal", "ee", "crossref", "url"]
+    linkage_keys:
+      - {field: dblp_key, from: "record @key", to: "internal work identity"}
+      - {field: doi, from: "<ee> values that are doi.org resolver URLs, normalised", to: "openalex.doi, crossref.DOI, orcid work external-id doi"}
+      - {field: orcid, from: "<author orcid=...>", to: "openalex authorships.author.orcid, crossref author.ORCID, orcid record path"}
+    update_method: >-
+      Monthly. Pin one DROPS release per pipeline run (id = release date).
+      To move to a new release: verify its DROPS artifact page, record DOI,
+      URL, MD5 and size here, bump subset_rule estimate/measurement, re-run
+      validation. Never use the rolling dblp.xml.gz for reproducible runs.
+    limitations:
+      - "Author names are dblp's disambiguated labels; homonym numbers are dblp curation, not ground truth, and labels can change between releases."
+      - "Author ORCID attributes are partial (present on many but not all mentions; e.g. conf/sigir/LernerFGBB0L22 has 2 of 7)."
+      - "Key-prefix venue rule includes co-located workshops (observed for conf/sigir/)."
+      - "DOI coverage per venue varies; works without a doi.org <ee> cannot link to OpenAlex/Crossref by DOI."
+      - "The release DOCTYPE names a DTD file that is not published under that name (see snapshot.dtd)."
+    privacy:
+      personal_data: ["author and editor names", "author ORCID iDs"]
+      kept: ["author name strings (with homonym suffix)", "author ORCID iDs as published by dblp", "record keys, titles, venues, years, ee links"]
+      not_kept: ["www/homepages person records (not in record_elements)", "<note> and <url> on person records"]
+      lawful_basis_note: "Public bibliographic metadata under CC0; names are used only for scholarly-collaboration analysis. Identity uncertainty is reported, never hidden."
+    validation_commands:
+      - "python3 datasets/scripts/validate_datasets.py"
+      - "bash datasets/scripts/download_dblp.sh --dry-run"
+      - "python3 datasets/scripts/dblp_subset_stats.py --input datasets/samples/dblp/dblp-sample.xml"
+    scripts: ["datasets/scripts/download_dblp.sh", "datasets/scripts/dblp_subset_stats.py", "datasets/scripts/make_samples.py"]
+
+  - id: openalex
+    name: OpenAlex
+    role: enrichment
+    status: usable
+    source:
+      publisher: OurResearch (OpenAlex)
+      homepage: "https://openalex.org"
+      access: "REST API https://api.openalex.org (no key needed for basic use); full snapshot in public S3 bucket s3://openalex/data/ (anonymous, readable over HTTPS at https://openalex.s3.amazonaws.com/)"
+      evidence:
+        - {url: "https://help.openalex.org/download-all-data/openalex-snapshot", checked_on: "2026-11-12", observed: "public bucket, no AWS account needed, JSONL gz and Parquet, quarterly public release, manifest.json with record_count and content_length, no checksums mentioned"}
+        - {url: "https://openalex.s3.amazonaws.com/data/jsonl/manifest.json", checked_on: "2026-11-12", observed: "date 2026-10-14; total 586,176,148 records, 755,513,952,946 bytes; works 464,765,485 records / 675,298,563,638 bytes in 1,898 files; authors 101,066,311 / 74,121,890,690 bytes in 517 files"}
+        - {url: "https://openalex.s3.amazonaws.com/RELEASE_NOTES.txt", checked_on: "2026-11-12", observed: "latest RELEASE 2026-10-14; public releases on the second Wednesday of Jan/Apr/Jul/Oct"}
+        - {url: "https://help.openalex.org/how-to-use-the-api/rate-limits-and-authentication", checked_on: "2026-11-12", observed: "no key needed for basic queries; free key raises daily budget 10x and is required for cursor paging past page 1; 10 req/s without key; key via api_key parameter or Authorization bearer header"}
+      api_note: "Observed meta.cost_usd 0.0001 for a filtered list request and 0.001 for a search request (2026-11-12). The keyless daily budget in USD is not stated on the checked page."
+    license:
+      spdx: CC0-1.0
+      name: "Creative Commons Zero 1.0"
+      url: "https://creativecommons.org/publicdomain/zero/1.0/"
+      evidence:
+        - {url: "https://openalex.s3.amazonaws.com/LICENSE.txt", checked_on: "2026-11-12", observed: "Creative Commons Legal Code, CC0 1.0 Universal"}
+      attribution: "Not required by CC0; ScholarChain cites OpenAlex as the source."
+      api_terms_note: "API content license assumed identical to the snapshot (CC0); the API pages checked do not restate the data license."
+    snapshot:
+      id: "2026-10-14"
+      manifest_url: "https://openalex.s3.amazonaws.com/data/jsonl/manifest.json"
+      manifest_etag: "4ecfe2f04ba8ca8b9026f1b86b54fbcc"
+      bounded_corpus_path: "API lookups by DOI (works) and OpenAlex id (authors); responses record retrieved_at. The snapshot is the reproducible fallback, not the default."
+    format:
+      api: "JSON; works/authors list endpoints with filter, select, per_page<=100"
+      snapshot: "JSON Lines, gzip, partitioned data/jsonl/<entity>/updated_date=YYYY-MM-DD/part_NNNN.gz (<=400,000 records per part); Parquet copy under data/parquet/"
+      notes: datasets/schemas/openalex.md
+    size_estimate:
+      snapshot_works_bytes: 675298563638
+      snapshot_authors_bytes: 74121890690
+      snapshot_basis: "manifest.json content_length (measurement of the published manifest)"
+      subset_api_requests_estimate: "about 2,500-2,900 works requests (50 DOIs per request for ~125k-140k DOIs) plus author requests; estimate"
+      subset_bytes_estimate: "about 0.8-1.0 GB of projected JSON; estimate from 26,732 bytes per 4 projected works in the sample fetch"
+    s3_prefixes:
+      raw_api: "s3://{raw_bucket}/raw/openalex/api/subset=dblp-subset-v1/retrieved={yyyy-mm-dd}/{works|authors}/"
+      raw_snapshot: "s3://{raw_bucket}/raw/openalex/snapshot=2026-10-14/{entity}/"
+    checksums:
+      published: unknown
+      published_unknown_reason: "OpenAlex publishes content_length and record_count per file in manifest.json, no checksums (snapshot docs and manifest checked 2026-11-12)"
+      verification: "snapshot parts: byte length == manifest content_length and gunzip line count == record_count; API responses: sha256 recorded per response in the fetch index"
+    subset:
+      rule_id: dblp-subset-v1
+      rule: "see subset_rule.enrichment_restriction.openalex_works and openalex_authors"
+    schema:
+      notes: datasets/schemas/openalex.md
+      work_fields_selected: [id, doi, title, display_name, publication_year, publication_date, ids, type, primary_location, authorships, updated_date, created_date]
+      author_fields_selected: [id, orcid, display_name, display_name_alternatives, ids, works_count, cited_by_count, last_known_institutions, updated_date, created_date]
+    linkage_keys:
+      - {field: doi, from: "work.doi (https://doi.org/... URL), normalised", to: "dblp doi"}
+      - {field: openalex_id, from: "work.id, authorships[].author.id, author.id", to: "OpenAlex internal"}
+      - {field: orcid, from: "authorships[].author.orcid and author.orcid (https://orcid.org/... URL), normalised", to: "dblp author@orcid, orcid record"}
+    update_method: >-
+      API data is time-stamped per retrieval and stored under a new retrieved=
+      prefix. For a reproducible full refresh use the quarterly snapshot (next
+      public release per RELEASE_NOTES: second Wednesday of January 2027),
+      verifying content_length and record_count per part.
+    limitations:
+      - "authorships[].author.id can be null while the ORCID is present (observed: W4384652670, Karthik Raman)."
+      - "Author profiles are merged/split between releases (RELEASE_NOTES 2026-04-29, 2026-05-22); OpenAlex author ids are not stable across snapshots."
+      - "Works without DOIs (common for some ML venues) cannot be linked by DOI."
+      - "Venue boundaries differ from dblp (e.g. CVPR workshops are a separate OpenAlex source)."
+    privacy:
+      personal_data: ["author display names and name variants", "ORCID iDs", "institutional affiliations (raw_affiliation_strings, institutions)"]
+      kept: ["author id, display_name, display_name_alternatives, orcid", "raw_author_name, author_position, institution ids and names on linked works"]
+      not_kept: ["abstracts (abstract_inverted_index not selected)", "any author not on a linked work"]
+    validation_commands:
+      - "python3 datasets/scripts/validate_datasets.py"
+      - "bash datasets/scripts/download_openalex_snapshot.sh --dry-run"
+      - "python3 datasets/scripts/fetch_enrichment.py openalex-works --ids DOIS.txt --cache CACHE_DIR --dry-run"
+    scripts: ["datasets/scripts/fetch_enrichment.py", "datasets/scripts/download_openalex_snapshot.sh", "datasets/scripts/estimate_subset_openalex.py"]
+
+  - id: crossref
+    name: Crossref metadata
+    role: enrichment
+    status: usable
+    source:
+      publisher: Crossref
+      homepage: "https://www.crossref.org"
+      access: "REST API https://api.crossref.org (no sign-up); annual public data file via Academic Torrents or an AWS Requester Pays bucket"
+      evidence:
+        - {url: "https://www.crossref.org/documentation/retrieve-metadata/rest-api/", checked_on: "2026-11-12", observed: "base URL https://api.crossref.org/, no sign-up required; 'almost none of the metadata is subject to copyright'; some abstracts may be copyrighted"}
+        - {url: "https://www.crossref.org/documentation/retrieve-metadata/rest-api/access-and-authentication/", checked_on: "2026-11-12", observed: "public pool 5 req/s concurrency 1; polite pool (mailto parameter or agent header) 10 req/s concurrency 3; Plus 150 req/s with API key"}
+        - {url: "https://www.crossref.org/documentation/retrieve-metadata/bulk-downloads/", checked_on: "2026-11-12", observed: "public data file via Academic Torrents (DOI 10.13003/nggf-vt1j) or Requester Pays bucket api-snapshots-reqpays-crossref; JSONL in a tar; page text describes the 2025 file as ~200 GB; checksums not mentioned"}
+        - {url: "https://www.crossref.org/blog/2026-public-data-file-now-available/", checked_on: "2026-11-12", observed: "posted 2026-03-17: 2026 public data file, 208 GB compressed, nearly 180 million records, JSON-lines"}
+    license:
+      spdx: unknown
+      spdx_unknown_reason: "Crossref states that almost none of the metadata is subject to copyright and may be used for any purpose, but publishes no SPDX/CC license for the metadata on the pages checked; abstracts may be copyrighted."
+      name: "Facts / no copyright asserted (Crossref statement); abstracts excluded"
+      url: "https://www.crossref.org/documentation/retrieve-metadata/rest-api/"
+      evidence:
+        - {url: "https://www.crossref.org/documentation/retrieve-metadata/rest-api/", checked_on: "2026-11-12", observed: "almost none of the metadata is subject to copyright, and you may use it for any purpose; some abstracts may be subject to copyright"}
+      attribution: "Not required; ScholarChain cites Crossref as the source."
+      field_note: "The work-level `license` field in Crossref records describes the publication's content license (e.g. ACM copyright policy, CC BY 4.0), not the metadata license."
+    snapshot:
+      id: unknown
+      id_unknown_reason: "Bounded corpus uses the live REST API (time-stamped per retrieval). The 2026 public data file exists (blog 2026-03-17) but its exact object key, release date and checksums were not published on the pages checked."
+      public_data_file: {year: 2026, compressed_size: "208 GB (blog statement)", record_count: "nearly 180 million (blog statement)", torrent_doi: "10.13003/nggf-vt1j", requester_pays_bucket: api-snapshots-reqpays-crossref}
+      public_data_file_note: "Requester Pays requires AWS credentials and incurs AWS charges; not scripted here (no credentials, no AWS mutation by datasets/**). Torrent download is a manual human action if ever needed."
+    format:
+      api: "JSON; /works?filter=doi:A,doi:B&select=...&rows=N (multiple doi filters OR-ed, observed 4 of 4 returned); /works/{doi}"
+      notes: datasets/schemas/crossref.md
+    size_estimate:
+      subset_api_requests_estimate: "about 2,500-2,900 requests at 50 DOIs per request; estimate"
+      subset_bytes_estimate: "about 0.3-0.4 GB of projected JSON; estimate from 9,347 bytes per 4 projected works"
+      public_data_file_bytes: "208 GB compressed (Crossref blog 2026-03-17)"
+    s3_prefixes:
+      raw_api: "s3://{raw_bucket}/raw/crossref/api/subset=dblp-subset-v1/retrieved={yyyy-mm-dd}/works/"
+    checksums:
+      published: unknown
+      published_unknown_reason: "No checksums for the public data file on the pages checked; the REST API has no per-record checksum."
+      verification: "sha256 per API response recorded in the fetch index; DOI of every returned item must be in the requested set"
+    subset:
+      rule_id: dblp-subset-v1
+      rule: "see subset_rule.enrichment_restriction.crossref_works"
+    schema:
+      notes: datasets/schemas/crossref.md
+      work_fields_selected: [DOI, title, author, container-title, event, published, issued, type, publisher, prefix, member, URL, ISBN, indexed, deposited, created, license]
+    linkage_keys:
+      - {field: doi, from: "item.DOI (bare), normalised", to: "dblp doi"}
+      - {field: orcid, from: "author[].ORCID (https://orcid.org/... URL), normalised; author[].authenticated-orcid flag kept", to: "dblp author@orcid, orcid record"}
+    update_method: "Re-fetch by DOI into a new retrieved= prefix; use `indexed`/`deposited` timestamps to detect changes."
+    limitations:
+      - "Author ORCIDs are present only when deposited by the publisher (observed: 10.1145/3477495.3531753 has none)."
+      - "Author names are given/family splits from the publisher and may differ from dblp spelling (e.g. 'Lovón Melgarejo' vs dblp 'Lovón-Melgarejo')."
+      - "Public pool is limited to 5 req/s with concurrency 1."
+    privacy:
+      personal_data: ["author given/family names", "ORCID iDs", "affiliation strings"]
+      kept: ["author given, family, sequence, ORCID, authenticated-orcid, affiliation names"]
+      not_kept: ["abstract (possible publisher/author copyright; never selected)", "reference lists (not selected)"]
+    validation_commands:
+      - "python3 datasets/scripts/validate_datasets.py"
+      - "python3 datasets/scripts/fetch_enrichment.py crossref-works --ids DOIS.txt --cache CACHE_DIR --dry-run"
+    scripts: ["datasets/scripts/fetch_enrichment.py"]
+
+  - id: orcid
+    name: ORCID public data
+    role: enrichment
+    status: usable
+    source:
+      publisher: ORCID, Inc.
+      homepage: "https://orcid.org"
+      access: "annual Public Data File on Figshare (XML, tar.gz); Public API v3.0 at https://pub.orcid.org (anonymous requests answered, observed 2026-11-12)"
+      evidence:
+        - {url: "https://info.orcid.org/documentation/integration-guide/working-with-bulk-data/", checked_on: "2026-11-12", observed: "annual public data file, XML only since 2018, latest 2026 on Figshare"}
+        - {url: "https://api.figshare.com/v2/articles/34697766", checked_on: "2026-11-12", observed: "ORCID Public Data File 2026, DOI 10.23640/07243.34697766.v1, published 2026-10-22, license CC0, snapshot of public data as of October 13, 2026; 12 files with supplied MD5"}
+        - {url: "https://info.orcid.org/public-data-file-use-policy/", checked_on: "2026-11-12", observed: "Public Data File under CC0 1.0; community norms requested: attribution, accuracy, respect privacy and publicity rights"}
+        - {url: "https://info.orcid.org/public-client-terms-of-service/", checked_on: "2026-11-12", observed: "public may access the Anonymous API and Public API; limited license to use Registry data marked public subject to the ToS; ORCID may rate-limit; no export to countries under US export control"}
+        - {url: "https://pub.orcid.org/v3.0/0000-0002-1825-0097/person", checked_on: "2026-11-12", observed: "HTTP 200 JSON without credentials"}
+    license:
+      spdx: CC0-1.0
+      name: "CC0 1.0 for the Public Data File; Public API data under the ORCID Public APIs Terms of Service"
+      url: "https://info.orcid.org/public-data-file-use-policy/"
+      evidence:
+        - {url: "https://api.figshare.com/v2/articles/34697766", checked_on: "2026-11-12", observed: "license CC0 (https://creativecommons.org/publicdomain/zero/1.0/)"}
+        - {url: "https://info.orcid.org/public-client-terms-of-service/", checked_on: "2026-11-12", observed: "limited license to use Registry data marked public subject to these Terms of Service"}
+      attribution: "Requested: credit ORCID as the source and link to https://info.orcid.org/public-data-file-use-policy/."
+      api_vs_file_note: "Records fetched from the Public API are under the ToS limited license, not CC0. The repository sample is an API projection; the same public data is in the CC0 2026 file. Open question for human review recorded in open_questions."
+    snapshot:
+      id: "2026"
+      doi: "10.23640/07243.34697766.v1"
+      cutoff: "2026-10-13"
+      published: "2026-10-22"
+      files:
+        - {name: ORCID_2026_10_summaries.tar.gz, bytes: 57290954546, md5: a55a16fe0b292bda03cc6016546c8984, url: "https://ndownloader.figshare.com/files/70342863"}
+        - {name: ORCID_2026_10_activities_0.tar.gz, bytes: 22873370376, md5: b4408eaed823afbd42d6a800b01c821c, url: "https://ndownloader.figshare.com/files/70335732"}
+        - {name: ORCID_2026_10_activities_1.tar.gz, bytes: 20750970476, md5: 17fd95ff1cd557902e219e6e5e1c3f9c, url: "https://ndownloader.figshare.com/files/70342284"}
+        - {name: ORCID_2026_10_activities_2.tar.gz, bytes: 20472804989, md5: 21c7be85e944d8a0a9580e29c617cdaa, url: "https://ndownloader.figshare.com/files/70342578"}
+        - {name: ORCID_2026_10_activities_3.tar.gz, bytes: 21754893809, md5: c350088e3653d51ff7f39467bf338bb1, url: "https://ndownloader.figshare.com/files/70335711"}
+        - {name: ORCID_2026_10_activities_4.tar.gz, bytes: 22288197758, md5: 483d5a5c63bc5ec8f8bf88d0d92e41bd, url: "https://ndownloader.figshare.com/files/70335720"}
+        - {name: ORCID_2026_10_activities_5.tar.gz, bytes: 21736843783, md5: 99ebd6b33c5d6ed39cbd62fae7550c89, url: "https://ndownloader.figshare.com/files/70346007"}
+        - {name: ORCID_2026_10_activities_6.tar.gz, bytes: 20123581975, md5: 87a4b05d567436110b01b916a8c119fa, url: "https://ndownloader.figshare.com/files/70335660"}
+        - {name: ORCID_2026_10_activities_7.tar.gz, bytes: 21116685124, md5: 378338721f5d913cb231a0fee0bb114e, url: "https://ndownloader.figshare.com/files/70342662"}
+        - {name: ORCID_2026_10_activities_8.tar.gz, bytes: 20418791870, md5: 3d14bdda9e5ebb8c94b0701c99c9bb7f, url: "https://ndownloader.figshare.com/files/70335666"}
+        - {name: ORCID_2026_10_activities_9.tar.gz, bytes: 21591658921, md5: 54f6739ed5de832fc32b79df6a39daf6, url: "https://ndownloader.figshare.com/files/70342671"}
+        - {name: ORCID_2026_10_activities_X.tar.gz, bytes: 20540018885, md5: ba665d7d3471ac873d1d7b4ed93d3a1f, url: "https://ndownloader.figshare.com/files/70335672"}
+      bounded_corpus_path: "Public API /v3.0/{orcid}/person and /works for subset-linked iDs only; summaries file is the reproducible CC0 fallback (requires --full)."
+    format:
+      bulk: "tar.gz of XML; summaries/<3-digit checksum dir>/<iD>.xml (per Figshare description)"
+      api: "JSON (Accept: application/json) or XML, ORCID message schema v3.0"
+      notes: datasets/schemas/orcid.md
+    size_estimate:
+      summaries_compressed_bytes: 57290954546
+      summaries_uncompressed: "919.19 GB (Figshare description)"
+      all_files_compressed_bytes: 290958772512
+      subset_api_requests_estimate: unknown
+      subset_api_requests_estimate_unknown_reason: "number of distinct ORCID iDs linked to the subset has not been measured; it is 2 requests per iD (person, works)"
+    s3_prefixes:
+      raw_api: "s3://{raw_bucket}/raw/orcid/api/subset=dblp-subset-v1/retrieved={yyyy-mm-dd}/"
+      raw_bulk: "s3://{raw_bucket}/raw/orcid/public-data-file=2026/"
+    checksums:
+      algorithm: md5
+      source: "Figshare supplied_md5 per file (listed under snapshot.files)"
+      verification: "download_orcid_public_data_file.sh verifies MD5 for any downloaded file; API responses get sha256 in the fetch index"
+    subset:
+      rule_id: dblp-subset-v1
+      rule: "see subset_rule.enrichment_restriction.orcid_records"
+    schema:
+      notes: datasets/schemas/orcid.md
+      kept_fields: ["orcid-path", "name.given-names", "name.family-name", "name.credit-name", "name.visibility", "works groups: external-ids, put-code, type, title, publication-date, source-name"]
+    linkage_keys:
+      - {field: orcid, from: "record path (bare iD)", to: "dblp author@orcid, openalex author.orcid, crossref author.ORCID"}
+      - {field: doi, from: "works group external-ids where external-id-type = doi, normalised", to: "dblp doi, openalex doi, crossref DOI"}
+    update_method: "Annual file (next expected 2027, date unknown); API re-fetch into a new retrieved= prefix. Honour visibility changes by re-fetching rather than accumulating history."
+    limitations:
+      - "Only public data; records are self-asserted and may be incomplete."
+      - "One work can carry several DOIs (version of record and preprint, e.g. 10.1145/3539618.3591892 and 10.48550/arXiv.2301.04643 in separate groups)."
+      - "Bulk file is XML only; API JSON field names differ in shape from the XML (same schema v3.0)."
+      - "Anonymous API rate limits are not published on the pages checked."
+    privacy:
+      personal_data: ["ORCID iD", "names", "biography", "emails", "addresses", "keywords", "researcher URLs", "employment and education", "other person identifiers"]
+      kept: ["ORCID iD", "given-names, family-name, credit-name, name visibility", "work external identifiers (DOI etc.), titles, types, publication dates, source names for linked works"]
+      not_kept: ["biography", "emails", "addresses/country", "keywords", "researcher-urls", "other person external identifiers", "employment, education, funding, peer review", "works not linked to the subset"]
+      retention: "Re-fetch per run; do not keep superseded ORCID responses beyond the run's raw prefix lifecycle (lifecycle policy owned by infra-engineer)."
+    validation_commands:
+      - "python3 datasets/scripts/validate_datasets.py"
+      - "bash datasets/scripts/download_orcid_public_data_file.sh --dry-run"
+      - "python3 datasets/scripts/fetch_enrichment.py orcid --ids ORCIDS.txt --cache CACHE_DIR --dry-run"
+    scripts: ["datasets/scripts/fetch_enrichment.py", "datasets/scripts/download_orcid_public_data_file.sh"]
+
+# ---------------------------------------------------------------------------
+# Samples (repository copies). sha256 and bytes are enforced by the validator.
+# ---------------------------------------------------------------------------
+samples_budget_bytes: 262144
+samples:
+  - path: datasets/samples/dblp/dblp-sample.xml
+    dataset: dblp
+    kind: real
+    format: xml
+    license: CC0-1.0
+    attribution: "dblp computer science bibliography (https://dblp.org), release 2026-11-01"
+    provenance: "records copied verbatim from bytes 0-16777215 of https://drops.dagstuhl.de/storage/artifacts/dblp/xml/2026/dblp-2026-11-01.xml.gz on 2026-11-12 by make_samples.py dblp"
+    records: 9
+    sha256: 7fe241fff06a4bb0b7340490c7c81dd3e1fde715a340f3dc9ef32647fd13e7c6
+    bytes: 5882
+    expected:
+      in_subset_keys: ["conf/sigir/Sousa0J23", "conf/sigir/HofstatterC0Z23", "conf/sigir/0003SM23", "conf/sigir/LernerFGBB0L22"]
+      out_of_subset: {"conf/sigir/KemmererGMAE14": year, "conf/sigir/2023": element, "conf/dac/ShenZWLDWCG23": key_prefix, "reference/vision/X14bd": element, "dblpnote/neverpublished": key_prefix}
+  - path: datasets/samples/dblp/dblp-synthetic-edge-cases.xml
+    dataset: dblp
+    kind: synthetic
+    format: xml
+    license: CC0-1.0
+    attribution: "ScholarChain project (synthetic; not real people or publications)"
+    provenance: "hand-written by dataset-engineer on 2026-11-12; DOIs under Crossref test prefix 10.5555 (member 7822 'Test accounts')"
+    evidence:
+      - {url: "https://api.crossref.org/prefixes/10.5555", checked_on: "2026-11-12", observed: "message.member https://id.crossref.org/member/7822, message.name \"Test accounts\", message.prefix https://id.crossref.org/prefix/10.5555"}
+      - {url: "https://api.crossref.org/works/10.5555/scholarchain-synthetic-0001", checked_on: "2026-11-12", observed: "HTTP 404 (DOI not registered)"}
+      - {url: "https://api.crossref.org/works/10.5555/scholarchain-synthetic-0005", checked_on: "2026-11-12", observed: "HTTP 404 (DOI not registered)"}
+    records: 5
+    sha256: 37c4461626a4195e1d1511cde2c572479d622063a3ddab118925e5af51c649b3
+    bytes: 2650
+    expected:
+      in_subset_keys: ["conf/sigir/SyntheticA24", "conf/sigir/SyntheticB25", "journals/pvldb/SyntheticE15"]
+      out_of_subset: {"conf/sigir/SyntheticC26": year, "conf/sigir/SyntheticD24": publtype}
+      distinct_pairs: 7
+      invalid_orcid_attrs: 1
+      distinct_dois: ["10.5555/scholarchain-synthetic-0001", "10.5555/scholarchain-synthetic-0005"]
+  - path: datasets/samples/openalex/works.jsonl
+    dataset: openalex
+    kind: real-projection
+    format: jsonl
+    license: CC0-1.0
+    attribution: "OpenAlex (https://openalex.org), API retrieval 2026-11-12"
+    provenance: "https://api.openalex.org/works?filter=doi:<4 sample DOIs>&select=<schema.work_fields_selected>; values unmodified, keys sorted"
+    records: 4
+    sha256: 9b816492fee0f7704fc4e295b1b5e6fba18d073e17f7c1658442db078ec4cd30
+    bytes: 25080
+  - path: datasets/samples/openalex/authors.jsonl
+    dataset: openalex
+    kind: real-projection
+    format: jsonl
+    license: CC0-1.0
+    attribution: "OpenAlex (https://openalex.org), API retrieval 2026-11-12"
+    provenance: "https://api.openalex.org/authors?filter=openalex:A5080716895|A5089440969|A5029214477&select=<schema.author_fields_selected>; values unmodified, keys sorted"
+    records: 3
+    sha256: 5dffac274f8e7e599d8d698a9151f20cc68384fa63218461102df980da49afe3
+    bytes: 3717
+  - path: datasets/samples/crossref/works.jsonl
+    dataset: crossref
+    kind: real-projection
+    format: jsonl
+    license: "no copyright asserted on metadata (Crossref statement); abstracts excluded"
+    attribution: "Crossref REST API (https://api.crossref.org), retrieval 2026-11-12"
+    provenance: "https://api.crossref.org/works?filter=doi:<4 sample DOIs>&select=<schema.work_fields_selected>; values unmodified, keys sorted"
+    records: 4
+    sha256: 6f806e5874353226c57d62366790fb2b8221e5bf2c4ce9539c226d80034a5a40
+    bytes: 9617
+  - path: datasets/samples/orcid/records.jsonl
+    dataset: orcid
+    kind: real-projection
+    format: jsonl
+    license: "ORCID Public APIs Terms of Service (public data); same public data released as CC0 in ORCID Public Data File 2026"
+    attribution: "ORCID (https://orcid.org), Public API v3.0 retrieval 2026-11-12; see https://info.orcid.org/public-data-file-use-policy/"
+    provenance: "https://pub.orcid.org/v3.0/0000-0003-3226-9189/person and /works, projected by make_samples.py (privacy minimisation: name and two DOI-linked work groups only)"
+    records: 1
+    sha256: a7b37a4010e4afa104589ec07e8ab607d1e58f21045d8d6dd39ac4040b233727
+    bytes: 5912
+  - path: datasets/samples/selection.json
+    dataset: all
+    kind: selection
+    format: json
+    license: CC0-1.0
+    attribution: "ScholarChain project"
+    provenance: "selection of identifiers used to build the real samples"
+    records: 1
+    sha256: 9cc9388404b7899938b2009cc63e2793e57b807cc363fbdbbe817fa31728155d
+    bytes: 1183
+
+open_questions:
+  - "Human ratification of subset rule dblp-subset-v1 (venues, 2015-2025 window, workshop inclusion under key prefixes)."
+  - "15 of 16 DBLP venue key prefixes are unverified until the full release is scanned."
+  - "Subset size and edge count are estimates until dblp_subset_stats.py runs on the full release (needs approval for the 1.1 GB download)."
+  - "ORCID sample is an API projection under the ToS limited license; confirm this is acceptable for the repository or replace it with the identical record extracted from the CC0 2026 Public Data File (requires the 57 GB summaries download)."
+  - "Crossref metadata has no SPDX license; Crossref's statement is 'almost none of the metadata is subject to copyright'. Confirm acceptability for redistribution of the projected sample."
+  - "dblp release DOCTYPE references dblp-2023-06-28.dtd, which is not published under that name; equivalence with dblp.dtd assumed."
+  - "OpenAlex keyless daily budget (USD) is unstated; a free API key (env SCHOLARCHAIN_OPENALEX_API_KEY) may be needed for the full subset fetch."
+  - "Anonymous ORCID Public API rate limits are not published; the full subset ORCID fetch volume is unmeasured."
+  - "Whether dblp-subset-v1 should also add DOI-less ML venues' arXiv links (not linkable to Crossref)."

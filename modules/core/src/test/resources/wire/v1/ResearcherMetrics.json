@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "researcherId": "researcher:v1:6d39fb31017461bdf6bbe118864d1809",
+  "window": {
+    "startYear": 2015,
+    "endYear": 2025
+  },
+  "values": [
+    {
+      "metric": "distinct_coauthors",
+      "value": 2
+    },
+    {
+      "metric": "coauthored_works",
+      "value": 1
+    },
+    {
+      "metric": "weighted_degree",
+      "value": 1
+    }
+  ],
+  "identityConfidence": 0.97,
+  "provenance": {
+    "schemaVersion": 1,
+    "sourceType": "pipeline",
+    "datasetId": "scholarchain-graph",
+    "snapshotId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+    "sourceRecordIds": [
+      "researcher:v1:6d39fb31017461bdf6bbe118864d1809"
+    ],
+    "runId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+    "jobName": "spark.researcher-metrics",
+    "policyVersion": "graph-policy/1",
+    "contentHash": null
+  }
+}

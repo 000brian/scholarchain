@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "question": "Who has Hugo O. Sousa collaborated with between 2015 and 2025?",
+  "answerText": "Between 2015 and 2025 Hugo O. Sousa has 2 distinct coauthors in the ScholarChain graph.",
+  "modelId": "example-answer-model",
+  "plan": {
+    "schemaVersion": 1,
+    "question": "Who has Hugo O. Sousa collaborated with between 2015 and 2025?",
+    "graphRunId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+    "steps": [
+      {
+        "operation": "researcher_lookup",
+        "researcherIds": [
+          "researcher:v1:6d39fb31017461bdf6bbe118864d1809"
+        ],
+        "window": null,
+        "parameters": {}
+      },
+      {
+        "operation": "collaboration_breadth",
+        "researcherIds": [
+          "researcher:v1:6d39fb31017461bdf6bbe118864d1809"
+        ],
+        "window": {
+          "startYear": 2015,
+          "endYear": 2025
+        },
+        "parameters": {
+          "metric": "distinct_coauthors"
+        }
+      }
+    ],
+    "provenance": {
+      "schemaVersion": 1,
+      "sourceType": "runtime",
+      "datasetId": "scholarchain-graph",
+      "snapshotId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+      "sourceRecordIds": [
+        "researcher:v1:6d39fb31017461bdf6bbe118864d1809"
+      ],
+      "runId": "run:v1:d5b4e52fdf1171ad6d9e1f1251db9278",
+      "jobName": "rag.answer",
+      "policyVersion": "prompt-policy/1",
+      "contentHash": "sha256:be93cac145553f67c72aa616c365813bc5273a8283b56eaeccce52d1a9007598"
+    }
+  },
+  "bundle": {
+    "schemaVersion": 1,
+    "bundleId": "evidence:v1:bb849f2bb61c5c6d0833a00f96fcd1e8",
+    "items": [
+      {
+        "schemaVersion": 1,
+        "evidenceId": "evidence:v1:d8c6bb9bae6ed5cee33a778a8dd6e743",
+        "evidenceType": "work",
+        "subjectIds": [
+          "work:v1:9908f02cfc6bda3f54556ffdc400f581"
+        ],
+        "window": null,
+        "metric": null,
+        "snippet": "tieval: An Evaluation Framework for Temporal Information Extraction Systems.",
+        "provenance": {
+          "schemaVersion": 1,
+          "sourceType": "runtime",
+          "datasetId": "scholarchain-graph",
+          "snapshotId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+          "sourceRecordIds": [
+            "conf/sigir/Sousa0J23"
+          ],
+          "runId": "run:v1:d5b4e52fdf1171ad6d9e1f1251db9278",
+          "jobName": "rag.answer",
+          "policyVersion": "prompt-policy/1",
+          "contentHash": "sha256:097a8f0395a0f0d7b24339481fe72249a3325ae0b0e33a60d6f56208713afe33"
+        }
+      },
+      {
+        "schemaVersion": 1,
+        "evidenceId": "evidence:v1:956b66b5f8244d130969ed13b9ae909e",
+        "evidenceType": "metric",
+        "subjectIds": [
+          "researcher:v1:6d39fb31017461bdf6bbe118864d1809"
+        ],
+        "window": {
+          "startYear": 2015,
+          "endYear": 2025
+        },
+        "metric": {
+          "metric": "distinct_coauthors",
+          "value": 2
+        },
+        "snippet": null,
+        "provenance": {
+          "schemaVersion": 1,
+          "sourceType": "runtime",
+          "datasetId": "scholarchain-graph",
+          "snapshotId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+          "sourceRecordIds": [
+            "researcher:v1:6d39fb31017461bdf6bbe118864d1809"
+          ],
+          "runId": "run:v1:d5b4e52fdf1171ad6d9e1f1251db9278",
+          "jobName": "rag.answer",
+          "policyVersion": "prompt-policy/1",
+          "contentHash": null
+        }
+      }
+    ],
+    "provenance": {
+      "schemaVersion": 1,
+      "sourceType": "runtime",
+      "datasetId": "scholarchain-graph",
+      "snapshotId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+      "sourceRecordIds": [
+        "work:v1:9908f02cfc6bda3f54556ffdc400f581",
+        "researcher:v1:6d39fb31017461bdf6bbe118864d1809"
+      ],
+      "runId": "run:v1:d5b4e52fdf1171ad6d9e1f1251db9278",
+      "jobName": "rag.answer",
+      "policyVersion": "prompt-policy/1",
+      "contentHash": null
+    }
+  },
+  "claims": [
+    {
+      "schemaVersion": 1,
+      "claimText": "Hugo O. Sousa has 2 distinct coauthors in 2015-2025.",
+      "evidenceIds": [
+        "evidence:v1:956b66b5f8244d130969ed13b9ae909e"
+      ],
+      "status": "verified",
+      "window": {
+        "startYear": 2015,
+        "endYear": 2025
+      },
+      "provenance": {
+        "schemaVersion": 1,
+        "sourceType": "runtime",
+        "datasetId": "scholarchain-graph",
+        "snapshotId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+        "sourceRecordIds": [
+          "researcher:v1:6d39fb31017461bdf6bbe118864d1809"
+        ],
+        "runId": "run:v1:d5b4e52fdf1171ad6d9e1f1251db9278",
+        "jobName": "rag.answer",
+        "policyVersion": "prompt-policy/1",
+        "contentHash": "sha256:8a4bfd44c3142568109f55be37d0bda6a87da62610c9362ebfaef5ee647a040c"
+      }
+    }
+  ],
+  "identityNotes": [
+    "Hugo O. Sousa resolved with confidence 0.97 (match-policy/1)."
+  ],
+  "provenance": {
+    "schemaVersion": 1,
+    "sourceType": "runtime",
+    "datasetId": "scholarchain-graph",
+    "snapshotId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+    "sourceRecordIds": [
+      "researcher:v1:6d39fb31017461bdf6bbe118864d1809"
+    ],
+    "runId": "run:v1:d5b4e52fdf1171ad6d9e1f1251db9278",
+    "jobName": "rag.answer",
+    "policyVersion": "prompt-policy/1",
+    "contentHash": "sha256:9fc3014899fb7c013c0d080323314d92a5eeb806e648e17f9066fe5563254ce7"
+  }
+}

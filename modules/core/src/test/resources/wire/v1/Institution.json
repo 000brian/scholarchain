@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "institutionId": "I182534213",
+  "name": "Universidade do Porto",
+  "countryCode": "PT",
+  "provenance": {
+    "schemaVersion": 1,
+    "sourceType": "openalex",
+    "datasetId": "openalex",
+    "snapshotId": "2026-11-12",
+    "sourceRecordIds": [
+      "I182534213"
+    ],
+    "runId": "run:v1:2203a5e44aceb63c892a8234950d2286",
+    "jobName": "hadoop.link-openalex",
+    "policyVersion": "link-policy/1",
+    "contentHash": null
+  }
+}

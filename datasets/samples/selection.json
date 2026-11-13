@@ -1,0 +1,41 @@
+{
+  "_comment": "Exact selection used by datasets/scripts/make_samples.py and fetch_enrichment.py sample-set. Real records only; synthetic records live in files whose names contain 'synthetic'.",
+  "dblp": {
+    "source_release": "dblp-2026-11-01.xml.gz",
+    "keys": [
+      "conf/sigir/Sousa0J23",
+      "conf/sigir/HofstatterC0Z23",
+      "conf/sigir/0003SM23",
+      "conf/sigir/LernerFGBB0L22",
+      "conf/sigir/KemmererGMAE14",
+      "conf/sigir/2023",
+      "conf/dac/ShenZWLDWCG23",
+      "reference/vision/X14bd",
+      "dblpnote/neverpublished"
+    ]
+  },
+  "openalex_works": {
+    "dois": [
+      "10.1145/3539618.3591892",
+      "10.1145/3539618.3591687",
+      "10.1145/3539618.3592048",
+      "10.1145/3477495.3531753"
+    ]
+  },
+  "openalex_authors": {
+    "ids": ["A5080716895", "A5089440969", "A5029214477"]
+  },
+  "crossref_works": {
+    "dois": [
+      "10.1145/3539618.3591892",
+      "10.1145/3539618.3591687",
+      "10.1145/3539618.3592048",
+      "10.1145/3477495.3531753"
+    ]
+  },
+  "orcid": {
+    "orcids": ["0000-0003-3226-9189"],
+    "sections": ["person", "works"],
+    "keep_work_dois": ["10.1145/3539618.3591892", "10.48550/arxiv.2301.04643"]
+  }
+}

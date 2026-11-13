@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "topicId": "fixture-topic-temporal-information-extraction",
+  "name": "fixture topic name (not from a source dataset)",
+  "provenance": {
+    "schemaVersion": 1,
+    "sourceType": "pipeline",
+    "datasetId": "scholarchain-graph",
+    "snapshotId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+    "sourceRecordIds": [
+      "conf/sigir/Sousa0J23"
+    ],
+    "runId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+    "jobName": "spark.topics",
+    "policyVersion": "topic-policy/1",
+    "contentHash": null
+  }
+}

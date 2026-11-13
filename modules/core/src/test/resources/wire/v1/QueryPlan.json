@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "question": "Who has Hugo O. Sousa collaborated with between 2015 and 2025?",
+  "graphRunId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+  "steps": [
+    {
+      "operation": "researcher_lookup",
+      "researcherIds": [
+        "researcher:v1:6d39fb31017461bdf6bbe118864d1809"
+      ],
+      "window": null,
+      "parameters": {}
+    },
+    {
+      "operation": "collaboration_breadth",
+      "researcherIds": [
+        "researcher:v1:6d39fb31017461bdf6bbe118864d1809"
+      ],
+      "window": {
+        "startYear": 2015,
+        "endYear": 2025
+      },
+      "parameters": {
+        "metric": "distinct_coauthors"
+      }
+    }
+  ],
+  "provenance": {
+    "schemaVersion": 1,
+    "sourceType": "runtime",
+    "datasetId": "scholarchain-graph",
+    "snapshotId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+    "sourceRecordIds": [
+      "researcher:v1:6d39fb31017461bdf6bbe118864d1809"
+    ],
+    "runId": "run:v1:d5b4e52fdf1171ad6d9e1f1251db9278",
+    "jobName": "rag.answer",
+    "policyVersion": "prompt-policy/1",
+    "contentHash": "sha256:be93cac145553f67c72aa616c365813bc5273a8283b56eaeccce52d1a9007598"
+  }
+}

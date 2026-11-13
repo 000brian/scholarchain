@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "mentionId": "mention:v1:34f70b4567c43fb2e857c8765d12d7b3",
+  "workId": "work:v1:9908f02cfc6bda3f54556ffdc400f581",
+  "position": 0,
+  "name": "Hugo O. Sousa",
+  "orcid": "0000-0003-3226-9189",
+  "provenance": {
+    "schemaVersion": 1,
+    "sourceType": "dblp",
+    "datasetId": "dblp",
+    "snapshotId": "2026-11-01",
+    "sourceRecordIds": [
+      "conf/sigir/Sousa0J23"
+    ],
+    "runId": "run:v1:044e0b57adf2607d9573368a2117394d",
+    "jobName": "hadoop.parse-dblp",
+    "policyVersion": "parse-policy/1",
+    "contentHash": null
+  }
+}
