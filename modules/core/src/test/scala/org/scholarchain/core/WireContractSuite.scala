@@ -4,11 +4,14 @@ import scala.io.Source
 
 import upickle.default.ReadWriter
 
-/** Frozen JSON wire examples (`src/test/resources/wire/v1/<Record>.json`).
+/** Frozen JSON wire examples (`src/test/resources/wire/v<N>/<Record>.json`).
   *
-  * Each file is the frozen v1 wire form of the matching [[Fixtures]] value. A change that alters
-  * any frozen file is a wire-contract change: a breaking one bumps `SchemaVersions` and adds new
-  * frozen files instead of editing these. Runs under Scala 3 and Scala 2.13.
+  * Each record's example lives under the directory of its current schema version
+  * (`SchemaVersions.currentOf(name)`) and is the frozen wire form of the matching [[Fixtures]]
+  * value. A change that alters any frozen file is a wire-contract change: a breaking one bumps
+  * `SchemaVersions` and adds a new frozen file under `wire/v<N+1>/` instead of editing the old one,
+  * which stays as the record of the superseded version (see `superseded`). Runs under Scala 3 and
+  * Scala 2.13.
   */
 object WireContractSuite {
   final case class Example[A](name: String, value: A)(implicit
@@ -37,6 +40,7 @@ class WireContractSuite extends munit.FunSuite {
       Example("Institution", institution),
       Example("Topic", topic),
       Example("MatchDecision", matchDecision),
+      Example("MatchCandidate", matchCandidate),
       Example("GraphNode", graphNode),
       Example("GraphEdge", graphEdge),
       Example("EvidenceItem", evidenceItem),
@@ -47,13 +51,20 @@ class WireContractSuite extends munit.FunSuite {
     )
   }
 
-  def frozen(name: String): String = {
-    val stream = getClass.getResourceAsStream(s"/wire/v1/$name.json")
-    assert(stream != null, s"missing frozen wire example wire/v1/$name.json")
+  /** Frozen example of `name` at `version` (default: the current version). */
+  def frozen(name: String, version: Int): String = {
+    val path = s"/wire/v$version/$name.json"
+    val stream = getClass.getResourceAsStream(path)
+    assert(stream != null, s"missing frozen wire example $path")
     val src = Source.fromInputStream(stream, "UTF-8")
     try src.mkString
     finally src.close()
   }
+
+  def frozen(name: String): String = frozen(name, SchemaVersions.currentOf(name))
+
+  /** Superseded frozen examples kept on disk: (schema, superseded version). */
+  val superseded: List[(String, Int)] = List("WorkRecord" -> 1, "CoauthorPairCandidate" -> 1)
 
   def decode[A](e: Example[A], json: String): Either[ContractError, A] =
     Contract.decode[A](json)(e.rw, e.validator)
@@ -97,8 +108,12 @@ class WireContractSuite extends munit.FunSuite {
     }
 
     test(s"${e.name}: an unsupported schemaVersion is rejected") {
-      val json = mutate(frozen(e.name))(_("schemaVersion") = ujson.Num(2))
-      assert(hasError(decode(e, json), "schemaVersion: unsupported version 2"), decode(e, json))
+      val next = SchemaVersions.currentOf(e.name) + 1
+      val json = mutate(frozen(e.name))(_("schemaVersion") = ujson.Num(next.toDouble))
+      assert(
+        hasError(decode(e, json), s"schemaVersion: unsupported version $next"),
+        decode(e, json)
+      )
     }
 
     test(s"${e.name}: a missing schemaVersion is rejected") {
@@ -130,6 +145,66 @@ class WireContractSuite extends munit.FunSuite {
         assert(hasError(decode(e, json), "provenance.sourceRecordIds: must not be empty"))
       }
     }
+  }
+
+  test("schema versions bumped by the Phase 4 contract change") {
+    assertEquals(SchemaVersions.currentOf("WorkRecord"), 2)
+    assertEquals(SchemaVersions.currentOf("CoauthorPairCandidate"), 2)
+    assertEquals(SchemaVersions.currentOf("MatchCandidate"), 1)
+  }
+
+  test("superseded v1 frozen examples are no longer accepted by current readers") {
+    superseded.foreach { case (name, version) =>
+      assert(SchemaVersions.currentOf(name) > version, name)
+      val ex = examples.find(_.name == name).get
+      assert(decode(ex, frozen(name, version)).isLeft, name)
+    }
+  }
+
+  test("superseded v1 frozen examples fail on the new required fields, then on the version") {
+    val work = mutate(frozen("WorkRecord", 1)) { j =>
+      j("eeLinks") = ujson.Arr(Fixtures.eeLink)
+      j("urls") = ujson.Arr(Fixtures.tocUrl)
+    }
+    assert(hasError(Contract.decode[WorkRecord](frozen("WorkRecord", 1)), "decode:"))
+    assert(hasError(Contract.decode[WorkRecord](work), "schemaVersion: unsupported version 1"))
+  }
+
+  test("WorkRecord v2: eeLinks and urls are JSON arrays in source order") {
+    val json = ujson.read(frozen("WorkRecord"))
+    assertEquals(json("eeLinks"), ujson.Arr(Fixtures.eeLink))
+    assertEquals(json("urls"), ujson.Arr(Fixtures.tocUrl))
+  }
+
+  test("CoauthorPairCandidate v2: positions carry both positions and both mention IDs") {
+    val p = ujson.read(frozen("CoauthorPairCandidate"))("positions").arr
+    assertEquals(p.size, 1)
+    assertEquals(
+      p(0).obj.keys.toList.sorted,
+      List("leftMentionId", "leftPosition", "rightMentionId", "rightPosition")
+    )
+    assertEquals(p(0)("leftPosition"), ujson.Num(2))
+    assertEquals(p(0)("rightPosition"), ujson.Num(0))
+  }
+
+  test("MatchCandidate carries features and no accept/reject label") {
+    val json = ujson.read(frozen("MatchCandidate"))
+    val forbidden = Set("outcome", "label", "decision", "confidence", "match", "accepted")
+    assertEquals(json.obj.keys.filter(k => forbidden.contains(k.toLowerCase)).toList, Nil)
+    assertEquals(
+      json.obj.keys.toList,
+      List(
+        "schemaVersion",
+        "candidateId",
+        "subjectKind",
+        "left",
+        "right",
+        "blockFamily",
+        "blockKey",
+        "features",
+        "provenance"
+      )
+    )
   }
 
   test("an unknown enum wire name is rejected") {

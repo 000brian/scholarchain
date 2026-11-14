@@ -5,40 +5,42 @@ package org.scholarchain.core
   */
 class SchemaVersionsSuite extends munit.FunSuite {
 
-  test("schema version table is frozen at v1") {
+  test("schema version table is frozen") {
     assertEquals(
       SchemaVersions.current.toList,
       List(
-        "Provenance",
-        "WorkRecord",
-        "AuthorMention",
-        "ExternalIdLink",
-        "CanonicalResearcher",
-        "AuthorshipRecord",
-        "PublicationTeam",
-        "CoauthorPairCandidate",
-        "CoauthorEdge",
-        "ResearcherMetrics",
-        "Venue",
-        "Institution",
-        "Topic",
-        "MatchDecision",
-        "GraphNode",
-        "GraphEdge",
-        "EvidenceItem",
-        "EvidenceBundle",
-        "QueryPlan",
-        "AnswerClaim",
-        "AnswerResponse",
-        "ScholarChainConfig"
-      ).map(_ -> 1)
+        "Provenance" -> 1,
+        "WorkRecord" -> 2, // v2: eeLinks, urls
+        "AuthorMention" -> 1,
+        "ExternalIdLink" -> 1,
+        "CanonicalResearcher" -> 1,
+        "AuthorshipRecord" -> 1,
+        "PublicationTeam" -> 1,
+        "CoauthorPairCandidate" -> 2, // v2: positions
+        "CoauthorEdge" -> 1,
+        "ResearcherMetrics" -> 1,
+        "Venue" -> 1,
+        "Institution" -> 1,
+        "Topic" -> 1,
+        "MatchCandidate" -> 1, // new in Phase 4
+        "MatchDecision" -> 1,
+        "GraphNode" -> 1,
+        "GraphEdge" -> 1,
+        "EvidenceItem" -> 1,
+        "EvidenceBundle" -> 1,
+        "QueryPlan" -> 1,
+        "AnswerClaim" -> 1,
+        "AnswerResponse" -> 1,
+        "ScholarChainConfig" -> 1
+      )
     )
   }
 
   test("only the current version is supported; unknown schemas are unsupported") {
-    assert(SchemaVersions.isSupported("WorkRecord", 1))
+    assert(SchemaVersions.isSupported("WorkRecord", 2))
     assert(!SchemaVersions.isSupported("WorkRecord", 0))
-    assert(!SchemaVersions.isSupported("WorkRecord", 2))
+    assert(!SchemaVersions.isSupported("WorkRecord", 1))
+    assert(!SchemaVersions.isSupported("WorkRecord", 3))
     assert(!SchemaVersions.isSupported("NoSuchRecord", 1))
     intercept[IllegalArgumentException](SchemaVersions.currentOf("NoSuchRecord"))
   }
@@ -112,6 +114,10 @@ class SchemaVersionsSuite extends munit.FunSuite {
       )
     )
     assertEquals(LinkSubjectKind.values.map(_.wire), List("work", "mention", "venue"))
+    assertEquals(
+      MatchSubjectKind.values.map(_.wire),
+      List("mention_pair", "mention_researcher")
+    )
   }
 
   test("enum wire names round-trip and unknown names are rejected") {

@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ScholarChain Hadoop job configuration defaults (owner: hadoop-engineer).
+
+  Every threshold and tunable read by modules/hadoop comes from a key in this file. Code never
+  carries a fallback value: a key that is missing here and not set by the caller fails the job
+  at configuration time (Settings.require*). Callers override a value with -D key=value (or
+  Configuration.set); overrides of fingerprinted keys change the configuration fingerprint and
+  therefore the run ID (and the output directory).
+
+  Not fingerprinted (Settings.fingerprinted):
+  - keys under scholarchain.run.* and scholarchain.path.*, set by the drivers per run;
+  - operational keys (Settings.OperationalKeys), which change how a job is executed or recovered
+    but never the bytes it writes under its run directory: scholarchain.output.replaceIncomplete,
+    scholarchain.intermediate.compress and scholarchain.intermediate.codec. Changing one of them
+    keeps the run ID, so the same run directory is reused or recovered. Each is marked
+    "Operational" below.
+  Everything else is fingerprinted, including scholarchain.code.version, thresholds, subset
+  rules, feature sets, policy versions, shard sizes, output compression, and the reducer counts
+  (they change the part-file layout and the per-task stat-line counter in _job.json). A run ID
+  identifies byte-identical output only for the same input files at the same locations and the
+  same Hadoop input-split configuration: split size (mapreduce.input.fileinputformat.split.*,
+  block size) changes the map-side part-m files and output-records counters, and disposition
+  locations contain absolute input paths while the input fingerprint uses base names (see
+  Settings.OperationalKeys). There is deliberately no default for scholarchain.code.version:
+  every run must state the code version it was built from.
+-->
+<configuration>
+
+  <!-- ===================== Shared output behaviour ===================== -->
+  <property>
+    <name>scholarchain.output.replaceIncomplete</name>
+    <value>false</value>
+    <description>When an output directory for the same run ID exists without a completion record,
+      fail (false) or replace it (true). A complete output (_SUCCESS plus _job.json) is always
+      reused, which makes reruns idempotent. Operational (not fingerprinted): rerunning a failed
+      run with this set to true keeps the run ID and replaces that run's incomplete directory.</description>
+  </property>
+  <property>
+    <name>scholarchain.intermediate.compress</name>
+    <value>true</value>
+    <description>Compress map outputs (shuffle data) between map and reduce. Operational (not
+      fingerprinted): job outputs do not depend on it.</description>
+  </property>
+  <property>
+    <name>scholarchain.intermediate.codec</name>
+    <value>org.apache.hadoop.io.compress.DefaultCodec</value>
+    <description>Codec for intermediate (map output) compression. DefaultCodec (zlib) has a pure
+      Java fallback, so it works without native libraries. Operational (not
+      fingerprinted).</description>
+  </property>
+  <property>
+    <name>scholarchain.output.compress</name>
+    <value>false</value>
+    <description>Compress final job outputs. Off by default so curated JSON lines stay
+      inspectable; turn on for full-scale EMR runs.</description>
+  </property>
+  <property>
+    <name>scholarchain.output.codec</name>
+    <value>org.apache.hadoop.io.compress.GzipCodec</value>
+    <description>Codec for final outputs when scholarchain.output.compress is true.</description>
+  </property>
+  <property>
+    <name>scholarchain.reject.previewChars</name>
+    <value>512</value>
+    <description>Maximum characters of the offending input copied into a reject record. The full
+      input is identified by its sha256 and location instead. The input formats keep 4 bytes per
+      configured character of an oversize or truncated unit (enough for UTF-8), so larger values
+      are honoured, never capped; a value whose byte size exceeds the largest Java array fails
+      the job at configuration time.</description>
+  </property>
+  <property>
+    <name>scholarchain.input.maxDecompressedBytesPerFile</name>
+    <value>8589934592</value>
+    <description>Decompression-bomb guard: maximum bytes read from one input file after
+      decompression (8 GiB; the full dblp release is estimated at 5.49 GB). Exceeding it stops
+      the file and writes a decompression_limit_exceeded reject.</description>
+  </property>
+  <property>
+    <name>scholarchain.internal.maxLineBytes</name>
+    <value>67108864</value>
+    <description>Maximum bytes of one JSON line produced by an upstream ScholarChain job (64 MiB;
+      a 5,000-author team is about 0.2 MiB).</description>
+  </property>
+
+  <!-- ===================== J01 dblp extraction ===================== -->
+  <property>
+    <name>scholarchain.dblp.parsePolicyVersion</name>
+    <value>dblp-parse/1</value>
+    <description>Parse policy version written to provenance.policyVersion of J01, J07, J08.</description>
+  </property>
+  <property>
+    <name>scholarchain.dblp.boundaryElements</name>
+    <value>article,inproceedings,proceedings,book,incollection,phdthesis,mastersthesis,www,data</value>
+    <description>Every dblp record element (dblp.dtd). The XML input format splits the file only at
+      these start tags, so each is read and accounted for, selected or not.</description>
+  </property>
+  <property>
+    <name>scholarchain.dblp.recordElements</name>
+    <value>article,inproceedings</value>
+    <description>Record elements extracted into WorkRecord (dblp-subset-v1 record_elements).
+      Other boundary elements are written to excluded/ with reason element.</description>
+  </property>
+  <property>
+    <name>scholarchain.dblp.subset.enabled</name>
+    <value>true</value>
+    <description>Apply the key-prefix, year and publtype rules below (dblp-subset-v1, status
+      proposed in datasets/dataset-manifest.yaml).</description>
+  </property>
+  <property>
+    <name>scholarchain.dblp.subset.keyPrefixes</name>
+    <value>conf/sigir/,conf/kdd/,conf/www/,conf/cikm/,conf/wsdm/,conf/icde/,conf/sigmod/,journals/pvldb/,conf/mm/,conf/cvpr/,conf/iccv/,conf/aaai/,conf/ijcai/,conf/emnlp/,conf/acl/,conf/nips/</value>
+    <description>dblp key prefixes in the subset (dataset manifest subset_rule.dblp.venues).</description>
+  </property>
+  <property>
+    <name>scholarchain.dblp.subset.yearMin</name>
+    <value>2015</value>
+    <description>Inclusive lower year bound of the subset.</description>
+  </property>
+  <property>
+    <name>scholarchain.dblp.subset.yearMax</name>
+    <value>2025</value>
+    <description>Inclusive upper year bound of the subset.</description>
+  </property>
+  <property>
+    <name>scholarchain.dblp.subset.excludePubltypeTokens</name>
+    <value>informal</value>
+    <description>Records whose publtype contains one of these tokens are excluded.</description>
+  </property>
+  <property>
+    <name>scholarchain.dblp.supportedEncodings</name>
+    <value>UTF-8,ISO-8859-1,US-ASCII</value>
+    <description>Declared XML encodings accepted. All are ASCII-compatible, which the byte-level
+      record splitter requires; other encodings reject every record of the file.</description>
+  </property>
+  <property>
+    <name>scholarchain.dblp.maxRecordBytes</name>
+    <value>1048576</value>
+    <description>Maximum bytes of one dblp record. Larger records are skipped to their end tag
+      and rejected as oversize_record.</description>
+  </property>
+  <property>
+    <name>scholarchain.dblp.maxPrologBytes</name>
+    <value>1048576</value>
+    <description>Maximum bytes read from the start of a dblp file to find the XML declaration and
+      the internal DTD subset, and maximum size of an external DTD file.</description>
+  </property>
+  <property>
+    <name>scholarchain.dblp.dtdPath</name>
+    <value></value>
+    <description>Optional path of the dblp DTD (for the real release: dblp.dtd from the raw
+      prefix). Its general entities are added to those of the file's internal DTD subset. Empty
+      means internal subset only. An entity defined by neither rejects the record
+      (undefined_entity).</description>
+  </property>
+  <property>
+    <name>scholarchain.dblp.maxExpandedRecordChars</name>
+    <value>2097152</value>
+    <description>Maximum length, in UTF-16 characters, of one dblp record after named-entity
+      expansion (2 Mi characters, about 4 MiB of heap; twice scholarchain.dblp.maxRecordBytes).
+      Expansion is single-pass, but a record can reference a large declared entity many times
+      (a ~1 MiB entity referenced ~300,000 times would expand quadratically). The bound is checked
+      before each replacement is appended, so such a record is rejected
+      (expanded_record_oversize) without building the expansion. The sample entities expand to
+      numeric character references of at most 6 characters (for example "&amp;#233;"), so
+      records of the samples do not grow materially when expanded.</description>
+  </property>
+  <property>
+    <name>scholarchain.dblp.reducers</name>
+    <value>4</value>
+    <description>J01 reduce tasks (partitions of works, mentions and venues).</description>
+  </property>
+
+  <!-- ===================== J07 publication teams ===================== -->
+  <property>
+    <name>scholarchain.teams.oversizeThreshold</name>
+    <value>100</value>
+    <description>Teams with more authors are counted (OVERSIZE_AUTHOR_TEAMS) and listed in
+      oversizeTeams/, and are still expanded.</description>
+  </property>
+  <property>
+    <name>scholarchain.teams.hardLimit</name>
+    <value>5000</value>
+    <description>Teams with more authors are rejected (team_exceeds_hard_limit): no team and no
+      pairs. 5,000 authors would expand to 12,497,500 pairs.</description>
+  </property>
+  <property>
+    <name>scholarchain.teams.maxCoauthorContext</name>
+    <value>50</value>
+    <description>Maximum coauthor names stored per mention context (blocking input); longer
+      lists are cut and flagged coauthorsTruncated.</description>
+  </property>
+  <property>
+    <name>scholarchain.teams.reducers</name>
+    <value>4</value>
+    <description>J07 reduce tasks.</description>
+  </property>
+
+  <!-- ===================== J08 coauthor pairs ===================== -->
+  <property>
+    <name>scholarchain.pairs.pairsPerShard</name>
+    <value>100000</value>
+    <description>Pairs generated by one reduce call. A team of n authors is split into
+      ceil(n(n-1)/2 / pairsPerShard) shards that are hashed to different reducers, so a giant
+      team never expands on one machine.</description>
+  </property>
+  <property>
+    <name>scholarchain.pairs.expandReducers</name>
+    <value>4</value>
+    <description>J08a reduce tasks (pair expansion).</description>
+  </property>
+  <property>
+    <name>scholarchain.pairs.consolidateReducers</name>
+    <value>4</value>
+    <description>J08b reduce tasks (per-work duplicate consolidation).</description>
+  </property>
+
+  <!-- ===================== J02 source normalizers ===================== -->
+  <property>
+    <name>scholarchain.normalize.policyVersion</name>
+    <value>source-normalize/1</value>
+    <description>Policy version of J02 outputs.</description>
+  </property>
+  <property>
+    <name>scholarchain.normalize.maxLineBytes</name>
+    <value>4194304</value>
+    <description>Maximum bytes of one raw JSON line (4 MiB; the largest sample line is about
+      9 KiB). Longer lines are rejected as oversize_line.</description>
+  </property>
+  <property>
+    <name>scholarchain.normalize.keepCrossrefAbstracts</name>
+    <value>false</value>
+    <description>Crossref abstracts may be under publisher copyright (dataset manifest); they are
+      dropped unless this is true.</description>
+  </property>
+  <property>
+    <name>scholarchain.normalize.reducers</name>
+    <value>2</value>
+    <description>J02 reduce tasks.</description>
+  </property>
+
+  <!-- ===================== J03/J04 exact identifiers ===================== -->
+  <property>
+    <name>scholarchain.idjoin.policyVersion</name>
+    <value>exact-id/1</value>
+    <description>Policy version of ExternalIdLink records (exact canonical identifier equality
+      only; no fuzzy matching).</description>
+  </property>
+  <property>
+    <name>scholarchain.idjoin.maxGroupSize</name>
+    <value>20000</value>
+    <description>Maximum records sharing one identifier key. Larger groups are not joined; they
+      are counted as OVERSIZE_BLOCKS and written to conflicts/.</description>
+  </property>
+  <property>
+    <name>scholarchain.idjoin.reducers</name>
+    <value>4</value>
+    <description>J04 reduce tasks.</description>
+  </property>
+
+  <!-- ===================== J05 blocking ===================== -->
+  <property>
+    <name>scholarchain.blocking.keyFamilies</name>
+    <value>dblp-base-name</value>
+    <description>Blocking key families. Only dblp-base-name (the dblp name without its homonym
+      suffix, via core DblpAuthorName.split) is implemented; further families need key
+      definitions from entity-resolution-engineer.</description>
+  </property>
+  <property>
+    <name>scholarchain.blocking.maxBlockSize</name>
+    <value>1000</value>
+    <description>Blocks with more members are not emitted; they are counted as OVERSIZE_BLOCKS
+      and listed in oversizeBlocks/ (key and size only).</description>
+  </property>
+  <property>
+    <name>scholarchain.blocking.emitSingletons</name>
+    <value>false</value>
+    <description>Emit blocks with one member (they yield no candidate pairs).</description>
+  </property>
+  <property>
+    <name>scholarchain.blocking.policyVersion</name>
+    <value>blocking/1-provisional</value>
+    <description>Policy version of candidate blocks.</description>
+  </property>
+  <property>
+    <name>scholarchain.blocking.reducers</name>
+    <value>4</value>
+    <description>J05 reduce tasks.</description>
+  </property>
+
+  <!-- ===================== J06 candidate features ===================== -->
+  <property>
+    <name>scholarchain.candidates.featureSet</name>
+    <value>candidate-features/1-provisional</value>
+    <description>Feature set computed by J06 and written to provenance.policyVersion of every
+      MatchCandidate (with the blocking policy of its block). Provisional: deterministic,
+      policy-free comparisons only (no thresholds, scores or decisions); the feature policy is
+      owned by entity-resolution-engineer (Phase 5). J06 fails at configuration time if this names
+      a set it does not implement.</description>
+  </property>
+  <property>
+    <name>scholarchain.candidates.maxPairsPerBlock</name>
+    <value>125000</value>
+    <description>Maximum candidate pairs from one block (a block of m members yields m(m-1)/2; 500
+      members yield 124,750). Larger blocks are not expanded: they are counted as OVERSIZE_BLOCKS
+      (their pairs as OVERSIZE_BLOCK_PAIRS_SKIPPED) and listed in oversizeBlocks/.</description>
+  </property>
+  <property>
+    <name>scholarchain.candidates.pairsPerShard</name>
+    <value>50000</value>
+    <description>Candidate pairs generated by one J06 reduce call. A block is split into
+      ceil(m(m-1)/2 / pairsPerShard) shards hashed to different reducers.</description>
+  </property>
+  <property>
+    <name>scholarchain.candidates.reducers</name>
+    <value>4</value>
+    <description>J06 reduce tasks.</description>
+  </property>
+
+  <!-- ===================== J09 graph export ===================== -->
+  <property>
+    <name>scholarchain.export.policyVersion</name>
+    <value>graph-export/1</value>
+    <description>Policy version of the J09 run (dispositions); exported records keep the
+      provenance of the job that produced them.</description>
+  </property>
+  <property>
+    <name>scholarchain.export.reducers</name>
+    <value>4</value>
+    <description>J09 reduce tasks. Year-bearing entities are written under year=YYYY/.</description>
+  </property>
+</configuration>

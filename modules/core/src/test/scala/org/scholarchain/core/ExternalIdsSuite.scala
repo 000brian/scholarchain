@@ -121,6 +121,24 @@ class ExternalIdsSuite extends munit.FunSuite {
     assertEquals(OpenAlexId.Institution.normalize("I182534213"), Some("I182534213"))
   }
 
+  test("OpenAlex topic: URL prefix is stripped, key uppercased, T[1-9][0-9]* required") {
+    assertEquals(OpenAlexId.Topic.letter, 'T')
+    assertEquals(OpenAlexId.Topic.normalize("https://openalex.org/T10181"), Some("T10181"))
+    assertEquals(OpenAlexId.Topic.normalize("HTTPS://OPENALEX.ORG/t10181"), Some("T10181"))
+    assertEquals(OpenAlexId.Topic.normalize(" t11636 "), Some("T11636"))
+    assert(OpenAlexId.Topic.isCanonical("T10181"))
+    assert(!OpenAlexId.Topic.isCanonical("t10181"))
+    assert(!OpenAlexId.Topic.isCanonical("https://openalex.org/T10181"))
+    List("T0123", "T", "W4366851189", "T12a", "", null).foreach(r =>
+      assertEquals(OpenAlexId.Topic.normalize(r), None, String.valueOf(r))
+    )
+    assertEquals(OpenAlexId.Work.normalize("T10181"), None)
+  }
+
+  test("OpenAlex: every entity kind is listed once with a distinct letter") {
+    assertEquals(OpenAlexId.entities.map(_.letter), List('W', 'A', 'S', 'I', 'T'))
+  }
+
   test("OpenAlex: wrong entity letter, leading zero, and garbage are rejected") {
     assertEquals(OpenAlexId.Work.normalize("A5089440969"), None)
     assertEquals(OpenAlexId.Work.normalize("W0123"), None)

@@ -80,6 +80,13 @@ object Validator {
   private def distinct[T](field: String, xs: List[T]) =
     check(xs.distinct.size == xs.size, s"$field: contains duplicates")
 
+  /** Verbatim source text kept in a list (dblp `<ee>`, `<url>`): trimmed, non-blank, no controls.
+    */
+  private def sourceText(field: String, v: String): List[String] =
+    check(v.trim.nonEmpty, s"$field: must not be blank") ++
+      check(v == v.trim, s"$field: must not have leading or trailing whitespace") ++
+      check(!v.exists(Character.isISOControl), s"$field: must not contain control characters")
+
   private def textHash(p: Provenance, text: String, what: String): List[String] =
     p.contentHash match {
       case None    => List(s"provenance.contentHash: required because the record carries $what")
@@ -143,6 +150,16 @@ object Validator {
       year("year", w.year) ++
       optional("venueKey", w.venueKey)(venueKey) ++
       optional("doi", w.doi)(doi) ++
+      each("eeLinks", w.eeLinks)(sourceText) ++
+      distinct("eeLinks", w.eeLinks) ++
+      each("urls", w.urls)(sourceText) ++
+      distinct("urls", w.urls) ++
+      optional("doi", w.doi)((f, d) =>
+        check(
+          w.eeLinks.exists(e => Doi.fromDblpEe(e).contains(d)),
+          s"$f: '$d' is not the DOI of any eeLinks entry (Doi.fromDblpEe)"
+        )
+      ) ++
       check(w.authorNames.nonEmpty, "authorNames: must not be empty") ++
       each("authorNames", w.authorNames)(dblpName) ++
       fromDblp("WorkRecord", w.provenance) ++
@@ -241,7 +258,44 @@ object Validator {
       dblpName("right", c.right) ++
       ordered("left/right", c.left, c.right) ++
       check(c.teamSize >= 2, s"teamSize: ${c.teamSize} must be >= 2 for a pair") ++
+      pairPositions(c) ++
       prov(c.provenance)
+  }
+
+  private def pairPositions(c: CoauthorPairCandidate): List[String] = {
+    def position(field: String, p: Int): List[String] =
+      check(p >= 0, s"$field: $p must be >= 0") ++
+        check(p < 0 || p < c.teamSize, s"$field: $p must be < teamSize ${c.teamSize}")
+    def mention(field: String, id: MentionId, p: Int): List[String] =
+      stableId(field, id) ++
+        check(
+          !id.isWellFormed || p < 0 || id == MentionId.of(c.workId, p),
+          s"$field: $id is not MentionId.of(workId, $p)"
+        )
+    val both =
+      c.positions.map(_.leftPosition).toSet.intersect(c.positions.map(_.rightPosition).toSet)
+    check(c.positions.nonEmpty, "positions: must not be empty") ++
+      each("positions", c.positions)((f, p) =>
+        position(s"$f.leftPosition", p.leftPosition) ++
+          position(s"$f.rightPosition", p.rightPosition) ++
+          check(
+            p.leftPosition != p.rightPosition,
+            s"$f: leftPosition and rightPosition must differ (got ${p.leftPosition})"
+          ) ++
+          mention(s"$f.leftMentionId", p.leftMentionId, p.leftPosition) ++
+          mention(s"$f.rightMentionId", p.rightMentionId, p.rightPosition)
+      ) ++
+      check(
+        c.positions.zip(c.positions.drop(1)).forall { case (a, b) =>
+          PairPosition.ordering.compare(a, b) < 0
+        },
+        "positions: must be sorted by (leftPosition, rightPosition) and distinct"
+      ) ++
+      check(
+        both.isEmpty,
+        s"positions: positions ${both.toList.sorted.mkString("[", ", ", "]")} appear on both the " +
+          "left and the right (left positions hold the left name, right positions the right name)"
+      )
   }
 
   implicit val coauthorEdge: Validator[CoauthorEdge] = instance { e =>
@@ -387,6 +441,59 @@ object Validator {
           check(!x.value.isNaN && !x.value.isInfinite, s"$f.value: must be finite")
       ) ++
       distinct("features.name", m.features.map(_.name)) ++
+      prov(m.provenance)
+  }
+
+  private def features(fs: List[MatchFeature]): List[String] =
+    each("features", fs)((f, x) =>
+      nonBlank(s"$f.name", x.name) ++
+        check(!x.value.isNaN && !x.value.isInfinite, s"$f.value: must be finite")
+    ) ++ distinct("features.name", fs.map(_.name))
+
+  private def mentionSubject(field: String, id: String): List[String] =
+    check(MentionId.isWellFormed(id), s"$field: '$id' is not a mention ID")
+
+  private def researcherSubject(field: String, id: String): List[String] =
+    check(ResearcherId.isWellFormed(id), s"$field: '$id' is not a researcher ID")
+
+  implicit val matchCandidate: Validator[MatchCandidate] = instance { m =>
+    val subjects = m.subjectKind match {
+      case MatchSubjectKind.MentionPair =>
+        mentionSubject("left", m.left) ++
+          mentionSubject("right", m.right) ++
+          ordered("left/right", m.left, m.right)
+      case MatchSubjectKind.MentionResearcher =>
+        mentionSubject("left", m.left) ++ researcherSubject("right", m.right)
+    }
+    val idRule =
+      MatchCandidateId.of(m.subjectKind, m.left, m.right, m.blockFamily, m.blockKey) match {
+        case Right(id) =>
+          check(
+            id == m.candidateId,
+            s"candidateId: ${m.candidateId} is not MatchCandidateId.of(subjectKind, left, right, " +
+              "blockFamily, blockKey)"
+          )
+        case Left(_) => Nil // self pair, reported by the ordering rule
+      }
+    schema("MatchCandidate", m.schemaVersion) ++
+      stableId("candidateId", m.candidateId) ++
+      subjects ++
+      idRule ++
+      check(
+        m.blockFamily.matches("[a-z0-9][a-z0-9._-]*"),
+        s"blockFamily: '${m.blockFamily}' must match [a-z0-9][a-z0-9._-]*"
+      ) ++
+      nonBlank("blockKey", m.blockKey) ++
+      check(
+        !m.blockKey.exists(Character.isISOControl),
+        "blockKey: must not contain control characters"
+      ) ++
+      check(m.features.nonEmpty, "features: must not be empty") ++
+      features(m.features) ++
+      check(
+        m.features.map(_.name) == m.features.map(_.name).sorted(CodePointOrder.ordering),
+        "features: must be sorted by name (Unicode code point)"
+      ) ++
       prov(m.provenance)
   }
 

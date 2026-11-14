@@ -224,3 +224,33 @@ object LinkId extends StableIdCompanion[LinkId]("link", new LinkId(_)) {
       snapshotId
     )
 }
+
+/** Match candidate ID (one compared subject pair within one block).
+  *
+  * Formula: `match-candidate:v1:` + digest32("match-candidate/v1", subjectKind, left, right,
+  * blockFamily, blockKey) with the subject kind's wire name. For `mention_pair` the two mention IDs
+  * are first put in canonical order ([[UndirectedPair]]), so `of(k, a, b, f, key) == of(k, b, a, f,
+  * key)` and self pairs are rejected; for `mention_researcher` `left` is the mention and `right`
+  * the researcher. The run, policy, and feature values are not inputs: the same subjects in the
+  * same block have the same ID in every run, so review queues and gold-set labels can refer to it.
+  * The same subjects co-occurring in two blocks are two candidates.
+  */
+final case class MatchCandidateId(value: String) extends StableId {
+  def isWellFormed: Boolean = MatchCandidateId.isWellFormed(value)
+}
+object MatchCandidateId
+    extends StableIdCompanion[MatchCandidateId]("match-candidate", new MatchCandidateId(_)) {
+  def of(
+      subjectKind: MatchSubjectKind,
+      left: String,
+      right: String,
+      blockFamily: String,
+      blockKey: String
+  ): Either[String, MatchCandidateId] = {
+    val subjects = subjectKind match {
+      case MatchSubjectKind.MentionPair       => UndirectedPair.canonical(left, right)
+      case MatchSubjectKind.MentionResearcher => Right((left, right))
+    }
+    subjects.map { case (l, r) => derive(subjectKind.wire, l, r, blockFamily, blockKey) }
+  }
+}

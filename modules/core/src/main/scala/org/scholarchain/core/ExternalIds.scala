@@ -130,7 +130,11 @@ object Orcid {
     }
 }
 
-/** OpenAlex entity keys: entity letter plus digits, no URL prefix, uppercase. */
+/** OpenAlex entity keys: entity letter plus digits, no URL prefix, uppercase.
+  *
+  * Key rule (manifest `identifiers.openalex_id`, extended to topics): strip one
+  * `https://openalex.org/` prefix (case-insensitive), uppercase, require `<letter>[1-9][0-9]*`.
+  */
 sealed abstract class OpenAlexEntity(val letter: Char) {
   private val pattern = (letter.toString + "[1-9][0-9]*").r.pattern
   private val UrlPrefix = "https://openalex.org/"
@@ -151,6 +155,11 @@ object OpenAlexId {
   case object Author extends OpenAlexEntity('A')
   case object Source extends OpenAlexEntity('S')
   case object Institution extends OpenAlexEntity('I')
+
+  /** OpenAlex topic, e.g. `https://openalex.org/T10181 -> T10181`. */
+  case object Topic extends OpenAlexEntity('T')
+
+  val entities: List[OpenAlexEntity] = List(Work, Author, Source, Institution, Topic)
 }
 
 /** dblp record keys are opaque and used verbatim (case-sensitive) as source record IDs.

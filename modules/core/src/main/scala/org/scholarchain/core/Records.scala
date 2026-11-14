@@ -56,10 +56,19 @@ final case class Provenance(
 )
 object Provenance { implicit val readWriter: ReadWriter[Provenance] = macroRW }
 
-/** A publication as published by dblp. `workId == WorkId.fromDblpKey(dblpKey)`.
+/** A publication as published by dblp. `workId == WorkId.fromDblpKey(dblpKey)`. Schema version 2.
   *
-  * `provenance.sourceType` must be `dblp`; `doi` is the DOI from the record's `<ee>` resolver URL.
-  * Identifiers from other sources (OpenAlex work IDs, Crossref DOIs) are [[ExternalIdLink]]s.
+  * `provenance.sourceType` must be `dblp`; `doi` is the DOI from the record's `<ee>` resolver URL
+  * (`Doi.fromDblpEe` of one of `eeLinks`). Identifiers from other sources (OpenAlex work IDs,
+  * Crossref DOIs) are [[ExternalIdLink]]s.
+  *
+  * @param eeLinks
+  *   the record's `<ee>` element texts (entity-decoded, trimmed), in source order, each once (a
+  *   repeated value keeps its first position); empty when the record has none. Not normalized: the
+  *   DOI form is `doi`.
+  * @param urls
+  *   the record's `<url>` element texts (dblp table-of-contents paths such as
+  *   `db/conf/sigir/sigir2023.html#Sousa0J23`), same rules as `eeLinks`. Not an identifier.
   */
 final case class WorkRecord(
     schemaVersion: Int,
@@ -70,6 +79,8 @@ final case class WorkRecord(
     year: Int,
     venueKey: Option[String],
     doi: Option[String],
+    eeLinks: List[String],
+    urls: List[String],
     authorNames: List[String],
     provenance: Provenance
 )
@@ -168,13 +179,69 @@ final case class PublicationTeam(
 )
 object PublicationTeam { implicit val readWriter: ReadWriter[PublicationTeam] = macroRW }
 
-/** Unordered coauthor pair of mention names from one work; `left < right` by code point. */
+/** The author positions of one supporting occurrence of a coauthor pair.
+  *
+  * `leftPosition` is the 0-based author position of the pair's `left` name and `rightPosition` that
+  * of its `right` name, so positions follow the name canonicalization of [[CoauthorPairCandidate]]
+  * (the left position can be greater than the right one). Mention IDs are
+  * `MentionId.of(workId, position)`. Not a wire record on its own (no provenance).
+  */
+final case class PairPosition(
+    leftPosition: Int,
+    leftMentionId: MentionId,
+    rightPosition: Int,
+    rightMentionId: MentionId
+)
+object PairPosition {
+  implicit val readWriter: ReadWriter[PairPosition] = macroRW
+
+  /** Order of `CoauthorPairCandidate.positions`: by leftPosition, then rightPosition. */
+  val ordering: Ordering[PairPosition] = new Ordering[PairPosition] {
+    def compare(a: PairPosition, b: PairPosition): Int = {
+      val l = Integer.compare(a.leftPosition, b.leftPosition)
+      if (l != 0) l else Integer.compare(a.rightPosition, b.rightPosition)
+    }
+  }
+
+  /** Producer helper: the position pair for author `nameA` at `positionA` and `nameB` at
+    * `positionB` of `workId`, with the positions attached to the canonical (left, right) names.
+    * `Left` for equal names (self pair), equal positions, or a negative position.
+    */
+  def forNames(
+      workId: WorkId,
+      nameA: String,
+      positionA: Int,
+      nameB: String,
+      positionB: Int
+  ): Either[String, PairPosition] =
+    if (positionA < 0 || positionB < 0) Left(s"negative position ($positionA, $positionB)")
+    else if (positionA == positionB) Left(s"equal positions ($positionA)")
+    else
+      UndirectedPair.canonical(nameA, nameB).map { case (left, _) =>
+        val (l, r) = if (left == nameA) (positionA, positionB) else (positionB, positionA)
+        PairPosition(l, MentionId.of(workId, l), r, MentionId.of(workId, r))
+      }
+}
+
+/** Unordered coauthor pair of mention names from one work; `left < right` by code point. Schema
+  * version 2.
+  *
+  * `positions` lists every supporting position pair, sorted by [[PairPosition.ordering]] and
+  * distinct. A pair instance (one position pair before consolidation; a team of n authors yields
+  * n(n-1)/2 of them, minus self pairs) has exactly one. A consolidated pair (one per work and name
+  * pair) carries the union of its instances' position pairs, so homonyms on the same work (the same
+  * name at several positions) keep every position: names `A, B, A` at positions 0, 1, 2 give one
+  * consolidated pair (A, B) with positions `[(0, 1), (2, 1)]`. Every position is `< teamSize`, and
+  * no position appears on both the left and the right (left positions hold the left name, right
+  * positions the right name).
+  */
 final case class CoauthorPairCandidate(
     schemaVersion: Int,
     workId: WorkId,
     year: Int,
     left: String,
     right: String,
+    positions: List[PairPosition],
     teamSize: Int,
     provenance: Provenance
 )
@@ -276,6 +343,33 @@ object ExternalIdLink { implicit val readWriter: ReadWriter[ExternalIdLink] = ma
 
 final case class MatchFeature(name: String, value: Double)
 object MatchFeature { implicit val readWriter: ReadWriter[MatchFeature] = macroRW }
+
+/** A candidate comparison produced by blocking and feature construction, before any decision.
+  *
+  * It carries no outcome, label, score, or confidence: deciding is entity resolution's job and is
+  * recorded in [[MatchDecision]]. Which block families and features exist is entity-resolution
+  * policy (`provenance.policyVersion`); this contract only fixes their shape.
+  *
+  * Rules: for `mention_pair`, `left` and `right` are [[MentionId]]s with `left < right` by code
+  * point; for `mention_researcher`, `left` is a [[MentionId]] and `right` a [[ResearcherId]].
+  * `candidateId == MatchCandidateId.of(subjectKind, left, right, blockFamily, blockKey)`.
+  * `blockFamily` matches `[a-z0-9][a-z0-9._-]*`; `blockKey` is non-blank without control
+  * characters. `features` is non-empty, sorted by name (code point), with distinct non-blank names
+  * and finite values; a feature that cannot be computed (for example a missing ORCID iD) is
+  * omitted, never defaulted.
+  */
+final case class MatchCandidate(
+    schemaVersion: Int,
+    candidateId: MatchCandidateId,
+    subjectKind: MatchSubjectKind,
+    left: String,
+    right: String,
+    blockFamily: String,
+    blockKey: String,
+    features: List[MatchFeature],
+    provenance: Provenance
+)
+object MatchCandidate { implicit val readWriter: ReadWriter[MatchCandidate] = macroRW }
 
 /** Entity-resolution decision for one mention. The policy version is `provenance.policyVersion`.
   *

@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!-- SYNTHETIC test-engineer fixture: UTF-8 BOM, non-BMP, NFD. -->
+<!DOCTYPE dblp [
+<!ENTITY eacute "&#233;">
+]>
+<dblp>
+<inproceedings mdate="2026-11-12" key="conf/sigir/AdvBom24">
+<author>Synthetic 𝒜da</author>
+<author>Synthetic José</author>
+<author>Synthetic Jos&eacute;</author>
+<title>[SYNTHETIC] Emoji 😀 and CJK 李明 in a title.</title>
+<year>2024</year>
+<booktitle>SIGIR</booktitle>
+</inproceedings>
+</dblp>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SYNTHETIC test-engineer fixture: record-boundary corpus. Not real publications. -->
+<!DOCTYPE dblp [
+<!ENTITY eacute "&#233;">
+]>
+<dblp>
+<inproceedings mdate="2026-11-12" key="conf/sigir/AdvA20">
+<author>Synthetic Alpha</author>
+<author orcid="0000-0002-1825-0097">Synth&eacute;tic Beta</author>
+<title>[SYNTHETIC] First <i>record</i> with markup &amp; entities.</title>
+<year>2020</year>
+<booktitle>SIGIR</booktitle>
+<ee>https://doi.org/10.5555/adv-a20</ee>
+</inproceedings>
+<www mdate="2026-11-12" key="homepages/00/0000" />
+<article mdate="2026-11-12" key="journals/pvldb/AdvB21" publtype='x>y'>
+<author>Synthetic Gamma</author>
+<author>Synthetic Delta</author>
+<author>Synthetic Epsilon</author>
+<title>[SYNTHETIC] Attribute value containing a greater-than sign.</title>
+<year>2021</year>
+<journal>PVLDB</journal>
+</article>
+<inproceedings mdate="2026-11-12" key="conf/kdd/AdvC22"><author>Synthetic Zeta</author><author>Synthetic Eta</author><title>[SYNTHETIC] One-line record.</title><year>2022</year><booktitle>KDD</booktitle></inproceedings>
+<article mdate="2026-11-12" key="journals/pvldb/AdvD23">
+<author>Synthetic Theta</author>
+<author>Synthetic Iota</author>
+<title>[SYNTHETIC] Final record of the corpus.</title>
+<year>2023</year>
+<journal>PVLDB</journal>
+</article>
+</dblp>

@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 2,
+  "workId": "work:v1:9908f02cfc6bda3f54556ffdc400f581",
+  "dblpKey": "conf/sigir/Sousa0J23",
+  "publicationType": "inproceedings",
+  "title": "tieval: An Evaluation Framework for Temporal Information Extraction Systems.",
+  "year": 2023,
+  "venueKey": "conf/sigir",
+  "doi": "10.1145/3539618.3591892",
+  "eeLinks": [
+    "https://doi.org/10.1145/3539618.3591892"
+  ],
+  "urls": [
+    "db/conf/sigir/sigir2023.html#Sousa0J23"
+  ],
+  "authorNames": [
+    "Hugo O. Sousa",
+    "Ricardo Campos 0001",
+    "Alípio Mário Jorge"
+  ],
+  "provenance": {
+    "schemaVersion": 1,
+    "sourceType": "dblp",
+    "datasetId": "dblp",
+    "snapshotId": "2026-11-01",
+    "sourceRecordIds": [
+      "conf/sigir/Sousa0J23"
+    ],
+    "runId": "run:v1:044e0b57adf2607d9573368a2117394d",
+    "jobName": "hadoop.parse-dblp",
+    "policyVersion": "parse-policy/1",
+    "contentHash": null
+  }
+}

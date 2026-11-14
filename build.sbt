@@ -190,6 +190,10 @@ lazy val upickle = "com.lihaoyi" %% "upickle" % Ledger.upickle
 lazy val hadoopClientApi = "org.apache.hadoop" % "hadoop-client-api" % Ledger.hadoop % Provided
 lazy val hadoopClientRuntime =
   "org.apache.hadoop" % "hadoop-client-runtime" % Ledger.hadoop % Provided
+// The same Hadoop client artifacts in Test scope only, for test projects that run MapReduce jobs
+// with the local job runner (Provided does not pass to dependents). Never for production modules.
+lazy val hadoopClientTestOnly: Seq[ModuleID] =
+  Seq(hadoopClientApi, hadoopClientRuntime).map(_.withConfigurations(Some(Test.name)))
 lazy val sparkSql = "org.apache.spark" %% "spark-sql" % Ledger.spark % Provided
 lazy val slf4jApi = "org.slf4j" % "slf4j-api" % Ledger.slf4j
 lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % Ledger.logback % Runtime
@@ -320,7 +324,10 @@ lazy val contractTests = (project in file("tests/contracts"))
   .dependsOn(coreScala3, hadoop, entityResolution, storage, rag, services)
   .settings(
     name := "scholarchain-contract-tests",
-    commonSettings
+    commonSettings,
+    // Job-level black-box tests of the hadoop module's MapReduce jobs (local job runner).
+    forkedTests(hadoopJava17Options),
+    libraryDependencies ++= hadoopClientTestOnly
   )
 
 // ---------------------------------------------------------------------------------------------

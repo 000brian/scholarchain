@@ -63,7 +63,12 @@ class ValidationSuite extends munit.FunSuite {
   // ---- schema versions ------------------------------------------------------------------
   test("unsupported schema versions are rejected in memory") {
     assertRejected(workRecord.copy(schemaVersion = 0), "schemaVersion: unsupported version 0")
-    assertRejected(workRecord.copy(schemaVersion = 2), "schemaVersion: unsupported version 2")
+    assertRejected(workRecord.copy(schemaVersion = 1), "schemaVersion: unsupported version 1")
+    assertRejected(workRecord.copy(schemaVersion = 3), "schemaVersion: unsupported version 3")
+    assertRejected(
+      coauthorPairCandidate.copy(schemaVersion = 1),
+      "schemaVersion: unsupported version 1"
+    )
     assertRejected(
       workRecord.copy(provenance = provenance.copy(schemaVersion = 2)),
       "provenance.schemaVersion: unsupported version 2"
@@ -446,5 +451,198 @@ class ValidationSuite extends munit.FunSuite {
       canonicalResearcher.copy(externalIds = twoOrcids),
       "externalIds: at most one ORCID iD per researcher"
     )
+  }
+
+  // ---- Phase 4: WorkRecord v2 eeLinks and urls ---------------------------------------------
+  test("WorkRecord eeLinks and urls keep source order; empty lists are valid") {
+    val wikidata = "https://www.wikidata.org/entity/Q131012499"
+    assertEquals(errorsOf(workRecord.copy(eeLinks = List(eeLink, wikidata))), Nil)
+    assertEquals(errorsOf(workRecord.copy(eeLinks = List(wikidata, eeLink))), Nil)
+    assertNotEquals(
+      workRecord.copy(eeLinks = List(eeLink, wikidata)),
+      workRecord.copy(eeLinks = List(wikidata, eeLink))
+    )
+    assertEquals(errorsOf(workRecord.copy(doi = None, eeLinks = Nil, urls = Nil)), Nil)
+  }
+
+  test("WorkRecord eeLinks and urls entries must be trimmed, non-blank, without controls") {
+    val bel = 7.toChar.toString
+    List(" ", "", " https://x.org/a", "https://x.org/a ", s"https://x.org/${bel}a").foreach { v =>
+      assertRejected(workRecord.copy(eeLinks = List(eeLink, v)), "eeLinks[1]:")
+      assertRejected(workRecord.copy(urls = List(v)), "urls[0]:")
+    }
+  }
+
+  test("WorkRecord eeLinks and urls must not repeat an entry") {
+    assertRejected(workRecord.copy(eeLinks = List(eeLink, eeLink)), "eeLinks: contains duplicates")
+    assertRejected(workRecord.copy(urls = List(tocUrl, tocUrl)), "urls: contains duplicates")
+  }
+
+  test("WorkRecord doi must be the DOI of one of its eeLinks") {
+    assertRejected(workRecord.copy(eeLinks = Nil), "doi: '10.1145/3539618.3591892' is not")
+    assertRejected(
+      workRecord.copy(eeLinks = List("https://www.wikidata.org/entity/Q131012499")),
+      "doi: "
+    )
+    // A doi.org link in another spelling still yields the same canonical DOI.
+    assertEquals(
+      errorsOf(workRecord.copy(eeLinks = List("HTTPS://DX.DOI.ORG/10.1145/3539618.3591892"))),
+      Nil
+    )
+    // An ee DOI without a WorkRecord doi is allowed (conflicting DOIs are dropped, not guessed).
+    assertEquals(errorsOf(workRecord.copy(doi = None)), Nil)
+  }
+
+  // ---- Phase 4: CoauthorPairCandidate v2 positions -------------------------------------------
+  test("pair positions: the fixture and a consolidated homonym pair are valid") {
+    assertEquals(errorsOf(coauthorPairCandidate), Nil)
+    assertEquals(errorsOf(consolidatedPair), Nil)
+  }
+
+  test("pair positions must not be empty") {
+    assertRejected(coauthorPairCandidate.copy(positions = Nil), "positions: must not be empty")
+  }
+
+  test("pair positions are non-negative and inside the team") {
+    def at(l: Int, r: Int) =
+      coauthorPairCandidate.copy(positions =
+        List(PairPosition(l, MentionId.of(workId, l), r, MentionId.of(workId, r)))
+      )
+    assertRejected(at(-1, 0), "positions[0].leftPosition: -1 must be >= 0")
+    assertRejected(at(2, -1), "positions[0].rightPosition: -1 must be >= 0")
+    assertRejected(at(3, 0), "positions[0].leftPosition: 3 must be < teamSize 3")
+    assertRejected(at(2, 3), "positions[0].rightPosition: 3 must be < teamSize 3")
+  }
+
+  test("pair positions within one position pair are distinct") {
+    val p = PairPosition(1, MentionId.of(workId, 1), 1, MentionId.of(workId, 1))
+    assertRejected(
+      coauthorPairCandidate.copy(positions = List(p)),
+      "positions[0]: leftPosition and rightPosition must differ"
+    )
+  }
+
+  test("pair mention IDs must be MentionId.of(workId, position)") {
+    val p = coauthorPairCandidate.positions.head
+    assertRejected(
+      coauthorPairCandidate.copy(positions = List(p.copy(leftMentionId = sousaMention))),
+      "positions[0].leftMentionId:"
+    )
+    assertRejected(
+      coauthorPairCandidate.copy(positions = List(p.copy(rightMentionId = jorgeMention))),
+      "positions[0].rightMentionId:"
+    )
+    assertRejected(
+      coauthorPairCandidate.copy(positions = List(p.copy(leftMentionId = MentionId("m")))),
+      "positions[0].leftMentionId: malformed stable ID"
+    )
+  }
+
+  test("PairPosition.forNames attaches positions to the canonical names") {
+    // A single record does not carry the team's names, so "left position holds the left name" is
+    // a cross-record invariant; PairPosition.forNames is the producer helper that guarantees it.
+    val p = coauthorPairCandidate.positions.head
+    assertEquals(PairPosition.forNames(workId, jorgeName, 2, sousaName, 0), Right(p))
+    assertEquals(PairPosition.forNames(workId, sousaName, 0, jorgeName, 2), Right(p))
+    assert(PairPosition.forNames(workId, sousaName, 0, sousaName, 2).isLeft)
+    assert(PairPosition.forNames(workId, jorgeName, 1, sousaName, 1).isLeft)
+    assert(PairPosition.forNames(workId, jorgeName, -1, sousaName, 1).isLeft)
+  }
+
+  test("consolidated pair positions are sorted and distinct") {
+    val ps = consolidatedPair.positions
+    assertRejected(consolidatedPair.copy(positions = ps.reverse), "positions: must be sorted")
+    assertRejected(
+      consolidatedPair.copy(positions = List(ps.head, ps.head)),
+      "positions: must be sorted"
+    )
+  }
+
+  test("a position cannot carry both names of a pair across position pairs") {
+    val bad = consolidatedPair.copy(
+      positions = List(
+        PairPosition(0, syntheticMention(0), 1, syntheticMention(1)),
+        PairPosition(1, syntheticMention(1), 4, syntheticMention(4))
+      )
+    )
+    assertRejected(bad, "positions: positions [1] appear on both the left and the right")
+  }
+
+  // ---- Phase 4: MatchCandidate --------------------------------------------------------------
+  test("match candidate fixture is valid") {
+    assertEquals(errorsOf(matchCandidate), Nil)
+  }
+
+  test("match candidate: mention pairs are in canonical order, no self pairs") {
+    val swapped = matchCandidate.copy(left = matchCandidate.right, right = matchCandidate.left)
+    assertRejected(swapped, "left/right: undirected pair")
+    assertRejected(matchCandidate.copy(right = matchCandidate.left), "left/right: undirected pair")
+  }
+
+  test("match candidate subjects must match the subject kind") {
+    assertRejected(matchCandidate.copy(left = workId.value), "left: '" + workId.value)
+    val researcher = matchCandidate.copy(subjectKind = MatchSubjectKind.MentionResearcher)
+    assertRejected(researcher, "right: '")
+    val r = sousa.value
+    val ok = MatchCandidate(
+      1,
+      MatchCandidateId
+        .of(MatchSubjectKind.MentionResearcher, matchCandidate.left, r, "f", "k")
+        .toOption
+        .get,
+      MatchSubjectKind.MentionResearcher,
+      matchCandidate.left,
+      r,
+      "f",
+      "k",
+      matchCandidate.features,
+      matchCandidate.provenance
+    )
+    assertEquals(errorsOf(ok), Nil)
+  }
+
+  test("match candidate ID must follow MatchCandidateId.of") {
+    assertRejected(matchCandidate.copy(blockKey = "Other"), "candidateId:")
+    assertRejected(matchCandidate.copy(blockFamily = "other-family"), "candidateId:")
+    assertRejected(
+      matchCandidate.copy(candidateId = MatchCandidateId("match-candidate:v1:zz")),
+      "candidateId: malformed stable ID"
+    )
+  }
+
+  test("match candidate block family and key are well-formed") {
+    assertRejected(matchCandidate.copy(blockFamily = "Bad Family"), "blockFamily: 'Bad Family'")
+    assertRejected(matchCandidate.copy(blockFamily = ""), "blockFamily:")
+    assertRejected(matchCandidate.copy(blockKey = " "), "blockKey: must not be blank")
+    assertRejected(
+      matchCandidate.copy(blockKey = "a" + 0.toChar + "b"),
+      "blockKey: must not contain"
+    )
+  }
+
+  test("match candidate features: non-empty, named, finite, distinct, sorted by name") {
+    val fs = matchCandidate.features
+    assertRejected(matchCandidate.copy(features = Nil), "features: must not be empty")
+    assertRejected(matchCandidate.copy(features = fs.reverse), "features: must be sorted")
+    assertRejected(
+      matchCandidate.copy(features = List(fs.head, fs.head)),
+      "features.name: contains duplicates"
+    )
+    assertRejected(
+      matchCandidate.copy(features = List(MatchFeature(" ", 1.0))),
+      "features[0].name: must not be blank"
+    )
+    List(Double.NaN, Double.PositiveInfinity, Double.NegativeInfinity).foreach { v =>
+      assertRejected(
+        matchCandidate.copy(features = List(MatchFeature("x", v))),
+        "features[0].value: must be finite"
+      )
+    }
+    // Negative values are allowed (for example signed differences); only finiteness is required.
+    assertEquals(errorsOf(matchCandidate.copy(features = List(MatchFeature("x", -1.0)))), Nil)
+  }
+
+  test("match candidate without provenance is rejected") {
+    assertRejected(matchCandidate.copy(provenance = null), "provenance: missing (null)")
   }
 }

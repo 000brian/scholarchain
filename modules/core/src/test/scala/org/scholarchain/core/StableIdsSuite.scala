@@ -118,6 +118,61 @@ class StableIdsSuite extends munit.FunSuite {
     )
   }
 
+  // Mentions of conf/sigir/SyntheticA24 position 1 and journals/pvldb/SyntheticE15 position 0.
+  val mentionA = "mention:v1:00853dba003e529ef7295ad10ecae82b"
+  val mentionB = "mention:v1:3fe0d2d64d85640503e25bfdc095bcfc"
+
+  test("golden: MatchCandidateId.of") {
+    assertEquals(
+      MentionId.of(WorkId.fromDblpKey("conf/sigir/SyntheticA24"), 1).value,
+      mentionA
+    )
+    assertEquals(
+      MentionId.of(WorkId.fromDblpKey("journals/pvldb/SyntheticE15"), 0).value,
+      mentionB
+    )
+    val id = MatchCandidateId.of(
+      MatchSubjectKind.MentionPair,
+      mentionA,
+      mentionB,
+      "dblp-base-name",
+      "Synthetic Author"
+    )
+    assertEquals(id.map(_.value), Right("match-candidate:v1:aac7158dffa4fd74256a524403a22e6a"))
+  }
+
+  test("mention-pair candidate IDs are order-independent; self pairs have no ID") {
+    def of(l: String, r: String) =
+      MatchCandidateId.of(MatchSubjectKind.MentionPair, l, r, "f", "k")
+    assertEquals(of(mentionA, mentionB), of(mentionB, mentionA))
+    assert(of(mentionA, mentionA).isLeft)
+  }
+
+  test("mention-researcher candidate IDs keep subject roles (mention first)") {
+    val r = "researcher:v1:6d39fb31017461bdf6bbe118864d1809"
+    def of(l: String, rr: String) =
+      MatchCandidateId.of(MatchSubjectKind.MentionResearcher, l, rr, "f", "k")
+    assert(of(mentionA, r).isRight)
+    assertNotEquals(of(mentionA, r), of(r, mentionA))
+  }
+
+  test("every match candidate ID input changes the ID") {
+    def of(k: MatchSubjectKind, l: String, r: String, f: String, key: String) =
+      right(MatchCandidateId.of(k, l, r, f, key))
+    val pair = MatchSubjectKind.MentionPair
+    val base = of(pair, mentionA, mentionB, "f", "k")
+    val other = "mention:v1:34f70b4567c43fb2e857c8765d12d7b3"
+    List(
+      of(MatchSubjectKind.MentionResearcher, mentionA, mentionB, "f", "k"),
+      of(pair, other, mentionB, "f", "k"),
+      of(pair, mentionA, other, "f", "k"),
+      of(pair, mentionA, mentionB, "g", "k"),
+      of(pair, mentionA, mentionB, "f", "K")
+    ).foreach(id => assertNotEquals(id, base))
+    assert(MatchCandidateId.parse(base.value).isRight)
+    assert(base.value.startsWith("match-candidate:v1:"))
+  }
+
   test("IDs are deterministic: same inputs, same ID, across repeated calls") {
     val ids = (1 to 3).map(_ => WorkId.fromDblpKey("conf/sigir/0003SM23"))
     assertEquals(ids.distinct.size, 1)

@@ -233,3 +233,17 @@ object LinkSubjectKind extends WireEnumCompanion[LinkSubjectKind]("link subject 
 
   val values: List[LinkSubjectKind] = List(Work, Mention, Venue)
 }
+
+/** What a [[MatchCandidate]] compares. */
+sealed trait MatchSubjectKind extends WireEnum
+object MatchSubjectKind extends WireEnumCompanion[MatchSubjectKind]("match subject kind") {
+
+  /** Two author mentions (`left`, `right` are [[MentionId]]s, an unordered canonical pair). */
+  case object MentionPair extends MatchSubjectKind { val wire = "mention_pair" }
+
+  /** A mention and a resolved researcher (`left` is a [[MentionId]], `right` a [[ResearcherId]]).
+    */
+  case object MentionResearcher extends MatchSubjectKind { val wire = "mention_researcher" }
+
+  val values: List[MatchSubjectKind] = List(MentionPair, MentionResearcher)
+}

@@ -110,8 +110,11 @@ object Fixtures {
   val provenance: Provenance = dblpProvenance(List(dblpKey))
 
   // ---- pipeline records -----------------------------------------------------------------
+  val eeLink = "https://doi.org/10.1145/3539618.3591892"
+  val tocUrl = "db/conf/sigir/sigir2023.html#Sousa0J23"
+
   val workRecord: WorkRecord = WorkRecord(
-    schemaVersion = 1,
+    schemaVersion = 2,
     workId = workId,
     dblpKey = dblpKey,
     publicationType = "inproceedings",
@@ -119,6 +122,8 @@ object Fixtures {
     year = 2023,
     venueKey = Some("conf/sigir"),
     doi = Some("10.1145/3539618.3591892"),
+    eeLinks = List(eeLink),
+    urls = List(tocUrl),
     authorNames = authorNames,
     provenance = provenance
   )
@@ -219,14 +224,81 @@ object Fixtures {
     provenance = provenance
   )
 
+  // Jorge (position 2) sorts before Sousa (position 0): positions follow the canonical names.
+  val jorgeMention: MentionId = MentionId.of(workId, 2)
   val coauthorPairCandidate: CoauthorPairCandidate = CoauthorPairCandidate(
-    schemaVersion = 1,
+    schemaVersion = 2,
     workId = workId,
     year = 2023,
     left = jorgeName,
     right = sousaName,
+    positions = List(PairPosition(2, jorgeMention, 0, sousaMention)),
     teamSize = 3,
     provenance = provenance
+  )
+
+  // ---- synthetic homonym record conf/sigir/SyntheticA24 (datasets/samples, SYNTHETIC) ------
+  // Authors: 0 "Synthetic Author 0001", 1 "Synthetic Author 0002", 2, 3, 4 "Synthetic Author 0001".
+  val syntheticKey = "conf/sigir/SyntheticA24"
+  val syntheticWork: WorkId = WorkId.fromDblpKey(syntheticKey)
+  def syntheticMention(position: Int): MentionId = MentionId.of(syntheticWork, position)
+
+  /** One work and name pair supported by two position pairs (the same name at positions 0 and 4).
+    */
+  val consolidatedPair: CoauthorPairCandidate = CoauthorPairCandidate(
+    schemaVersion = 2,
+    workId = syntheticWork,
+    year = 2024,
+    left = "Synthetic Author 0001",
+    right = "Synthetic Author 0002",
+    positions = List(
+      PairPosition(0, syntheticMention(0), 1, syntheticMention(1)),
+      PairPosition(4, syntheticMention(4), 1, syntheticMention(1))
+    ),
+    teamSize = 5,
+    provenance = dblpProvenance(List(syntheticKey))
+  )
+
+  // ---- match candidate (SYNTHETIC mentions sharing the dblp base name "Synthetic Author") ---
+  val candidateFeatureRun: RunId = get(
+    RunId.of(
+      "hadoop.j06-candidate-features",
+      "fixture-code-version",
+      ContentHash.of("fixture input candidate blocks"),
+      configFingerprint
+    )
+  )
+  val (candidateLeft, candidateRight) = get(
+    UndirectedPair.canonical(
+      syntheticMention(1).value,
+      MentionId.of(WorkId.fromDblpKey("journals/pvldb/SyntheticE15"), 0).value
+    )
+  )
+
+  val matchCandidate: MatchCandidate = MatchCandidate(
+    schemaVersion = 1,
+    candidateId = get(
+      MatchCandidateId.of(
+        MatchSubjectKind.MentionPair,
+        candidateLeft,
+        candidateRight,
+        "fixture-block-family",
+        "Synthetic Author"
+      )
+    ),
+    subjectKind = MatchSubjectKind.MentionPair,
+    left = candidateLeft,
+    right = candidateRight,
+    blockFamily = "fixture-block-family",
+    blockKey = "Synthetic Author",
+    // Labelled fixture feature names: which features exist is entity-resolution policy.
+    features = List(MatchFeature("fixture_feature_a", 1.0), MatchFeature("fixture_feature_b", 9.0)),
+    provenance = pipelineProvenance(
+      candidateFeatureRun,
+      "hadoop.j06-candidate-features",
+      "fixture-feature-policy/1",
+      List(candidateLeft, candidateRight)
+    )
   )
 
   val coauthorEdge: CoauthorEdge = CoauthorEdge(

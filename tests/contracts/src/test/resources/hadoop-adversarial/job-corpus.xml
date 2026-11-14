@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SYNTHETIC DATA (test-engineer, tests/contracts). Not real publications or people.
+  Job-level adversarial corpus for J01 (DblpExtractJob) run with the local job runner.
+  Expected per-record outcomes are asserted in JobLevelDblpAdversarialSuite. The file ends
+  inside a record on purpose (truncated input).
+-->
+<!DOCTYPE dblp [
+<!ENTITY eacute "&#233;">
+]>
+<dblp>
+<inproceedings mdate="2026-11-13" key="conf/sigir/JobGood20">
+<author>Synthetic Alpha</author>
+<author>Synth&eacute;tic Beta</author>
+<author>Synthetic Gamma</author>
+<title>[SYNTHETIC] Accepted record.</title>
+<year>2020</year>
+<booktitle>SIGIR</booktitle>
+</inproceedings>
+<inproceedings mdate="2026-11-13" key="conf/sigir/JobGood20">
+<author>Synthetic Alpha</author>
+<author>Synth&eacute;tic Beta</author>
+<author>Synthetic Gamma</author>
+<title>[SYNTHETIC] Accepted record.</title>
+<year>2020</year>
+<booktitle>SIGIR</booktitle>
+</inproceedings>
+<inproceedings mdate="2026-11-13" key="conf/sigir/JobConflict21">
+<author>Synthetic Delta</author>
+<author>Synthetic Epsilon</author>
+<title>[SYNTHETIC] First version of a conflicting key.</title>
+<year>2021</year>
+<booktitle>SIGIR</booktitle>
+</inproceedings>
+<inproceedings mdate="2026-11-13" key="conf/sigir/JobConflict21">
+<author>Synthetic Delta</author>
+<author>Synthetic Epsilon</author>
+<title>[SYNTHETIC] Second, different version of a conflicting key.</title>
+<year>2021</year>
+<booktitle>SIGIR</booktitle>
+</inproceedings>
+<inproceedings mdate="2026-11-13" key="conf/sigir/JobMalformed22">
+<author>Synthetic Zeta</author>
+<title>[SYNTHETIC] Mismatched end tag.</titel>
+<year>2022</year>
+<booktitle>SIGIR</booktitle>
+</inproceedings>
+<inproceedings mdate="2026-11-13" key="conf/sigir/JobEntity22">
+<author>Synthetic Eta</author>
+<title>[SYNTHETIC] Undeclared entity &nosuchentity; here.</title>
+<year>2022</year>
+<booktitle>SIGIR</booktitle>
+</inproceedings>
+<inproceedings mdate="2026-11-13">
+<author>Synthetic Theta</author>
+<title>[SYNTHETIC] No key attribute.</title>
+<year>2022</year>
+<booktitle>SIGIR</booktitle>
+</inproceedings>
+<inproceedings mdate="2026-11-13" key="conf/sigir/JobNoTitle22">
+<author>Synthetic Iota</author>
+<year>2022</year>
+<booktitle>SIGIR</booktitle>
+</inproceedings>
+<inproceedings mdate="2026-11-13" key="conf/sigir/JobNoAuthors22">
+<title>[SYNTHETIC] No authors.</title>
+<year>2022</year>
+<booktitle>SIGIR</booktitle>
+</inproceedings>
+<inproceedings mdate="2026-11-13" key="conf/sigir/JobOld10">
+<author>Synthetic Kappa</author>
+<title>[SYNTHETIC] Before the subset window.</title>
+<year>2010</year>
+<booktitle>SIGIR</booktitle>
+</inproceedings>
+<www mdate="2026-11-13" key="homepages/00/0000">
+<author>Synthetic Lambda</author>
+<title>Home Page</title>
+</www>
+<inproceedings mdate="2026-11-13" key="conf/sigir/JobTruncated23">
+<author>Synthetic Mu</author>
+<title>[SYNTHETIC] The file ends inside this rec

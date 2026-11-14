@@ -10,21 +10,30 @@ import scala.collection.immutable.ListMap
   */
 object SchemaVersions {
 
-  /** Current version written by producers, per schema name. */
+  /** Current version written by producers, per schema name.
+    *
+    * History:
+    *   - WorkRecord 2 (Phase 4, breaking): adds required `eeLinks` and `urls` (dblp `<ee>` and
+    *     `<url>` in source order) and requires `doi` to be the DOI of one of the `eeLinks`.
+    *   - CoauthorPairCandidate 2 (Phase 4, breaking): adds required `positions` (author positions
+    *     and mention IDs of every supporting position pair).
+    *   - MatchCandidate 1 (Phase 4, new).
+    */
   val current: ListMap[String, Int] = ListMap(
     "Provenance" -> 1,
-    "WorkRecord" -> 1,
+    "WorkRecord" -> 2,
     "AuthorMention" -> 1,
     "ExternalIdLink" -> 1,
     "CanonicalResearcher" -> 1,
     "AuthorshipRecord" -> 1,
     "PublicationTeam" -> 1,
-    "CoauthorPairCandidate" -> 1,
+    "CoauthorPairCandidate" -> 2,
     "CoauthorEdge" -> 1,
     "ResearcherMetrics" -> 1,
     "Venue" -> 1,
     "Institution" -> 1,
     "Topic" -> 1,
+    "MatchCandidate" -> 1,
     "MatchDecision" -> 1,
     "GraphNode" -> 1,
     "GraphEdge" -> 1,
