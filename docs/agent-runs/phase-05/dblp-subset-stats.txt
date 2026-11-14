@@ -1,0 +1,108 @@
+{
+  "author_mentions": 758314,
+  "distinct_author_names": 201074,
+  "distinct_dois": 124717,
+  "distinct_pairs": 1614044,
+  "distinct_pairs_per_prefix": {
+    "conf/aaai/": 164030,
+    "conf/acl/": 160370,
+    "conf/cikm/": 57332,
+    "conf/cvpr/": 436990,
+    "conf/emnlp/": 165702,
+    "conf/iccv/": 132493,
+    "conf/icde/": 34703,
+    "conf/ijcai/": 77994,
+    "conf/kdd/": 66145,
+    "conf/mm/": 92467,
+    "conf/nips/": 325523,
+    "conf/sigir/": 32708,
+    "conf/sigmod/": 26318,
+    "conf/wsdm/": 13913,
+    "conf/www/": 67583,
+    "journals/pvldb/": 44670
+  },
+  "excluded": {
+    "element": 4578132,
+    "key_prefix": 8253456,
+    "publtype": 35,
+    "year": 85641
+  },
+  "input": "dblp-2026-11-01.xml.gz",
+  "invalid_orcid_attrs": 0,
+  "pair_instances": 2231914,
+  "pair_instances_per_prefix": {
+    "conf/aaai/": 191141,
+    "conf/acl/": 196512,
+    "conf/cikm/": 66046,
+    "conf/cvpr/": 520919,
+    "conf/emnlp/": 199817,
+    "conf/iccv/": 148085,
+    "conf/icde/": 41989,
+    "conf/ijcai/": 89043,
+    "conf/kdd/": 76247,
+    "conf/mm/": 110887,
+    "conf/nips/": 376693,
+    "conf/sigir/": 40979,
+    "conf/sigmod/": 29738,
+    "conf/wsdm/": 15400,
+    "conf/www/": 76008,
+    "journals/pvldb/": 52410
+  },
+  "parse_error": null,
+  "prefixes_with_zero_works": [],
+  "records_seen": 13073341,
+  "rule": {
+    "excluded_publtype_tokens": [
+      "informal"
+    ],
+    "key_prefixes": [
+      "conf/sigir/",
+      "conf/kdd/",
+      "conf/www/",
+      "conf/cikm/",
+      "conf/wsdm/",
+      "conf/icde/",
+      "conf/sigmod/",
+      "journals/pvldb/",
+      "conf/mm/",
+      "conf/cvpr/",
+      "conf/iccv/",
+      "conf/aaai/",
+      "conf/ijcai/",
+      "conf/emnlp/",
+      "conf/acl/",
+      "conf/nips/"
+    ],
+    "record_elements": [
+      "article",
+      "inproceedings"
+    ],
+    "year_max": 2025,
+    "year_min": 2015
+  },
+  "truncated": false,
+  "valid_orcid_attrs": 140086,
+  "works": 156077,
+  "works_per_prefix": {
+    "conf/aaai/": 19302,
+    "conf/acl/": 13119,
+    "conf/cikm/": 5962,
+    "conf/cvpr/": 22799,
+    "conf/emnlp/": 14837,
+    "conf/iccv/": 9497,
+    "conf/icde/": 3680,
+    "conf/ijcai/": 10259,
+    "conf/kdd/": 5047,
+    "conf/mm/": 8132,
+    "conf/nips/": 25428,
+    "conf/sigir/": 4061,
+    "conf/sigmod/": 2318,
+    "conf/wsdm/": 1558,
+    "conf/www/": 6638,
+    "journals/pvldb/": 3440
+  },
+  "works_with_doi": 124717,
+  "works_with_orcid_attr": 62651,
+  "works_zero_authors": 99
+}
+exit=0
