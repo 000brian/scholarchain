@@ -352,15 +352,112 @@ object Fixtures {
     provenance = pipelineProvenance(graphRun, "spark.topics", "topic-policy/1", List(dblpKey))
   )
 
+  // ---- match decisions (v2) and LLM adjudication (labelled fixture policy, rule and code names) --
+  val matchPolicy = "fixture-match-policy/1"
+  val decisionTime = "2026-11-14T00:00:00Z"
+
+  /** A pairwise decision of the fixture candidate (probabilistic path). */
   val matchDecision: MatchDecision = MatchDecision(
+    schemaVersion = 2,
+    subjectKind = MatchSubjectKind.MentionPair,
+    left = candidateLeft,
+    right = candidateRight,
+    candidateId = Some(matchCandidate.candidateId),
+    outcome = MatchOutcome.Rejected,
+    matchPath = MatchPath.Probabilistic,
+    confidence = 0.83,
+    features = matchCandidate.features,
+    rulesFired = List("fixture-score-below-reject"),
+    reasonCodes = List("FIXTURE_LOW_SCORE"),
+    modelVersion = None,
+    promptVersion = None,
+    policyVersion = matchPolicy,
+    decisionTime = decisionTime,
+    provenance = pipelineProvenance(
+      erRun,
+      "entity-resolution.resolve",
+      matchPolicy,
+      List(candidateLeft, candidateRight)
+    )
+  )
+
+  /** The identity assignment of one mention to its cluster (decision 5): no candidate. */
+  val identityAssignment: MatchDecision = MatchDecision(
+    schemaVersion = 2,
+    subjectKind = MatchSubjectKind.MentionResearcher,
+    left = sousaMention.value,
+    right = sousa.value,
+    candidateId = None,
+    outcome = MatchOutcome.Accepted,
+    matchPath = MatchPath.Deterministic,
+    confidence = 1.0,
+    features = Nil,
+    rulesFired = List("fixture-dblp-prior"),
+    reasonCodes = Nil,
+    modelVersion = None,
+    promptVersion = None,
+    policyVersion = matchPolicy,
+    decisionTime = decisionTime,
+    provenance = pipelineProvenance(
+      erRun,
+      "entity-resolution.resolve",
+      matchPolicy,
+      List(sousaMention.value)
+    )
+  )
+
+  val modelVersion = "fixture-model-version"
+  val promptVersion = "fixture-adjudication-prompt/1"
+
+  /** A pairwise decision after the LLM abstained (llm path, unresolved). */
+  val llmDecision: MatchDecision = matchDecision.copy(
+    outcome = MatchOutcome.Unresolved,
+    matchPath = MatchPath.Llm,
+    confidence = 0.5,
+    rulesFired = List("fixture-llm-band"),
+    reasonCodes = List("FIXTURE_LLM_ABSTAINED"),
+    modelVersion = Some(modelVersion),
+    promptVersion = Some(promptVersion)
+  )
+
+  // Two mention-researcher candidates for one mention, offered to the adjudicator.
+  def researcherCandidate(r: ResearcherId): MatchCandidateId = get(
+    MatchCandidateId.of(
+      MatchSubjectKind.MentionResearcher,
+      candidateLeft,
+      r.value,
+      "fixture-block-family",
+      "Synthetic Author"
+    )
+  )
+  val offeredCandidates: List[MatchCandidateId] =
+    List(researcherCandidate(sousa), researcherCandidate(campos))
+      .sortBy(_.value)(CodePointOrder.ordering)
+  val chosenCandidate: MatchCandidateId = researcherCandidate(campos)
+  val adjudicationInput = "fixture adjudication input (not a real prompt or source record)"
+  val adjudicationInputHash: String = ContentHash.of(adjudicationInput)
+
+  val llmAdjudication: LlmAdjudication = LlmAdjudication(
     schemaVersion = 1,
-    mentionId = sousaMention,
-    candidateResearcherId = Some(sousa),
-    outcome = MatchOutcome.Match,
-    confidence = 0.97,
-    features = List(MatchFeature("orcid_equal", 1.0), MatchFeature("name_similarity", 1.0)),
-    provenance =
-      pipelineProvenance(erRun, "entity-resolution.resolve", "match-policy/1", List(dblpKey))
+    adjudicationId =
+      get(LlmAdjudicationId.of(adjudicationInputHash, promptVersion, modelVersion, matchPolicy)),
+    inputHash = adjudicationInputHash,
+    offeredCandidateIds = offeredCandidates,
+    outcome = AdjudicationOutcome.Accept,
+    chosenCandidateId = Some(chosenCandidate),
+    citedInputFields = List("candidates[1].coauthors", "mention.coauthors"),
+    confidence = 0.9,
+    reasonCodes = List("FIXTURE_SHARED_COAUTHORS"),
+    promptVersion = promptVersion,
+    modelVersion = modelVersion,
+    policyVersion = matchPolicy,
+    provenance = pipelineProvenance(
+      erRun,
+      "entity-resolution.llm-adjudicate",
+      matchPolicy,
+      offeredCandidates.map(_.value),
+      Some(adjudicationInputHash)
+    )
   )
 
   val graphNode: GraphNode = GraphNode(

@@ -18,6 +18,12 @@ object SchemaVersions {
     *   - CoauthorPairCandidate 2 (Phase 4, breaking): adds required `positions` (author positions
     *     and mention IDs of every supporting position pair).
     *   - MatchCandidate 1 (Phase 4, new).
+    *   - MatchDecision 2 (Phase 5, breaking): subjects follow the MatchCandidate convention
+    *     (`subjectKind`, `left`, `right` replace `mentionId` and `candidateResearcherId`); adds
+    *     `candidateId`, `matchPath`, `rulesFired`, `reasonCodes`, `modelVersion`, `promptVersion`,
+    *     `policyVersion`, `decisionTime`; `outcome` wire names are now `accepted`, `rejected`,
+    *     `unresolved`, `conflict`.
+    *   - LlmAdjudication 1 (Phase 5, new).
     */
   val current: ListMap[String, Int] = ListMap(
     "Provenance" -> 1,
@@ -34,7 +40,8 @@ object SchemaVersions {
     "Institution" -> 1,
     "Topic" -> 1,
     "MatchCandidate" -> 1,
-    "MatchDecision" -> 1,
+    "MatchDecision" -> 2,
+    "LlmAdjudication" -> 1,
     "GraphNode" -> 1,
     "GraphEdge" -> 1,
     "EvidenceItem" -> 1,

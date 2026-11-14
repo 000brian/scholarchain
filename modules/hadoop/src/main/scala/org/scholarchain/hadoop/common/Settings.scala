@@ -205,11 +205,16 @@ object Settings {
     val BlockingEmitSingletons = "scholarchain.blocking.emitSingletons"
     val BlockingPolicy = "scholarchain.blocking.policyVersion"
     val BlockingReducers = "scholarchain.blocking.reducers"
+    val FallbackFamilies = "scholarchain.blocking.fallback.families"
+    val FallbackSecondaryKeys = "scholarchain.blocking.fallback.secondaryKeys"
+    val FallbackMaxBlock = "scholarchain.blocking.fallback.maxBlockSize"
+    val FallbackReducers = "scholarchain.blocking.fallback.reducers"
 
     val CandidateFeatureSet = "scholarchain.candidates.featureSet"
     val CandidateMaxPairsPerBlock = "scholarchain.candidates.maxPairsPerBlock"
     val CandidatePairsPerShard = "scholarchain.candidates.pairsPerShard"
     val CandidateReducers = "scholarchain.candidates.reducers"
+    val CandidateSkipSameNumberedName = "scholarchain.candidates.skipSameNumberedName"
 
     val ExportReducers = "scholarchain.export.reducers"
     val ExportPolicy = "scholarchain.export.policyVersion"

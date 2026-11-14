@@ -296,3 +296,25 @@ object JobRunner {
   def fromRuns(runs: List[RunId])(mk: String => JobSpec): JobSpec =
     mk(fingerprintRuns(runs)).copy(inputRuns = runs)
 }
+
+/** Callbacks around each job of a pipeline (for example a local runner that times jobs and checks
+  * free disk space between them). They observe only; they never change job inputs, configuration or
+  * outputs. `starting` may throw to stop the pipeline before the named job runs.
+  */
+trait JobObserver {
+  def starting(jobName: String): Unit = ()
+  def finished(result: JobResult, wallMillis: Long): Unit = ()
+}
+
+object JobObserver {
+  val Silent: JobObserver = new JobObserver {}
+
+  /** Runs one job between the observer's callbacks. */
+  def around(o: JobObserver, jobName: String)(run: => JobResult): JobResult = {
+    o.starting(jobName)
+    val t0 = System.nanoTime()
+    val r = run
+    o.finished(r, (System.nanoTime() - t0) / 1000000L)
+    r
+  }
+}

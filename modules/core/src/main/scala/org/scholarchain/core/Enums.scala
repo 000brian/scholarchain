@@ -42,17 +42,68 @@ object SourceType extends WireEnumCompanion[SourceType]("source type") {
   val values: List[SourceType] = List(Dblp, OpenAlex, Crossref, Orcid, Pipeline, Runtime)
 }
 
-/** Entity-resolution outcome for a mention against a candidate researcher. */
+/** Entity-resolution decision outcome of a [[MatchDecision]] (schema version 2).
+  *
+  * Phase 5 (breaking, with MatchDecision v2): the v1 wire names `match`, `possible_match` and
+  * `non_match` were replaced by `accepted`, `rejected` and `conflict`; `unresolved` is kept.
+  */
 sealed trait MatchOutcome extends WireEnum
 object MatchOutcome extends WireEnumCompanion[MatchOutcome]("match outcome") {
-  case object Match extends MatchOutcome { val wire = "match" }
-  case object PossibleMatch extends MatchOutcome { val wire = "possible_match" }
-  case object NonMatch extends MatchOutcome { val wire = "non_match" }
 
-  /** No candidate could be decided; identity uncertainty is reported, not hidden. */
+  /** The subjects are the same entity (for an identity assignment: the mention belongs to the named
+    * researcher cluster).
+    */
+  case object Accepted extends MatchOutcome { val wire = "accepted" }
+
+  /** The subjects are different entities. */
+  case object Rejected extends MatchOutcome { val wire = "rejected" }
+
+  /** The evidence was insufficient to decide; identity uncertainty is reported, not hidden. */
   case object Unresolved extends MatchOutcome { val wire = "unresolved" }
 
-  val values: List[MatchOutcome] = List(Match, PossibleMatch, NonMatch, Unresolved)
+  /** Authoritative identifiers or structural facts disagree (for example two different valid ORCID
+    * iDs, or two mentions of the same work); never merged.
+    */
+  case object Conflict extends MatchOutcome { val wire = "conflict" }
+
+  val values: List[MatchOutcome] = List(Accepted, Rejected, Unresolved, Conflict)
+}
+
+/** How a [[MatchDecision]] was reached. */
+sealed trait MatchPath extends WireEnum
+object MatchPath extends WireEnumCompanion[MatchPath]("match path") {
+
+  /** An exact rule over an authoritative identifier (DOI, ORCID iD, OpenAlex ID, arXiv ID, ...). */
+  case object ExactId extends MatchPath { val wire = "exact_id" }
+
+  /** A deterministic bibliographic rule (for example the dblp-prior rule). */
+  case object Deterministic extends MatchPath { val wire = "deterministic" }
+
+  /** A weighted score compared with the policy thresholds. */
+  case object Probabilistic extends MatchPath { val wire = "probabilistic" }
+
+  /** LLM adjudication of a candidate in the policy's LLM band (see [[LlmAdjudication]]). */
+  case object Llm extends MatchPath { val wire = "llm" }
+
+  val values: List[MatchPath] = List(ExactId, Deterministic, Probabilistic, Llm)
+}
+
+/** Outcome of one [[LlmAdjudication]]: the model's answer, before entity-resolution policy turns it
+  * into a [[MatchOutcome]].
+  */
+sealed trait AdjudicationOutcome extends WireEnum
+object AdjudicationOutcome extends WireEnumCompanion[AdjudicationOutcome]("adjudication outcome") {
+
+  /** The model chose exactly one of the offered candidates. */
+  case object Accept extends AdjudicationOutcome { val wire = "accept" }
+
+  /** The model judged that none of the offered candidates matches. */
+  case object Reject extends AdjudicationOutcome { val wire = "reject" }
+
+  /** The model declined to decide. */
+  case object Abstain extends AdjudicationOutcome { val wire = "abstain" }
+
+  val values: List[AdjudicationOutcome] = List(Accept, Reject, Abstain)
 }
 
 sealed trait EvidenceType extends WireEnum

@@ -2,9 +2,9 @@ package org.scholarchain.hadoop.pipeline
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
-import org.scholarchain.hadoop.blocking.BlockingJob
+import org.scholarchain.hadoop.blocking.{BlockingJob, FallbackBlockingJob, FallbackCoverageJob}
 import org.scholarchain.hadoop.candidates.CandidateFeatureJob
-import org.scholarchain.hadoop.common.{JobResult, JobRunner, PathIds}
+import org.scholarchain.hadoop.common.{JobObserver, JobResult, JobRunner, PathIds}
 import org.scholarchain.hadoop.dblp.DblpExtractJob
 import org.scholarchain.hadoop.graphexport.{ExportEntity, GraphExportJob}
 import org.scholarchain.hadoop.ids.ExactIdJoinJob
@@ -38,11 +38,14 @@ final case class PipelineResult(
     normalize: List[JobResult],
     join: JobResult,
     blocking: JobResult,
+    fallbackBlocking: JobResult,
+    fallbackCoverage: JobResult,
     candidates: JobResult,
     graphExport: JobResult
 ) {
   def all: List[JobResult] =
-    dblp.all ++ normalize ++ List(join, blocking, candidates, graphExport)
+    dblp.all ++ normalize ++
+      List(join, blocking, fallbackBlocking, fallbackCoverage, candidates, graphExport)
 }
 
 /** The Hadoop job graph:
@@ -51,7 +54,10 @@ final case class PipelineResult(
   * dblp XML --J01--> works, mentions, venues
   *   works + mentions --J07--> teams, authorPapers, mentionContexts
   *   teams --J08a--> pairInstances --J08b--> pairs
-  *   mentionContexts --J05--> blocks --J06--> candidates (MatchCandidate)
+  *   mentionContexts --J05--> blocks, oversizeMembers
+  *     oversizeMembers --J05b--> fallback blocks, coverage
+  *     oversizeMembers + coverage --J05c--> uncoveredMembers, oversizeKeySummary
+  *     blocks + fallback blocks --J06--> candidates (MatchCandidate)
   * enrichment JSONL --J02 (per kind)--> normalized, institutions, topics
   * mentionContexts + normalized --J03/J04--> links
   * works, authorPapers, teams, pairs, links, institutions, topics, venues, candidates
@@ -70,61 +76,111 @@ object Pipeline {
       .distinct
       .sorted).mkString("+")
 
-  def run(conf: Configuration, spec: PipelineSpec): PipelineResult = {
+  /** Runs every job in order.
+    *
+    * @param observer
+    *   callbacks around each job (timing, disk checks); observation only, outputs never depend on
+    *   it
+    */
+  def run(
+      conf: Configuration,
+      spec: PipelineSpec,
+      observer: JobObserver = JobObserver.Silent
+  ): PipelineResult = {
+    def step(name: String)(job: => JobResult): JobResult = JobObserver.around(observer, name)(job)
     val dblp = DblpChain.run(
       conf,
       spec.dblpInput,
       spec.outputRoot,
       spec.dblpSnapshot,
-      spec.dblpInputFingerprint
+      spec.dblpInputFingerprint,
+      observer
     )
     val normalize = spec.sources.map { s =>
-      JobRunner.run(
-        conf,
-        NormalizeJob.spec(
-          s.kind,
-          s.path,
-          spec.outputRoot,
-          s.datasetId,
-          s.snapshotId,
-          JobRunner.fingerprintFiles(conf, List(s.path))
+      step(NormalizeJob.JobNamePrefix + s.kind)(
+        JobRunner.run(
+          conf,
+          NormalizeJob.spec(
+            s.kind,
+            s.path,
+            spec.outputRoot,
+            s.datasetId,
+            s.snapshotId,
+            JobRunner.fingerprintFiles(conf, List(s.path))
+          )
         )
       )
     }
     val label = snapshotLabel(spec)
     val scope = s"linked/$label"
-    val join = JobRunner.run(
-      conf,
-      JobRunner.fromRuns(dblp.teams.runId :: normalize.map(_.runId))(
-        ExactIdJoinJob.spec(
-          List(dblp.teams.dir(PublicationTeamJob.Contexts)),
-          normalize.map(_.dir(NormalizeJob.Normalized)),
-          spec.outputRoot,
-          scope,
-          label,
-          _
+    val join = step(ExactIdJoinJob.JobName)(
+      JobRunner.run(
+        conf,
+        JobRunner.fromRuns(dblp.teams.runId :: normalize.map(_.runId))(
+          ExactIdJoinJob.spec(
+            List(dblp.teams.dir(PublicationTeamJob.Contexts)),
+            normalize.map(_.dir(NormalizeJob.Normalized)),
+            spec.outputRoot,
+            scope,
+            label,
+            _
+          )
         )
       )
     )
-    val blocking = JobRunner.run(
-      conf,
-      JobRunner.fromRuns(List(dblp.teams.runId))(
-        BlockingJob.spec(
-          dblp.teams.dir(PublicationTeamJob.Contexts),
-          spec.outputRoot,
-          spec.dblpSnapshot,
-          _
+    val blocking = step(BlockingJob.JobName)(
+      JobRunner.run(
+        conf,
+        JobRunner.fromRuns(List(dblp.teams.runId))(
+          BlockingJob.spec(
+            dblp.teams.dir(PublicationTeamJob.Contexts),
+            spec.outputRoot,
+            spec.dblpSnapshot,
+            _
+          )
         )
       )
     )
-    val candidates = JobRunner.run(
-      conf,
-      JobRunner.fromRuns(List(blocking.runId))(
-        CandidateFeatureJob.spec(
-          blocking.dir(BlockingJob.Blocks),
-          spec.outputRoot,
-          spec.dblpSnapshot,
-          _
+    val fallbackBlocking = step(FallbackBlockingJob.JobName)(
+      JobRunner.run(
+        conf,
+        JobRunner.fromRuns(List(blocking.runId))(
+          FallbackBlockingJob.spec(
+            blocking.dir(BlockingJob.OversizeMembers),
+            spec.outputRoot,
+            spec.dblpSnapshot,
+            _
+          )
+        )
+      )
+    )
+    val fallbackCoverage = step(FallbackCoverageJob.JobName)(
+      JobRunner.run(
+        conf,
+        JobRunner.fromRuns(List(blocking.runId, fallbackBlocking.runId))(
+          FallbackCoverageJob.spec(
+            blocking.dir(BlockingJob.OversizeMembers),
+            fallbackBlocking.dir(FallbackBlockingJob.Coverage),
+            spec.outputRoot,
+            spec.dblpSnapshot,
+            _
+          )
+        )
+      )
+    )
+    val candidates = step(CandidateFeatureJob.JobName)(
+      JobRunner.run(
+        conf,
+        JobRunner.fromRuns(List(blocking.runId, fallbackBlocking.runId))(
+          CandidateFeatureJob.spec(
+            List(
+              blocking.dir(BlockingJob.Blocks),
+              fallbackBlocking.dir(FallbackBlockingJob.Blocks)
+            ),
+            spec.outputRoot,
+            spec.dblpSnapshot,
+            _
+          )
         )
       )
     )
@@ -150,18 +206,29 @@ object Pipeline {
     val existing = exportInputs.filter { case (_, p) =>
       Option(p.getFileSystem(conf).globStatus(p)).exists(_.nonEmpty)
     }
-    val graphExport = JobRunner.run(
-      conf,
-      JobRunner.fromRuns(
-        List(
-          dblp.extract.runId,
-          dblp.teams.runId,
-          dblp.consolidate.runId,
-          join.runId,
-          candidates.runId
-        ) ++ normalize.map(_.runId)
-      )(GraphExportJob.spec(existing, spec.outputRoot, scope, label, _))
+    val graphExport = step(GraphExportJob.JobName)(
+      JobRunner.run(
+        conf,
+        JobRunner.fromRuns(
+          List(
+            dblp.extract.runId,
+            dblp.teams.runId,
+            dblp.consolidate.runId,
+            join.runId,
+            candidates.runId
+          ) ++ normalize.map(_.runId)
+        )(GraphExportJob.spec(existing, spec.outputRoot, scope, label, _))
+      )
     )
-    PipelineResult(dblp, normalize, join, blocking, candidates, graphExport)
+    PipelineResult(
+      dblp,
+      normalize,
+      join,
+      blocking,
+      fallbackBlocking,
+      fallbackCoverage,
+      candidates,
+      graphExport
+    )
   }
 }

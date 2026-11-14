@@ -1,0 +1,8 @@
+package org.scholarchain.er.cluster
+
+// SYNTHETIC planted leak: Scala 3 "as" rename of the package.
+import org.scholarchain.er.eval as scoring
+
+object PlantedAsRename {
+  def f(): Int = scoring.Harness.Outcomes.size
+}

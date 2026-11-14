@@ -418,37 +418,175 @@ object Validator {
       prov(p)
   }
 
-  implicit val matchDecision: Validator[MatchDecision] = instance { m =>
-    val candidateRule = m.outcome match {
-      case MatchOutcome.Unresolved =>
-        check(
-          m.candidateResearcherId.isEmpty,
-          "candidateResearcherId: must be null when unresolved"
-        )
-      case other =>
-        check(
-          m.candidateResearcherId.nonEmpty,
-          s"candidateResearcherId: required when outcome is ${other.wire}"
-        )
-    }
-    schema("MatchDecision", m.schemaVersion) ++
-      stableId("mentionId", m.mentionId) ++
-      optional("candidateResearcherId", m.candidateResearcherId)(stableId) ++
-      candidateRule ++
-      confidence("confidence", m.confidence) ++
-      each("features", m.features)((f, x) =>
-        nonBlank(s"$f.name", x.name) ++
-          check(!x.value.isNaN && !x.value.isInfinite, s"$f.value: must be finite")
-      ) ++
-      distinct("features.name", m.features.map(_.name)) ++
-      prov(m.provenance)
-  }
-
   private def features(fs: List[MatchFeature]): List[String] =
     each("features", fs)((f, x) =>
       nonBlank(s"$f.name", x.name) ++
         check(!x.value.isNaN && !x.value.isInfinite, s"$f.value: must be finite")
     ) ++ distinct("features.name", fs.map(_.name))
+
+  private def featuresSorted(fs: List[MatchFeature]): List[String] =
+    check(
+      fs.map(_.name) == fs.map(_.name).sorted(CodePointOrder.ordering),
+      "features: must be sorted by name (Unicode code point)"
+    )
+
+  private val CodeToken = "[A-Za-z0-9][A-Za-z0-9._:/-]*"
+  private val FieldToken = """[A-Za-z0-9][A-Za-z0-9._:/\[\]-]*"""
+
+  /** A sorted, distinct list of code tokens (rule names, reason codes, cited field paths). */
+  private def tokens(field: String, xs: List[String], pattern: String): List[String] =
+    each(field, xs)((f, x) => check(x.matches(pattern), s"$f: '$x' must match $pattern")) ++
+      check(
+        xs.zip(xs.drop(1)).forall { case (a, b) => CodePointOrder.lessThan(a, b) },
+        s"$field: must be sorted by Unicode code point and distinct"
+      )
+
+  private def fromPipeline(record: String, p: Provenance): List[String] =
+    check(
+      p.sourceType == SourceType.Pipeline,
+      s"provenance.sourceType: a $record is produced by entity resolution, so its source must " +
+        s"be pipeline (got ${p.sourceType.wire})"
+    )
+
+  private def samePolicy(policyVersion: String, p: Provenance): List[String] =
+    nonBlank("policyVersion", policyVersion) ++
+      check(
+        policyVersion == p.policyVersion,
+        s"policyVersion: '$policyVersion' must equal provenance.policyVersion '${p.policyVersion}'"
+      )
+
+  private val UtcInstant = """[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z""".r.pattern
+
+  /** `yyyy-MM-ddTHH:mm:ssZ`, a real UTC instant (no fractional seconds, no offset other than Z). */
+  private[core] def utcInstant(field: String, s: String): List[String] = {
+    val parses =
+      UtcInstant.matcher(s).matches() &&
+        scala.util.Try(java.time.Instant.parse(s)).toOption.exists(_.toString == s)
+    check(parses, s"$field: '$s' must be a UTC instant yyyy-MM-ddTHH:mm:ssZ")
+  }
+
+  private def matchSubjects(kind: MatchSubjectKind, left: String, right: String): List[String] =
+    kind match {
+      case MatchSubjectKind.MentionPair =>
+        mentionSubject("left", left) ++
+          mentionSubject("right", right) ++
+          ordered("left/right", left, right)
+      case MatchSubjectKind.MentionResearcher =>
+        mentionSubject("left", left) ++ researcherSubject("right", right)
+    }
+
+  implicit val matchDecision: Validator[MatchDecision] = instance { m =>
+    val candidateRule = m.subjectKind match {
+      case MatchSubjectKind.MentionPair =>
+        check(m.candidateId.nonEmpty, "candidateId: required for a mention_pair decision")
+      case MatchSubjectKind.MentionResearcher =>
+        check(
+          m.candidateId.nonEmpty ||
+            m.outcome == MatchOutcome.Accepted || m.outcome == MatchOutcome.Conflict,
+          s"outcome: an identity assignment (mention_researcher without candidateId) must be " +
+            s"accepted or conflict (got ${m.outcome.wire})"
+        )
+    }
+    val pathRule = m.matchPath match {
+      case MatchPath.Llm =>
+        check(m.modelVersion.nonEmpty, "modelVersion: required for an llm decision") ++
+          check(m.promptVersion.nonEmpty, "promptVersion: required for an llm decision")
+      case other =>
+        check(m.modelVersion.isEmpty, s"modelVersion: must be null for a ${other.wire} decision") ++
+          check(
+            m.promptVersion.isEmpty,
+            s"promptVersion: must be null for a ${other.wire} decision"
+          ) ++
+          check(
+            (other != MatchPath.ExactId && other != MatchPath.Deterministic) ||
+              m.rulesFired.nonEmpty,
+            s"rulesFired: a ${other.wire} decision must name the rule that fired"
+          )
+    }
+    val reasonRule = check(
+      (m.outcome != MatchOutcome.Unresolved && m.outcome != MatchOutcome.Conflict) ||
+        m.reasonCodes.nonEmpty,
+      s"reasonCodes: a ${m.outcome.wire} decision must carry at least one reason code"
+    )
+    schema("MatchDecision", m.schemaVersion) ++
+      matchSubjects(m.subjectKind, m.left, m.right) ++
+      optional("candidateId", m.candidateId)(stableId) ++
+      candidateRule ++
+      pathRule ++
+      reasonRule ++
+      confidence("confidence", m.confidence) ++
+      features(m.features) ++
+      featuresSorted(m.features) ++
+      tokens("rulesFired", m.rulesFired, CodeToken) ++
+      tokens("reasonCodes", m.reasonCodes, CodeToken) ++
+      optional("modelVersion", m.modelVersion)(nonBlank) ++
+      optional("promptVersion", m.promptVersion)(nonBlank) ++
+      samePolicy(m.policyVersion, m.provenance) ++
+      utcInstant("decisionTime", m.decisionTime) ++
+      fromPipeline("MatchDecision", m.provenance) ++
+      prov(m.provenance)
+  }
+
+  implicit val llmAdjudication: Validator[LlmAdjudication] = instance { a =>
+    val offered = a.offeredCandidateIds.map(_.value)
+    val idRule =
+      LlmAdjudicationId.of(a.inputHash, a.promptVersion, a.modelVersion, a.policyVersion) match {
+        case Right(id) =>
+          check(
+            id == a.adjudicationId,
+            s"adjudicationId: ${a.adjudicationId} is not LlmAdjudicationId.of(inputHash, " +
+              "promptVersion, modelVersion, policyVersion)"
+          )
+        case Left(_) => Nil // blank inputs are reported by their own rules
+      }
+    val choiceRule = a.outcome match {
+      case AdjudicationOutcome.Accept =>
+        a.chosenCandidateId match {
+          case None    => List("chosenCandidateId: required when outcome is accept")
+          case Some(c) =>
+            check(
+              a.offeredCandidateIds.contains(c),
+              s"chosenCandidateId: ${c.value} is not one of offeredCandidateIds"
+            )
+        }
+      case other =>
+        check(
+          a.chosenCandidateId.isEmpty,
+          s"chosenCandidateId: must be null when outcome is ${other.wire}"
+        )
+    }
+    schema("LlmAdjudication", a.schemaVersion) ++
+      stableId("adjudicationId", a.adjudicationId) ++
+      check(
+        ContentHash.isWellFormed(a.inputHash),
+        s"inputHash: '${a.inputHash}' must be sha256:<64 lowercase hex>"
+      ) ++
+      check(
+        a.provenance.contentHash.contains(a.inputHash),
+        "provenance.contentHash: must equal inputHash"
+      ) ++
+      idRule ++
+      check(a.offeredCandidateIds.nonEmpty, "offeredCandidateIds: must not be empty") ++
+      each("offeredCandidateIds", a.offeredCandidateIds)(stableId) ++
+      check(
+        offered.zip(offered.drop(1)).forall { case (x, y) => CodePointOrder.lessThan(x, y) },
+        "offeredCandidateIds: must be sorted by Unicode code point and distinct"
+      ) ++
+      optional("chosenCandidateId", a.chosenCandidateId)(stableId) ++
+      choiceRule ++
+      tokens("citedInputFields", a.citedInputFields, FieldToken) ++
+      check(
+        a.outcome == AdjudicationOutcome.Abstain || a.citedInputFields.nonEmpty,
+        s"citedInputFields: a ${a.outcome.wire} adjudication must cite at least one input field"
+      ) ++
+      confidence("confidence", a.confidence) ++
+      tokens("reasonCodes", a.reasonCodes, CodeToken) ++
+      nonBlank("promptVersion", a.promptVersion) ++
+      nonBlank("modelVersion", a.modelVersion) ++
+      samePolicy(a.policyVersion, a.provenance) ++
+      fromPipeline("LlmAdjudication", a.provenance) ++
+      prov(a.provenance)
+  }
 
   private def mentionSubject(field: String, id: String): List[String] =
     check(MentionId.isWellFormed(id), s"$field: '$id' is not a mention ID")

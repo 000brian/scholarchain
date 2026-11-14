@@ -1,0 +1,8 @@
+package org.scholarchain.er
+
+// SYNTHETIC planted leak: package-relative import of the eval package (the reviewer's m6 form).
+import eval.Harness
+
+object PlantedRelativeImport {
+  def f(): String = Harness.WilsonMethod
+}

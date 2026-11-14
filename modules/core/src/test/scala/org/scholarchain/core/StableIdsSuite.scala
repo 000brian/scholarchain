@@ -122,6 +122,35 @@ class StableIdsSuite extends munit.FunSuite {
   val mentionA = "mention:v1:00853dba003e529ef7295ad10ecae82b"
   val mentionB = "mention:v1:3fe0d2d64d85640503e25bfdc095bcfc"
 
+  test("LlmAdjudicationId.of follows its formula and rejects blank inputs") {
+    val h = ContentHash.of("x")
+    val id = LlmAdjudicationId.of(h, "p/1", "m-1", "er-v1").toOption.get
+    assertEquals(
+      id.value,
+      "llm-adjudication:v1:" +
+        Hashing.digest32(Seq("llm-adjudication/v1", h, "p/1", "m-1", "er-v1"))
+    )
+    assert(LlmAdjudicationId.parse(id.value).isRight)
+    assert(LlmAdjudicationId.of(" ", "p/1", "m-1", "er-v1").isLeft)
+    assert(LlmAdjudicationId.of(h, "", "m-1", "er-v1").isLeft)
+    assert(LlmAdjudicationId.of(h, "p/1", null, "er-v1").isLeft)
+    assert(LlmAdjudicationId.of(h, "p/1", "m-1", " ").isLeft)
+  }
+
+  test("LLM adjudication cache key: each of the four parts changes the ID; repeats hit") {
+    val h = ContentHash.of("x")
+    def id(a: String, b: String, c: String, d: String) =
+      LlmAdjudicationId.of(a, b, c, d).toOption.get
+    val base = id(h, "p/1", "m-1", "er-v1")
+    assertEquals(id(h, "p/1", "m-1", "er-v1"), base)
+    List(
+      id(ContentHash.of("y"), "p/1", "m-1", "er-v1"),
+      id(h, "p/2", "m-1", "er-v1"),
+      id(h, "p/1", "m-2", "er-v1"),
+      id(h, "p/1", "m-1", "er-v2")
+    ).foreach(other => assertNotEquals(other, base))
+  }
+
   test("golden: MatchCandidateId.of") {
     assertEquals(
       MentionId.of(WorkId.fromDblpKey("conf/sigir/SyntheticA24"), 1).value,

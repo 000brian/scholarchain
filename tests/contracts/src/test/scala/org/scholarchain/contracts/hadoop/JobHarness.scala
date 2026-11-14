@@ -111,6 +111,64 @@ object JobHarness {
     (j05, j06)
   }
 
+  /** J05, J05b, J05c and J06 of one configuration (the candidate stage of the pipeline). */
+  final case class CandidateStage(
+      j05: JobResult,
+      j05b: JobResult,
+      j05c: JobResult,
+      j06: JobResult
+  ) {
+    def all: List[JobResult] = List(j05, j05b, j05c, j06)
+  }
+
+  /** Runs J05 -> J05b -> J05c -> J06 on `contexts` (J07 `mentionContexts/` of run `teamsRun`) with
+    * configuration `c`, wired as `Pipeline.run` wires them.
+    */
+  def candidateStage(
+      c: Configuration,
+      contexts: Path,
+      teamsRun: org.scholarchain.core.RunId,
+      out: JPath,
+      snapshot: String
+  ): CandidateStage = {
+    import org.scholarchain.hadoop.blocking.{FallbackBlockingJob, FallbackCoverageJob}
+    val root = hpath(out)
+    val j05 = JobRunner.run(
+      c,
+      JobRunner.fromRuns(List(teamsRun))(BlockingJob.spec(contexts, root, snapshot, _))
+    )
+    val j05b = JobRunner.run(
+      c,
+      JobRunner.fromRuns(List(j05.runId))(
+        FallbackBlockingJob.spec(j05.dir(BlockingJob.OversizeMembers), root, snapshot, _)
+      )
+    )
+    val j05c = JobRunner.run(
+      c,
+      JobRunner.fromRuns(List(j05.runId, j05b.runId))(
+        FallbackCoverageJob.spec(
+          j05.dir(BlockingJob.OversizeMembers),
+          j05b.dir(FallbackBlockingJob.Coverage),
+          root,
+          snapshot,
+          _
+        )
+      )
+    )
+    val j06 = JobRunner.run(
+      c,
+      JobRunner.fromRuns(List(j05.runId, j05b.runId))(
+        CandidateFeatureJob.spec(
+          List(j05.dir(BlockingJob.Blocks), j05b.dir(FallbackBlockingJob.Blocks)),
+          root,
+          snapshot,
+          _
+        )
+      )
+    )
+    CandidateStage(j05, j05b, j05c, j06)
+  }
+
   /** All lines of `part-*` files directly under `<job output>/<sub>`. */
   def lines(c: Configuration, r: JobResult, sub: String): List[String] =
     JobRunner.readPartLines(c, r.dir(sub))

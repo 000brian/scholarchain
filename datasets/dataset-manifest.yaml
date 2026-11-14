@@ -254,6 +254,53 @@ subset_rule:
       "conf/emnlp/": {works: 9205, sample_mean_authors: 4.34, sample_pair_instances_per_work: 8.68}
       "conf/acl/": {works: 7407, sample_mean_authors: 5.91, sample_pair_instances_per_work: 23.77}
       "conf/nips/": {works: 17980, sample_mean_authors: 4.70, sample_pair_instances_per_work: 10.61}
+  measurement:
+    kind: measurement
+    rule_id: dblp-subset-v1
+    input: "dblp-2026-11-01.xml.gz (full release; see datasets[dblp].snapshot)"
+    tool: datasets/scripts/dblp_subset_stats.py
+    source_record: "docs/agent-runs/phase-05/dblp-subset-stats.txt (human-owned; JSON output followed by the line exit=0)"
+    source_record_sha256: 0853792412634533cecd4044566bb6da9b26181c66e9b5a4a788ec37fbf88b03
+    source_record_bytes: 2443
+    recorded_by: "dataset-engineer, Phase 5 run 1, git HEAD 1279c37; values copied verbatim from source_record, not re-run"
+    exit_code: 0
+    truncated: false
+    parse_error: null
+    prefixes_with_zero_works: []
+    command_flags: unknown
+    command_flags_unknown_reason: "source_record holds the tool's JSON output and exit code only, not the command line; whether --require-all-prefixes was passed is not recorded. Its two conditions (prefixes_with_zero_works empty, truncated false) are both satisfied by the recorded output."
+    meets_targets: "works 156077 >= works_min 100000; distinct_pairs 1614044 vs coauthor_edges_approx 1000000"
+    records_seen: 13073341
+    excluded: {element: 4578132, key_prefix: 8253456, publtype: 35, year: 85641}
+    works: 156077
+    works_zero_authors: 99
+    works_with_doi: 124717
+    works_with_orcid_attr: 62651
+    author_mentions: 758314
+    distinct_author_names: 201074
+    distinct_dois: 124717
+    valid_orcid_attrs: 140086
+    invalid_orcid_attrs: 0
+    pair_instances: 2231914
+    distinct_pairs: 1614044
+    per_prefix:
+      "conf/aaai/":      {works: 19302, pair_instances: 191141, distinct_pairs: 164030}
+      "conf/acl/":       {works: 13119, pair_instances: 196512, distinct_pairs: 160370}
+      "conf/cikm/":      {works: 5962,  pair_instances: 66046,  distinct_pairs: 57332}
+      "conf/cvpr/":      {works: 22799, pair_instances: 520919, distinct_pairs: 436990}
+      "conf/emnlp/":     {works: 14837, pair_instances: 199817, distinct_pairs: 165702}
+      "conf/iccv/":      {works: 9497,  pair_instances: 148085, distinct_pairs: 132493}
+      "conf/icde/":      {works: 3680,  pair_instances: 41989,  distinct_pairs: 34703}
+      "conf/ijcai/":     {works: 10259, pair_instances: 89043,  distinct_pairs: 77994}
+      "conf/kdd/":       {works: 5047,  pair_instances: 76247,  distinct_pairs: 66145}
+      "conf/mm/":        {works: 8132,  pair_instances: 110887, distinct_pairs: 92467}
+      "conf/nips/":      {works: 25428, pair_instances: 376693, distinct_pairs: 325523}
+      "conf/sigir/":     {works: 4061,  pair_instances: 40979,  distinct_pairs: 32708}
+      "conf/sigmod/":    {works: 2318,  pair_instances: 29738,  distinct_pairs: 26318}
+      "conf/wsdm/":      {works: 1558,  pair_instances: 15400,  distinct_pairs: 13913}
+      "conf/www/":       {works: 6638,  pair_instances: 76008,  distinct_pairs: 67583}
+      "journals/pvldb/": {works: 3440,  pair_instances: 52410,  distinct_pairs: 44670}
+    per_prefix_note: "distinct_pairs per prefix are de-duplicated within the prefix only; their sum exceeds the cross-venue distinct_pairs total."
   verification_plan: >-
     After the human approves the full DBLP download (download_dblp.sh --full),
     run dblp_subset_stats.py --input dblp-2026-11-01.xml.gz --dtd dblp.dtd

@@ -134,4 +134,6 @@ object Reasons {
   val DoiMultipleOpenAlexWorks = "doi_maps_to_multiple_openalex_works"
   val OrcidMultipleMentions = "orcid_on_multiple_mentions_of_work"
   val OrcidMultipleAuthorships = "orcid_on_multiple_source_authorships"
+  // oversize-block fallback (J05c)
+  val CoverageWithoutMember = "coverage_without_oversize_member"
 }

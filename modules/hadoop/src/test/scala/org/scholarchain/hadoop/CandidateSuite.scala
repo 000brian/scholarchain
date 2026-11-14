@@ -5,7 +5,14 @@ import java.nio.file.Path as JPath
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.scholarchain.core.*
-import org.scholarchain.hadoop.blocking.{BlockMember, BlockingJob, CandidateBlock}
+import org.scholarchain.hadoop.blocking.{
+  BlockMember,
+  BlockingJob,
+  CandidateBlock,
+  OversizeMember,
+  UncoveredMember
+}
+import org.scholarchain.hadoop.pairs.PairIndex
 import org.scholarchain.hadoop.candidates.{CandidateFeatureJob, CandidateFeatures}
 import org.scholarchain.hadoop.common.*
 import org.scholarchain.hadoop.pipeline.{DblpChain, Pipeline}
@@ -245,7 +252,13 @@ class CandidateSuite extends munit.FunSuite {
       list: List[MatchCandidate]
   )
 
-  private def runJ05J06(work: JPath, conf: Configuration, outName: String): Run = {
+  /** J01..J07, J05 under `conf`, then J06 under `j06Conf` (default: the same configuration). */
+  private def runJ05J06(
+      work: JPath,
+      conf: Configuration,
+      outName: String,
+      j06Conf: Option[Configuration] = None
+  ): Run = {
     val in = TestSupport.writeFile(work, "in/homonyms.xml", xml)
     val out = new Path(work.resolve(outName).toUri)
     val chain = DblpChain.run(conf, in, out, "h")
@@ -259,7 +272,7 @@ class CandidateSuite extends munit.FunSuite {
       )
     )
     val candidates = JobRunner.run(
-      conf,
+      j06Conf.getOrElse(conf),
       CandidateFeatureJob.spec(
         blocking.dir(BlockingJob.Blocks),
         out,
@@ -350,10 +363,14 @@ class CandidateSuite extends munit.FunSuite {
     fx.foreach { case (rel, bytes) => assert(java.util.Arrays.equals(bytes, fy(rel)), rel) }
   }
 
-  test("J06 oversize blocks are counted and listed, not expanded; feature set is checked") {
+  test("J06 oversize blocks are counted, listed and their members written out; feature set") {
+    // J05 ran under the defaults (the 4-member Wei Wang block, 6 pairs, is emitted), J06 under
+    // maxPairsPerBlock 5: a configuration mismatch, the only way J06 still meets such a block.
     val work = TestSupport.tempDir("j06-oversize")
+    val base = TestSupport.localConf(work)
     val conf = TestSupport.localConf(work, "scholarchain.candidates.maxPairsPerBlock" -> "5")
-    val r = runJ05J06(work, conf, "out")
+    val r = runJ05J06(work, base, "out", Some(conf))
+    assertEquals(r.blocking.main(Counters.OversizeBlock), 0L)
     val c = r.candidates
     assertEquals(c.main(Counters.OversizeBlock), 1L)
     assertEquals(c.main(Counters.OversizeBlockPairsSkipped), 6L)
@@ -364,10 +381,61 @@ class CandidateSuite extends munit.FunSuite {
     assertEquals(listed.map(_("blockKey").str), List("Wei Wang"))
     assertEquals(listed.map(_("pairs").num), List(6.0))
     assertEquals(c.main(Counters.Input), c.main(Counters.Accepted) + c.main(Counters.Rejected))
+    // never silent: every member of the unexpanded block is counted and listed
+    assertEquals(c.main(Counters.UnexpandedMembers), 4L)
+    assertEquals(c.counter(Counters.UnexpandedPerFamilyGroup, "dblp-base-name"), 4L)
+    val weiWang = TestSupport
+      .lines(base, r.blocking, BlockingJob.Blocks)
+      .map(read[CandidateBlock](_))
+      .find(_.blockKey == "Wei Wang")
+      .get
+    val unexpanded = TestSupport
+      .lines(conf, c, CandidateFeatureJob.UnexpandedMembers)
+      .map(read[UncoveredMember](_))
+    assertEquals(unexpanded.map(_.mentionId).sorted, weiWang.members.map(_.mentionId).sorted)
+    assert(unexpanded.forall(u => u.family == "dblp-base-name" && u.blockKey == "Wei Wang"))
+    assertEquals(
+      unexpanded.map(u => (u.mentionId, u.workId, u.dblpKey, u.name)).sorted,
+      weiWang.members.map(m => (m.mentionId, m.workId, m.dblpKey, m.name)).sorted
+    )
 
     val bad = TestSupport.localConf(work, "scholarchain.candidates.featureSet" -> "features/9")
     val err = intercept[SettingsError](runJ05J06(work, bad, "bad"))
     assertEquals(err.key, "scholarchain.candidates.featureSet")
+  }
+
+  test("one configuration: J05 routes a block over maxPairsPerBlock to oversize, J06 skips none") {
+    // maxBlockSize stays 1000, but the 4-member Wei Wang block has 6 pairs > 5: J05 treats it as
+    // oversize (effective cap 3), streams its members to oversizeMembers/, J06 expands the rest.
+    val work = TestSupport.tempDir("j05-pair-limit")
+    val conf = TestSupport.localConf(work, "scholarchain.candidates.maxPairsPerBlock" -> "5")
+    val r = runJ05J06(work, conf, "out")
+    val b = r.blocking
+    assertEquals(b.main(Counters.OversizeBlock), 1L)
+    assertEquals(b.main(Counters.PairLimitOversizeBlocks), 1L)
+    assertEquals(b.main(Counters.OversizeMembers), 4L)
+    assertEquals(b.counter(Counters.OversizePerFamilyGroup, "dblp-base-name"), 1L)
+    val listed = TestSupport.lines(conf, b, BlockingJob.OversizeBlocks).map(ujson.read(_))
+    assertEquals(listed.size, 1)
+    val l = listed.head
+    assertEquals(l("blockKey").str, "Wei Wang")
+    assertEquals(l("size").num, 4.0)
+    assertEquals(l("limit").num, 3.0)
+    assertEquals(l("maxBlockSize").num, 1000.0)
+    assertEquals(l("maxPairsPerBlock").num, 5.0)
+    assertEquals(l("pairs").num, 6.0)
+    assertEquals(l("reason").str, "max_pairs_per_block")
+    val om = TestSupport.lines(conf, b, BlockingJob.OversizeMembers).map(read[OversizeMember](_))
+    assertEquals(om.map(_.blockKey).distinct, List("Wei Wang"))
+    val blocks = TestSupport.lines(conf, b, BlockingJob.Blocks).map(read[CandidateBlock](_))
+    assert(blocks.forall(x => PairIndex.pairCount(x.size) <= 5L), blocks.map(_.size).toString)
+    assert(!blocks.exists(_.blockKey == "Wei Wang"))
+    val c = r.candidates
+    assertEquals(c.main(Counters.OversizeBlock), 0L)
+    assertEquals(c.main(Counters.OversizeBlockPairsSkipped), 0L)
+    assertEquals(c.main(Counters.UnexpandedMembers), 0L)
+    assertEquals(TestSupport.lines(conf, c, CandidateFeatureJob.UnexpandedMembers), Nil)
+    assertEquals(c.main(Counters.CandidatesEmitted), 2L)
   }
 
   test("J06 rejects malformed block lines with a reason and counts them") {

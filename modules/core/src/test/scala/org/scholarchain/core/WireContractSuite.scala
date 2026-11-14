@@ -41,6 +41,7 @@ class WireContractSuite extends munit.FunSuite {
       Example("Topic", topic),
       Example("MatchDecision", matchDecision),
       Example("MatchCandidate", matchCandidate),
+      Example("LlmAdjudication", llmAdjudication),
       Example("GraphNode", graphNode),
       Example("GraphEdge", graphEdge),
       Example("EvidenceItem", evidenceItem),
@@ -64,7 +65,23 @@ class WireContractSuite extends munit.FunSuite {
   def frozen(name: String): String = frozen(name, SchemaVersions.currentOf(name))
 
   /** Superseded frozen examples kept on disk: (schema, superseded version). */
-  val superseded: List[(String, Int)] = List("WorkRecord" -> 1, "CoauthorPairCandidate" -> 1)
+  val superseded: List[(String, Int)] =
+    List("WorkRecord" -> 1, "CoauthorPairCandidate" -> 1, "MatchDecision" -> 1)
+
+  /** Additional frozen examples of current schemas: (file name, schema, fixture). */
+  val variants: List[(String, String, MatchDecision)] = List(
+    ("MatchDecision.identity-assignment", "MatchDecision", Fixtures.identityAssignment),
+    ("MatchDecision.llm", "MatchDecision", Fixtures.llmDecision)
+  )
+
+  variants.foreach { case (file, schema, value) =>
+    test(s"$file: frozen JSON and the fixture agree in both directions") {
+      val json = frozen(file, SchemaVersions.currentOf(schema))
+      assertEquals(Contract.decode[MatchDecision](json), Right(value))
+      val encoded = Contract.encode(value).fold(e => fail(e.message), identity)
+      assertEquals(ujson.read(encoded), ujson.read(json))
+    }
+  }
 
   def decode[A](e: Example[A], json: String): Either[ContractError, A] =
     Contract.decode[A](json)(e.rw, e.validator)
@@ -145,6 +162,82 @@ class WireContractSuite extends munit.FunSuite {
         assert(hasError(decode(e, json), "provenance.sourceRecordIds: must not be empty"))
       }
     }
+  }
+
+  test("schema versions bumped by the Phase 5 contract change") {
+    assertEquals(SchemaVersions.currentOf("MatchDecision"), 2)
+    assertEquals(SchemaVersions.currentOf("LlmAdjudication"), 1)
+  }
+
+  test("MatchDecision v2 carries every entity-linkage decision field, in a frozen order") {
+    assertEquals(
+      ujson.read(frozen("MatchDecision")).obj.keys.toList,
+      List(
+        "schemaVersion",
+        "subjectKind",
+        "left",
+        "right",
+        "candidateId",
+        "outcome",
+        "matchPath",
+        "confidence",
+        "features",
+        "rulesFired",
+        "reasonCodes",
+        "modelVersion",
+        "promptVersion",
+        "policyVersion",
+        "decisionTime",
+        "provenance"
+      )
+    )
+    assertEquals(
+      ujson.read(frozen("MatchDecision"))("provenance")("runId").str,
+      Fixtures.erRun.value
+    )
+  }
+
+  test("MatchDecision v2: the identity assignment has no candidate and names its rule") {
+    val json = ujson.read(frozen("MatchDecision.identity-assignment", 2))
+    assertEquals(json("subjectKind"), ujson.Str("mention_researcher"))
+    assertEquals(json("candidateId"), ujson.Null)
+    assertEquals(json("outcome"), ujson.Str("accepted"))
+    assertEquals(json("rulesFired"), ujson.Arr("fixture-dblp-prior"))
+  }
+
+  test("superseded MatchDecision v1 fails on its removed and new fields, then on the version") {
+    val v1 = frozen("MatchDecision", 1)
+    assert(hasError(Contract.decode[MatchDecision](v1), "decode:"))
+    // v1 with the v2 fields bolted on still fails: its version and outcome name are retired.
+    val patched = mutate(frozen("MatchDecision")) { j =>
+      j("schemaVersion") = ujson.Num(1)
+    }
+    assert(hasError(Contract.decode[MatchDecision](patched), "unsupported version 1"))
+    val oldOutcome = mutate(frozen("MatchDecision"))(_("outcome") = ujson.Str("match"))
+    assert(hasError(Contract.decode[MatchDecision](oldOutcome), "unknown match outcome 'match'"))
+  }
+
+  test("LlmAdjudication: the chosen candidate is one of the offered ones on the wire") {
+    val json = ujson.read(frozen("LlmAdjudication"))
+    assert(json("offeredCandidateIds").arr.contains(json("chosenCandidateId")))
+    assertEquals(json("provenance")("contentHash"), json("inputHash"))
+    val forbidden = Set("reasoning", "rationale", "explanation", "thoughts")
+    assertEquals(json.obj.keys.filter(k => forbidden.contains(k.toLowerCase)).toList, Nil)
+  }
+
+  test("LlmAdjudication: a fabricated chosen candidate ID is rejected on decode") {
+    val fabricated = MatchCandidateId.of(
+      MatchSubjectKind.MentionResearcher,
+      Fixtures.candidateLeft,
+      Fixtures.edgeLeft,
+      "fixture-block-family",
+      "invented"
+    )
+    val json = mutate(frozen("LlmAdjudication"))(
+      _("chosenCandidateId") = ujson.Str(fabricated.toOption.get.value)
+    )
+    val result = Contract.decode[LlmAdjudication](json)
+    assert(hasError(result, "is not one of offeredCandidateIds"), result)
   }
 
   test("schema versions bumped by the Phase 4 contract change") {

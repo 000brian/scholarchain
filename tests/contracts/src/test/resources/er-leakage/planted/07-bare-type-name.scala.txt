@@ -1,0 +1,7 @@
+package org.scholarchain.er.features
+
+// SYNTHETIC planted leak: no package name at all, only an eval-declared type name (reachable,
+// for example, through an export clause or a type alias defined elsewhere).
+object PlantedBareTypeName {
+  def weightOf(k: KeyRow): Double = k.confidence
+}

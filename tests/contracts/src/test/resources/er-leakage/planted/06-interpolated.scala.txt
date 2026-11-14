@@ -1,0 +1,8 @@
+package org.scholarchain.er.review
+
+// SYNTHETIC planted leak: the reference hides inside an interpolated string, after a splice that
+// itself holds a nested string literal.
+object PlantedInterpolated {
+  private val m = Map("k" -> "v")
+  def f(): String = s"${m("k")} method: ${org.scholarchain.er.eval.Harness.WilsonMethod}"
+}

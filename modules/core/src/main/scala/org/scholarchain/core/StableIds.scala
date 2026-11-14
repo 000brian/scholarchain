@@ -254,3 +254,34 @@ object MatchCandidateId
     subjects.map { case (l, r) => derive(subjectKind.wire, l, r, blockFamily, blockKey) }
   }
 }
+
+/** LLM adjudication ID: the adjudication cache key.
+  *
+  * Formula: `llm-adjudication:v1:` + digest32("llm-adjudication/v1", inputHash, promptVersion,
+  * modelVersion, policyVersion) with the four values verbatim. The same input under the same
+  * prompt, model, and policy versions has the same ID (a cache hit); changing any one of the four
+  * gives a different ID (a cache miss). The outcome is not an input.
+  */
+final case class LlmAdjudicationId(value: String) extends StableId {
+  def isWellFormed: Boolean = LlmAdjudicationId.isWellFormed(value)
+}
+object LlmAdjudicationId
+    extends StableIdCompanion[LlmAdjudicationId]("llm-adjudication", new LlmAdjudicationId(_)) {
+  def of(
+      inputHash: String,
+      promptVersion: String,
+      modelVersion: String,
+      policyVersion: String
+  ): Either[String, LlmAdjudicationId] = {
+    val parts = Seq(
+      "inputHash" -> inputHash,
+      "promptVersion" -> promptVersion,
+      "modelVersion" -> modelVersion,
+      "policyVersion" -> policyVersion
+    )
+    parts.collectFirst { case (n, v) if v == null || v.trim.isEmpty => n } match {
+      case Some(n) => Left(s"LLM adjudication ID input $n must not be blank")
+      case None    => Right(derive(inputHash, promptVersion, modelVersion, policyVersion))
+    }
+  }
+}

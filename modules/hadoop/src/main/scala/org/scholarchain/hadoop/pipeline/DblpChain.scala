@@ -2,7 +2,7 @@ package org.scholarchain.hadoop.pipeline
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
-import org.scholarchain.hadoop.common.{JobResult, JobRunner, PathIds}
+import org.scholarchain.hadoop.common.{JobObserver, JobResult, JobRunner, PathIds}
 import org.scholarchain.hadoop.dblp.DblpExtractJob
 import org.scholarchain.hadoop.pairs.{PairConsolidateJob, PairExpandJob}
 import org.scholarchain.hadoop.teams.PublicationTeamJob
@@ -25,6 +25,8 @@ final case class DblpChainResult(
   *   fingerprint of the raw dblp input; when absent it is computed from the file contents. Either
   *   way, when `scholarchain.dblp.dtdPath` is set the DTD file's content is added (see
   *   [[DblpExtractJob.inputFingerprint]]).
+  * @param observer
+  *   callbacks around each job (timing, disk checks); observation only
   */
 object DblpChain {
   def run(
@@ -32,34 +34,43 @@ object DblpChain {
       dblpInput: Path,
       outputRoot: Path,
       snapshotId: String,
-      inputFingerprint: Option[String] = None
+      inputFingerprint: Option[String] = None,
+      observer: JobObserver = JobObserver.Silent
   ): DblpChainResult = {
     PathIds.require("dblp snapshot", snapshotId)
     val raw = inputFingerprint.getOrElse(JobRunner.fingerprintFiles(conf, List(dblpInput)))
     val fp = DblpExtractJob.inputFingerprint(conf, raw)
-    val j01 = JobRunner.run(conf, DblpExtractJob.spec(dblpInput, outputRoot, snapshotId, fp))
-    val j07 = JobRunner.run(
-      conf,
-      JobRunner.fromRuns(List(j01.runId))(
-        PublicationTeamJob.spec(
-          j01.dir(DblpExtractJob.Works),
-          j01.dir(DblpExtractJob.Mentions),
-          outputRoot,
-          snapshotId,
-          _
+    val j01 = JobObserver.around(observer, DblpExtractJob.JobName)(
+      JobRunner.run(conf, DblpExtractJob.spec(dblpInput, outputRoot, snapshotId, fp))
+    )
+    val j07 = JobObserver.around(observer, PublicationTeamJob.JobName)(
+      JobRunner.run(
+        conf,
+        JobRunner.fromRuns(List(j01.runId))(
+          PublicationTeamJob.spec(
+            j01.dir(DblpExtractJob.Works),
+            j01.dir(DblpExtractJob.Mentions),
+            outputRoot,
+            snapshotId,
+            _
+          )
         )
       )
     )
-    val j08a = JobRunner.run(
-      conf,
-      JobRunner.fromRuns(List(j07.runId))(
-        PairExpandJob.spec(j07.dir(PublicationTeamJob.Teams), outputRoot, snapshotId, _)
+    val j08a = JobObserver.around(observer, PairExpandJob.JobName)(
+      JobRunner.run(
+        conf,
+        JobRunner.fromRuns(List(j07.runId))(
+          PairExpandJob.spec(j07.dir(PublicationTeamJob.Teams), outputRoot, snapshotId, _)
+        )
       )
     )
-    val j08b = JobRunner.run(
-      conf,
-      JobRunner.fromRuns(List(j08a.runId))(
-        PairConsolidateJob.spec(j08a.dir(PairExpandJob.Instances), outputRoot, snapshotId, _)
+    val j08b = JobObserver.around(observer, PairConsolidateJob.JobName)(
+      JobRunner.run(
+        conf,
+        JobRunner.fromRuns(List(j08a.runId))(
+          PairConsolidateJob.spec(j08a.dir(PairExpandJob.Instances), outputRoot, snapshotId, _)
+        )
       )
     )
     DblpChainResult(j01, j07, j08a, j08b)

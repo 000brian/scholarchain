@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 2,
+  "subjectKind": "mention_pair",
+  "left": "mention:v1:00853dba003e529ef7295ad10ecae82b",
+  "right": "mention:v1:3fe0d2d64d85640503e25bfdc095bcfc",
+  "candidateId": "match-candidate:v1:f1a974a3f707e600e82613a6648f92e7",
+  "outcome": "unresolved",
+  "matchPath": "llm",
+  "confidence": 0.5,
+  "features": [
+    {
+      "name": "fixture_feature_a",
+      "value": 1
+    },
+    {
+      "name": "fixture_feature_b",
+      "value": 9
+    }
+  ],
+  "rulesFired": [
+    "fixture-llm-band"
+  ],
+  "reasonCodes": [
+    "FIXTURE_LLM_ABSTAINED"
+  ],
+  "modelVersion": "fixture-model-version",
+  "promptVersion": "fixture-adjudication-prompt/1",
+  "policyVersion": "fixture-match-policy/1",
+  "decisionTime": "2026-11-14T00:00:00Z",
+  "provenance": {
+    "schemaVersion": 1,
+    "sourceType": "pipeline",
+    "datasetId": "scholarchain-graph",
+    "snapshotId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+    "sourceRecordIds": [
+      "mention:v1:00853dba003e529ef7295ad10ecae82b",
+      "mention:v1:3fe0d2d64d85640503e25bfdc095bcfc"
+    ],
+    "runId": "run:v1:7717327787dbcf997ecc871eb5a4dbde",
+    "jobName": "entity-resolution.resolve",
+    "policyVersion": "fixture-match-policy/1",
+    "contentHash": null
+  }
+}

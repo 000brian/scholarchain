@@ -7,9 +7,9 @@ import org.apache.hadoop.io.{NullWritable, Text}
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat
 import org.apache.hadoop.mapreduce.{Job, Reducer}
 import org.scholarchain.core.{
+  AuthorNameKey,
   CodePointOrder,
   Contract,
-  DblpAuthorName,
   MatchCandidate,
   MatchCandidateId,
   MatchFeature,
@@ -17,7 +17,7 @@ import org.scholarchain.core.{
   SchemaVersions,
   SourceType
 }
-import org.scholarchain.hadoop.blocking.{BlockingKeys, BlockMember, CandidateBlock}
+import org.scholarchain.hadoop.blocking.{BlockMember, CandidateBlock, UncoveredMember}
 import org.scholarchain.hadoop.common.*
 import org.scholarchain.hadoop.io.BoundedLineInputFormat
 import org.scholarchain.hadoop.pairs.PairIndex
@@ -28,9 +28,12 @@ import upickle.default.{macroRW, read, write, ReadWriter}
   * block members, computed only from the facts J05 carries. No thresholds, weights, scores or
   * decisions; which features exist and how they are used is entity-resolution policy (Phase 5).
   *
-  * Name comparisons are exact under Unicode canonical equivalence (both sides in NFD,
-  * [[org.scholarchain.hadoop.blocking.BlockingKeys.canonical]]): `José` precomposed and decomposed
-  * are equal, nothing else is folded.
+  * Name comparisons use the shared core rule [[org.scholarchain.core.AuthorNameKey]]
+  * (`author-name-key/1`): names and coauthor names compare by
+  * [[org.scholarchain.core.AuthorNameKey.fullNameKey]] (exact under Unicode canonical equivalence:
+  * `José` precomposed and decomposed are equal, nothing else is folded), homonym suffixes by
+  * [[org.scholarchain.core.AuthorNameKey.homonymSuffix]]. The same features are computed for every
+  * block family, primary or fallback.
   *
   * Features (names sorted by code point in every candidate; a feature that cannot be computed is
   * omitted, never defaulted):
@@ -76,10 +79,10 @@ object CandidateFeatures {
     val shared =
       if (a.coauthorsTruncated || b.coauthorsTruncated) None
       else {
-        def names(m: BlockMember) = m.coauthorNames.map(BlockingKeys.canonical).toSet
+        def names(m: BlockMember) = m.coauthorNames.map(AuthorNameKey.fullNameKey).toSet
         Some(names(a).intersect(names(b)).size.toDouble)
       }
-    val suffix = (DblpAuthorName.split(a.name)._2, DblpAuthorName.split(b.name)._2) match {
+    val suffix = (AuthorNameKey.homonymSuffix(a.name), AuthorNameKey.homonymSuffix(b.name)) match {
       case (Some(x), Some(y)) => Some(flag(x == y))
       case _                  => None
     }
@@ -91,7 +94,7 @@ object CandidateFeatures {
       Some(
         MatchFeature(
           NameExactMatch,
-          flag(BlockingKeys.canonical(a.name) == BlockingKeys.canonical(b.name))
+          flag(AuthorNameKey.fullNameKey(a.name) == AuthorNameKey.fullNameKey(b.name))
         )
       ),
       both(a.orcid, b.orcid).map(MatchFeature(OrcidExactMatch, _)),
@@ -100,6 +103,16 @@ object CandidateFeatures {
       Some(MatchFeature(YearAbsDiff, math.abs(a.year - b.year).toDouble))
     ).flatten.sortWith((x, y) => CodePointOrder.lessThan(x.name, y.name))
   }
+
+  /** The optional volume rule of the Phase 5 work order (decision 6): both mentions carry the same
+    * homonym-numbered dblp name (equal [[AuthorNameKey.fullNameKey]] with a homonym suffix, e.g.
+    * two `Wei Wang 0001` mentions). dblp already assigns such mentions to one person, and they
+    * start in one dblp-prior identity cluster. With `scholarchain.candidates.skipSameNumberedName`
+    * J06 emits no candidate for such a pair and counts it (SAME_NUMBERED_NAME_PAIRS_SKIPPED).
+    */
+  def sameNumberedName(a: BlockMember, b: BlockMember): Boolean =
+    AuthorNameKey.homonymSuffix(a.name).isDefined &&
+      AuthorNameKey.fullNameKey(a.name) == AuthorNameKey.fullNameKey(b.name)
 
   /** Feature names left out of `features` (for the per-feature omission counters). */
   def omitted(features: List[MatchFeature]): List[String] =
@@ -149,30 +162,54 @@ object BlockShard { implicit val rw: ReadWriter[BlockShard] = macroRW }
 
 /** J06: candidate feature construction.
   *
-  * Map in: J05 `blocks/` ([[CandidateBlock]] v2; structural problems are rejected as
+  * Map in: J05 and J05b `blocks/` ([[CandidateBlock]] v2; structural problems are rejected as
   * schema_failure). A block of m members has m(m-1)/2 member pairs: blocks with fewer than two
   * members yield none (SINGLETON_BLOCKS); blocks above `scholarchain.candidates.maxPairsPerBlock`
   * pairs are not expanded (OVERSIZE_BLOCKS, OVERSIZE_BLOCK_PAIRS_SKIPPED, `oversizeBlocks/` lists
-  * family, key, size and pairs). Map out: `<family>\t<blockKey>\t<shard>` -> [[BlockShard]] for
-  * each of ceil(pairs / pairsPerShard) shards (CANDIDATE_SHARDS); the stable hash partitioner
-  * spreads the shards of one block over the reducers.
+  * family, key, size and pairs; every member is written to `unexpandedMembers/` as an
+  * [[org.scholarchain.hadoop.blocking.UncoveredMember]], UNEXPANDED_BLOCK_MEMBERS, per family in
+  * [[Counters.UnexpandedPerFamilyGroup]]). J05 and J05b apply the same pair limit
+  * ([[org.scholarchain.hadoop.blocking.BlockLimit]]), so with one configuration no emitted block
+  * reaches this branch; it guards blocks produced under another configuration. Map out:
+  * `<family>\t<blockKey>\t<shard>` -> [[BlockShard]] for each of ceil(pairs / pairsPerShard) shards
+  * (CANDIDATE_SHARDS); the stable hash partitioner spreads the shards of one block over the
+  * reducers.
   *
   * Reduce: streams the shard's member pairs (row-major over members sorted by mention ID) into
   * `candidates/family=<family>/` as [[MatchCandidate]] records (`mention_pair`,
   * MATCH_CANDIDATES_EMITTED); per-feature omissions are counted in
   * [[Counters.FeatureOmittedGroup]]. Identical copies of a shard collapse (DUPLICATE); different
   * blocks under one key are rejected (CONFLICT). Stats: largestCandidateGroup (most candidates from
-  * one expanded block), largestBlockSeen (largest block read, including oversize ones).
+  * one expanded block, before the volume rule), largestBlockSeen (largest block read, including
+  * oversize ones).
+  *
+  * Volume rule (`scholarchain.candidates.skipSameNumberedName`, off by default): pairs whose two
+  * mentions carry the same homonym-numbered dblp name ([[CandidateFeatures.sameNumberedName]]) are
+  * not emitted and are counted as SAME_NUMBERED_NAME_PAIRS_SKIPPED, so per expanded shard
+  * `pairs == MATCH_CANDIDATES_EMITTED + SAME_NUMBERED_NAME_PAIRS_SKIPPED + schema_failure rejects`.
   */
 object CandidateFeatureJob {
   val JobName = "hadoop.j06-candidate-features"
   val Candidates = "candidates"
   val OversizeBlocks = "oversizeBlocks"
 
+  /** Members of blocks not expanded (job contract `scholarchain.hadoop.uncovered-member` v1,
+    * [[UncoveredMember]]; `family` and `blockKey` name the unexpanded primary or fallback block).
+    */
+  val UnexpandedMembers = "unexpandedMembers"
+
   def candidatesDir(family: String): String = s"$Candidates/family=$family"
 
   def spec(
       blocks: Path,
+      outputRoot: Path,
+      snapshotId: String,
+      inputFingerprint: String
+  ): JobSpec = spec(List(blocks), outputRoot, snapshotId, inputFingerprint)
+
+  /** J06 over several block directories (J05 `blocks/` and J05b `blocks/`). */
+  def spec(
+      blocks: List[Path],
       outputRoot: Path,
       snapshotId: String,
       inputFingerprint: String
@@ -186,13 +223,15 @@ object CandidateFeatureJob {
       outputRoot,
       s"dblp/snapshot=$snapshotId",
       Settings.Keys.CandidateReducers,
-      List(Candidates, OversizeBlocks),
+      List(Candidates, OversizeBlocks, UnexpandedMembers),
       { (job: Job) =>
         checkFeatureSet(new Settings(job.getConfiguration))
         job.getConfiguration
           .set(BoundedLineInputFormat.LimitKeyKey, Settings.Keys.InternalMaxLineBytes)
         job.setInputFormatClass(classOf[BoundedLineInputFormat])
-        FileInputFormat.addInputPath(job, blocks)
+        new Settings(job.getConfiguration).boolean(Settings.Keys.CandidateSkipSameNumberedName)
+        require(blocks.nonEmpty, "J06 needs at least one blocks directory")
+        blocks.foreach(FileInputFormat.addInputPath(job, _))
         job.setMapperClass(classOf[BlockShardMapper])
         job.setReducerClass(classOf[CandidateFeatureReducer])
       }
@@ -243,8 +282,30 @@ class BlockShardMapper extends ContractLineMapper {
         largestSeen.offer(b.size.toLong, subject)
         if (pairs == 0) io.count(Counters.SingletonBlocks)
         else if (pairs > maxPairs) {
+          // Unreachable when J05/J05b ran with the same maxPairsPerBlock (their BlockLimit
+          // keeps such blocks out of blocks/); reached only with blocks from another
+          // configuration. Never silent: counted, listed, and every member written out.
           io.count(Counters.OversizeBlock)
           io.count(Counters.OversizeBlockPairsSkipped, pairs)
+          b.members.foreach { m =>
+            io.count(Counters.UnexpandedMembers)
+            io.countIn(Counters.UnexpandedPerFamilyGroup, b.family)
+            io.emit(
+              CandidateFeatureJob.UnexpandedMembers,
+              CandidateFeatureJob.UnexpandedMembers,
+              write(
+                UncoveredMember(
+                  UncoveredMember.Version,
+                  b.family,
+                  b.blockKey,
+                  m.mentionId,
+                  m.workId,
+                  m.dblpKey,
+                  m.name
+                )
+              )
+            )
+          }
           io.emit(
             CandidateFeatureJob.OversizeBlocks,
             CandidateFeatureJob.OversizeBlocks,
@@ -281,8 +342,13 @@ class BlockShardMapper extends ContractLineMapper {
 class CandidateFeatureReducer extends Reducer[Text, Text, NullWritable, Text] {
   type Ctx = Reducer[Text, Text, NullWritable, Text]#Context
   private var io: TaskIO = null
+  private var skipSameNumbered = false
 
-  override def setup(ctx: Ctx): Unit = io = new TaskIO(ctx, reduceStage = true)
+  override def setup(ctx: Ctx): Unit = {
+    io = new TaskIO(ctx, reduceStage = true)
+    skipSameNumbered =
+      new Settings(ctx.getConfiguration).boolean(Settings.Keys.CandidateSkipSameNumberedName)
+  }
 
   override def reduce(key: Text, values: java.lang.Iterable[Text], ctx: Ctx): Unit = {
     val all = values.asScala.map(_.toString).toList
@@ -306,22 +372,25 @@ class CandidateFeatureReducer extends Reducer[Text, Text, NullWritable, Text] {
     val members = b.members.toArray
     val dir = CandidateFeatureJob.candidatesDir(b.family)
     PairIndex.foreachPair(members.length, shard.from, shard.until) { (i, j) =>
-      CandidateFeatures.candidate(b, members(i), members(j), io.run) match {
-        case Right(c) =>
-          io.count(Counters.CandidatesEmitted)
-          CandidateFeatures
-            .omitted(c.features)
-            .foreach(n => io.countIn(Counters.FeatureOmittedGroup, n))
-          io.emit(CandidateFeatureJob.Candidates, dir, write(c))
-        case Left(err) =>
-          io.reject(
-            Reasons.SchemaFailure,
-            s"${members(i).mentionId} / ${members(j).mentionId}: $err",
-            Some(s"${b.family}\t${b.blockKey}"),
-            None,
-            None
-          )
-      }
+      if (skipSameNumbered && CandidateFeatures.sameNumberedName(members(i), members(j)))
+        io.count(Counters.SameNumberedNameSkipped)
+      else
+        CandidateFeatures.candidate(b, members(i), members(j), io.run) match {
+          case Right(c) =>
+            io.count(Counters.CandidatesEmitted)
+            CandidateFeatures
+              .omitted(c.features)
+              .foreach(n => io.countIn(Counters.FeatureOmittedGroup, n))
+            io.emit(CandidateFeatureJob.Candidates, dir, write(c))
+          case Left(err) =>
+            io.reject(
+              Reasons.SchemaFailure,
+              s"${members(i).mentionId} / ${members(j).mentionId}: $err",
+              Some(s"${b.family}\t${b.blockKey}"),
+              None,
+              None
+            )
+        }
     }
   }
 

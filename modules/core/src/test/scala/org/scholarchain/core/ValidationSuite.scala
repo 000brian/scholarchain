@@ -205,18 +205,255 @@ class ValidationSuite extends munit.FunSuite {
     assertRejected(authorMention.copy(name = "Hugo  O. Sousa"), "name: ")
   }
 
-  test("match decisions: unresolved has no candidate; other outcomes need one") {
+  // ---- Phase 5: MatchDecision v2 --------------------------------------------------------------
+  test("match decision fixtures are valid: pairwise, identity assignment, llm") {
+    assertEquals(errorsOf(matchDecision), Nil)
+    assertEquals(errorsOf(identityAssignment), Nil)
+    assertEquals(errorsOf(llmDecision), Nil)
+  }
+
+  test("match decision: every outcome and path is representable") {
+    MatchOutcome.values.foreach { o =>
+      val d = matchDecision.copy(outcome = o, reasonCodes = List("FIXTURE_REASON"))
+      assertEquals(errorsOf(d), Nil, o.wire)
+    }
+    MatchPath.values.filter(_ != MatchPath.Llm).foreach { p =>
+      assertEquals(errorsOf(matchDecision.copy(matchPath = p)), Nil, p.wire)
+    }
+  }
+
+  test("match decision: mention pairs are mention IDs in canonical order, no self pairs") {
+    val swapped = matchDecision.copy(left = matchDecision.right, right = matchDecision.left)
+    assertRejected(swapped, "left/right: undirected pair")
+    assertRejected(matchDecision.copy(right = matchDecision.left), "left/right: undirected pair")
+    assertRejected(matchDecision.copy(right = sousa.value), "right: '")
+    assertRejected(matchDecision.copy(left = workId.value), "left: '" + workId.value)
+  }
+
+  test("match decision: mention_researcher subjects are a mention and a researcher") {
+    assertRejected(identityAssignment.copy(right = sousaMention.value), "right: '")
+    assertRejected(identityAssignment.copy(left = sousa.value), "left: '")
+  }
+
+  test("match decision: a pairwise decision names its candidate") {
+    assertRejected(matchDecision.copy(candidateId = None), "candidateId: required")
     assertRejected(
-      matchDecision.copy(outcome = MatchOutcome.Unresolved),
-      "candidateResearcherId: must be null when unresolved"
+      matchDecision.copy(candidateId = Some(MatchCandidateId("match-candidate:v1:zz"))),
+      "candidateId: malformed stable ID"
+    )
+  }
+
+  test("match decision: an identity assignment is accepted or conflict") {
+    val conflict = identityAssignment.copy(
+      outcome = MatchOutcome.Conflict,
+      reasonCodes = List("FIXTURE_TWO_ORCIDS")
+    )
+    assertEquals(errorsOf(conflict), Nil)
+    List(MatchOutcome.Rejected, MatchOutcome.Unresolved).foreach { o =>
+      assertRejected(
+        identityAssignment.copy(outcome = o, reasonCodes = List("R")),
+        "outcome: an identity assignment"
+      )
+    }
+    // A mention_researcher decision of a real candidate may have any outcome.
+    val decided = identityAssignment.copy(
+      candidateId = Some(researcherCandidate(sousa)),
+      outcome = MatchOutcome.Rejected
+    )
+    assertEquals(errorsOf(decided), Nil)
+  }
+
+  test("match decision: unresolved and conflict decisions carry a reason code") {
+    List(MatchOutcome.Unresolved, MatchOutcome.Conflict).foreach { o =>
+      assertRejected(
+        matchDecision.copy(outcome = o, reasonCodes = Nil),
+        s"reasonCodes: a ${o.wire} decision must carry"
+      )
+    }
+    assertEquals(errorsOf(matchDecision.copy(reasonCodes = Nil)), Nil)
+  }
+
+  test("match decision: exact_id and deterministic decisions name the rule that fired") {
+    List(MatchPath.ExactId, MatchPath.Deterministic).foreach { p =>
+      assertRejected(
+        matchDecision.copy(matchPath = p, rulesFired = Nil),
+        s"rulesFired: a ${p.wire} decision must name the rule"
+      )
+    }
+    assertEquals(errorsOf(matchDecision.copy(rulesFired = Nil)), Nil)
+  }
+
+  test("match decision: model and prompt versions exactly for the llm path") {
+    assertRejected(llmDecision.copy(modelVersion = None), "modelVersion: required")
+    assertRejected(llmDecision.copy(promptVersion = None), "promptVersion: required")
+    assertRejected(llmDecision.copy(modelVersion = Some(" ")), "modelVersion: must not be blank")
+    assertRejected(
+      matchDecision.copy(modelVersion = Some(modelVersion)),
+      "modelVersion: must be null for a probabilistic decision"
     )
     assertRejected(
-      matchDecision.copy(candidateResearcherId = None),
-      "candidateResearcherId: required"
+      matchDecision.copy(promptVersion = Some(promptVersion)),
+      "promptVersion: must be null"
+    )
+  }
+
+  test("match decision: rules and reason codes are sorted, distinct code tokens") {
+    assertRejected(matchDecision.copy(rulesFired = List("b", "a")), "rulesFired: must be sorted")
+    assertRejected(matchDecision.copy(rulesFired = List("a", "a")), "rulesFired: must be sorted")
+    assertRejected(matchDecision.copy(reasonCodes = List("has space")), "reasonCodes[0]:")
+    assertRejected(matchDecision.copy(reasonCodes = List("")), "reasonCodes[0]:")
+    assertEquals(errorsOf(matchDecision.copy(rulesFired = List("A_1", "dblp-prior/1"))), Nil)
+  }
+
+  test("match decision: features follow the candidate feature rules but may be empty") {
+    val fs = matchDecision.features
+    assertRejected(matchDecision.copy(features = fs.reverse), "features: must be sorted")
+    assertRejected(matchDecision.copy(features = List(fs.head, fs.head)), "features.name")
+    assertRejected(
+      matchDecision.copy(features = List(MatchFeature("x", Double.NaN))),
+      "features[0].value: must be finite"
+    )
+    assertEquals(errorsOf(matchDecision.copy(features = Nil)), Nil)
+  }
+
+  test("match decision: policyVersion is the provenance policy version") {
+    assertRejected(matchDecision.copy(policyVersion = "other/1"), "policyVersion: 'other/1'")
+    assertRejected(matchDecision.copy(policyVersion = " "), "policyVersion: must not be blank")
+  }
+
+  test("match decision: decisionTime is a UTC instant yyyy-MM-ddTHH:mm:ssZ") {
+    List(
+      "",
+      "2026-11-14",
+      "2026-11-14T00:00:00",
+      "2026-11-14T00:00:00.000Z",
+      "2026-11-14T00:00:00+00:00",
+      "2026-13-01T00:00:00Z",
+      "2026-02-30T00:00:00Z",
+      "2026-11-14T24:00:00Z"
+    ).foreach { t =>
+      assertRejected(matchDecision.copy(decisionTime = t), "decisionTime: '")
+    }
+    assertEquals(errorsOf(matchDecision.copy(decisionTime = "2024-02-29T23:59:59Z")), Nil)
+  }
+
+  test("match decision: produced by the pipeline, with provenance") {
+    assertRejected(
+      matchDecision.copy(provenance = provenance),
+      "provenance.sourceType: a MatchDecision is produced by entity resolution"
+    )
+    assertRejected(matchDecision.copy(provenance = null), "provenance: missing (null)")
+  }
+
+  // ---- Phase 5: LlmAdjudication --------------------------------------------------------------
+  test("LLM adjudication fixture is valid; reject and abstain choose nothing") {
+    assertEquals(errorsOf(llmAdjudication), Nil)
+    assertEquals(
+      errorsOf(
+        llmAdjudication.copy(outcome = AdjudicationOutcome.Reject, chosenCandidateId = None)
+      ),
+      Nil
     )
     assertEquals(
-      errorsOf(matchDecision.copy(outcome = MatchOutcome.Unresolved, candidateResearcherId = None)),
+      errorsOf(
+        llmAdjudication.copy(
+          outcome = AdjudicationOutcome.Abstain,
+          chosenCandidateId = None,
+          citedInputFields = Nil,
+          reasonCodes = Nil
+        )
+      ),
       Nil
+    )
+  }
+
+  test("LLM adjudication: accept must choose one of the offered candidates") {
+    assertRejected(
+      llmAdjudication.copy(chosenCandidateId = None),
+      "chosenCandidateId: required when outcome is accept"
+    )
+    val notOffered = MatchCandidateId
+      .of(MatchSubjectKind.MentionPair, candidateLeft, candidateRight, "f", "k")
+      .toOption
+      .get
+    assertRejected(
+      llmAdjudication.copy(chosenCandidateId = Some(notOffered)),
+      "is not one of offeredCandidateIds"
+    )
+    List(AdjudicationOutcome.Reject, AdjudicationOutcome.Abstain).foreach { o =>
+      assertRejected(llmAdjudication.copy(outcome = o), s"must be null when outcome is ${o.wire}")
+    }
+  }
+
+  test("LLM adjudication: offered candidates are non-empty, well-formed, sorted, distinct") {
+    assertRejected(
+      llmAdjudication.copy(offeredCandidateIds = Nil, chosenCandidateId = None),
+      "offeredCandidateIds: must not be empty"
+    )
+    assertRejected(
+      llmAdjudication.copy(offeredCandidateIds = offeredCandidates.reverse),
+      "offeredCandidateIds: must be sorted"
+    )
+    assertRejected(
+      llmAdjudication.copy(offeredCandidateIds = List(chosenCandidate, chosenCandidate)),
+      "offeredCandidateIds: must be sorted"
+    )
+    assertRejected(
+      llmAdjudication.copy(offeredCandidateIds = List(MatchCandidateId("x"))),
+      "offeredCandidateIds[0]: malformed stable ID"
+    )
+  }
+
+  test("LLM adjudication: accept and reject cite input fields; fields are tokens") {
+    assertRejected(
+      llmAdjudication.copy(citedInputFields = Nil),
+      "citedInputFields: a accept adjudication must cite"
+    )
+    assertRejected(
+      llmAdjudication.copy(citedInputFields = List("b", "a")),
+      "citedInputFields: must be sorted"
+    )
+    assertRejected(
+      llmAdjudication.copy(citedInputFields = List("two words")),
+      "citedInputFields[0]:"
+    )
+  }
+
+  test("LLM adjudication: the ID is the cache key of input hash and the three versions") {
+    assertRejected(llmAdjudication.copy(promptVersion = "other-prompt/1"), "adjudicationId:")
+    assertRejected(llmAdjudication.copy(modelVersion = "other-model"), "adjudicationId:")
+    val otherHash = ContentHash.of("other input")
+    assertRejected(
+      llmAdjudication.copy(
+        inputHash = otherHash,
+        provenance = llmAdjudication.provenance.copy(contentHash = Some(otherHash))
+      ),
+      "adjudicationId:"
+    )
+    assertRejected(
+      llmAdjudication.copy(adjudicationId = LlmAdjudicationId("llm-adjudication:v1:00")),
+      "adjudicationId: malformed stable ID"
+    )
+  }
+
+  test("LLM adjudication: input hash is well-formed and is the provenance content hash") {
+    assertRejected(llmAdjudication.copy(inputHash = "md5:abc"), "inputHash: 'md5:abc'")
+    assertRejected(
+      llmAdjudication.copy(provenance = llmAdjudication.provenance.copy(contentHash = None)),
+      "provenance.contentHash: must equal inputHash"
+    )
+  }
+
+  test("LLM adjudication: versions, confidence, policy, provenance source") {
+    assertRejected(llmAdjudication.copy(modelVersion = ""), "modelVersion: must not be blank")
+    assertRejected(llmAdjudication.copy(promptVersion = " "), "promptVersion: must not be blank")
+    assertRejected(llmAdjudication.copy(confidence = 1.5), "confidence: confidence")
+    assertRejected(llmAdjudication.copy(policyVersion = "other/1"), "policyVersion: 'other/1'")
+    assertRejected(
+      llmAdjudication.copy(provenance =
+        llmAdjudication.provenance.copy(sourceType = SourceType.Runtime)
+      ),
+      "provenance.sourceType: a LlmAdjudication"
     )
   }
 

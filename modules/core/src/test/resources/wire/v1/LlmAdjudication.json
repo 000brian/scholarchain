@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "adjudicationId": "llm-adjudication:v1:ae0a4711d57a6a285da06edce17445e5",
+  "inputHash": "sha256:0bfa89040f71d64b2d48dfa20ac3990898ddfad540a0044685c346445e3cef09",
+  "offeredCandidateIds": [
+    "match-candidate:v1:6fb3760a014ac0b87ec17eadb3fe9cfe",
+    "match-candidate:v1:caced7f3f75136dee304d53c42c94ee8"
+  ],
+  "outcome": "accept",
+  "chosenCandidateId": "match-candidate:v1:6fb3760a014ac0b87ec17eadb3fe9cfe",
+  "citedInputFields": [
+    "candidates[1].coauthors",
+    "mention.coauthors"
+  ],
+  "confidence": 0.9,
+  "reasonCodes": [
+    "FIXTURE_SHARED_COAUTHORS"
+  ],
+  "promptVersion": "fixture-adjudication-prompt/1",
+  "modelVersion": "fixture-model-version",
+  "policyVersion": "fixture-match-policy/1",
+  "provenance": {
+    "schemaVersion": 1,
+    "sourceType": "pipeline",
+    "datasetId": "scholarchain-graph",
+    "snapshotId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+    "sourceRecordIds": [
+      "match-candidate:v1:6fb3760a014ac0b87ec17eadb3fe9cfe",
+      "match-candidate:v1:caced7f3f75136dee304d53c42c94ee8"
+    ],
+    "runId": "run:v1:7717327787dbcf997ecc871eb5a4dbde",
+    "jobName": "entity-resolution.llm-adjudicate",
+    "policyVersion": "fixture-match-policy/1",
+    "contentHash": "sha256:0bfa89040f71d64b2d48dfa20ac3990898ddfad540a0044685c346445e3cef09"
+  }
+}

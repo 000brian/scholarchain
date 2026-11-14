@@ -1,0 +1,24 @@
+package org.scholarchain.er.interval
+
+// (the package name ends in "val" and an import follows: neither is a declaration)
+import scala.util.Try
+
+// SYNTHETIC clean control: mentions of er.eval and `import eval.Harness` in comments only.
+/* import org.scholarchain.er.{eval => e}
+ * /* nested: eval.Harness */ still a comment: KeyRow, GoldLabels
+ */
+object CleanControl {
+  val evaluation: Int = 1
+  def evaluate(evalX: Int): Int = evalX + evaluation
+  val text: String = "the evaluation runs later"
+  val quote: Char = '\''
+  val slash: Char = '/'
+  val interp: String = s"value $evaluation and ${evaluate(2)} and $$eval"
+  val triple: String = """multi "quoted" text"""
+  private val m = Map("k" -> "evaluation")
+  val nested: String = s"| ${m("k")} | ${m("k").length} | text with a brace } and { here"
+}
+
+object CleanAfterInterpolation {
+  val stillTopLevel: Int = 2
+}

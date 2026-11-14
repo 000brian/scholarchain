@@ -1,0 +1,7 @@
+package org.scholarchain.er
+package run
+
+// SYNTHETIC planted leak: chained package clause, then a relative qualified use without import.
+object PlantedRelativeUse {
+  def f(): String = eval.Harness.fieldOf("a=b", "a")
+}

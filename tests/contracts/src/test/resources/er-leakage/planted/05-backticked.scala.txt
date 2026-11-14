@@ -1,0 +1,8 @@
+package org.scholarchain.er.policy
+
+// SYNTHETIC planted leak: a backticked package segment and a root-anchored wildcard.
+import _root_.org.scholarchain.er.`eval`.*
+
+object PlantedBackticked {
+  def f(): List[String] = Harness.LabelOrder
+}

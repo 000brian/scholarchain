@@ -262,15 +262,60 @@
   <property>
     <name>scholarchain.blocking.keyFamilies</name>
     <value>dblp-base-name</value>
-    <description>Blocking key families. Only dblp-base-name (the dblp name without its homonym
-      suffix, via core DblpAuthorName.split) is implemented; further families need key
-      definitions from entity-resolution-engineer.</description>
+    <description>Primary blocking key families (comma-separated), keyed by the shared core rule
+      AuthorNameKey (author-name-key/1): dblp-base-name (AuthorNameKey.baseNameKey: the dblp name
+      without its homonym suffix, NFD) and initials-surname (AuthorNameKey.initialsSurnameKey:
+      "J. Smith", "John Smith" and "Jane Smith" share "j smith"). The default keeps the Phase 4
+      family only; set dblp-base-name,initials-surname to add the initials family.</description>
   </property>
   <property>
     <name>scholarchain.blocking.maxBlockSize</name>
     <value>1000</value>
-    <description>Blocks with more members are not emitted; they are counted as OVERSIZE_BLOCKS
-      and listed in oversizeBlocks/ (key and size only).</description>
+    <description>Member cap of J05 primary blocks. J05 treats a block as oversize when it has
+      more members than this OR more pairs (m(m-1)/2) than scholarchain.candidates.maxPairsPerBlock;
+      the effective cap is min(maxBlockSize, largest m whose pairs fit maxPairsPerBlock), 500 with
+      the defaults. Oversize blocks are not emitted; they are counted as OVERSIZE_BLOCKS (those
+      over the pair limit only also as PAIR_LIMIT_OVERSIZE_BLOCKS), listed in oversizeBlocks/
+      (key, size, limit = effective cap, maxBlockSize, maxPairsPerBlock, pairs, reason
+      max_block_size or max_pairs_per_block), and their members are written to oversizeMembers/
+      for the fallback (J05b) and its coverage accounting (J05c). So every emitted block is
+      expanded by J06, for any combination of the two settings.</description>
+  </property>
+  <property>
+    <name>scholarchain.blocking.fallback.families</name>
+    <value>dblp-base-name,initials-surname</value>
+    <description>Primary families whose oversize blocks are re-blocked by J05b. Members of
+      oversize blocks of other families are counted (scholarchain.fallback-not-configured) and
+      end up uncovered.</description>
+  </property>
+  <property>
+    <name>scholarchain.blocking.fallback.secondaryKeys</name>
+    <value>coauthor</value>
+    <description>Secondary keys of the fallback (comma-separated; empty disables the fallback).
+      Each kind k re-blocks an oversize block (family, key) into fallback family family.k keyed
+      by the primary key plus: coauthor (each coauthor's AuthorNameKey.fullNameKey, so members
+      that share a coauthor dblp name meet), venue (the dblp venue key), or coauthor-venue (each
+      coauthor and venue combination).</description>
+  </property>
+  <property>
+    <name>scholarchain.blocking.fallback.maxBlockSize</name>
+    <value>500</value>
+    <description>Member cap of J05b fallback blocks. As in J05, a fallback block is oversize when
+      it has more members than this OR more pairs than scholarchain.candidates.maxPairsPerBlock
+      (effective cap min(fallback.maxBlockSize, largest m whose pairs fit)). Oversize fallback
+      blocks are not emitted: they are counted as OVERSIZE_BLOCKS in J05b (over the pair limit
+      only: also PAIR_LIMIT_OVERSIZE_BLOCKS) and listed in fallbackOversizeBlocks/ with the same
+      limit fields as J05. Members of an oversize
+      primary block that land in no emitted fallback block of two or more members are counted
+      (FALLBACK_UNCOVERED_MEMBERS) and listed in J05c uncoveredMembers/; oversizeKeySummary/
+      gives covered and uncovered counts per oversize key (the worst keys have the most
+      uncovered members). 500 members yield 124,750 pairs, within the default
+      scholarchain.candidates.maxPairsPerBlock.</description>
+  </property>
+  <property>
+    <name>scholarchain.blocking.fallback.reducers</name>
+    <value>4</value>
+    <description>J05b and J05c reduce tasks.</description>
   </property>
   <property>
     <name>scholarchain.blocking.emitSingletons</name>
@@ -279,8 +324,10 @@
   </property>
   <property>
     <name>scholarchain.blocking.policyVersion</name>
-    <value>blocking/1-provisional</value>
-    <description>Policy version of candidate blocks.</description>
+    <value>blocking/2+author-name-key/1</value>
+    <description>Policy version of candidate blocks (J05, J05b, J05c). Version 2: keys from the
+      core AuthorNameKey rule (author-name-key/1), the initials-surname family and the oversize
+      fallback. History: blocking/1-provisional (Phase 4, dblp-base-name only).</description>
   </property>
   <property>
     <name>scholarchain.blocking.reducers</name>
@@ -302,8 +349,13 @@
     <name>scholarchain.candidates.maxPairsPerBlock</name>
     <value>125000</value>
     <description>Maximum candidate pairs from one block (a block of m members yields m(m-1)/2; 500
-      members yield 124,750). Larger blocks are not expanded: they are counted as OVERSIZE_BLOCKS
-      (their pairs as OVERSIZE_BLOCK_PAIRS_SKIPPED) and listed in oversizeBlocks/.</description>
+      members yield 124,750). Also read by J05 and J05b, which treat blocks above this pair count
+      as oversize (fallback, coverage accounting) and never emit them, so with one configuration
+      J06 receives no block above the limit. A block above it that J06 still reads (blocks made
+      under another configuration) is not expanded: it is counted as OVERSIZE_BLOCKS (its pairs as
+      OVERSIZE_BLOCK_PAIRS_SKIPPED), listed in oversizeBlocks/, and each of its members is written
+      to unexpandedMembers/ (uncovered-member records, UNEXPANDED_BLOCK_MEMBERS, per family in
+      scholarchain.unexpanded-members-per-family).</description>
   </property>
   <property>
     <name>scholarchain.candidates.pairsPerShard</name>
@@ -315,6 +367,15 @@
     <name>scholarchain.candidates.reducers</name>
     <value>4</value>
     <description>J06 reduce tasks.</description>
+  </property>
+  <property>
+    <name>scholarchain.candidates.skipSameNumberedName</name>
+    <value>false</value>
+    <description>Optional volume rule (Phase 5 decision 6): when true, J06 emits no candidate for
+      a pair whose two mentions carry the same homonym-numbered dblp name (for example two
+      "Wei Wang 0001" mentions; dblp already assigns them to one person and they start in one
+      dblp-prior cluster) and counts it as SAME_NUMBERED_NAME_PAIRS_SKIPPED. Downstream review
+      sampling must then draw such pairs from the dblp-prior clusters.</description>
   </property>
 
   <!-- ===================== J09 graph export ===================== -->

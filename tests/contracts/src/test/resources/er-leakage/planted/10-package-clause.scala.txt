@@ -1,0 +1,7 @@
+// SYNTHETIC planted leak: a file outside the eval directory that joins the eval package, so its
+// definitions could be used by matching code without any import.
+package org.scholarchain.er.eval
+
+object PlantedInsideEvalPackage {
+  val x: Int = 1
+}

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "er-adjudication-output/1",
+  "title": "ScholarChain entity-resolution LLM adjudication output",
+  "description": "The only accepted shape of a model reply to prompt er-adjudication-prompt/1. Validated in code by org.scholarchain.er.llm.OutputValidator, which also checks that chosenCandidateId is one of the offered candidate IDs and that every cited field exists in the input. Any other key is rejected.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["outcome", "chosenCandidateId", "citedInputFields", "confidence", "reasonCodes"],
+  "properties": {
+    "outcome": { "type": "string", "enum": ["accept", "reject", "abstain"] },
+    "chosenCandidateId": {
+      "type": ["string", "null"],
+      "pattern": "^match-candidate:v1:[0-9a-f]{32}$"
+    },
+    "citedInputFields": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 32,
+      "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/\\[\\]-]*$" }
+    },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "reasonCodes": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 16,
+      "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$" }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "outcome": { "const": "accept" } } },
+      "then": {
+        "properties": { "chosenCandidateId": { "type": "string" }, "citedInputFields": { "minItems": 1 } }
+      }
+    },
+    {
+      "if": { "properties": { "outcome": { "const": "reject" } } },
+      "then": {
+        "properties": { "chosenCandidateId": { "type": "null" }, "citedInputFields": { "minItems": 1 } }
+      }
+    },
+    {
+      "if": { "properties": { "outcome": { "const": "abstain" } } },
+      "then": { "properties": { "chosenCandidateId": { "type": "null" } } }
+    }
+  ]
+}

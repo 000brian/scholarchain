@@ -1,0 +1,8 @@
+package org.scholarchain.er.run
+
+// SYNTHETIC planted leak: a renaming import selector hides the package name behind an alias.
+import org.scholarchain.er.{policy, eval => e}
+
+object PlantedSelectorRename {
+  def f(): String = e.Harness.BootstrapMethod
+}

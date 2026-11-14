@@ -371,20 +371,95 @@ final case class MatchCandidate(
 )
 object MatchCandidate { implicit val readWriter: ReadWriter[MatchCandidate] = macroRW }
 
-/** Entity-resolution decision for one mention. The policy version is `provenance.policyVersion`.
+/** One entity-resolution decision. Schema version 2 (Phase 5, breaking: v1 held only a mention, an
+  * optional researcher, an outcome, a confidence and features).
   *
-  * `unresolved` carries no candidate; every other outcome names one.
+  * Subjects use the [[MatchCandidate]] convention:
+  *   - `mention_pair` (a pairwise decision): `left` and `right` are [[MentionId]]s with `left <
+  *     right` by code point; `candidateId` is required and names the decided [[MatchCandidate]]
+  *     (every candidate gets exactly one decision per run).
+  *   - `mention_researcher`: `left` is a [[MentionId]] and `right` a [[ResearcherId]]. With a
+  *     `candidateId` it decides that candidate. Without one it is the identity assignment: the
+  *     mention `left` belongs to the cluster whose ID is `right`; its outcome is `accepted` or
+  *     `conflict` (a conflict-flagged cluster is kept, not split, and the reason is recorded).
+  *     Every subset mention gets exactly one identity assignment per run (cross-record invariant).
+  *
+  * Entity linkage policy fields: source record ID = `left`; candidate target ID = `right`; features
+  * used = `features`; rules fired = `rulesFired`; model and prompt version = `modelVersion`,
+  * `promptVersion`; confidence; decision = `outcome`; reason codes = `reasonCodes`; timestamp =
+  * `decisionTime`; run ID = `provenance.runId`.
+  *
+  * Rules:
+  *   - `features` (the features the decision used; may be empty, e.g. for an exact-identifier rule
+  *     or an identity assignment) follows the [[MatchCandidate]] feature rules: sorted by name,
+  *     distinct non-blank names, finite values; a feature that was not computed is omitted.
+  *   - `rulesFired` and `reasonCodes` are code tokens (`[A-Za-z0-9][A-Za-z0-9._:/-]*`), sorted by
+  *     code point and distinct. `exact_id` and `deterministic` decisions name at least one fired
+  *     rule; `unresolved` and `conflict` decisions carry at least one reason code.
+  *   - `llm` decisions carry `modelVersion` and `promptVersion`; other paths carry neither.
+  *   - `policyVersion` equals `provenance.policyVersion`; `provenance.sourceType` is `pipeline`.
+  *   - `decisionTime` is a UTC instant `yyyy-MM-ddTHH:mm:ssZ`. It is one value per run, supplied by
+  *     configuration and recorded in the run manifest, never read from the clock, so the same
+  *     inputs and configuration give the same output bytes.
   */
 final case class MatchDecision(
     schemaVersion: Int,
-    mentionId: MentionId,
-    candidateResearcherId: Option[ResearcherId],
+    subjectKind: MatchSubjectKind,
+    left: String,
+    right: String,
+    candidateId: Option[MatchCandidateId],
     outcome: MatchOutcome,
+    matchPath: MatchPath,
     confidence: Double,
     features: List[MatchFeature],
+    rulesFired: List[String],
+    reasonCodes: List[String],
+    modelVersion: Option[String],
+    promptVersion: Option[String],
+    policyVersion: String,
+    decisionTime: String,
     provenance: Provenance
 )
 object MatchDecision { implicit val readWriter: ReadWriter[MatchDecision] = macroRW }
+
+/** The validated result of one LLM adjudication of a bounded set of match candidates. Schema
+  * version 1 (Phase 5, new). Stored in the adjudication cache keyed by `adjudicationId`.
+  *
+  * The model chooses among `offeredCandidateIds` only; it can never introduce an identifier.
+  * Free-text model reasoning is not stored (no hidden reasoning is kept as evidence); the model's
+  * justification is the list of input fields it cites.
+  *
+  * Rules:
+  *   - `inputHash` is the `sha256:<hex>` content hash of the exact adjudication input and equals
+  *     `provenance.contentHash`.
+  *   - `adjudicationId == LlmAdjudicationId.of(inputHash, promptVersion, modelVersion,
+  *     policyVersion)`.
+  *   - `offeredCandidateIds` is non-empty, sorted by code point, and distinct.
+  *   - `accept` names `chosenCandidateId`, which must be one of `offeredCandidateIds`; `reject` and
+  *     `abstain` name none.
+  *   - `citedInputFields` (input field paths the model relied on) and `reasonCodes` are code tokens
+  *     (`[A-Za-z0-9][A-Za-z0-9._:/\[\]-]*` and `[A-Za-z0-9][A-Za-z0-9._:/-]*`), sorted by code
+  *     point and distinct; `accept` and `reject` cite at least one input field.
+  *   - `confidence` is in `[0, 1]`; `promptVersion`, `modelVersion` and `policyVersion` are
+  *     non-blank; `policyVersion` equals `provenance.policyVersion`; `provenance.sourceType` is
+  *     `pipeline`.
+  */
+final case class LlmAdjudication(
+    schemaVersion: Int,
+    adjudicationId: LlmAdjudicationId,
+    inputHash: String,
+    offeredCandidateIds: List[MatchCandidateId],
+    outcome: AdjudicationOutcome,
+    chosenCandidateId: Option[MatchCandidateId],
+    citedInputFields: List[String],
+    confidence: Double,
+    reasonCodes: List[String],
+    promptVersion: String,
+    modelVersion: String,
+    policyVersion: String,
+    provenance: Provenance
+)
+object LlmAdjudication { implicit val readWriter: ReadWriter[LlmAdjudication] = macroRW }
 
 /** Property-graph vertex. `nodeId` format depends on `label` (see Validator). */
 final case class GraphNode(

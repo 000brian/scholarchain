@@ -23,7 +23,8 @@ class SchemaVersionsSuite extends munit.FunSuite {
         "Institution" -> 1,
         "Topic" -> 1,
         "MatchCandidate" -> 1, // new in Phase 4
-        "MatchDecision" -> 1,
+        "MatchDecision" -> 2, // v2 in Phase 5: subjects, path, rules, reasons, versions, time
+        "LlmAdjudication" -> 1, // new in Phase 5
         "GraphNode" -> 1,
         "GraphEdge" -> 1,
         "EvidenceItem" -> 1,
@@ -52,8 +53,13 @@ class SchemaVersionsSuite extends munit.FunSuite {
     )
     assertEquals(
       MatchOutcome.values.map(_.wire),
-      List("match", "possible_match", "non_match", "unresolved")
+      List("accepted", "rejected", "unresolved", "conflict")
     )
+    assertEquals(
+      MatchPath.values.map(_.wire),
+      List("exact_id", "deterministic", "probabilistic", "llm")
+    )
+    assertEquals(AdjudicationOutcome.values.map(_.wire), List("accept", "reject", "abstain"))
     assertEquals(
       EvidenceType.values.map(_.wire),
       List(

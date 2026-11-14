@@ -1,0 +1,6 @@
+package org.scholarchain.er.llm
+
+// SYNTHETIC planted leak: reflective load of an eval class by its name in a string.
+object PlantedReflection {
+  def f(): Class[?] = Class.forName("org.scholarchain.er.eval.GoldLabels$")
+}
