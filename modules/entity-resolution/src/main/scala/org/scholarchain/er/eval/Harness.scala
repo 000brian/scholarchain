@@ -335,6 +335,16 @@ object Harness {
       "labeled rows in total no interval is reported."
   val CollapsedPrefix = "collapsed:"
 
+  /** How the design weights treat UNSURE labels (repair 22, reviewer R3). */
+  val WeightRule: String =
+    "Design weights: each stratum membership weighs population_h / labeled_h, where population_h " +
+      "is the stratum's population of decisions and labeled_h counts the stratum's labeled " +
+      "memberships, UNSURE rows included. UNSURE is treated as a label category of its own, not " +
+      "as missing at random: UNSURE rows are left out of precision, recall and coverage but keep " +
+      "their place in labeled_h, so they never raise the weight of the stratum's MATCH and " +
+      "NON_MATCH rows; the weighted estimates describe the decisions that would be labeled MATCH " +
+      "or NON_MATCH, without assuming that UNSURE pairs resemble them."
+
   /** The first membership stratum of a row (string order). */
   def resamplingStratum(k: KeyRow): String = k.memberships.map(_._1).min
 
@@ -447,6 +457,7 @@ object Harness {
       "labeledRows" -> labeled.count(_.key.memberships.nonEmpty),
       "labeledMemberships" -> ms.size,
       "resamplingUnit" -> "labeled row",
+      "weightRule" -> WeightRule,
       "resamplingRule" -> ResamplingRule,
       "collapseRule" -> CollapseRule,
       "singleLabeledRowStrata" -> ujson.Arr.from(
@@ -478,17 +489,24 @@ object Harness {
       case _ => k.outcome
     }
 
+  /** Error analysis lists at most this many false positives and false negatives each. */
+  val MaxErrors = 10
+  val ErrorSelection: String =
+    "all if at most 10, else the first 10 in (leftMentionId, rightMentionId) code-point order; totals give the full count"
+
   def evaluate(
       gold: GoldSet,
       key: Map[(String, String), KeyRow],
       workSummary: Option[ujson.Value],
       seed: Long,
       reps: Int,
-      note: Option[String]
+      note: Option[String],
+      inputs: EvalInputs = EvalInputs()
   ): ujson.Obj = {
     val labeled = join(gold, key)
     val overall = Metrics(rowUnits(labeled))
-    val weighted = Metrics(weightedUnits(labeled))
+    val wUnits = weightedUnits(labeled)
+    val weighted = Metrics(wUnits)
     val design = bootstrapDesign(labeled)
     val boot = bootstrap(labeled, reps, seed)
     // Breakdowns score each row by the decision of its membership in the group (repair m-new-1):
@@ -511,21 +529,23 @@ object Harness {
     def onlyNumbered(l: Labeled) = l.gold.evidence == List("dblp_numbered_name")
     val numberedOnly = labeled.filter(onlyNumbered)
     val independent = labeled.filter(l => l.gold.evidence.nonEmpty && !onlyNumbered(l))
-    def errors(ls: List[Labeled]) = ujson.Arr.from(ls.take(10).map { l =>
-      ujson.Obj(
-        "leftMentionId" -> l.gold.leftMentionId,
-        "rightMentionId" -> l.gold.rightMentionId,
-        "candidateId" -> l.gold.candidateId,
-        "label" -> l.gold.label,
-        "evidence" -> ujson.Arr.from(l.gold.evidence.map(ujson.Str(_))),
-        "note" -> l.gold.note,
-        "outcome" -> l.key.outcome,
-        "matchPath" -> l.key.path,
-        "family" -> l.key.family,
-        "matchProbability" -> num(l.key.matchProbability),
-        "features" -> ujson.Obj.from(l.key.features.map { case (k, v) => k -> ujson.Num(v) }),
-        "rulesFired" -> ujson.Arr.from(l.key.rulesFired.map(ujson.Str(_))),
-        "reasonCodes" -> ujson.Arr.from(l.key.reasonCodes.map(ujson.Str(_)))
+    def errors(ls: List[Labeled]) = ujson.Arr.from(ls.take(MaxErrors).map { l =>
+      ujson.Obj.from(
+        List[(String, ujson.Value)](
+          "leftMentionId" -> l.gold.leftMentionId,
+          "rightMentionId" -> l.gold.rightMentionId,
+          "candidateId" -> l.gold.candidateId,
+          "label" -> l.gold.label,
+          "evidence" -> ujson.Arr.from(l.gold.evidence.map(ujson.Str(_))),
+          "note" -> l.gold.note,
+          "outcome" -> l.key.outcome,
+          "matchPath" -> l.key.path,
+          "family" -> l.key.family,
+          "matchProbability" -> num(l.key.matchProbability),
+          "features" -> ujson.Obj.from(l.key.features.map { case (k, v) => k -> ujson.Num(v) }),
+          "rulesFired" -> ujson.Arr.from(l.key.rulesFired.map(ujson.Str(_))),
+          "reasonCodes" -> ujson.Arr.from(l.key.reasonCodes.map(ujson.Str(_)))
+        ) ++ EvalReport.trace(l, inputs.queue)
       )
     })
     val fps = labeled.filter(l => l.key.outcome == "accepted" && l.gold.label == "NON_MATCH")
@@ -547,6 +567,9 @@ object Harness {
       "note" -> note.fold[ujson.Value](ujson.Null)(ujson.Str(_)),
       "labeledRows" -> labeled.size,
       "unlabeledRows" -> gold.unlabeledRows,
+      "provenance" -> EvalReport.provenanceJson(inputs),
+      "goldSet" -> EvalReport.goldSet(gold, inputs.queue),
+      "runContext" -> EvalReport.runContext(labeled, inputs),
       "researcherResolution" -> ujson.Obj(
         "unweighted" -> metricsJson(overall),
         "weighted" -> ujson.Obj(
@@ -557,7 +580,13 @@ object Harness {
             k -> v.fold[ujson.Value](ujson.Null) { case (l, h) => ujson.Arr(l, h) }
           }),
           "bootstrapReps" -> reps,
-          "seed" -> seed.toString
+          "seed" -> seed.toString,
+          // repairs 20 and 21 (reviewer R1, R2): zero-event strata and design-determined metrics
+          "intervalReliability" -> IntervalReliability.json(
+            wUnits,
+            IntervalReliability.PairSpecs,
+            outcomeFixedByStratum = true
+          )
         ),
         "byMatchPath" -> breakdown(_.path, rowFallback = true),
         "byFamily" -> breakdown(d => fieldOf(d.stratum, "family")),
@@ -567,7 +596,9 @@ object Harness {
           "independentEvidence" -> metricsJson(Metrics(rowUnits(independent))),
           "noEvidence" -> labeled.count(_.gold.evidence.isEmpty)
         ),
+        "llmPath" -> EvalReport.llmPath(labeled, inputs),
         "errorAnalysis" -> ujson.Obj(
+          "selection" -> ErrorSelection,
           "falsePositives" -> errors(fps),
           "falsePositivesTotal" -> fps.size,
           "falseNegatives" -> errors(fns),
@@ -582,7 +613,8 @@ object Harness {
       "workResolution" -> ujson.Obj(
         "labels" -> "none: the review queue holds researcher mention pairs only, so work-resolution precision and recall cannot be estimated",
         "summary" -> workSummary.getOrElse(ujson.Null)
-      )
+      ),
+      "knownLimitations" -> EvalReport.limitations(labeled, inputs)
     )
   }
 
@@ -642,6 +674,13 @@ object Harness {
               .getOrElse(k, None)
               .fold[ujson.Value](ujson.Null) { case (l, h) => ujson.Arr(l, h) }
           )
+        ),
+        // repair 20 (reviewer R1): the same zero-event detection at cluster level; a final
+        // cluster outcome is never a stratum dimension, so no share is fixed by the design
+        "intervalReliability" -> IntervalReliability.json(
+          wUnits,
+          IntervalReliability.ClusterSpecs,
+          outcomeFixedByStratum = false
         )
       ),
       "pairOutcomeByFinalCluster" -> ujson.Obj.from(Outcomes.map { o =>
@@ -670,31 +709,95 @@ object Harness {
       case ujson.Null => "n/a";
       case a          => f"[${a.arr(0).num * 100}%.1f%%, ${a.arr(1).num * 100}%.1f%%]"
     }
-    def line(name: String, x: ujson.Value) =
+    // repairs 20 and 21: weighted intervals carry their reliability flag wherever they are shown
+    def reliability(w: ujson.Value): Option[ujson.Value] =
+      EvalReport.at(w, "intervalReliability", "metrics")
+    def mark(rel: Option[ujson.Value], k: String): String =
+      rel.flatMap(EvalReport.at(_, k)) match {
+        case Some(o) if EvalReport.at(o, "designDetermined").contains(ujson.Bool(true)) =>
+          " (design-determined)"
+        case Some(o) if EvalReport.at(o, "unreliable").contains(ujson.Bool(true)) =>
+          " (unreliable)"
+        case _ => ""
+      }
+    def line(name: String, x: ujson.Value, rel: Option[ujson.Value] = None) =
       sb.append(
-        s"| $name | ${x("units").num.toInt} | ${pct(x("precision")("value"))} ${ci(x("precision")("interval95"))} | ${pct(x("recall")("value"))} ${ci(x("recall")("interval95"))} | ${pct(x("f1"))} | ${pct(x("coverage")("value"))} | ${pct(x("unresolvedRate")("value"))} |\n"
+        s"| $name | ${x("units").num.toInt} | ${pct(x("precision")("value"))} ${ci(x("precision")("interval95"))}${mark(rel, "precision")} | ${pct(x("recall")("value"))} ${ci(x("recall")("interval95"))}${mark(rel, "recall")} | ${pct(x("f1"))} | ${pct(x("coverage")("value"))} | ${pct(x("unresolvedRate")("value"))} |\n"
       )
+    def reliabilityMd(w: ujson.Value, title: String, blankAfter: Boolean): Unit =
+      EvalReport.at(w, "intervalReliability").foreach { ir =>
+        sb.append(s"$title ${ir("rule").str}\n\n")
+        val ms = ir("metrics")
+        List("precision", "recall", "f1", "coverage", "unresolvedRate")
+          .filter(ms.obj.contains)
+          .foreach { k =>
+            val r = ms(k)
+            val boot = EvalReport.at(w, "bootstrap95", k).getOrElse(ujson.Null)
+            val bound = s"Zero-event bound ${ci(r("zeroEventBound95"))}."
+            val body =
+              if (k == "f1")
+                (if (r("unreliable").bool) "unreliable, because precision or recall is"
+                 else "not flagged (neither precision nor recall is)") + s". $bound"
+              else if (r("designDetermined").bool) s"${r("designDeterminedNote").str} $bound"
+              else {
+                val zs = r("zeroEventStrata").arr.toList
+                val shown = zs
+                  .take(5)
+                  .map { z =>
+                    val d = z("denominatorUnits").num.toInt
+                    val obs =
+                      if (d == 0)
+                        s"no denominator row among ${z("labeledUnits").num.toInt} labeled"
+                      else s"$d denominator rows, observed ${pct(z("observedProportion"))}"
+                    s"${z("stratum").str} ${pct(z("shareOfRelevantPopulation"))} ($obs)"
+                  }
+                  .mkString("; ")
+                val more = if (zs.size > 5) s"; ${zs.size - 5} more in metrics.json" else ""
+                val list =
+                  if (zs.isEmpty) "no zero-event stratum"
+                  else s"${zs.size} zero-event strata, largest first: $shown$more"
+                s"${
+                    if (r("unreliable").bool) "unreliable" else "not flagged"
+                  }: zero-event strata hold ${pct(r("zeroEventShareOfRelevantPopulation"))} of the relevant population weight and ${pct(r("zeroEventShareOfDenominatorWeight"))} of the observed denominator weight ($list). $bound"
+              }
+            sb.append(s"- $k: bootstrap ${ci(boot)} $body\n")
+          }
+        if (blankAfter) sb.append("\n")
+      }
     sb.append("# Entity-resolution gold-set evaluation\n\n")
     m("note") match { case ujson.Str(s) => sb.append(s"Note: $s\n\n"); case _ => () }
     sb.append(
       s"Labeled rows: ${m("labeledRows").num.toInt}; unlabeled queue rows: ${m("unlabeledRows").num.toInt}.\n\n"
     )
+    def has(k: String) = m.value.contains(k)
+    if (has("goldSet")) sb.append(EvalReport.goldSetMd(m))
+    if (has("provenance")) sb.append(EvalReport.provenanceMd(m))
+    if (has("outputs")) sb.append(EvalReport.outputsMd(m))
+    if (has("runContext")) sb.append(EvalReport.runContextMd(m))
     sb.append(
-      "## Researcher resolution\n\nPrecision and recall show a 95% interval: Wilson score (n = labeled units) for unweighted rows; stratified bootstrap percentile for the weighted estimate (marked \"bootstrap\").\n\n| Set | Units | Precision (95%) | Recall (95%) | F1 | Coverage | Unresolved |\n|---|---|---|---|---|---|---|\n"
+      "## Researcher resolution\n\n" + MetricDefinitions + "\n\nPrecision and recall show a 95% interval: Wilson score (n = labeled units) for unweighted rows; stratified bootstrap percentile for the weighted estimate (marked \"bootstrap\").\n\n| Set | Units | Precision (95%) | Recall (95%) | F1 | Coverage | Unresolved |\n|---|---|---|---|---|---|---|\n"
     )
     line("All rows (unweighted)", rr("unweighted"))
-    line("Weighted estimate (bootstrap)", rr("weighted")("metrics"))
+    line("Weighted estimate (bootstrap)", rr("weighted")("metrics"), reliability(rr("weighted")))
     rr("byMatchPath").obj.foreach { case (k, v) => line(s"path $k", v) }
     rr("byFamily").obj.foreach { case (k, v) => line(s"family $k", v) }
     line("evidence: dblp_numbered_name only", rr("evidence")("dblpNumberedNameOnly"))
     line("evidence: independent", rr("evidence")("independentEvidence"))
     sb.append("\nWeighted bootstrap 95%: ")
     sb.append(
-      rr("weighted")("bootstrap95").obj.map { case (k, v) => s"$k ${ci(v)}" }.mkString(", ")
+      rr("weighted")("bootstrap95").obj
+        .map { case (k, v) => s"$k ${ci(v)}${mark(reliability(rr("weighted")), k)}" }
+        .mkString(", ")
     ).append("\n\n")
+    reliabilityMd(
+      rr("weighted"),
+      "Weighted interval reliability (zero-event strata).",
+      blankAfter = true
+    )
     val design = rr("weighted")("design")
+    val weightRule = EvalReport.at(design, "weightRule").map(v => s" ${v.str}").getOrElse("")
     sb.append(
-      s"Weighted sample: ${design("labeledRows").num.toInt} labeled rows (the resampling unit) in ${design("labeledMemberships").num.toInt} stratum memberships (the weighted units). ${design("resamplingRule").str} ${design("collapseRule").str}\n\n"
+      s"Weighted sample: ${design("labeledRows").num.toInt} labeled rows (the resampling unit) in ${design("labeledMemberships").num.toInt} stratum memberships (the weighted units).$weightRule ${design("resamplingRule").str} ${design("collapseRule").str}\n\n"
     )
     design("bootstrapUnavailable") match {
       case ujson.Str(s) => sb.append(s"No weighted interval: $s.\n\n")
@@ -706,6 +809,11 @@ object Harness {
         s"Strata with a single labeled row (flagged): ${singles.mkString(", ")}. Collapsed bootstrap groups: ${design("bootstrapGroups").arr.filter(_("collapsed").bool).map(_("name").str).mkString(", ")}.\n\n"
       )
     sb.append(
+      "### By stratum (unweighted labeled rows; Wilson 95%)\n\n| Stratum | Units | Precision (95%) | Recall (95%) | F1 | Coverage | Unresolved |\n|---|---|---|---|---|---|---|\n"
+    )
+    rr("byStratum").obj.foreach { case (k, v) => line(k, v) }
+    sb.append("\n")
+    sb.append(
       "### Confusion matrix (unweighted rows)\n\n| Decision | MATCH | NON_MATCH | UNSURE |\n|---|---|---|---|\n"
     )
     Outcomes.foreach { o =>
@@ -715,26 +823,72 @@ object Harness {
       )
     }
     sb.append(
-      s"\n### Errors\n\nFalse positives: ${rr("errorAnalysis")("falsePositivesTotal").num.toInt}; false negatives: ${rr("errorAnalysis")("falseNegativesTotal").num.toInt} (details in metrics.json).\n\n"
+      "\n### Confusion matrix (weighted: estimated population decisions)\n\n| Decision | MATCH | NON_MATCH | UNSURE |\n|---|---|---|---|\n"
     )
-    sb.append(
-      "### Threshold sensitivity (reporting only)\n\n| accept | reject | precision | recall | coverage |\n|---|---|---|---|---|\n"
-    )
-    rr("thresholdSensitivity")("grid").arr.foreach { g =>
+    Outcomes.foreach { o =>
+      val c = rr("weighted")("metrics")("confusion")(o)
       sb.append(
-        s"| ${g("accept").num} | ${g("reject").num} | ${pct(g("precision"))} | ${pct(g("recall"))} | ${pct(g("coverage"))} |\n"
+        f"| $o | ${c("MATCH").num}%.1f | ${c("NON_MATCH").num}%.1f | ${c("UNSURE").num}%.1f |\n"
+      )
+    }
+    sb.append("\n")
+    if (rr.obj.contains("llmPath")) sb.append(EvalReport.llmMd(m))
+    if (rr("errorAnalysis").obj.contains("selection")) sb.append(EvalReport.errorsMd(m))
+    else
+      sb.append(
+        s"\n### Errors\n\nFalse positives: ${rr("errorAnalysis")("falsePositivesTotal").num.toInt}; false negatives: ${rr("errorAnalysis")("falseNegativesTotal").num.toInt} (details in metrics.json).\n\n"
+      )
+    // repair 27 (test-engineer F7): run thresholds that are not numbers never stop the Markdown;
+    // repair 28 (optional note): run thresholds off the sweep grid are stated, since no row can
+    // be marked
+    val recordedThresholds = for {
+      c <- m.value.get("runContext")
+      a <- EvalReport.at(c, "thresholds", "accept")
+      r <- EvalReport.at(c, "thresholds", "reject")
+    } yield (a, r)
+    val runThresholds = recordedThresholds.collect { case (ujson.Num(a), ujson.Num(r)) => (a, r) }
+    val grid = rr("thresholdSensitivity")("grid").arr
+    val onGrid =
+      runThresholds.exists(t => grid.exists(g => (g("accept").num, g("reject").num) == t))
+    val thresholdNote = (recordedThresholds, runThresholds) match {
+      case (Some((a, r)), None) =>
+        s" The run manifest's thresholds are not numbers (accept ${a.render()}, reject ${r.render()}), so no row is marked as the run's."
+      case (_, Some((a, r))) if !onGrid =>
+        s" The run's thresholds (accept ${EvalReport.text(ujson.Num(a))}, reject ${EvalReport.text(ujson.Num(r))}) are not on the sweep grid, so no row is marked as the run's."
+      case _ => ""
+    }
+    sb.append(
+      s"### Threshold sensitivity (reporting only)\n\n${rr("thresholdSensitivity")("description").str} The row marked \"run\" uses the thresholds recorded in the run manifest, when given.$thresholdNote\n\n| accept | reject | precision | recall | coverage | unresolved |\n|---|---|---|---|---|---|\n"
+    )
+    grid.foreach { g =>
+      val mark =
+        if (runThresholds.contains((g("accept").num, g("reject").num))) " (run)" else ""
+      sb.append(
+        s"| ${g("accept").num}$mark | ${g("reject").num} | ${pct(g("precision"))} | ${pct(g("recall"))} | ${pct(g("coverage"))} | ${pct(g("unresolvedRate"))} |\n"
       )
     }
     val ca = m("researcherClusterAssignment")
     sb.append(
       s"\n## Researcher resolution: final cluster assignment (reported apart from pair decisions)\n\n${ca("description").str}\n\nLabeled rows with cluster information: ${ca("labeledRowsWithClusterInfo").num.toInt}; without: ${ca("labeledRowsWithoutClusterInfo").num.toInt}.\n\n| Set | Units | Precision (95%) | Recall (95%) | F1 |\n|---|---|---|---|---|\n"
     )
-    def clusterLine(name: String, x: ujson.Value) =
+    def clusterLine(name: String, x: ujson.Value, rel: Option[ujson.Value] = None) =
       sb.append(
-        s"| $name | ${x("units").num.toInt} | ${pct(x("precision")("value"))} ${ci(x("precision")("interval95"))} | ${pct(x("recall")("value"))} ${ci(x("recall")("interval95"))} | ${pct(x("f1"))} |\n"
+        s"| $name | ${x("units").num.toInt} | ${pct(x("precision")("value"))} ${ci(x("precision")("interval95"))}${mark(rel, "precision")} | ${pct(x("recall")("value"))} ${ci(x("recall")("interval95"))}${mark(rel, "recall")} | ${pct(x("f1"))} |\n"
       )
     clusterLine("Cluster level, all rows (unweighted)", ca("unweighted"))
-    clusterLine("Cluster level, weighted estimate (bootstrap)", ca("weighted")("metrics"))
+    clusterLine(
+      "Cluster level, weighted estimate (bootstrap)",
+      ca("weighted")("metrics"),
+      reliability(ca("weighted"))
+    )
+    if (EvalReport.at(ca("weighted"), "intervalReliability").isDefined) {
+      sb.append("\n")
+      reliabilityMd(
+        ca("weighted"),
+        "Cluster-level weighted interval reliability (zero-event strata; a final-cluster outcome is never fixed by the strata, so every share is estimated).",
+        blankAfter = false
+      )
+    }
     sb.append(
       "\n### Cluster-level confusion matrix (unweighted rows)\n\n| Final clusters | MATCH | NON_MATCH | UNSURE |\n|---|---|---|---|\n"
     )
@@ -752,7 +906,15 @@ object Harness {
       val c = ca("pairOutcomeByFinalCluster")(o)
       sb.append(s"| $o | ${c(SameCluster).num.toLong} | ${c(DifferentClusters).num.toLong} |\n")
     }
-    sb.append("\n## Work resolution\n\n").append(m("workResolution")("labels").str).append(".\n")
+    if (has("knownLimitations")) {
+      sb.append("\n").append(EvalReport.workMd(m))
+      if (has("runContext")) sb.append(EvalReport.featuresMd(m))
+      sb.append(EvalReport.limitationsMd(m))
+    } else
+      sb.append("\n## Work resolution\n\n").append(m("workResolution")("labels").str).append(".\n")
     sb.toString
   }
+
+  val MetricDefinitions: String =
+    "Definitions (positive = decision accepted and label MATCH): precision = accepted MATCH / accepted labeled MATCH or NON_MATCH; recall = accepted MATCH / all MATCH (a MATCH left rejected, unresolved or conflict is missed); F1 = harmonic mean; coverage = accepted or rejected / labeled MATCH or NON_MATCH; unresolved rate = unresolved / all labeled units (UNSURE included). UNSURE labels never enter precision, recall or coverage."
 }
