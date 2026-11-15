@@ -668,6 +668,12 @@ object Validator {
       case GraphNodeLabel.Institution => openAlex(OpenAlexId.Institution)(field, id)
       case GraphNodeLabel.Topic       =>
         check(id.matches("\\S+"), s"$field: '$id' must be non-empty, no whitespace")
+      case GraphNodeLabel.AuthorMention =>
+        check(MentionId.isWellFormed(id), s"$field: '$id' is not a mention ID")
+      case GraphNodeLabel.DatasetSnapshot =>
+        check(id.matches("\\S+"), s"$field: '$id' must be non-empty, no whitespace")
+      case GraphNodeLabel.TextChunk =>
+        check(ChunkId.isWellFormed(id), s"$field: '$id' is not a chunk ID")
     }
 
   implicit val graphNode: Validator[GraphNode] = instance { n =>
@@ -695,6 +701,160 @@ object Validator {
       idRule ++
       optional("weight", e.weight)(finiteNonNegative) ++
       prov(e.provenance)
+  }
+
+  // ---- semantic documents and vector metadata (Phase 7) ------------------------------------
+
+  private def indexNameRule(field: String, s: String): List[String] =
+    check(VectorIndexName.isValid(s), s"$field: '$s' must match ${VectorIndexName.Pattern}")
+
+  private def vectorKeyRule(field: String, s: String): List[String] =
+    nonBlank(field, s) ++
+      check(
+        VectorKey.utf8Length(s) <= VectorKey.MaxUtf8Bytes,
+        s"$field: ${VectorKey.utf8Length(s)} UTF-8 bytes exceeds ${VectorKey.MaxUtf8Bytes}"
+      )
+
+  private def researcherIdText(field: String, s: String): List[String] =
+    check(ResearcherId.isWellFormed(s), s"$field: '$s' is not a researcher ID")
+
+  private def semanticSubjects(t: SemanticDocumentType, ids: List[String]): List[String] = {
+    val allResearchers = each("subjectIds", ids)(researcherIdText)
+    t match {
+      case SemanticDocumentType.ResearcherProfile =>
+        check(ids.size == 1, s"subjectIds: researcher_profile needs exactly 1, got ${ids.size}") ++
+          allResearchers
+      case SemanticDocumentType.CommunitySummary  => allResearchers
+      case SemanticDocumentType.CollaborationPath =>
+        check(
+          ids.size >= 2,
+          s"subjectIds: collaboration_path needs at least 2, got ${ids.size}"
+        ) ++ allResearchers
+      case SemanticDocumentType.PaperSummary =>
+        ids.headOption.toList.flatMap(h =>
+          check(WorkId.isWellFormed(h), s"subjectIds[0]: '$h' is not a work ID")
+        )
+      case SemanticDocumentType.TopicInstitutionSummary => Nil
+    }
+  }
+
+  implicit val semanticDocument: Validator[SemanticDocument] = instance { d =>
+    schema("SemanticDocument", d.schemaVersion) ++
+      stableId("documentId", d.documentId) ++
+      indexNameRule("indexName", d.indexName) ++
+      vectorKeyRule("vectorKey", d.vectorKey) ++
+      check(d.subjectIds.nonEmpty, "subjectIds: must not be empty") ++
+      each("subjectIds", d.subjectIds)(nonBlank) ++
+      semanticSubjects(d.documentType, d.subjectIds) ++
+      check(
+        !SemanticDocumentType.requiresWindow.contains(d.documentType) || d.window.nonEmpty,
+        s"window: required for ${d.documentType.wire} documents"
+      ) ++
+      optional("window", d.window)(window) ++
+      nonBlank("text", d.text) ++
+      textHash(d.provenance, d.text, "text") ++
+      optional("sourceEvidenceId", d.sourceEvidenceId)(stableId) ++
+      prov(d.provenance)
+  }
+
+  /** Every string value in a record tree longer than `max` characters (stable IDs included). */
+  private def longStrings(path: String, value: Any, max: Int): List[String] = value match {
+    case s: String =>
+      check(s.length <= max, s"$path: ${s.length} characters exceeds the $max-character limit")
+    case id: StableId    => longStrings(path, id.value, max)
+    case _: WireEnum     => Nil
+    case o: Option[_]    => o.toList.flatMap(longStrings(path, _, max))
+    case it: Iterable[_] =>
+      it.toList.zipWithIndex.flatMap { case (v, i) => longStrings(s"$path[$i]", v, max) }
+    case p: Product =>
+      p.productElementNames
+        .zip(p.productIterator)
+        .toList
+        .flatMap { case (n, v) => longStrings(if (path.isEmpty) n else s"$path.$n", v, max) }
+    case _ => Nil
+  }
+
+  private val S3Uri = """s3://[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]/\S+""".r.pattern
+
+  implicit val vectorMetadata: Validator[VectorMetadata] = instance { m =>
+    val windowYears = (m.windowStartYear, m.windowEndYear) match {
+      case (Some(s), Some(e)) => window("windowStartYear/windowEndYear", YearWindow(s, e))
+      case (None, None)       =>
+        check(
+          !SemanticDocumentType.requiresWindow.contains(m.documentType),
+          s"windowStartYear/windowEndYear: required for ${m.documentType.wire} vectors"
+        )
+      case _ => List("windowStartYear/windowEndYear: must be both present or both absent")
+    }
+    def required(field: String, o: Option[_]): List[String] =
+      check(o.nonEmpty, s"$field: required for ${m.documentType.wire} vectors")
+    val subjects = m.documentType match {
+      case SemanticDocumentType.ResearcherProfile => required("researcherId", m.researcherId)
+      case SemanticDocumentType.CommunitySummary  => required("communityId", m.communityId)
+      case SemanticDocumentType.CollaborationPath =>
+        required("startResearcherId", m.startResearcherId) ++
+          required("endResearcherId", m.endResearcherId) ++
+          required("pathLength", m.pathLength) ++
+          check(
+            m.startResearcherId.isEmpty || m.startResearcherId != m.endResearcherId,
+            "startResearcherId/endResearcherId: a path needs two different endpoints"
+          )
+      case SemanticDocumentType.PaperSummary            => required("workId", m.workId)
+      case SemanticDocumentType.TopicInstitutionSummary =>
+        check(
+          m.topicId.nonEmpty || m.institutionId.nonEmpty,
+          "topicId/institutionId: one is required for topic_institution_summary vectors"
+        )
+    }
+    schema("VectorMetadata", m.schemaVersion) ++
+      vectorKeyRule("vectorKey", m.vectorKey) ++
+      indexNameRule("indexName", m.indexName) ++
+      stableId("documentId", m.documentId) ++
+      optional("researcherId", m.researcherId)(stableId) ++
+      optional("communityId", m.communityId)(stableId) ++
+      optional("startResearcherId", m.startResearcherId)(stableId) ++
+      optional("endResearcherId", m.endResearcherId)(stableId) ++
+      optional("workId", m.workId)(stableId) ++
+      optional("topicId", m.topicId)((f, t) =>
+        check(t.matches("\\S+"), s"$f: '$t' must be non-empty, no whitespace")
+      ) ++
+      optional("institutionId", m.institutionId)(openAlex(OpenAlexId.Institution)) ++
+      subjects ++
+      windowYears ++
+      optional("year", m.year)(year) ++
+      optional("venueKey", m.venueKey)(venueKey) ++
+      optional("pathLength", m.pathLength)((f, n) => check(n >= 1, s"$f: $n must be >= 1")) ++
+      datasetIdRule("sourceDataset", m.sourceDataset) ++
+      check(
+        S3Uri.matcher(m.textS3Uri).matches(),
+        s"textS3Uri: '${m.textS3Uri}' must be s3://<bucket>/<key>"
+      ) ++
+      check(
+        ContentHash.isWellFormed(m.textHash),
+        s"textHash: '${m.textHash}' must be sha256:<64 lowercase hex>"
+      ) ++
+      check(
+        m.provenance.contentHash.contains(m.textHash),
+        "provenance.contentHash: must equal textHash"
+      ) ++
+      optional("sourceEvidenceId", m.sourceEvidenceId)(stableId) ++
+      check(
+        m.embeddingModel.matches("\\S+"),
+        s"embeddingModel: '${m.embeddingModel}' must be non-empty, no whitespace"
+      ) ++
+      check(
+        m.embeddingDimensions >= VectorMetadata.MinDimensions &&
+          m.embeddingDimensions <= VectorMetadata.MaxDimensions,
+        s"embeddingDimensions: ${m.embeddingDimensions} is outside " +
+          s"${VectorMetadata.MinDimensions}..${VectorMetadata.MaxDimensions}"
+      ) ++
+      stableId("runId", m.runId) ++
+      check(
+        m.runId == m.provenance.runId,
+        s"runId: ${m.runId} must equal provenance.runId ${m.provenance.runId}"
+      ) ++
+      longStrings("", m, VectorMetadata.MaxFieldChars) ++
+      prov(m.provenance)
   }
 
   implicit val evidenceItem: Validator[EvidenceItem] = instance { i =>

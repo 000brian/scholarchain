@@ -234,6 +234,24 @@ lazy val sparkSql = "org.apache.spark" %% "spark-sql" % Ledger.spark % Provided
 lazy val slf4jApi = "org.slf4j" % "slf4j-api" % Ledger.slf4j
 lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % Ledger.logback % Runtime
 
+// AWS SDK for Java 2.x (storage and rag only). Synchronous clients with one HTTP client
+// implementation, url-connection-client (JDK HttpURLConnection, no Netty, no Apache HttpClient).
+// Every SDK service artifact pulls apache-client and apache5-client (sync clients) and
+// netty-nio-client (the default async client) in runtime scope; all three are excluded per
+// dependency, so the exclusions also apply to projects that depend on storage or rag
+// (services, contractTests).
+lazy val awsSdkHttpExclusions: Seq[ExclusionRule] = Seq(
+  ExclusionRule("software.amazon.awssdk", "apache-client"),
+  ExclusionRule("software.amazon.awssdk", "apache5-client"),
+  ExclusionRule("software.amazon.awssdk", "netty-nio-client")
+)
+def awsSdk(artifact: String): ModuleID =
+  ("software.amazon.awssdk" % artifact % Ledger.awssdk).excludeAll(awsSdkHttpExclusions: _*)
+lazy val awsSdkHttpClient = awsSdk("url-connection-client")
+lazy val awsSdkStorage: Seq[ModuleID] =
+  Seq("s3", "dynamodb", "s3vectors", "neptunedata", "sqs").map(awsSdk) :+ awsSdkHttpClient
+lazy val awsSdkRag: Seq[ModuleID] = Seq(awsSdk("bedrockruntime"), awsSdkHttpClient)
+
 // ---------------------------------------------------------------------------------------------
 // Modules (boundaries from CLAUDE.md "Module dependency boundaries")
 // ---------------------------------------------------------------------------------------------
@@ -300,7 +318,8 @@ lazy val storage = (project in file("modules/storage"))
   .dependsOn(coreScala3)
   .settings(
     name := "scholarchain-storage",
-    commonSettings
+    commonSettings,
+    libraryDependencies ++= awsSdkStorage
   )
 
 // Retrieval, evidence bundles, claim verification. Reaches stores only through storage ports.
@@ -309,7 +328,8 @@ lazy val rag = (project in file("modules/rag"))
   .dependsOn(coreScala3, storage)
   .settings(
     name := "scholarchain-rag",
-    commonSettings
+    commonSettings,
+    libraryDependencies ++= awsSdkRag
   )
 
 // The only HTTP layer. Nothing depends on services.

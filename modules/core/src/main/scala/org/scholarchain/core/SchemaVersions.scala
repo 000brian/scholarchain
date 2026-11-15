@@ -25,6 +25,8 @@ object SchemaVersions {
     *     `unresolved`, `conflict`.
     *   - LlmAdjudication 1 (Phase 5, new).
     *   - ResearcherGroupMembership 1 (Phase 6, new).
+    *   - SemanticDocument 1, VectorMetadata 1 (Phase 7, new). Phase 7 also adds graph labels and
+    *     optional configuration sections without changing any existing version (additive).
     */
   val current: ListMap[String, Int] = ListMap(
     "Provenance" -> 1,
@@ -51,7 +53,9 @@ object SchemaVersions {
     "QueryPlan" -> 1,
     "AnswerClaim" -> 1,
     "AnswerResponse" -> 1,
-    "ScholarChainConfig" -> 1
+    "ScholarChainConfig" -> 1,
+    "SemanticDocument" -> 1,
+    "VectorMetadata" -> 1
   )
 
   /** Versions readers accept, per schema name. Today exactly the current version. */

@@ -56,6 +56,7 @@ object Ledger {
   lazy val munit: String = version("version.munit")
   lazy val slf4j: String = version("version.slf4j")
   lazy val logback: String = version("version.logback")
+  lazy val awssdk: String = version("version.awssdk")
   lazy val scalafmt: String = version("version.scalafmt")
   lazy val javaRuntimeImage: String = image("image.java-runtime")
 
@@ -75,6 +76,7 @@ object Ledger {
       munit,
       slf4j,
       logback,
+      awssdk,
       scalafmt,
       javaRuntimeImage
     )

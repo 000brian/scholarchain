@@ -49,7 +49,9 @@ class WireContractSuite extends munit.FunSuite {
       Example("EvidenceBundle", evidenceBundle),
       Example("QueryPlan", queryPlan),
       Example("AnswerClaim", answerClaim),
-      Example("AnswerResponse", answerResponse)
+      Example("AnswerResponse", answerResponse),
+      Example("SemanticDocument", semanticDocument),
+      Example("VectorMetadata", vectorMetadata)
     )
   }
 

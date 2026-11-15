@@ -258,6 +258,12 @@ object VerificationStatus extends WireEnumCompanion[VerificationStatus]("verific
     List(Verified, PartiallyVerified, Unsupported, Contradicted)
 }
 
+/** Graph node labels. The `nodeId` format of each label is checked by the `GraphNode` validator.
+  *
+  * Phase 7 (additive; every earlier wire name is unchanged): adds `author_mention` (nodeId is a
+  * [[MentionId]]), `dataset_snapshot` (nodeId is non-empty without whitespace, for example
+  * `dblp:2026-11-01`) and `text_chunk` (nodeId is a [[ChunkId]]).
+  */
 sealed trait GraphNodeLabel extends WireEnum
 object GraphNodeLabel extends WireEnumCompanion[GraphNodeLabel]("graph node label") {
   case object Researcher extends GraphNodeLabel { val wire = "researcher" }
@@ -266,10 +272,25 @@ object GraphNodeLabel extends WireEnumCompanion[GraphNodeLabel]("graph node labe
   case object Institution extends GraphNodeLabel { val wire = "institution" }
   case object Topic extends GraphNodeLabel { val wire = "topic" }
 
-  val values: List[GraphNodeLabel] = List(Researcher, Work, Venue, Institution, Topic)
+  /** One author slot of one work, before entity resolution; nodeId is a [[MentionId]]. */
+  case object AuthorMention extends GraphNodeLabel { val wire = "author_mention" }
+
+  /** One source dataset snapshot; nodeId is non-empty with no whitespace (`dblp:2026-11-01`). */
+  case object DatasetSnapshot extends GraphNodeLabel { val wire = "dataset_snapshot" }
+
+  /** One chunk of a semantic document; nodeId is a [[ChunkId]]. */
+  case object TextChunk extends GraphNodeLabel { val wire = "text_chunk" }
+
+  val values: List[GraphNodeLabel] =
+    List(Researcher, Work, Venue, Institution, Topic, AuthorMention, DatasetSnapshot, TextChunk)
 }
 
-/** Graph edge labels with their endpoint labels and directedness. */
+/** Graph edge labels with their endpoint labels and directedness.
+  *
+  * Phase 7 (additive; every earlier wire name is unchanged): adds the directed labels `resolves_to`
+  * (author_mention -> researcher), `derived_from` (work -> dataset_snapshot) and `supported_by`
+  * (researcher -> text_chunk).
+  */
 sealed abstract class GraphEdgeLabel(
     val wire: String,
     val fromLabel: GraphNodeLabel,
@@ -277,7 +298,16 @@ sealed abstract class GraphEdgeLabel(
     val undirected: Boolean
 ) extends WireEnum
 object GraphEdgeLabel extends WireEnumCompanion[GraphEdgeLabel]("graph edge label") {
-  import GraphNodeLabel.{Institution, Researcher, Topic, Venue, Work}
+  import GraphNodeLabel.{
+    AuthorMention,
+    DatasetSnapshot,
+    Institution,
+    Researcher,
+    TextChunk,
+    Topic,
+    Venue,
+    Work
+  }
 
   case object CoauthoredWith
       extends GraphEdgeLabel("coauthored_with", Researcher, Researcher, undirected = true)
@@ -287,8 +317,67 @@ object GraphEdgeLabel extends WireEnumCompanion[GraphEdgeLabel]("graph edge labe
       extends GraphEdgeLabel("affiliated_with", Researcher, Institution, undirected = false)
   case object HasTopic extends GraphEdgeLabel("has_topic", Work, Topic, undirected = false)
 
+  /** An author mention resolved (by entity resolution) to a researcher. */
+  case object ResolvesTo
+      extends GraphEdgeLabel("resolves_to", AuthorMention, Researcher, undirected = false)
+
+  /** A work derived from (published in) a source dataset snapshot. */
+  case object DerivedFrom
+      extends GraphEdgeLabel("derived_from", Work, DatasetSnapshot, undirected = false)
+
+  /** A researcher described by a text chunk (for example a researcher-profile document). */
+  case object SupportedBy
+      extends GraphEdgeLabel("supported_by", Researcher, TextChunk, undirected = false)
+
   val values: List[GraphEdgeLabel] =
-    List(CoauthoredWith, Authored, PublishedIn, AffiliatedWith, HasTopic)
+    List(
+      CoauthoredWith,
+      Authored,
+      PublishedIn,
+      AffiliatedWith,
+      HasTopic,
+      ResolvesTo,
+      DerivedFrom,
+      SupportedBy
+    )
+}
+
+/** Kind of a [[SemanticDocument]] (new in Phase 7). Each kind has its own vector index (see
+  * `VectorSettings.indexFor` in the configuration contract).
+  */
+sealed trait SemanticDocumentType extends WireEnum
+object SemanticDocumentType
+    extends WireEnumCompanion[SemanticDocumentType]("semantic document type") {
+
+  /** Profile of one researcher in one window. */
+  case object ResearcherProfile extends SemanticDocumentType { val wire = "researcher_profile" }
+
+  /** Summary of one community in one window. */
+  case object CommunitySummary extends SemanticDocumentType { val wire = "community_summary" }
+
+  /** Description of one materialized collaboration path in one window. */
+  case object CollaborationPath extends SemanticDocumentType { val wire = "collaboration_path" }
+
+  /** Compact summary of one work. */
+  case object PaperSummary extends SemanticDocumentType { val wire = "paper_summary" }
+
+  /** Summary of one topic or institution. */
+  case object TopicInstitutionSummary extends SemanticDocumentType {
+    val wire = "topic_institution_summary"
+  }
+
+  val values: List[SemanticDocumentType] =
+    List(
+      ResearcherProfile,
+      CommunitySummary,
+      CollaborationPath,
+      PaperSummary,
+      TopicInstitutionSummary
+    )
+
+  /** Kinds that describe the temporal graph and therefore must state a time window. */
+  val requiresWindow: Set[SemanticDocumentType] =
+    Set(ResearcherProfile, CommunitySummary, CollaborationPath)
 }
 
 /** Kinds of external (source-dataset) identifiers, with the source datasets allowed to assert each

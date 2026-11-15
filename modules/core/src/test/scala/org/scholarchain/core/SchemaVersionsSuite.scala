@@ -33,7 +33,9 @@ class SchemaVersionsSuite extends munit.FunSuite {
         "QueryPlan" -> 1,
         "AnswerClaim" -> 1,
         "AnswerResponse" -> 1,
-        "ScholarChainConfig" -> 1
+        "ScholarChainConfig" -> 1,
+        "SemanticDocument" -> 1, // new in Phase 7
+        "VectorMetadata" -> 1 // new in Phase 7
       )
     )
   }
@@ -113,13 +115,64 @@ class SchemaVersionsSuite extends munit.FunSuite {
     )
     assertEquals(
       GraphNodeLabel.values.map(_.wire),
-      List("researcher", "work", "venue", "institution", "topic")
+      List(
+        "researcher",
+        "work",
+        "venue",
+        "institution",
+        "topic",
+        // Phase 7 additions (additive; the names above are unchanged)
+        "author_mention",
+        "dataset_snapshot",
+        "text_chunk"
+      )
     )
     assertEquals(
       GraphEdgeLabel.values.map(_.wire),
-      List("coauthored_with", "authored", "published_in", "affiliated_with", "has_topic")
+      List(
+        "coauthored_with",
+        "authored",
+        "published_in",
+        "affiliated_with",
+        "has_topic",
+        // Phase 7 additions (additive; the names above are unchanged)
+        "resolves_to",
+        "derived_from",
+        "supported_by"
+      )
     )
     assertEquals(GraphEdgeLabel.values.filter(_.undirected), List(GraphEdgeLabel.CoauthoredWith))
+    assertEquals(
+      GraphEdgeLabel.values.map(l => (l.wire, l.fromLabel.wire, l.toLabel.wire)),
+      List(
+        ("coauthored_with", "researcher", "researcher"),
+        ("authored", "researcher", "work"),
+        ("published_in", "work", "venue"),
+        ("affiliated_with", "researcher", "institution"),
+        ("has_topic", "work", "topic"),
+        ("resolves_to", "author_mention", "researcher"),
+        ("derived_from", "work", "dataset_snapshot"),
+        ("supported_by", "researcher", "text_chunk")
+      )
+    )
+    assertEquals(
+      SemanticDocumentType.values.map(_.wire),
+      List(
+        "researcher_profile",
+        "community_summary",
+        "collaboration_path",
+        "paper_summary",
+        "topic_institution_summary"
+      )
+    )
+    assertEquals(
+      SemanticDocumentType.values.filter(SemanticDocumentType.requiresWindow).map(_.wire),
+      List("researcher_profile", "community_summary", "collaboration_path")
+    )
+    assertEquals(
+      config.EmbeddingProvider.values.map(_.wire),
+      List("voyage", "bedrock", "fake")
+    )
     assertEquals(
       ExternalIdType.values.map(_.wire),
       List(

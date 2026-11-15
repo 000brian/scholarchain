@@ -596,3 +596,124 @@ final case class AnswerResponse(
     provenance: Provenance
 )
 object AnswerResponse { implicit val readWriter: ReadWriter[AnswerResponse] = macroRW }
+
+// ---- Semantic documents and vector metadata (Phase 7, new) ---------------------------------
+
+/** S3 Vectors index names: `[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]` (3 to 63 characters). */
+object VectorIndexName {
+  val Pattern: String = "[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]"
+  private val compiled = Pattern.r.pattern
+  def isValid(s: String): Boolean = s != null && compiled.matcher(s).matches()
+}
+
+/** Vector keys: non-blank and at most 1024 bytes in UTF-8. The key layout (for example
+  * `rp:<windowLabel>:<researcherId>`) is storage policy, not part of this contract.
+  */
+object VectorKey {
+  val MaxUtf8Bytes: Int = 1024
+  def utf8Length(s: String): Int = s.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
+  def isValid(s: String): Boolean =
+    s != null && s.trim.nonEmpty && utf8Length(s) <= MaxUtf8Bytes
+}
+
+/** One document to embed (one chunk). Schema version 1 (Phase 7, new). Rendered by `rag`; its text
+  * is stored in ordinary S3 and its embedding in the S3 Vectors index `indexName` under
+  * `vectorKey`.
+  *
+  * Rules:
+  *   - `documentId` is a well-formed [[ChunkId]]; producers compute it with
+  *     `ChunkId.forSubjects(documentType, subjectIds, windowLabel, ordinal, ContentHash.of(text))`
+  *     (the window label and ordinal are not fields, so the formula is a producer obligation
+  *     checked by producer tests, not by this validator).
+  *   - `indexName` matches [[VectorIndexName.Pattern]]; `vectorKey` is non-blank and at most 1024
+  *     UTF-8 bytes ([[VectorKey]]).
+  *   - `subjectIds` is non-empty and every entry is non-blank. Per type: `researcher_profile` has
+  *     exactly one [[ResearcherId]]; `community_summary` has one or more ResearcherIds, the first
+  *     being the community group ID; `collaboration_path` has two or more ResearcherIds in path
+  *     order (source first, target last); `paper_summary` starts with a [[WorkId]];
+  *     `topic_institution_summary` is not constrained further.
+  *   - `window` is required for `researcher_profile`, `community_summary` and `collaboration_path`
+  *     ([[SemanticDocumentType.requiresWindow]]) and, when present, is a valid window.
+  *   - `text` is non-blank and `provenance.contentHash == ContentHash.of(text)`.
+  *   - `sourceEvidenceId`, when present, is a well-formed [[EvidenceId]] (for Spark summaries: the
+  *     summary's EvidenceItem ID).
+  */
+final case class SemanticDocument(
+    schemaVersion: Int,
+    documentId: ChunkId,
+    documentType: SemanticDocumentType,
+    indexName: String,
+    vectorKey: String,
+    subjectIds: List[String],
+    window: Option[YearWindow],
+    text: String,
+    sourceEvidenceId: Option[EvidenceId],
+    provenance: Provenance
+)
+object SemanticDocument { implicit val readWriter: ReadWriter[SemanticDocument] = macroRW }
+
+/** The compact metadata stored with one vector. Schema version 1 (Phase 7, new). Written by
+  * `storage`, read by `rag`. It never carries document text: the text is fetched from `textS3Uri`
+  * and checked against `textHash`.
+  *
+  * Rules:
+  *   - No string value anywhere in the record (provenance included) is longer than
+  *     [[VectorMetadata.MaxFieldChars]] (1024) characters (`String.length`).
+  *   - `vectorKey` and `indexName` follow the [[SemanticDocument]] rules; `documentId` is a
+  *     well-formed [[ChunkId]]; every present ID field is a well-formed stable ID of its kind;
+  *     `topicId` is non-empty without whitespace; `institutionId` is a canonical OpenAlex
+  *     institution ID.
+  *   - Per type: `researcher_profile` requires `researcherId`; `community_summary` requires
+  *     `communityId` (the community group ID); `collaboration_path` requires `startResearcherId`,
+  *     `endResearcherId` (different) and `pathLength`; `paper_summary` requires `workId`;
+  *     `topic_institution_summary` requires `topicId` or `institutionId`.
+  *   - `windowStartYear` and `windowEndYear` are both present or both absent, form a valid window,
+  *     and are required for the types in [[SemanticDocumentType.requiresWindow]].
+  *   - `year` is in 1..9999; `venueKey` is a dblp venue key; `pathLength` (coauthor edges on the
+  *     path) is >= 1.
+  *   - `sourceDataset` matches `[a-z0-9][a-z0-9-]*`; `textS3Uri` is `s3://<bucket>/<key>`;
+  *     `textHash` is `sha256:<64 lowercase hex>` and equals `provenance.contentHash`.
+  *   - `embeddingModel` is non-empty without whitespace; `embeddingDimensions` is in 1..4096 (the
+  *     S3 Vectors dimension range).
+  *   - `runId` (the run that wrote the vector) equals `provenance.runId`.
+  *
+  * Service limits that depend on the index (filterable bytes, key counts) are checked by `storage`,
+  * which decides which fields are filterable.
+  */
+final case class VectorMetadata(
+    schemaVersion: Int,
+    vectorKey: String,
+    indexName: String,
+    documentId: ChunkId,
+    documentType: SemanticDocumentType,
+    researcherId: Option[ResearcherId],
+    communityId: Option[ResearcherId],
+    startResearcherId: Option[ResearcherId],
+    endResearcherId: Option[ResearcherId],
+    workId: Option[WorkId],
+    topicId: Option[String],
+    institutionId: Option[String],
+    windowStartYear: Option[Int],
+    windowEndYear: Option[Int],
+    year: Option[Int],
+    venueKey: Option[String],
+    pathLength: Option[Int],
+    sourceDataset: String,
+    textS3Uri: String,
+    textHash: String,
+    sourceEvidenceId: Option[EvidenceId],
+    embeddingModel: String,
+    embeddingDimensions: Int,
+    runId: RunId,
+    provenance: Provenance
+)
+object VectorMetadata {
+  implicit val readWriter: ReadWriter[VectorMetadata] = macroRW
+
+  /** Longest string value allowed anywhere in the record. */
+  val MaxFieldChars: Int = 1024
+
+  /** S3 Vectors dimension range. */
+  val MinDimensions: Int = 1
+  val MaxDimensions: Int = 4096
+}

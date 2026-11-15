@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "documentId": "chunk:v1:794b0bd5791f0c269f919eae558f2cef",
+  "documentType": "researcher_profile",
+  "indexName": "researcher-profile-v1",
+  "vectorKey": "rp:2015-2025:researcher:v1:6d39fb31017461bdf6bbe118864d1809",
+  "subjectIds": [
+    "researcher:v1:6d39fb31017461bdf6bbe118864d1809"
+  ],
+  "window": {
+    "startYear": 2015,
+    "endYear": 2025
+  },
+  "text": "Hugo O. Sousa published 1 work in 2015-2025 with 2 distinct coauthors.",
+  "sourceEvidenceId": "evidence:v1:4b99deec79c9354391b9e95cc92ca83d",
+  "provenance": {
+    "schemaVersion": 1,
+    "sourceType": "pipeline",
+    "datasetId": "scholarchain-graph",
+    "snapshotId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+    "sourceRecordIds": [
+      "evidence:v1:4b99deec79c9354391b9e95cc92ca83d"
+    ],
+    "runId": "run:v1:c889db90c9119262d011fce85a4f5812",
+    "jobName": "rag.render-documents",
+    "policyVersion": "researcher-profile-template/1",
+    "contentHash": "sha256:ab554d00fa490bb4c222d4e70aad364bd6defba0d7722e950fc73a356c594bed"
+  }
+}

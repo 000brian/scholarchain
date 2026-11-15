@@ -492,6 +492,85 @@ object Fixtures {
     provenance = pipelineProvenance(graphRun, "spark.build-graph", "graph-policy/1", List(dblpKey))
   )
 
+  // ---- semantic documents and vector metadata (Phase 7) ---------------------------------
+  val windowLabel = "2015-2025"
+  val profileText = "Hugo O. Sousa published 1 work in 2015-2025 with 2 distinct coauthors."
+  val profileHash: String = ContentHash.of(profileText)
+  val profileChunk: ChunkId = get(
+    ChunkId.forSubjects(
+      SemanticDocumentType.ResearcherProfile,
+      List(sousa.value),
+      Some(windowLabel),
+      0,
+      profileHash
+    )
+  )
+  val profileIndex = "researcher-profile-v1"
+  val profileVectorKey: String = s"rp:$windowLabel:${sousa.value}"
+  val profileEvidence: EvidenceId = EvidenceId.of(EvidenceType.Metric, graphRun, List(sousa.value))
+  val ingestRun: RunId = get(
+    RunId.of(
+      "rag.ingest-semantic",
+      "fixture-code-version",
+      ContentHash.of("fixture input semantic summaries"),
+      configFingerprint
+    )
+  )
+
+  val semanticDocument: SemanticDocument = SemanticDocument(
+    schemaVersion = 1,
+    documentId = profileChunk,
+    documentType = SemanticDocumentType.ResearcherProfile,
+    indexName = profileIndex,
+    vectorKey = profileVectorKey,
+    subjectIds = List(sousa.value),
+    window = Some(window),
+    text = profileText,
+    sourceEvidenceId = Some(profileEvidence),
+    provenance = pipelineProvenance(
+      ingestRun,
+      "rag.render-documents",
+      "researcher-profile-template/1",
+      List(profileEvidence.value),
+      Some(profileHash)
+    )
+  )
+
+  val vectorMetadata: VectorMetadata = VectorMetadata(
+    schemaVersion = 1,
+    vectorKey = profileVectorKey,
+    indexName = profileIndex,
+    documentId = profileChunk,
+    documentType = SemanticDocumentType.ResearcherProfile,
+    researcherId = Some(sousa),
+    communityId = None,
+    startResearcherId = None,
+    endResearcherId = None,
+    workId = None,
+    topicId = None,
+    institutionId = None,
+    windowStartYear = Some(2015),
+    windowEndYear = Some(2025),
+    year = None,
+    venueKey = None,
+    pathLength = None,
+    sourceDataset = "dblp",
+    textS3Uri = "s3://example-semantic-context-bucket/semantic-context/text/" +
+      profileHash.stripPrefix(ContentHash.Prefix) + ".txt",
+    textHash = profileHash,
+    sourceEvidenceId = Some(profileEvidence),
+    embeddingModel = "fixture-embedding-model",
+    embeddingDimensions = 1024,
+    runId = ingestRun,
+    provenance = pipelineProvenance(
+      ingestRun,
+      "storage.vector-ingest",
+      "vector-ingest-policy/1",
+      List(profileChunk.value),
+      Some(profileHash)
+    )
+  )
+
   // ---- runtime records ------------------------------------------------------------------
   val question = "Who has Hugo O. Sousa collaborated with between 2015 and 2025?"
   val queryRun: RunId = get(

@@ -6,7 +6,13 @@ import java.nio.file.{Files, Paths}
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 
-import org.scholarchain.core.{ContractError, SchemaVersions, Validator}
+import org.scholarchain.core.{
+  ContractError,
+  SchemaVersions,
+  Validator,
+  VectorIndexName,
+  VectorMetadata
+}
 import upickle.default.read
 
 sealed trait ValueKind
@@ -41,6 +47,14 @@ object ConfigOrigin {
   final case class Environment(variable: String) extends ConfigOrigin
 }
 
+/** An optional configuration section (Phase 7). The section is absent unless at least one of its
+  * keys is set (file or environment); when present, every key in `required` must be set, and keys
+  * in `optional` may be left unset (they resolve to `None`).
+  */
+final case class ConfigSection(name: String, required: List[ConfigKey], optional: List[ConfigKey]) {
+  def keys: List[ConfigKey] = required ++ optional
+}
+
 /** A resolved configuration and where each key's value came from. */
 final case class LoadedConfig(config: ScholarChainConfig, origins: ListMap[String, ConfigOrigin])
 
@@ -56,6 +70,10 @@ final case class LoadedConfig(config: ScholarChainConfig, origins: ListMap[Strin
   *      take the raw value, other kinds take a JSON literal (number or array);
   *   2. the configuration file named by `SCHOLARCHAIN_CONFIG_FILE`;
   *   3. nothing: a key absent from both is an error. There are no defaults.
+  *
+  * Optional sections ([[ConfigLoader.sections]], Phase 7): a section none of whose keys is set
+  * resolves to `None`; a section with any key set must have all its required keys set (same
+  * precedence per key), otherwise every missing key is reported.
   *
   * `configVersion` comes only from the file. Unknown file keys, unknown `SCHOLARCHAIN_CFG_*`
   * variables, empty values, wrong types, and semantically invalid values are all rejected, and
@@ -93,6 +111,79 @@ object ConfigLoader {
     ConfigKey("bridge.randomSeed", WholeNumber),
     ConfigKey("bridge.topK", WholeNumber)
   )
+
+  /** Optional sections (Phase 7, additive). */
+  val sections: List[ConfigSection] = List(
+    ConfigSection(
+      "objectStore",
+      List(
+        ConfigKey("objectStore.rawPrefix", Text),
+        ConfigKey("objectStore.curatedPrefix", Text),
+        ConfigKey("objectStore.graphPrefix", Text),
+        ConfigKey("objectStore.semanticContextPrefix", Text),
+        ConfigKey("objectStore.reportsPrefix", Text),
+        ConfigKey("objectStore.logsPrefix", Text),
+        ConfigKey("objectStore.semanticContextBucket", Text),
+        ConfigKey("objectStore.reportsBucket", Text),
+        ConfigKey("objectStore.logsBucket", Text)
+      ),
+      Nil
+    ),
+    ConfigSection(
+      "dynamoDb",
+      List(
+        ConfigKey("dynamoDb.runLedgerTable", Text),
+        ConfigKey("dynamoDb.entityLinkCacheTable", Text),
+        ConfigKey("dynamoDb.querySessionTable", Text),
+        ConfigKey("dynamoDb.evidenceBundleTable", Text),
+        ConfigKey("dynamoDb.artifactRegistryTable", Text),
+        ConfigKey("dynamoDb.researcherMetricCacheTable", Text)
+      ),
+      Nil
+    ),
+    ConfigSection(
+      "neptune",
+      List(
+        ConfigKey("neptune.port", WholeNumber),
+        ConfigKey("neptune.queryTimeoutMillis", WholeNumber),
+        ConfigKey("neptune.mergeRowCap", WholeNumber)
+      ),
+      Nil
+    ),
+    ConfigSection(
+      "vectors",
+      List(
+        ConfigKey("vectors.researcherProfileIndex", Text),
+        ConfigKey("vectors.collaborationCommunityIndex", Text),
+        ConfigKey("vectors.paperAbstractIndex", Text),
+        ConfigKey("vectors.collaborationPathIndex", Text),
+        ConfigKey("vectors.topicInstitutionSummaryIndex", Text),
+        ConfigKey("vectors.putBatchSize", WholeNumber),
+        ConfigKey("vectors.maxRetries", WholeNumber),
+        ConfigKey("vectors.retryBaseDelayMillis", WholeNumber),
+        ConfigKey("vectors.retryMaxDelayMillis", WholeNumber),
+        ConfigKey("vectors.queryTopK", WholeNumber)
+      ),
+      Nil
+    ),
+    ConfigSection(
+      "embedding",
+      List(
+        ConfigKey("embedding.provider", Text),
+        ConfigKey("embedding.dimensions", WholeNumber),
+        ConfigKey("embedding.batchSize", WholeNumber),
+        ConfigKey("embedding.maxRetries", WholeNumber),
+        ConfigKey("embedding.retryBaseDelayMillis", WholeNumber),
+        ConfigKey("embedding.retryMaxDelayMillis", WholeNumber),
+        ConfigKey("embedding.requestsPerMinute", WholeNumber),
+        ConfigKey("embedding.tokensPerMinute", WholeNumber)
+      ),
+      List(ConfigKey("embedding.apiKeyEnvVar", Text))
+    )
+  )
+
+  /** Every known key: the required base keys, then the keys of every optional section. */
+  val allKeys: List[ConfigKey] = keys ++ sections.flatMap(_.keys)
 
   /** Reads the file named by `SCHOLARCHAIN_CONFIG_FILE` and applies `env` overrides. */
   def loadFromEnvironment(env: Map[String, String]): Either[ContractError, LoadedConfig] =
@@ -139,8 +230,8 @@ object ConfigLoader {
       env: Map[String, String]
   ): Either[ContractError, LoadedConfig] = {
     val flat = ListMap(flatten("", root): _*)
-    val known = keys.map(_.path).toSet + VersionKey
-    val knownEnv = keys.map(_.envVar).toSet
+    val known = allKeys.map(_.path).toSet + VersionKey
+    val knownEnv = allKeys.map(_.envVar).toSet
 
     val versionErrors = flat.get(VersionKey) match {
       case None => List(s"$fileName: $VersionKey: required")
@@ -158,7 +249,8 @@ object ConfigLoader {
       .filter(k => k.startsWith(EnvPrefix) && !knownEnv(k))
       .map(k => s"$k: unknown configuration variable")
 
-    val resolved: List[(ConfigKey, Either[String, (Any, ConfigOrigin)])] = keys.map { key =>
+    // None: the key is set neither in the environment nor in the file.
+    def lookup(key: ConfigKey): Option[Either[String, (Any, ConfigOrigin)]] = {
       val fromEnv = env.get(key.envVar).map { raw =>
         val where = s"${key.envVar}"
         if (raw.trim.isEmpty) Left(s"$where: set but empty")
@@ -167,23 +259,42 @@ object ConfigLoader {
             .flatMap(decode(key, _, where))
             .map(_ -> ConfigOrigin.Environment(where))
       }
-      val result = fromEnv.getOrElse {
-        flat.get(key.path) match {
-          case Some(v) =>
-            decode(key, v, s"$fileName: ${key.path}").map(_ -> ConfigOrigin.File(fileName))
-          case None =>
-            Left(s"${key.path}: required; set it in $fileName or in ${key.envVar}")
-        }
-      }
-      key -> result
+      fromEnv.orElse(
+        flat
+          .get(key.path)
+          .map(v => decode(key, v, s"$fileName: ${key.path}").map(_ -> ConfigOrigin.File(fileName)))
+      )
     }
+    val base: List[(ConfigKey, Either[String, (Any, ConfigOrigin)])] = keys.map { key =>
+      key -> lookup(key).getOrElse(
+        Left(s"${key.path}: required; set it in $fileName or in ${key.envVar}")
+      )
+    }
+    val sectionResults = sections.map { section =>
+      val found = section.keys.map(k => k -> lookup(k))
+      val active = found.exists(_._2.nonEmpty)
+      val results = found.flatMap {
+        case (k, Some(r))                                        => List(k -> r)
+        case (k, None) if active && section.required.contains(k) =>
+          List(
+            k -> Left(
+              s"${k.path}: required because section ${section.name} is configured; " +
+                s"set it in $fileName or in ${k.envVar}"
+            )
+          )
+        case _ => Nil
+      }
+      (section.name, active, results)
+    }
+    val activeSections = sectionResults.collect { case (name, true, _) => name }.toSet
+    val resolved = base ++ sectionResults.flatMap(_._3)
     val valueErrors = resolved.collect { case (_, Left(e)) => e }
     val structural = versionErrors ++ unknownFile ++ unknownEnv ++ valueErrors
     if (structural.nonEmpty) Left(ContractError(structural))
     else {
       val values = resolved.collect { case (k, Right((v, _))) => k.path -> v }.toMap
       val origins = ListMap(resolved.collect { case (k, Right((_, o))) => k.path -> o }: _*)
-      val config = build(flat(VersionKey).num.toInt, values)
+      val config = build(flat(VersionKey).num.toInt, values, activeSections)
       ConfigValidator.validate(config) match {
         case Nil    => Right(LoadedConfig(config, origins))
         case errors => Left(ContractError(errors))
@@ -225,10 +336,16 @@ object ConfigLoader {
     case WindowList  => "an array of windows"
   }
 
-  private def build(version: Int, v: Map[String, Any]): ScholarChainConfig = {
+  private def build(
+      version: Int,
+      v: Map[String, Any],
+      activeSections: Set[String]
+  ): ScholarChainConfig = {
     def s(k: String): String = v(k).asInstanceOf[String]
     def i(k: String): Int = v(k).asInstanceOf[Int]
     def d(k: String): Double = v(k).asInstanceOf[Double]
+    def section[T](name: String)(f: => T): Option[T] =
+      if (activeSections.contains(name)) Some(f) else None
     ScholarChainConfig(
       configVersion = version,
       environment = s("environment"),
@@ -257,6 +374,63 @@ object ConfigLoader {
         sampleSize = i("bridge.sampleSize"),
         randomSeed = i("bridge.randomSeed"),
         topK = i("bridge.topK")
+      ),
+      objectStore = section("objectStore")(
+        ObjectStoreSettings(
+          rawPrefix = s("objectStore.rawPrefix"),
+          curatedPrefix = s("objectStore.curatedPrefix"),
+          graphPrefix = s("objectStore.graphPrefix"),
+          semanticContextPrefix = s("objectStore.semanticContextPrefix"),
+          reportsPrefix = s("objectStore.reportsPrefix"),
+          logsPrefix = s("objectStore.logsPrefix"),
+          semanticContextBucket = s("objectStore.semanticContextBucket"),
+          reportsBucket = s("objectStore.reportsBucket"),
+          logsBucket = s("objectStore.logsBucket")
+        )
+      ),
+      dynamoDb = section("dynamoDb")(
+        DynamoDbSettings(
+          runLedgerTable = s("dynamoDb.runLedgerTable"),
+          entityLinkCacheTable = s("dynamoDb.entityLinkCacheTable"),
+          querySessionTable = s("dynamoDb.querySessionTable"),
+          evidenceBundleTable = s("dynamoDb.evidenceBundleTable"),
+          artifactRegistryTable = s("dynamoDb.artifactRegistryTable"),
+          researcherMetricCacheTable = s("dynamoDb.researcherMetricCacheTable")
+        )
+      ),
+      neptune = section("neptune")(
+        NeptuneSettings(
+          port = i("neptune.port"),
+          queryTimeoutMillis = i("neptune.queryTimeoutMillis"),
+          mergeRowCap = i("neptune.mergeRowCap")
+        )
+      ),
+      vectors = section("vectors")(
+        VectorSettings(
+          researcherProfileIndex = s("vectors.researcherProfileIndex"),
+          collaborationCommunityIndex = s("vectors.collaborationCommunityIndex"),
+          paperAbstractIndex = s("vectors.paperAbstractIndex"),
+          collaborationPathIndex = s("vectors.collaborationPathIndex"),
+          topicInstitutionSummaryIndex = s("vectors.topicInstitutionSummaryIndex"),
+          putBatchSize = i("vectors.putBatchSize"),
+          maxRetries = i("vectors.maxRetries"),
+          retryBaseDelayMillis = i("vectors.retryBaseDelayMillis"),
+          retryMaxDelayMillis = i("vectors.retryMaxDelayMillis"),
+          queryTopK = i("vectors.queryTopK")
+        )
+      ),
+      embedding = section("embedding")(
+        EmbeddingSettings(
+          provider = s("embedding.provider"),
+          dimensions = i("embedding.dimensions"),
+          apiKeyEnvVar = v.get("embedding.apiKeyEnvVar").map(_.asInstanceOf[String]),
+          batchSize = i("embedding.batchSize"),
+          maxRetries = i("embedding.maxRetries"),
+          retryBaseDelayMillis = i("embedding.retryBaseDelayMillis"),
+          retryMaxDelayMillis = i("embedding.retryMaxDelayMillis"),
+          requestsPerMinute = i("embedding.requestsPerMinute"),
+          tokensPerMinute = i("embedding.tokensPerMinute")
+        )
       )
     )
   }
@@ -321,6 +495,127 @@ object ConfigValidator {
         s"bridge.algorithm: '${c.bridge.algorithm}' must match [a-z0-9][a-z0-9_-]*"
       ) ++
       check(c.bridge.sampleSize > 0, s"bridge.sampleSize: ${c.bridge.sampleSize} must be > 0") ++
-      check(c.bridge.topK > 0, s"bridge.topK: ${c.bridge.topK} must be > 0")
+      check(c.bridge.topK > 0, s"bridge.topK: ${c.bridge.topK} must be > 0") ++
+      c.objectStore.toList.flatMap(objectStore(_, st)) ++
+      c.dynamoDb.toList.flatMap(dynamoDb) ++
+      c.neptune.toList.flatMap(neptune) ++
+      c.vectors.toList.flatMap(vectors) ++
+      c.embedding.toList.flatMap(embedding)
+  }
+
+  // ---- Phase 7 optional sections -------------------------------------------------------------
+
+  private val Prefix = "[a-z0-9][a-z0-9._=-]*(/[a-z0-9][a-z0-9._=-]*)*"
+  private val TableName = "[A-Za-z0-9_.-]{3,255}"
+  private val EnvVarName = "[A-Z][A-Z0-9_]*"
+
+  private def positive(field: String, n: Int): List[String] =
+    check(n > 0, s"$field: $n must be > 0")
+
+  private def nonNegative(field: String, n: Int): List[String] =
+    check(n >= 0, s"$field: $n must be >= 0")
+
+  private def retries(section: String, max: Int, base: Int, cap: Int): List[String] =
+    nonNegative(s"$section.maxRetries", max) ++
+      positive(s"$section.retryBaseDelayMillis", base) ++
+      check(
+        cap >= base,
+        s"$section.retryMaxDelayMillis: $cap is less than retryBaseDelayMillis $base"
+      )
+
+  private def objectStore(o: ObjectStoreSettings, st: StorageSettings): List[String] = {
+    val locations = o.zones(st).values.toList
+    List(
+      "objectStore.rawPrefix" -> o.rawPrefix,
+      "objectStore.curatedPrefix" -> o.curatedPrefix,
+      "objectStore.graphPrefix" -> o.graphPrefix,
+      "objectStore.semanticContextPrefix" -> o.semanticContextPrefix,
+      "objectStore.reportsPrefix" -> o.reportsPrefix,
+      "objectStore.logsPrefix" -> o.logsPrefix
+    ).flatMap { case (k, p) => check(p.matches(Prefix), s"$k: '$p' must match $Prefix") } ++
+      List(
+        "objectStore.semanticContextBucket" -> o.semanticContextBucket,
+        "objectStore.reportsBucket" -> o.reportsBucket,
+        "objectStore.logsBucket" -> o.logsBucket
+      ).flatMap { case (k, b) =>
+        check(b.matches(Bucket), s"$k: '$b' is not a valid bucket name")
+      } ++
+      check(
+        locations.distinct.size == locations.size,
+        "objectStore: the six zone locations (bucket, prefix) must be distinct"
+      )
+  }
+
+  private def dynamoDb(d: DynamoDbSettings): List[String] = {
+    val tables = List(
+      "dynamoDb.runLedgerTable" -> d.runLedgerTable,
+      "dynamoDb.entityLinkCacheTable" -> d.entityLinkCacheTable,
+      "dynamoDb.querySessionTable" -> d.querySessionTable,
+      "dynamoDb.evidenceBundleTable" -> d.evidenceBundleTable,
+      "dynamoDb.artifactRegistryTable" -> d.artifactRegistryTable,
+      "dynamoDb.researcherMetricCacheTable" -> d.researcherMetricCacheTable
+    )
+    tables.flatMap { case (k, t) =>
+      check(t.matches(TableName), s"$k: '$t' is not a valid table name")
+    } ++
+      check(
+        tables.map(_._2).distinct.size == tables.size,
+        "dynamoDb: table names must be distinct"
+      )
+  }
+
+  private def neptune(n: NeptuneSettings): List[String] =
+    check(n.port >= 1 && n.port <= 65535, s"neptune.port: ${n.port} is outside 1..65535") ++
+      positive("neptune.queryTimeoutMillis", n.queryTimeoutMillis) ++
+      positive("neptune.mergeRowCap", n.mergeRowCap)
+
+  private def vectors(v: VectorSettings): List[String] = {
+    val names = List(
+      "vectors.researcherProfileIndex" -> v.researcherProfileIndex,
+      "vectors.collaborationCommunityIndex" -> v.collaborationCommunityIndex,
+      "vectors.paperAbstractIndex" -> v.paperAbstractIndex,
+      "vectors.collaborationPathIndex" -> v.collaborationPathIndex,
+      "vectors.topicInstitutionSummaryIndex" -> v.topicInstitutionSummaryIndex
+    )
+    names.flatMap { case (k, n) =>
+      check(VectorIndexName.isValid(n), s"$k: '$n' must match ${VectorIndexName.Pattern}")
+    } ++
+      check(names.map(_._2).distinct.size == names.size, "vectors: index names must be distinct") ++
+      check(
+        v.putBatchSize >= 1 && v.putBatchSize <= MaxPutVectorsBatch,
+        s"vectors.putBatchSize: ${v.putBatchSize} is outside 1..$MaxPutVectorsBatch"
+      ) ++
+      retries("vectors", v.maxRetries, v.retryBaseDelayMillis, v.retryMaxDelayMillis) ++
+      positive("vectors.queryTopK", v.queryTopK)
+  }
+
+  /** S3 Vectors PutVectors limit (vectors per call). */
+  val MaxPutVectorsBatch: Int = 500
+
+  private def embedding(e: EmbeddingSettings): List[String] = {
+    val providerRule = e.providerKind match {
+      case Left(msg)                       => List(s"embedding.provider: $msg")
+      case Right(EmbeddingProvider.Voyage) =>
+        check(e.apiKeyEnvVar.nonEmpty, "embedding.apiKeyEnvVar: required for provider voyage")
+      case Right(_) => Nil
+    }
+    providerRule ++
+      e.apiKeyEnvVar.toList.flatMap { n =>
+        check(n.matches(EnvVarName), s"embedding.apiKeyEnvVar: '$n' must match $EnvVarName") ++
+          check(
+            !n.startsWith(ConfigLoader.EnvPrefix),
+            s"embedding.apiKeyEnvVar: '$n' must not start with ${ConfigLoader.EnvPrefix}"
+          )
+      } ++
+      check(
+        e.dimensions >= VectorMetadata.MinDimensions &&
+          e.dimensions <= VectorMetadata.MaxDimensions,
+        s"embedding.dimensions: ${e.dimensions} is outside " +
+          s"${VectorMetadata.MinDimensions}..${VectorMetadata.MaxDimensions}"
+      ) ++
+      positive("embedding.batchSize", e.batchSize) ++
+      retries("embedding", e.maxRetries, e.retryBaseDelayMillis, e.retryMaxDelayMillis) ++
+      positive("embedding.requestsPerMinute", e.requestsPerMinute) ++
+      positive("embedding.tokensPerMinute", e.tokensPerMinute)
   }
 }

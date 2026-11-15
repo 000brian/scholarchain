@@ -285,3 +285,77 @@ object LlmAdjudicationId
     }
   }
 }
+
+/** Chunk ID: one chunk of one semantic document. It is the `documentId` of a [[SemanticDocument]]
+  * and the nodeId of a `text_chunk` graph node. New in Phase 7.
+  *
+  * Formula: `chunk:v1:` + digest32("chunk/v1", documentType, subjectKey, windowLabel or "-",
+  * ordinal, textHash) where
+  *   - `documentType` is the [[SemanticDocumentType]] wire name;
+  *   - `subjectKey` is the document's subject key; producers use [[ChunkId.subjectKeyOf]] (the
+  *     document's `subjectIds` joined by `,` in their stated order) through
+  *     [[ChunkId.forSubjects]];
+  *   - `windowLabel` is the configured graph-window label (`graph.windows[].label`, pattern
+  *     `[a-z0-9][a-z0-9-]*`) verbatim, or the literal `-` for a document without a window (no valid
+  *     label equals `-`, so the two never collide);
+  *   - `ordinal` is the 0-based chunk position within the document, in decimal;
+  *   - `textHash` is `ContentHash.of(chunk text)` (`sha256:<64 lowercase hex>`).
+  *
+  * The ID changes when the text changes (the text hash is an input). Vector keys, which must stay
+  * stable across reruns, are not chunk IDs.
+  */
+final case class ChunkId(value: String) extends StableId {
+  def isWellFormed: Boolean = ChunkId.isWellFormed(value)
+}
+object ChunkId extends StableIdCompanion[ChunkId]("chunk", new ChunkId(_)) {
+
+  /** The component used for a document without a window. */
+  val NoWindow = "-"
+
+  private val WindowLabelPattern = "[a-z0-9][a-z0-9-]*"
+
+  def of(
+      documentType: SemanticDocumentType,
+      subjectKey: String,
+      windowLabel: Option[String],
+      ordinal: Int,
+      textHash: String
+  ): Either[String, ChunkId] =
+    if (subjectKey == null || subjectKey.trim.isEmpty) Left("chunk ID subjectKey must not be blank")
+    else if (windowLabel.exists(l => l == null || !l.matches(WindowLabelPattern)))
+      Left(s"chunk ID windowLabel '${windowLabel.orNull}' must match $WindowLabelPattern")
+    else if (ordinal < 0) Left(s"chunk ID ordinal $ordinal must be >= 0")
+    else if (!ContentHash.isWellFormed(textHash))
+      Left(s"chunk ID textHash '$textHash' must be sha256:<64 lowercase hex>")
+    else
+      Right(
+        derive(
+          documentType.wire,
+          subjectKey,
+          windowLabel.getOrElse(NoWindow),
+          ordinal.toString,
+          textHash
+        )
+      )
+
+  /** The subject key of a document: its subject IDs joined by `,` in their stated order. Each ID
+    * must be non-blank and must not contain `,`.
+    */
+  def subjectKeyOf(subjectIds: Seq[String]): Either[String, String] =
+    if (subjectIds.isEmpty) Left("chunk ID subjectIds must not be empty")
+    else
+      subjectIds.find(s => s == null || s.trim.isEmpty || s.contains(",")) match {
+        case Some(bad) => Left(s"chunk ID subject ID '$bad' must be non-blank without ','")
+        case None      => Right(subjectIds.mkString(","))
+      }
+
+  /** `of(documentType, subjectKeyOf(subjectIds), windowLabel, ordinal, textHash)`. */
+  def forSubjects(
+      documentType: SemanticDocumentType,
+      subjectIds: Seq[String],
+      windowLabel: Option[String],
+      ordinal: Int,
+      textHash: String
+  ): Either[String, ChunkId] =
+    subjectKeyOf(subjectIds).flatMap(of(documentType, _, windowLabel, ordinal, textHash))
+}

@@ -1,0 +1,54 @@
+{
+  "format": "scholarchain.storage.s3vectors-index-spec",
+  "formatVersion": 1,
+  "owner": "storage-engineer",
+  "consumers": ["infra-engineer (Terraform, Phase 12)", "storage (runtime checks)", "rag (filters)"],
+  "notes": [
+    "S3 Vectors treats every metadata key as filterable unless it is listed as non-filterable when the index is created; the non-filterable list cannot be changed afterwards.",
+    "Terraform creates each index with name, dimension, dataType, distanceMetric and nonFilterableMetadataKeys from this file. filterableKeys is the closed set storage writes and rag may filter on.",
+    "dimension must equal the configured embedding.dimensions (1024 for both voyage-4 and Titan Text Embeddings V2); storage refuses to ingest when they differ.",
+    "Limits (decision 8, captured by the human architect on Nov 15): filterable metadata up to 2 KB, total metadata up to 40 KB, up to 50 keys, up to 10 non-filterable keys per index.",
+    "Document text is never stored in metadata: it is in ordinary S3 at textS3Uri and checked against textHash."
+  ],
+  "dimensionConfigKey": "embedding.dimensions",
+  "dimension": 1024,
+  "dataType": "float32",
+  "distanceMetric": "cosine",
+  "indexes": [
+    {
+      "name": "researcher-profile-v1",
+      "configKey": "vectors.researcherProfileIndex",
+      "documentType": "researcher_profile",
+      "filterableKeys": ["documentType", "researcherId", "communityId", "startResearcherId", "endResearcherId", "workId", "topicId", "institutionId", "windowStartYear", "windowEndYear", "year", "venueKey", "pathLength", "sourceDataset", "embeddingModel", "embeddingDimensions", "sourceType", "datasetId", "snapshotId", "jobName", "policyVersion"],
+      "nonFilterableKeys": ["textS3Uri", "textHash", "documentId", "sourceEvidenceId", "runId", "sourceRecordIds", "schemaVersion"]
+    },
+    {
+      "name": "collaboration-community-v1",
+      "configKey": "vectors.collaborationCommunityIndex",
+      "documentType": "community_summary",
+      "filterableKeys": ["documentType", "researcherId", "communityId", "startResearcherId", "endResearcherId", "workId", "topicId", "institutionId", "windowStartYear", "windowEndYear", "year", "venueKey", "pathLength", "sourceDataset", "embeddingModel", "embeddingDimensions", "sourceType", "datasetId", "snapshotId", "jobName", "policyVersion"],
+      "nonFilterableKeys": ["textS3Uri", "textHash", "documentId", "sourceEvidenceId", "runId", "sourceRecordIds", "schemaVersion"]
+    },
+    {
+      "name": "paper-abstract-v1",
+      "configKey": "vectors.paperAbstractIndex",
+      "documentType": "paper_summary",
+      "filterableKeys": ["documentType", "researcherId", "communityId", "startResearcherId", "endResearcherId", "workId", "topicId", "institutionId", "windowStartYear", "windowEndYear", "year", "venueKey", "pathLength", "sourceDataset", "embeddingModel", "embeddingDimensions", "sourceType", "datasetId", "snapshotId", "jobName", "policyVersion"],
+      "nonFilterableKeys": ["textS3Uri", "textHash", "documentId", "sourceEvidenceId", "runId", "sourceRecordIds", "schemaVersion"]
+    },
+    {
+      "name": "collaboration-path-v1",
+      "configKey": "vectors.collaborationPathIndex",
+      "documentType": "collaboration_path",
+      "filterableKeys": ["documentType", "researcherId", "communityId", "startResearcherId", "endResearcherId", "workId", "topicId", "institutionId", "windowStartYear", "windowEndYear", "year", "venueKey", "pathLength", "sourceDataset", "embeddingModel", "embeddingDimensions", "sourceType", "datasetId", "snapshotId", "jobName", "policyVersion"],
+      "nonFilterableKeys": ["textS3Uri", "textHash", "documentId", "sourceEvidenceId", "runId", "sourceRecordIds", "schemaVersion"]
+    },
+    {
+      "name": "topic-institution-summary-v1",
+      "configKey": "vectors.topicInstitutionSummaryIndex",
+      "documentType": "topic_institution_summary",
+      "filterableKeys": ["documentType", "researcherId", "communityId", "startResearcherId", "endResearcherId", "workId", "topicId", "institutionId", "windowStartYear", "windowEndYear", "year", "venueKey", "pathLength", "sourceDataset", "embeddingModel", "embeddingDimensions", "sourceType", "datasetId", "snapshotId", "jobName", "policyVersion"],
+      "nonFilterableKeys": ["textS3Uri", "textHash", "documentId", "sourceEvidenceId", "runId", "sourceRecordIds", "schemaVersion"]
+    }
+  ]
+}

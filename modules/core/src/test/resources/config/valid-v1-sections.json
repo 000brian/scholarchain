@@ -1,0 +1,87 @@
+{
+  "configVersion": 1,
+  "environment": "test",
+  "aws": {
+    "region": "us-east-1",
+    "accountId": "123456789012"
+  },
+  "storage": {
+    "rawBucket": "example-raw-bucket",
+    "curatedBucket": "example-curated-bucket",
+    "graphBucket": "example-graph-bucket",
+    "vectorBucket": "example-vector-bucket",
+    "vectorIndex": "example-vector-index",
+    "neptuneEndpoint": "neptune.example.invalid",
+    "dynamoDbTable": "example-table"
+  },
+  "entityResolution": {
+    "policyVersion": "match-policy/1",
+    "matchThreshold": 0.9,
+    "reviewThreshold": 0.7
+  },
+  "models": {
+    "embeddingModelId": "example-embedding-model",
+    "answerModelId": "example-answer-model"
+  },
+  "graph": {
+    "windows": [
+      { "label": "2015-2019", "startYear": 2015, "endYear": 2019 },
+      { "label": "2020-2025", "startYear": 2020, "endYear": 2025 },
+      { "label": "2015-2025", "startYear": 2015, "endYear": 2025 }
+    ],
+    "minEdgeWeight": 0.0
+  },
+  "bridge": {
+    "algorithm": "example-algorithm",
+    "sampleSize": 100,
+    "randomSeed": 7,
+    "topK": 10
+  },
+  "objectStore": {
+    "rawPrefix": "raw",
+    "curatedPrefix": "curated",
+    "graphPrefix": "graph",
+    "semanticContextPrefix": "semantic-context",
+    "reportsPrefix": "reports",
+    "logsPrefix": "logs",
+    "semanticContextBucket": "example-artifact-bucket",
+    "reportsBucket": "example-artifact-bucket",
+    "logsBucket": "example-artifact-bucket"
+  },
+  "dynamoDb": {
+    "runLedgerTable": "example-run-ledger",
+    "entityLinkCacheTable": "example-entity-link-cache",
+    "querySessionTable": "example-query-session",
+    "evidenceBundleTable": "example-evidence-bundle",
+    "artifactRegistryTable": "example-artifact-registry",
+    "researcherMetricCacheTable": "example-researcher-metric-cache"
+  },
+  "neptune": {
+    "port": 8182,
+    "queryTimeoutMillis": 30000,
+    "mergeRowCap": 1000
+  },
+  "vectors": {
+    "researcherProfileIndex": "researcher-profile-v1",
+    "collaborationCommunityIndex": "collaboration-community-v1",
+    "paperAbstractIndex": "paper-abstract-v1",
+    "collaborationPathIndex": "collaboration-path-v1",
+    "topicInstitutionSummaryIndex": "topic-institution-summary-v1",
+    "putBatchSize": 500,
+    "maxRetries": 5,
+    "retryBaseDelayMillis": 200,
+    "retryMaxDelayMillis": 10000,
+    "queryTopK": 30
+  },
+  "embedding": {
+    "provider": "voyage",
+    "dimensions": 1024,
+    "apiKeyEnvVar": "SCHOLARCHAIN_VOYAGE_API_KEY",
+    "batchSize": 64,
+    "maxRetries": 5,
+    "retryBaseDelayMillis": 500,
+    "retryMaxDelayMillis": 30000,
+    "requestsPerMinute": 60,
+    "tokensPerMinute": 100000
+  }
+}

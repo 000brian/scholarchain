@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "vectorKey": "rp:2015-2025:researcher:v1:6d39fb31017461bdf6bbe118864d1809",
+  "indexName": "researcher-profile-v1",
+  "documentId": "chunk:v1:794b0bd5791f0c269f919eae558f2cef",
+  "documentType": "researcher_profile",
+  "researcherId": "researcher:v1:6d39fb31017461bdf6bbe118864d1809",
+  "communityId": null,
+  "startResearcherId": null,
+  "endResearcherId": null,
+  "workId": null,
+  "topicId": null,
+  "institutionId": null,
+  "windowStartYear": 2015,
+  "windowEndYear": 2025,
+  "year": null,
+  "venueKey": null,
+  "pathLength": null,
+  "sourceDataset": "dblp",
+  "textS3Uri": "s3://example-semantic-context-bucket/semantic-context/text/ab554d00fa490bb4c222d4e70aad364bd6defba0d7722e950fc73a356c594bed.txt",
+  "textHash": "sha256:ab554d00fa490bb4c222d4e70aad364bd6defba0d7722e950fc73a356c594bed",
+  "sourceEvidenceId": "evidence:v1:4b99deec79c9354391b9e95cc92ca83d",
+  "embeddingModel": "fixture-embedding-model",
+  "embeddingDimensions": 1024,
+  "runId": "run:v1:c889db90c9119262d011fce85a4f5812",
+  "provenance": {
+    "schemaVersion": 1,
+    "sourceType": "pipeline",
+    "datasetId": "scholarchain-graph",
+    "snapshotId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+    "sourceRecordIds": [
+      "chunk:v1:794b0bd5791f0c269f919eae558f2cef"
+    ],
+    "runId": "run:v1:c889db90c9119262d011fce85a4f5812",
+    "jobName": "storage.vector-ingest",
+    "policyVersion": "vector-ingest-policy/1",
+    "contentHash": "sha256:ab554d00fa490bb4c222d4e70aad364bd6defba0d7722e950fc73a356c594bed"
+  }
+}
