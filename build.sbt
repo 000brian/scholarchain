@@ -64,6 +64,15 @@ ThisBuild / javacOptions ++= Seq("--release", Ledger.java)
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
+// sbt's default restrictions, except that up to maxForkedTestJvms forked test groups may run at
+// once (the sbt default is 1). This lets the module and contract test stages of markTestRun, and
+// the fork groups inside a project, run concurrently while bounding memory.
+Global / concurrentRestrictions := Seq(
+  Tags.limitAll(java.lang.Runtime.getRuntime.availableProcessors),
+  Tags.limit(Tags.ForkedTestGroup, maxForkedTestJvms),
+  Tags.exclusiveGroup(Tags.Clean)
+)
+
 // Java 17 everywhere: fail fast when sbt runs on a different Java feature release.
 Global / onLoad := {
   val previous = (Global / onLoad).value
@@ -164,10 +173,37 @@ lazy val hadoopJava17Options: Seq[String] = Seq(
   "--add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED"
 )
 
-def forkedTests(options: Seq[String]): Seq[Setting[_]] = Seq(
+// Explicit maximum heap of each forked test JVM (16 GB machine, at most maxForkedTestJvms at once).
+// Without it a forked JVM defaults to a quarter of physical RAM. sparkAnalytics gets more because
+// local Spark real runs also execute in its forked JVM (sparkAnalytics/Test/runMain).
+lazy val forkedTestHeap = "-Xmx2g"
+lazy val sparkForkedTestHeap = "-Xmx6g"
+
+// Upper bound on forked test JVMs running at the same time across the whole build.
+lazy val maxForkedTestJvms = 3
+
+def forkedTests(heap: String, options: Seq[String]): Seq[Setting[_]] = Seq(
   Test / fork := true,
-  Test / javaOptions ++= options
+  Test / javaOptions ++= heap +: options
 )
+
+// Splits a forked project's suites into `groups` forked JVMs. Assignment is deterministic:
+// suites sorted by name, dealt round-robin. Each group runs in its own JVM with the project's
+// fork options; suites inside a group run sequentially, as before. Every suite still runs exactly
+// once. Tests that run the Hadoop local job runner isolate hadoop.tmp.dir, staging and local dirs
+// in a fresh per-test directory (TestSupport and JobHarness), so groups share no temporary paths.
+def forkGroups(groups: Int): Setting[_] =
+  Test / testGrouping := {
+    val opts = (Test / forkOptions).value
+    val sorted = (Test / definedTests).value.sortBy(_.name)
+    sorted.zipWithIndex
+      .groupBy { case (_, i) => i % groups }
+      .toSeq
+      .sortBy(_._1)
+      .map { case (g, defs) =>
+        Tests.Group(s"fork-group-$g", defs.map(_._1), Tests.SubProcess(opts))
+      }
+  }
 
 // Fat-jar packaging for jobs and services. Provided dependencies are never included.
 lazy val assemblySettings: Seq[Setting[_]] = Seq(
@@ -226,7 +262,8 @@ lazy val hadoop = (project in file("modules/hadoop"))
   .settings(
     name := "scholarchain-hadoop",
     commonSettings,
-    forkedTests(hadoopJava17Options),
+    forkedTests(forkedTestHeap, hadoopJava17Options),
+    forkGroups(2),
     assemblySettings,
     libraryDependencies ++= Seq(hadoopClientApi, hadoopClientRuntime)
   )
@@ -250,7 +287,7 @@ lazy val sparkAnalytics = (project in file("modules/spark"))
     name := "scholarchain-spark-analytics",
     scalaVersion := scala213,
     commonSettings,
-    forkedTests(sparkJava17Options),
+    forkedTests(sparkForkedTestHeap, sparkJava17Options),
     assemblySettings,
     assemblyPackageScala / assembleArtifact := false,
     libraryDependencies += sparkSql
@@ -326,7 +363,8 @@ lazy val contractTests = (project in file("tests/contracts"))
     name := "scholarchain-contract-tests",
     commonSettings,
     // Job-level black-box tests of the hadoop module's MapReduce jobs (local job runner).
-    forkedTests(hadoopJava17Options),
+    forkedTests(forkedTestHeap, hadoopJava17Options),
+    forkGroups(2),
     libraryDependencies ++= hadoopClientTestOnly
   )
 
@@ -380,19 +418,20 @@ lazy val root = (project in file("."))
     // check:
     //   1. ledgerCheck, scalafmtSbtCheck and scalafmtCheckAll in every project
     //   2. Test/compile in every project
-    //   3. module tests            4. contract tests (no AWS)
-    //   5. write the marker, only if at least one test executed
-    // Any failure throws before stage 5, so the marker is never touched.
+    //   3. module tests and contract tests (no AWS), concurrently; both must pass
+    //   4. write the marker, only if at least one test executed
+    // Any failure throws before stage 4, so the marker is never touched.
     markTestRun := Def.taskDyn {
       ledgerCheck.value
       (Compile / scalafmtSbtCheck).all(ScopeFilter(inAnyProject)).value
       scalafmtCheckAll.all(ScopeFilter(inAnyProject)).value
       Def.taskDyn {
         (Test / compile).all(ScopeFilter(inAnyProject)).value
-        Def.taskDyn {
+        Def.task {
+          // Both dependencies start together; this body runs only after both have succeeded.
           val moduleCount = moduleTests.value
-          Def.task {
-            val contractCount = contractTestsNoAws.value
+          val contractCount = contractTestsNoAws.value
+          locally {
             val log = streams.value.log
             if (moduleCount + contractCount == 0)
               throw new MessageOnlyException(

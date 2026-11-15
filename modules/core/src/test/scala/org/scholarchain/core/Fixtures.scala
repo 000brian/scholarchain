@@ -330,6 +330,17 @@ object Fixtures {
       pipelineProvenance(graphRun, "spark.researcher-metrics", "graph-policy/1", List(sousa.value))
   )
 
+  /** Campos's component in the full window: {Sousa, Campos}; Sousa's ID is the smaller one. */
+  val researcherGroupMembership: ResearcherGroupMembership = ResearcherGroupMembership(
+    schemaVersion = 1,
+    researcherId = ResearcherId(edgeRight),
+    window = window,
+    groupKind = GroupKind.Component,
+    groupId = ResearcherId(edgeLeft),
+    groupSize = 2,
+    provenance = pipelineProvenance(graphRun, "spark.components", "graph-policy/1", List(edgeRight))
+  )
+
   val venue: Venue = Venue(
     schemaVersion = 1,
     venueKey = "conf/sigir",

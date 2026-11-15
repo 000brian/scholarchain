@@ -285,6 +285,33 @@ final case class ResearcherMetrics(
 )
 object ResearcherMetrics { implicit val readWriter: ReadWriter[ResearcherMetrics] = macroRW }
 
+/** Membership of one researcher in one group (connected component or community) in one window.
+  * Schema version 1 (Phase 6, new). Computed by Spark.
+  *
+  * `groupId` is a [[ResearcherId]] chosen deterministically, so the same inputs and configuration
+  * always give the same group IDs:
+  *   - `component`: the component's smallest member ResearcherId by Unicode code point. Hence
+  *     `groupId <= researcherId` by code point, and a singleton component (`groupSize == 1`) has
+  *     `groupId == researcherId`.
+  *   - `community`: the ResearcherId of the community's final label (label propagation with ties
+  *     broken by the smallest label). It need not be `<= researcherId`.
+  *
+  * `groupSize` (>= 1) is the number of researchers in the group in `window`; it equals the
+  * `component_size` or `community_size` metric of the researcher in that window.
+  */
+final case class ResearcherGroupMembership(
+    schemaVersion: Int,
+    researcherId: ResearcherId,
+    window: YearWindow,
+    groupKind: GroupKind,
+    groupId: ResearcherId,
+    groupSize: Int,
+    provenance: Provenance
+)
+object ResearcherGroupMembership {
+  implicit val readWriter: ReadWriter[ResearcherGroupMembership] = macroRW
+}
+
 /** A dblp stream (conference series or journal), e.g. `conf/sigir`. `provenance.sourceType` must be
   * `dblp`; the OpenAlex source ID of a venue is an [[ExternalIdLink]].
   */
@@ -492,6 +519,19 @@ object GraphEdge { implicit val readWriter: ReadWriter[GraphEdge] = macroRW }
   * `evidenceId == EvidenceId.of(evidenceType, provenance.runId, subjectIds)`. Graph evidence
   * (`coauthor_edge`, `graph_path`, `metric`) states its window; `metric` evidence carries its
   * metric value. A `snippet` requires `provenance.contentHash == ContentHash.of(snippet)`.
+  *
+  * Graph-analytics shapes (Phase 6; documentation only, the schema is unchanged):
+  *   - Materialized path: `evidenceType = graph_path`; `subjectIds` are the [[ResearcherId]]s in
+  *     path order (source first, target last); `window` is the path's window; `metric` is `None`.
+  *     Each hop's weight, years and supporting work IDs are those of the [[CoauthorEdge]] of that
+  *     pair and window.
+  *   - Works behind M_r: `evidenceType = metric`; `subjectIds` are the researcher's
+  *     [[ResearcherId]] followed by the [[WorkId]]s that reach M_r; `metric` is
+  *     `MetricValue(max_coauthors_on_one_paper, M_r)`; `window` is the metric's window.
+  *
+  * `subjectIds` are checked only for being non-blank (not for ID kind), and the evidence ID does
+  * not include `window` or `metric`: two items of the same type, run and `subjectIds` in different
+  * windows share an `evidenceId`.
   */
 final case class EvidenceItem(
     schemaVersion: Int,

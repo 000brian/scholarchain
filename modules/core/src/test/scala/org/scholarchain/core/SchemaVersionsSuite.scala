@@ -19,6 +19,7 @@ class SchemaVersionsSuite extends munit.FunSuite {
         "CoauthorPairCandidate" -> 2, // v2: positions
         "CoauthorEdge" -> 1,
         "ResearcherMetrics" -> 1,
+        "ResearcherGroupMembership" -> 1, // new in Phase 6
         "Venue" -> 1,
         "Institution" -> 1,
         "Topic" -> 1,
@@ -81,9 +82,20 @@ class SchemaVersionsSuite extends munit.FunSuite {
         "betweenness_centrality",
         "bridge_score",
         "component_size",
-        "clustering_coefficient"
+        "clustering_coefficient",
+        // Phase 6 additions (additive; the names above are unchanged)
+        "publication_count",
+        "total_coauthor_occurrences",
+        "average_coauthors_per_paper",
+        "max_coauthors_on_one_paper",
+        "community_size",
+        "participation_coefficient",
+        "cross_community_degree",
+        "communities_connected",
+        "coreness"
       )
     )
+    assertEquals(GroupKind.values.map(_.wire), List("component", "community"))
     assertEquals(
       QueryOperation.values.map(_.wire),
       List(

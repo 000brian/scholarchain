@@ -123,19 +123,74 @@ object EvidenceType extends WireEnumCompanion[EvidenceType]("evidence type") {
   val requiresWindow: Set[EvidenceType] = Set(CoauthorEdge, GraphPath, Metric)
 }
 
+/** A per-researcher, per-window metric carried in [[MetricValue]].
+  *
+  * Phase 6 (additive; every earlier wire name is unchanged): adds `publication_count`,
+  * `total_coauthor_occurrences`, `average_coauthors_per_paper`, `max_coauthors_on_one_paper`,
+  * `community_size`, `participation_coefficient`, `cross_community_degree`, `communities_connected`
+  * and `coreness`. `coauthored_works` is not the publication count, and `bridge_score` is not the
+  * participation coefficient; neither is an alias of a new value.
+  */
 sealed trait CollaborationMetric extends WireEnum
 object CollaborationMetric extends WireEnumCompanion[CollaborationMetric]("collaboration metric") {
+
+  /** C_r: distinct coauthor researchers. */
   case object DistinctCoauthors extends CollaborationMetric { val wire = "distinct_coauthors" }
   case object CoauthoredWorks extends CollaborationMetric { val wire = "coauthored_works" }
+
+  /** W_r: sum of the researcher's coauthor-edge weights. */
   case object WeightedDegree extends CollaborationMetric { val wire = "weighted_degree" }
   case object BetweennessCentrality extends CollaborationMetric {
     val wire = "betweenness_centrality"
   }
   case object BridgeScore extends CollaborationMetric { val wire = "bridge_score" }
+
+  /** Size of the researcher's connected component (see [[ResearcherGroupMembership]]). */
   case object ComponentSize extends CollaborationMetric { val wire = "component_size" }
   case object ClusteringCoefficient extends CollaborationMetric {
     val wire = "clustering_coefficient"
   }
+
+  /** P_r: distinct works of the researcher, single-author works included. */
+  case object PublicationCount extends CollaborationMetric { val wire = "publication_count" }
+
+  /** T_r: sum over the researcher's works of the number of distinct other researchers on it. */
+  case object TotalCoauthorOccurrences extends CollaborationMetric {
+    val wire = "total_coauthor_occurrences"
+  }
+
+  /** A_r = T_r / P_r. */
+  case object AverageCoauthorsPerPaper extends CollaborationMetric {
+    val wire = "average_coauthors_per_paper"
+  }
+
+  /** M_r: maximum over the researcher's works of the distinct other researchers on one work. The
+    * works that reach it travel as a `metric` [[EvidenceItem]] (see its scaladoc).
+    */
+  case object MaxCoauthorsOnOnePaper extends CollaborationMetric {
+    val wire = "max_coauthors_on_one_paper"
+  }
+
+  /** Size of the researcher's community (see [[ResearcherGroupMembership]]). */
+  case object CommunitySize extends CollaborationMetric { val wire = "community_size" }
+
+  /** Participation coefficient of the researcher over the communities of its neighbours. */
+  case object ParticipationCoefficient extends CollaborationMetric {
+    val wire = "participation_coefficient"
+  }
+
+  /** Coauthor edges (or their weight, as the producing policy states) leaving the community. */
+  case object CrossCommunityDegree extends CollaborationMetric {
+    val wire = "cross_community_degree"
+  }
+
+  /** Number of distinct communities directly connected to the researcher. */
+  case object CommunitiesConnected extends CollaborationMetric {
+    val wire = "communities_connected"
+  }
+
+  /** k-core number (coreness) of the researcher. */
+  case object Coreness extends CollaborationMetric { val wire = "coreness" }
 
   val values: List[CollaborationMetric] = List(
     DistinctCoauthors,
@@ -144,8 +199,30 @@ object CollaborationMetric extends WireEnumCompanion[CollaborationMetric]("colla
     BetweennessCentrality,
     BridgeScore,
     ComponentSize,
-    ClusteringCoefficient
+    ClusteringCoefficient,
+    PublicationCount,
+    TotalCoauthorOccurrences,
+    AverageCoauthorsPerPaper,
+    MaxCoauthorsOnOnePaper,
+    CommunitySize,
+    ParticipationCoefficient,
+    CrossCommunityDegree,
+    CommunitiesConnected,
+    Coreness
   )
+}
+
+/** Kind of researcher group a [[ResearcherGroupMembership]] names (new in Phase 6). */
+sealed trait GroupKind extends WireEnum
+object GroupKind extends WireEnumCompanion[GroupKind]("group kind") {
+
+  /** A connected component of the coauthorship graph in the window. */
+  case object Component extends GroupKind { val wire = "component" }
+
+  /** A community (for example a label-propagation community) in the window. */
+  case object Community extends GroupKind { val wire = "community" }
+
+  val values: List[GroupKind] = List(Component, Community)
 }
 
 sealed trait QueryOperation extends WireEnum

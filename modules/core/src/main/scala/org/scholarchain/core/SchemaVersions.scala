@@ -24,6 +24,7 @@ object SchemaVersions {
     *     `policyVersion`, `decisionTime`; `outcome` wire names are now `accepted`, `rejected`,
     *     `unresolved`, `conflict`.
     *   - LlmAdjudication 1 (Phase 5, new).
+    *   - ResearcherGroupMembership 1 (Phase 6, new).
     */
   val current: ListMap[String, Int] = ListMap(
     "Provenance" -> 1,
@@ -36,6 +37,7 @@ object SchemaVersions {
     "CoauthorPairCandidate" -> 2,
     "CoauthorEdge" -> 1,
     "ResearcherMetrics" -> 1,
+    "ResearcherGroupMembership" -> 1,
     "Venue" -> 1,
     "Institution" -> 1,
     "Topic" -> 1,

@@ -342,6 +342,29 @@ object Validator {
       prov(r.provenance)
   }
 
+  implicit val researcherGroupMembership: Validator[ResearcherGroupMembership] = instance { g =>
+    val componentRules = g.groupKind match {
+      case GroupKind.Component =>
+        check(
+          CodePointOrder.compare(g.groupId.value, g.researcherId.value) <= 0,
+          s"groupId: ${g.groupId} of a component must be its smallest member ResearcherId, " +
+            s"so it cannot exceed researcherId ${g.researcherId} by code point"
+        ) ++
+          check(
+            g.groupSize != 1 || g.groupId == g.researcherId,
+            s"groupId: a singleton component's groupId must equal researcherId ${g.researcherId}"
+          )
+      case GroupKind.Community => Nil
+    }
+    schema("ResearcherGroupMembership", g.schemaVersion) ++
+      stableId("researcherId", g.researcherId) ++
+      window("window", g.window) ++
+      stableId("groupId", g.groupId) ++
+      check(g.groupSize >= 1, s"groupSize: ${g.groupSize} must be >= 1") ++
+      componentRules ++
+      prov(g.provenance)
+  }
+
   implicit val venue: Validator[Venue] = instance { v =>
     schema("Venue", v.schemaVersion) ++
       venueKey("venueKey", v.venueKey) ++

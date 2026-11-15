@@ -36,6 +36,7 @@ class WireContractSuite extends munit.FunSuite {
       Example("CoauthorPairCandidate", coauthorPairCandidate),
       Example("CoauthorEdge", coauthorEdge),
       Example("ResearcherMetrics", researcherMetrics),
+      Example("ResearcherGroupMembership", researcherGroupMembership),
       Example("Venue", venue),
       Example("Institution", institution),
       Example("Topic", topic),

@@ -1,0 +1,36 @@
+{
+  "configVersion": 1,
+  "jobName": "spark.graph-analytics",
+  "datasetId": "scholarchain-graph",
+  "policyVersion": "graph-v1",
+  "graph": {
+    "windows": [
+      { "label": "full-2015-2025", "startYear": 2015, "endYear": 2025 },
+      { "label": "w2015-2017", "startYear": 2015, "endYear": 2017 },
+      { "label": "w2018-2020", "startYear": 2018, "endYear": 2020 },
+      { "label": "w2021-2023", "startYear": 2021, "endYear": 2023 },
+      { "label": "w2024-2025", "startYear": 2024, "endYear": 2025 }
+    ],
+    "minEdgeWeight": 1.0
+  },
+  "fullWindowLabel": "full-2015-2025",
+  "algorithms": {
+    "componentsMaxIterations": 30,
+    "labelPropagationMaxIterations": 10,
+    "labelPropagationSelfWeight": 1.0,
+    "kcoreMaxIterations": 30,
+    "pathMaxDepth": 6,
+    "pathTopK": 10,
+    "pathRandomPairs": 20,
+    "diameterSources": 30,
+    "diameterMaxDepth": 12,
+    "seed": "scholarchain-phase06-20261115"
+  },
+  "summaries": {
+    "profileMinWorks": 3,
+    "communityMinMembers": 5,
+    "profileTopVenues": 3,
+    "communityTopMembers": 3
+  },
+  "outputPartitions": 4
+}
