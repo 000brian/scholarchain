@@ -1,0 +1,604 @@
+{
+  "format": "scholarchain.rag.benchmark-run-report",
+  "formatVersion": 1,
+  "label": "local stores, fake embeddings",
+  "steps": {
+    "load-runtime-environment": 66756,
+    "render-and-ingest-summaries": 10966,
+    "question-q01": 10484,
+    "question-q02": 18661,
+    "question-q03": 27442,
+    "question-q04": 17408,
+    "question-q05": 5729,
+    "question-q06": 9511,
+    "question-q07": 29146,
+    "question-q08": 23922,
+    "question-q09": 6308,
+    "question-q10": 14684,
+    "question-q11": 8776,
+    "question-q12": 19898,
+    "question-q13": 10139,
+    "question-q14": 9830,
+    "question-q15": 12473,
+    "question-q16": 12535,
+    "question-q17": 11843,
+    "question-q18": 5117,
+    "question-q19": 22431,
+    "question-q20": 23794,
+    "question-q21": 16346,
+    "question-q22": 6001,
+    "question-q23": 13539,
+    "question-q24": 9142,
+    "question-q25": 23033,
+    "question-q26": 12579,
+    "question-q27": 2748,
+    "question-q28": 22140,
+    "question-q29": 2646,
+    "question-q30": 28397,
+    "semantic-recall": 19388,
+    "planted-errors": 14
+  },
+  "input": {
+    "configFile": "rag-runtime-anthropic-v2.json",
+    "configFingerprint": "sha256:345421bf5a84ee19bc09d8fae29dc62cc15f0ad45022beae8178dc6a8e2dc2ed",
+    "exportManifestSha256": "f6ebe62de6bd5aac13784ac74a5da22be0a65c02603a2d7138a2c012dd173021",
+    "questionsFile": "benchmark-v1.json",
+    "questionsSha256": "b58c5e1a6cb29e192035ce77308c20e2597d2d1dbaf8d136761ae5c3316ff3ac",
+    "llm": "anthropic",
+    "promptSet": "v2"
+  },
+  "runtimeEnvironment": {
+    "format": "scholarchain.storage.local-runtime-load",
+    "stores": "in-memory graph and tables; no AWS call, no network",
+    "exportManifestSha256": "f6ebe62de6bd5aac13784ac74a5da22be0a65c02603a2d7138a2c012dd173021",
+    "graphWindowLabels": [
+      "full-2015-2025"
+    ],
+    "graphRows": {
+      "Researcher": {
+        "files": 1,
+        "read": 200484,
+        "kept": 200484
+      },
+      "Work": {
+        "files": 1,
+        "read": 155978,
+        "kept": 155978
+      },
+      "Venue": {
+        "files": 1,
+        "read": 16,
+        "kept": 16
+      },
+      "AUTHORED": {
+        "files": 2,
+        "read": 758314,
+        "kept": 758314
+      },
+      "PUBLISHED_IN": {
+        "files": 1,
+        "read": 155978,
+        "kept": 155978
+      },
+      "COAUTHORED_WITH": {
+        "files": 7,
+        "read": 3361084,
+        "kept": 1612421
+      }
+    },
+    "tableItems": {
+      "ResearcherMetricCache": 508448,
+      "EntityLinkCache": 255065,
+      "EvidenceBundle": 64,
+      "RunLedger": 2,
+      "ArtifactRegistry": 0,
+      "QuerySession": 0
+    },
+    "dynamoLoad": {
+      "pass": 1,
+      "runId": "run:v1:56a77812b37cad7c29c855ef3869154a",
+      "ledgerAttempt": 1,
+      "dataChanges": 763577,
+      "tables": {
+        "ResearcherMetricCache": {
+          "items": 503448,
+          "inserted": 503448,
+          "updated": 0,
+          "unchanged": 0,
+          "conflicts": 0,
+          "rejected": 0,
+          "changes": 503448,
+          "writeUnitsIfWritten": 503512
+        },
+        "ResearcherMetricCacheRanking": {
+          "items": 5000,
+          "inserted": 5000,
+          "updated": 0,
+          "unchanged": 0,
+          "conflicts": 0,
+          "rejected": 0,
+          "changes": 5000,
+          "writeUnitsIfWritten": 5000
+        },
+        "EvidenceBundle": {
+          "items": 64,
+          "inserted": 64,
+          "updated": 0,
+          "unchanged": 0,
+          "conflicts": 0,
+          "rejected": 0,
+          "changes": 64,
+          "writeUnitsIfWritten": 128
+        },
+        "EntityLinkCache": {
+          "items": 255065,
+          "inserted": 255065,
+          "updated": 0,
+          "unchanged": 0,
+          "conflicts": 0,
+          "rejected": 0,
+          "changes": 255065,
+          "writeUnitsIfWritten": 255065
+        },
+        "ArtifactRegistry": {
+          "items": 0,
+          "inserted": 0,
+          "updated": 0,
+          "unchanged": 0,
+          "conflicts": 0,
+          "rejected": 0,
+          "changes": 0,
+          "writeUnitsIfWritten": 0
+        },
+        "QuerySession": {
+          "items": 0,
+          "inserted": 0,
+          "updated": 0,
+          "unchanged": 0,
+          "conflicts": 0,
+          "rejected": 0,
+          "changes": 0,
+          "writeUnitsIfWritten": 0
+        }
+      },
+      "researcherMetricCacheItemSizes": {
+        "count": 503448,
+        "minBytes": 659,
+        "p50Bytes": 695,
+        "p90Bytes": 728,
+        "p99Bytes": 785,
+        "maxBytes": 1655,
+        "over1KB": 64,
+        "buckets": {
+          "1-256": 0,
+          "257-512": 0,
+          "513-768": 492480,
+          "769-1024": 10904,
+          "1025-2048": 64,
+          "2049-4096": 0,
+          ">4096": 0
+        }
+      },
+      "entityLinkNamesSkipped": 0,
+      "millis": 50041
+    },
+    "rejects": 0,
+    "heapUsedBytes": 3933175056,
+    "heapMaxBytes": 12884901888,
+    "millis": {
+      "graph": 15898,
+      "tables": 50057,
+      "total": 66752
+    }
+  },
+  "semanticIngest": {
+    "documents": 95116,
+    "documentsPerIndex": {
+      "collaboration-community-v1": 30962,
+      "collaboration-path-v1": 64,
+      "researcher-profile-v1": 64090
+    },
+    "renderRejects": 0,
+    "ingest": {
+      "runId": "run:v1:a76bb420fe0a164ebcc7c8eb44a07699",
+      "attempt": 1,
+      "input": 95116,
+      "skippedUnchanged": 0,
+      "skipRatio": 0,
+      "written": 95116,
+      "rejected": 0,
+      "perIndex": {
+        "researcher-profile-v1": {
+          "input": 64090,
+          "skippedUnchanged": 0,
+          "embeddedNew": 64090,
+          "reembeddedChanged": 0,
+          "written": 64090,
+          "rejected": 0,
+          "duplicatesSameText": 0
+        },
+        "collaboration-community-v1": {
+          "input": 30962,
+          "skippedUnchanged": 0,
+          "embeddedNew": 30962,
+          "reembeddedChanged": 0,
+          "written": 30962,
+          "rejected": 0,
+          "duplicatesSameText": 0
+        },
+        "paper-abstract-v1": {
+          "input": 0,
+          "skippedUnchanged": 0,
+          "embeddedNew": 0,
+          "reembeddedChanged": 0,
+          "written": 0,
+          "rejected": 0,
+          "duplicatesSameText": 0
+        },
+        "collaboration-path-v1": {
+          "input": 64,
+          "skippedUnchanged": 0,
+          "embeddedNew": 64,
+          "reembeddedChanged": 0,
+          "written": 64,
+          "rejected": 0,
+          "duplicatesSameText": 0
+        },
+        "topic-institution-summary-v1": {
+          "input": 0,
+          "skippedUnchanged": 0,
+          "embeddedNew": 0,
+          "reembeddedChanged": 0,
+          "written": 0,
+          "rejected": 0,
+          "duplicatesSameText": 0
+        }
+      },
+      "textCreated": 95116,
+      "textAlreadyPresent": 0,
+      "embedCalls": 744,
+      "embedRetries": 0,
+      "putCalls": 373,
+      "putRetries": 0,
+      "registryConflicts": 0,
+      "ledgerEvents": 1,
+      "millis": {
+        "text": 842,
+        "registry": 1169,
+        "embed": 1996,
+        "put": 549,
+        "total": 7504
+      }
+    },
+    "embedding": "fake/fake-lexical-hash-v1/1024/document/emb-v1",
+    "note": "fake lexical embedder, not semantic"
+  },
+  "versions": {
+    "prompts": [
+      "query-planner-v2@sha256:60b5260e9c2eeabff46150fb09cf41a89fe39fbd23701b7023cdf0663e5684a1",
+      "answer-synthesis-v2@sha256:f1f23c569b8a6504e658459eb425a122fa6e9bc54ba5ddedc1141675c8903537"
+    ],
+    "schemas": [
+      "query-plan-draft-v1",
+      "answer-claims-v2",
+      "semantic-context-v1"
+    ],
+    "model": "claude-haiku-5-5",
+    "provider": "anthropic",
+    "codeVersion": "rag-runtime/2"
+  },
+  "results": {
+    "questions": 30,
+    "workflowErrors": 0,
+    "planAccuracy": {
+      "operations": "27/30",
+      "window": "30/30",
+      "metric": "27/30",
+      "limit": "29/30",
+      "unsupported": "30/30",
+      "allFieldsCorrect": "24/30"
+    },
+    "identityResolution": {
+      "correct": "30/30",
+      "byExpected": {
+        "resolved": {
+          "questions": 18,
+          "correct": 18
+        },
+        "ambiguous": {
+          "questions": 1,
+          "correct": 1
+        },
+        "unknown": {
+          "questions": 1,
+          "correct": 1
+        },
+        "none": {
+          "questions": 10,
+          "correct": 10
+        }
+      },
+      "silentChoicesOnAmbiguousNames": 0
+    },
+    "deterministicGraphRetrieval": {
+      "expectedValues": 110,
+      "exactMatches": 110,
+      "exactMatchRate": 1,
+      "misses": [],
+      "pathsAgainstSparkEvidence": {
+        "checked": 4,
+        "matched": 4,
+        "details": [
+          {
+            "expectedHops": 5,
+            "gotHops": 5,
+            "hopsMatch": true,
+            "sameResearchersAsSpark": true,
+            "origin": "precomputed-spark-path",
+            "matched": true
+          },
+          {
+            "expectedHops": 2,
+            "gotHops": 2,
+            "hopsMatch": true,
+            "sameResearchersAsSpark": true,
+            "origin": "precomputed-spark-path",
+            "matched": true
+          },
+          {
+            "expected": "no path within depth 6",
+            "matched": true
+          },
+          {
+            "expectedHops": 2,
+            "gotHops": 2,
+            "hopsMatch": true,
+            "sameResearchersAsSpark": true,
+            "origin": "graph-path-search",
+            "matched": true
+          }
+        ]
+      }
+    },
+    "semanticRetrieval": {
+      "collaboration_path": {
+        "queries": 64,
+        "hitsAt10": 64,
+        "recallAt10": 1,
+        "label": "fake lexical embedder, not semantic"
+      },
+      "community_summary": {
+        "queries": 50,
+        "hitsAt10": 49,
+        "recallAt10": 0.98,
+        "label": "fake lexical embedder, not semantic"
+      },
+      "researcher_profile": {
+        "queries": 50,
+        "hitsAt10": 49,
+        "recallAt10": 0.98,
+        "label": "fake lexical embedder, not semantic"
+      }
+    },
+    "answers": {
+      "claimCounts": {
+        "verified": 111,
+        "partially_supported": 19,
+        "unsupported": 1,
+        "conflicting": 5
+      },
+      "abstentionsExpected": 3,
+      "expectedAbstentionsHappened": 3,
+      "unexpectedAbstentions": [],
+      "missedAbstentions": [],
+      "plantedErrors": {
+        "planted": 86,
+        "caught": 85,
+        "catchRate": 0.9883720930232558,
+        "byKind": {
+          "fabricated-evidence-id": {
+            "planted": 30,
+            "caught": 30,
+            "statuses": {
+              "unsupported": 30
+            }
+          },
+          "semantic-cited-for-number": {
+            "planted": 2,
+            "caught": 2,
+            "statuses": {
+              "unsupported": 2
+            }
+          },
+          "wrong-hop-count": {
+            "planted": 3,
+            "caught": 3,
+            "statuses": {
+              "conflicting": 3
+            }
+          },
+          "wrong-number": {
+            "planted": 28,
+            "caught": 28,
+            "statuses": {
+              "conflicting": 28
+            }
+          },
+          "wrong-window-year": {
+            "planted": 23,
+            "caught": 22,
+            "statuses": {
+              "conflicting": 22,
+              "verified": 1
+            }
+          }
+        }
+      },
+      "injection": [
+        {
+          "question": "q30",
+          "planAsExpected": true,
+          "valuesMatched": 10,
+          "valuesExpected": 10
+        }
+      ]
+    },
+    "stageLatencyMillisLocalNotRepresentative": {
+      "planner": {
+        "n": 30,
+        "min": 704,
+        "median": 1005,
+        "p95": 2343,
+        "max": 2564
+      },
+      "resolver": {
+        "n": 30,
+        "min": 0,
+        "median": 4,
+        "p95": 37,
+        "max": 51
+      },
+      "metrics": {
+        "n": 30,
+        "min": 0,
+        "median": 0,
+        "p95": 408,
+        "max": 570
+      },
+      "paths": {
+        "n": 30,
+        "min": 0,
+        "median": 0,
+        "p95": 17,
+        "max": 39
+      },
+      "community": {
+        "n": 30,
+        "min": 0,
+        "median": 0,
+        "p95": 7,
+        "max": 14
+      },
+      "semantic": {
+        "n": 30,
+        "min": 0,
+        "median": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "evidence": {
+        "n": 30,
+        "min": 0,
+        "median": 1,
+        "p95": 3,
+        "max": 7
+      },
+      "identity": {
+        "n": 30,
+        "min": 0,
+        "median": 0,
+        "p95": 3,
+        "max": 3
+      },
+      "synthesis": {
+        "n": 30,
+        "min": 1325,
+        "median": 10930,
+        "p95": 26437,
+        "max": 28188
+      },
+      "verification": {
+        "n": 30,
+        "min": 0,
+        "median": 4,
+        "p95": 12,
+        "max": 14
+      },
+      "synthesisFallback": {
+        "n": 5,
+        "min": 1,
+        "median": 7,
+        "p95": 18,
+        "max": 18
+      }
+    },
+    "totalLatencyMillisLocalNotRepresentative": {
+      "n": 30,
+      "min": 2641,
+      "median": 12527,
+      "p95": 28390,
+      "max": 29135
+    },
+    "label": "local stores, fake embeddings"
+  },
+  "status": "completed",
+  "llmUsage": {
+    "requests": 76,
+    "retries": 0,
+    "inputTokens": 164511,
+    "outputTokens": 105161
+  },
+  "modelCalls": {
+    "planner": {
+      "logicalCalls": {
+        "attempted": 30,
+        "succeeded": 30,
+        "failed": 0,
+        "failedByCause": {}
+      },
+      "httpAttempts": 30,
+      "retriedAttempts": 0,
+      "invalidOutputs": 0,
+      "truncatedOutputs": 0,
+      "stopReasons": {
+        "end_turn": 30
+      },
+      "fallbacks": {
+        "call-failed": 0,
+        "output-invalid": 0,
+        "prompt-render": 0
+      },
+      "inputTokens": 41205,
+      "outputTokens": 5575
+    },
+    "synthesis": {
+      "logicalCalls": {
+        "attempted": 46,
+        "succeeded": 46,
+        "failed": 0,
+        "failedByCause": {}
+      },
+      "httpAttempts": 46,
+      "retriedAttempts": 0,
+      "invalidOutputs": 21,
+      "truncatedOutputs": 1,
+      "stopReasons": {
+        "end_turn": 45,
+        "max_tokens": 1
+      },
+      "fallbacks": {
+        "call-failed": 0,
+        "output-invalid": 5,
+        "prompt-render": 0
+      },
+      "inputTokens": 123306,
+      "outputTokens": 99586
+    },
+    "total": {
+      "logicalCalls": 76,
+      "succeeded": 76,
+      "failed": 0,
+      "failedByCause": {},
+      "httpAttempts": 76,
+      "retriedAttempts": 0,
+      "invalidOutputs": 21,
+      "truncatedOutputs": 1,
+      "fallbacks": 5,
+      "inputTokens": 164511,
+      "outputTokens": 105161
+    },
+    "earlyStopArmed": true,
+    "earlyStopStatus": null
+  },
+  "totalMillis": 534072
+}
