@@ -6,10 +6,14 @@ import java.time.Duration
 import scala.collection.immutable.ListMap
 import scala.jdk.CollectionConverters._
 
-import org.scholarchain.storage.GraphQueryBounds
+import org.scholarchain.storage.StoreException
 import org.scholarchain.storage.neptune.CypherTemplates
 import org.scholarchain.storage.ports._
 import software.amazon.awssdk.core.document.Document
+import software.amazon.awssdk.core.exception.{
+  ApiCallAttemptTimeoutException,
+  ApiCallTimeoutException
+}
 import software.amazon.awssdk.services.neptunedata.NeptunedataClient
 import software.amazon.awssdk.services.neptunedata.model._
 
@@ -49,7 +53,7 @@ final class NeptuneBulkLoader(client: NeptunedataClient) extends GraphBulkLoader
       .failOnError(job.failOnError)
       .parallelism(Parallelism.fromValue(job.parallelism))
       .queueRequest(job.queueRequest)
-      .updateSingleCardinalityProperties(job.updateSingleCardinalityProperties)
+      .userProvidedEdgeIds(job.userProvidedEdgeIds)
     if (job.dependencies.nonEmpty) b.dependencies(job.dependencies.asJava)
     val r = AwsErrors.guard(client.startLoaderJob(b.build()))
     Option(r.payload())
@@ -73,35 +77,110 @@ final class NeptuneBulkLoader(client: NeptunedataClient) extends GraphBulkLoader
   }
 }
 
-/** Read-only graph queries: only the allowlisted templates, always with parameters, a row limit and
-  * a client-side API call timeout (at most [[GraphQueryBounds.MaxTimeoutMillis]]). Use it with
-  * read-only credentials (Phase 12 IAM).
+/** Read-only graph queries: only the allowlisted templates (see [[CypherTemplates]]), identifiers
+  * always as parameters, bounded by [[GraphReadSettings]]. Use it with read-only credentials (Phase
+  * 12 IAM). Graph reads are not retried: a failed read is reported to the caller (Left).
+  *
+  *   - Row limits (m1): the text asks for `limit + 1` rows; the result holds at most `limit` rows
+  *     and `truncated = rows > limit`.
+  *   - `PathBetween` (iterative deepening): runs the exact-depth query for depth 1, then 2, up to
+  *     `maxDepth`, and stops at the first depth that returns a path, or when the total elapsed time
+  *     reaches `settings.timeoutMillis` (each call's API timeout is the remaining budget). The
+  *     result's `complete` and `depthSearched` tell "no path within depth d" (complete) from
+  *     "stopped at the time limit" (not complete).
+  *
+  * @param clock
+  *   monotonic milliseconds; tests inject a fake clock
   */
-final class NeptuneGraphRead(client: NeptunedataClient, timeoutMillis: Int) extends GraphReadPort {
-  require(
-    timeoutMillis > 0 && timeoutMillis <= GraphQueryBounds.MaxTimeoutMillis,
-    "timeout out of bounds"
-  )
+final class NeptuneGraphRead(
+    client: NeptunedataClient,
+    val settings: GraphReadSettings,
+    clock: () => Long = NeptuneGraphRead.monotonicMillis
+) extends GraphReadPort {
+
+  private def execute(c: CypherTemplates.Compiled, timeoutMillis: Long): List[GraphRow] = {
+    val r = AwsErrors.guard(
+      client.executeOpenCypherQuery(
+        ExecuteOpenCypherQueryRequest
+          .builder()
+          .openCypherQuery(c.cypher)
+          .parameters(c.parameters.render())
+          .overrideConfiguration(o => o.apiCallTimeout(Duration.ofMillis(timeoutMillis)))
+          .build()
+      )
+    )
+    NeptuneClients.toJson(r.results()).arrOpt.map(_.toList).getOrElse(Nil).map { row =>
+      GraphRow(ListMap.from(row.objOpt.map(_.toList).getOrElse(Nil)))
+    }
+  }
 
   def run(query: GraphQuery): Either[String, GraphResult] =
-    CypherTemplates.compile(query).flatMap { c =>
-      try {
-        val r = AwsErrors.guard(
-          client.executeOpenCypherQuery(
-            ExecuteOpenCypherQueryRequest
-              .builder()
-              .openCypherQuery(c.cypher)
-              .parameters(c.parameters.render())
-              .overrideConfiguration(o => o.apiCallTimeout(Duration.ofMillis(timeoutMillis.toLong)))
-              .build()
-          )
-        )
-        val rows =
-          NeptuneClients.toJson(r.results()).arrOpt.map(_.toList).getOrElse(Nil).map { row =>
-            GraphRow(ListMap.from(row.objOpt.map(_.toList).getOrElse(Nil)))
+    CypherTemplates.compile(query, settings).flatMap { compiled =>
+      query match {
+        case q: GraphQuery.PathBetween => pathSearch(q, compiled)
+        case q                         =>
+          val c = compiled.head
+          try
+            Right(
+              GraphResult.bounded(q.templateId, execute(c, settings.timeoutMillis.toLong), c.limit)
+            )
+          catch { case e: StoreException => Left(e.getMessage) }
+      }
+    }
+
+  private def pathSearch(
+      q: GraphQuery.PathBetween,
+      depths: List[CypherTemplates.Compiled]
+  ): Either[String, GraphResult] = {
+    val start = clock()
+    def stopped(searched: Int) =
+      Right(GraphResult(q.templateId, Nil, truncated = false, complete = false, Some(searched)))
+    @annotation.tailrec
+    def loop(rest: List[CypherTemplates.Compiled], searched: Int): Either[String, GraphResult] =
+      rest match {
+        case Nil =>
+          Right(GraphResult(q.templateId, Nil, truncated = false, complete = true, Some(searched)))
+        case c :: tail =>
+          val remaining = settings.timeoutMillis.toLong - (clock() - start)
+          if (remaining <= 0) stopped(searched)
+          else {
+            val outcome =
+              try Right(execute(c, remaining))
+              catch {
+                case e: StoreException if NeptuneGraphRead.isTimeout(e) => Left(None)
+                case e: StoreException                                  => Left(Some(e.getMessage))
+              }
+            outcome match {
+              case Left(None)                   => stopped(searched)
+              case Left(Some(err))              => Left(err)
+              case Right(rows) if rows.nonEmpty =>
+                Right(
+                  GraphResult(
+                    q.templateId,
+                    rows.take(c.limit),
+                    rows.size > c.limit,
+                    complete = true,
+                    c.depth
+                  )
+                )
+              case Right(_) => loop(tail, c.depth.getOrElse(searched + 1))
+            }
           }
-        Right(GraphResult(c.templateId, rows.take(c.limit), rows.size > c.limit))
-      } catch { case e: org.scholarchain.storage.StoreException => Left(e.getMessage) }
+      }
+    loop(depths, 0)
+  }
+}
+
+object NeptuneGraphRead {
+  val monotonicMillis: () => Long = () => System.nanoTime() / 1000000L
+
+  /** A client-side API call timeout or Neptune's own query time limit. */
+  def isTimeout(e: StoreException): Boolean =
+    Iterator.iterate[Throwable](e)(_.getCause).takeWhile(_ != null).take(8).exists {
+      case _: ApiCallTimeoutException        => true
+      case _: ApiCallAttemptTimeoutException => true
+      case _: TimeLimitExceededException     => true
+      case _                                 => false
     }
 }
 

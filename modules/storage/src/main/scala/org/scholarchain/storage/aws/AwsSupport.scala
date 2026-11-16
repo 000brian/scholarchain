@@ -15,7 +15,10 @@ import software.amazon.awssdk.regions.Region
   * configuration.
   *
   * @param maxAttempts
-  *   SDK attempts per call (standard retry strategy: throttling and 5xx, exponential backoff)
+  *   SDK attempts per call. Must be 1 (Phase 9, m2): the SDK never retries, so storage's own
+  *   bounded [[org.scholarchain.storage.Retry]] is the only retry layer and the retry counts it
+  *   reports are the real attempt counts (no retries hidden inside retries). The parameter stays
+  *   for source compatibility and to make the rule explicit at every call site.
   */
 final case class AwsClientSettings(
     region: String,
@@ -24,7 +27,10 @@ final case class AwsClientSettings(
     apiCallTimeoutMillis: Int,
     maxAttempts: Int
 ) {
-  require(maxAttempts >= 1 && maxAttempts <= 10, "maxAttempts must be in 1..10")
+  require(
+    maxAttempts == AwsClientSettings.SdkMaxAttempts,
+    s"maxAttempts must be ${AwsClientSettings.SdkMaxAttempts}: storage's bounded Retry is the only retry"
+  )
   require(
     apiCallTimeoutMillis > 0 && apiCallTimeoutMillis <= 120000,
     "apiCallTimeoutMillis must be in 1..120000"
@@ -47,6 +53,12 @@ final case class AwsClientSettings(
         AwsRetryStrategy.standardRetryStrategy().toBuilder().maxAttempts(maxAttempts).build()
       )
       .build()
+}
+
+object AwsClientSettings {
+
+  /** SDK attempts per call: exactly one (no SDK-level retry). */
+  val SdkMaxAttempts: Int = 1
 }
 
 object AwsErrors {

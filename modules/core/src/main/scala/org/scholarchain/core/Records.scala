@@ -529,6 +529,10 @@ object GraphEdge { implicit val readWriter: ReadWriter[GraphEdge] = macroRW }
   *     [[ResearcherId]] followed by the [[WorkId]]s that reach M_r; `metric` is
   *     `MetricValue(max_coauthors_on_one_paper, M_r)`; `window` is the metric's window.
   *
+  * Semantic context (Phase 9): `evidenceType = semantic_context` points at a retrieved semantic
+  * document; its window is optional. It is descriptive only and never evidence for a count, edge,
+  * path, component, community or bridge score (see [[EvidenceType.SemanticContext]]).
+  *
   * `subjectIds` are checked only for being non-blank (not for ID kind), and the evidence ID does
   * not include `window` or `metric`: two items of the same type, run and `subjectIds` in different
   * windows share an `evidenceId`.
@@ -572,30 +576,131 @@ final case class QueryPlan(
 )
 object QueryPlan { implicit val readWriter: ReadWriter[QueryPlan] = macroRW }
 
-/** One claim in an answer; numbers and identifiers in a claim come from cited evidence. */
+/** One claim in an answer; numbers and identifiers in a claim come from cited evidence. Schema
+  * version 2 (Phase 9, breaking: adds `claimId` and `uncertainty`; `status` uses the Phase 9
+  * [[VerificationStatus]] wire names).
+  *
+  * Rules:
+  *   - `claimId` matches `claim-[0-9]{1,4}` ([[AnswerClaim.ClaimIdPattern]]); it is unique within
+  *     its [[AnswerResponse]]. It is a label assigned by the producer, not a stable ID.
+  *   - `status` `unsupported` may cite no evidence; every other status cites at least one evidence
+  *     ID. `evidenceIds` are well-formed and distinct.
+  *   - `uncertainty`, when present, is non-blank (the claim's stated uncertainty, for example an
+  *     identity-conflict note).
+  *   - `provenance.contentHash == ContentHash.of(claimText)`.
+  */
 final case class AnswerClaim(
     schemaVersion: Int,
+    claimId: String,
     claimText: String,
     evidenceIds: List[EvidenceId],
     status: VerificationStatus,
     window: Option[YearWindow],
+    uncertainty: Option[String],
     provenance: Provenance
 )
-object AnswerClaim { implicit val readWriter: ReadWriter[AnswerClaim] = macroRW }
+object AnswerClaim {
+  implicit val readWriter: ReadWriter[AnswerClaim] = macroRW
 
-/** A complete answer: plan, evidence, verified claims, and identity caveats. */
+  /** Pattern of `claimId`. */
+  val ClaimIdPattern: String = "claim-[0-9]{1,4}"
+  private val compiled = ClaimIdPattern.r.pattern
+  def isValidClaimId(s: String): Boolean = s != null && compiled.matcher(s).matches()
+}
+
+/** A complete answer: plan, evidence, verified claims, and identity caveats. Schema version 2
+  * (Phase 9, breaking: claims are [[AnswerClaim]] v2; adds `abstained` and `abstentionReason`;
+  * `bundle` is optional).
+  *
+  * Rules:
+  *   - `abstentionReason` is present (and non-blank) exactly when `abstained` is true.
+  *   - `bundle` may be `None`, and `claims` may be empty, only when `abstained` is true.
+  *   - claim IDs are unique within the response.
+  *   - every evidence ID cited by a claim is in `bundle` (so a response without a bundle cites
+  *     none).
+  *   - `plan.question == question`; `provenance.contentHash == ContentHash.of(answerText)`.
+  */
 final case class AnswerResponse(
     schemaVersion: Int,
     question: String,
     answerText: String,
     modelId: Option[String],
     plan: QueryPlan,
-    bundle: EvidenceBundle,
+    bundle: Option[EvidenceBundle],
     claims: List[AnswerClaim],
     identityNotes: List[String],
+    abstained: Boolean,
+    abstentionReason: Option[String],
     provenance: Provenance
 )
 object AnswerResponse { implicit val readWriter: ReadWriter[AnswerResponse] = macroRW }
+
+/** The audit record of one runtime query (the audit stage's output). Schema version 1 (Phase 9,
+  * new).
+  *
+  * Fields:
+  *   - `queryRunId`: the query run (`RunId.of("rag.query", ...)`); equals `provenance.runId`.
+  *   - `questionHash`: `sha256:<hex>` of the question as hashed by the producer.
+  *   - `plan`, `planSource`: the validated plan and whether it came from the model (`llm`) or the
+  *     deterministic rule planner (`rule`).
+  *   - `resolvedResearcherIds`, `unresolvedNames`: identity resolution outcome (unresolved names
+  *     are ambiguous or unknown names the answer abstained on).
+  *   - `evidenceIds`, `bundleId`: the evidence assembled for the answer.
+  *   - `graphRunId`: the Spark graph run queried; equals `plan.graphRunId`.
+  *   - `metricPolicyVersions`: policy versions of the metrics used.
+  *   - `promptVersions`: `<promptId>@sha256:<64 hex>` of every prompt file used
+  *     ([[QueryAudit.PromptVersionPattern]]).
+  *   - `modelId`, `inputTokens`, `outputTokens`: the model and token counts when a model was
+  *     called.
+  *   - `latencyMillis`, `stageMillis`: total and per-stage wall time.
+  *   - `verificationCounts`: claims per [[VerificationStatus]] wire name.
+  *   - `answerHash`: `sha256:<hex>` of the answer text ([[ContentHash.of]]).
+  *   - `abstained`: whether the answer abstained.
+  *
+  * Latency and token counts are measurements: they are never inputs of any stable ID.
+  *
+  * Rules: `questionHash` and `answerHash` are well-formed content hashes; every stable ID is well
+  * formed; `resolvedResearcherIds` and `evidenceIds` are distinct; `unresolvedNames`,
+  * `metricPolicyVersions` and `stageMillis` keys are non-blank; `promptVersions` match the pattern
+  * and are distinct; `modelId` is non-blank when present; token counts, `latencyMillis` and every
+  * `stageMillis` value are >= 0; `verificationCounts` keys are VerificationStatus wire names and
+  * values are >= 0; `plan` is a valid [[QueryPlan]] with `plan.graphRunId == graphRunId`;
+  * `provenance.sourceType` is `runtime` and `provenance.runId == queryRunId`.
+  */
+final case class QueryAudit(
+    schemaVersion: Int,
+    queryRunId: RunId,
+    questionHash: String,
+    plan: QueryPlan,
+    planSource: PlanSource,
+    resolvedResearcherIds: List[ResearcherId],
+    unresolvedNames: List[String],
+    evidenceIds: List[EvidenceId],
+    bundleId: Option[EvidenceId],
+    graphRunId: RunId,
+    metricPolicyVersions: List[String],
+    promptVersions: List[String],
+    modelId: Option[String],
+    inputTokens: Option[Long],
+    outputTokens: Option[Long],
+    latencyMillis: Long,
+    stageMillis: Map[String, Long],
+    verificationCounts: Map[String, Int],
+    answerHash: String,
+    abstained: Boolean,
+    provenance: Provenance
+)
+object QueryAudit {
+  implicit val readWriter: ReadWriter[QueryAudit] = macroRW
+
+  /** Pattern of one `promptVersions` entry: `<promptId>@sha256:<64 lowercase hex>`. */
+  val PromptVersionPattern: String = "[a-z0-9][a-z0-9._-]*@sha256:[0-9a-f]{64}"
+  private val compiled = PromptVersionPattern.r.pattern
+  def isValidPromptVersion(s: String): Boolean = s != null && compiled.matcher(s).matches()
+
+  /** Producer helper: the `promptVersions` entry of prompt `promptId` with file text `text`. */
+  def promptVersion(promptId: String, text: String): String = s"$promptId@${ContentHash.of(text)}"
+}
 
 // ---- Semantic documents and vector metadata (Phase 7, new) ---------------------------------
 

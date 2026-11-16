@@ -3,7 +3,7 @@ package org.scholarchain.storage.dynamo
 import scala.collection.immutable.ListMap
 
 import org.scholarchain.core.RunId
-import org.scholarchain.storage.ports.{AttrValue, ConditionalResult, Item, KeyValueStore}
+import org.scholarchain.storage.ports.{AttrValue, ConditionalResult, Item, ItemKey, KeyValueStore}
 
 /** Append-only RunLedger for one attempt of one run.
   *
@@ -21,12 +21,18 @@ final class RunLedger private (
   private val writer = new ConditionalWriter(store)
   private var seq = 0L
   private var appended = 0L
+  private var last: Option[ItemKey] = None
 
   def eventsAppended: Long = synchronized(appended)
+
+  /** Key of the most recent [[record]] call of this attempt. */
+  def lastKey: Option[ItemKey] = synchronized(last)
 
   def record(eventType: String, attrs: (String, AttrValue)*): Change = synchronized {
     require(eventType.matches("[a-z][a-z0-9-]*"), s"invalid event type '$eventType'")
     seq += 1
+    last =
+      Some(ItemKey(TableSpecs.runPk(runId.value), TableSpecs.ledgerSk(attempt, seq, eventType)))
     val item = Item(
       ListMap(
         Item.Pk -> AttrValue.S(TableSpecs.runPk(runId.value)),

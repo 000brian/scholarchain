@@ -14,8 +14,8 @@ import org.scholarchain.storage.vectors.IndexSpecCatalog
   * run only with `sbt storage/AwsTest/test` against a deployed environment (deferred to Phases
   * 14/15). Configuration comes from `SCHOLARCHAIN_CONFIG_FILE`; credentials from the default
   * provider chain. Bounds: at most 2 objects, 2 items, 2 vectors and 1 message per test; 5-second
-  * API call timeouts with at most 3 attempts; 60 seconds per test. Test data uses the `itest`
-  * prefix so the cleanup script can find it.
+  * API call timeouts with one SDK attempt per call (m2); 60 seconds per test. Test data uses the
+  * `itest` prefix so the cleanup script can find it.
   */
 class AwsAdaptersAwsSuite extends munit.FunSuite {
   private val RequiresAws = new munit.Tag("RequiresAws")
@@ -29,7 +29,7 @@ class AwsAdaptersAwsSuite extends munit.FunSuite {
       .flatMap(l => StorageConfig.from(l.config).left.map(_.mkString("; ")))
       .fold(e => throw new IllegalStateException(e), identity)
 
-  private lazy val client = AwsClientSettings(cfg.region, 3000, 5000, 5000, 3)
+  private lazy val client = AwsClientSettings(cfg.region, 3000, 5000, 5000, 1)
   private lazy val run = StorageVersion.runId("storage.aws-itest", "sha256:itest", cfg.fingerprint)
 
   test("S3: put-if-absent is idempotent and never overwrites".tag(RequiresAws)) {
@@ -99,9 +99,34 @@ class AwsAdaptersAwsSuite extends munit.FunSuite {
 
   test("Neptune: read-only template with a bounded timeout".tag(RequiresAws)) {
     val port = cfg.neptune.map(_.port).getOrElse(fail("neptune section is not configured"))
-    val g = new NeptuneGraphRead(NeptuneClients.create(client, cfg.neptuneEndpoint, port), 5000)
+    val bounds = GraphReadSettings(cfg.windowLabels.toSet, 2, 5, 5000)
+    val g =
+      new NeptuneGraphRead(NeptuneClients.create(client, cfg.neptuneEndpoint, port), bounds)
     val missing = org.scholarchain.core.ResearcherId("researcher:v1:" + "0" * 32)
     assertEquals(g.run(ports.GraphQuery.ResearcherById(missing)).map(_.rows), Right(Nil))
+  }
+
+  test(
+    "AwsStorageEnvironment: one bounded read per store through the A1 wiring".tag(RequiresAws)
+  ) {
+    // bounds: 1 GetItem, 1 HeadObject, 1 GetIndex, at most 1 openCypher query; no write
+    val env = AwsStorageEnvironment.fromConfig(cfg, client, None)
+    try {
+      val missing = ItemKey(s"run#itest-missing#${run.value}", "itest")
+      assertEquals(env.kv.get(cfg.dynamoDb.runLedgerTable, missing), None)
+      val ref = new S3KeyLayout(cfg.zones)
+        .logObject("itest", "itest", run, "storage-itest", "absent.json")
+      assertEquals(env.objects.head(ref), None)
+      assert(env.vectors.describeIndex(cfg.vectors.researcherProfileIndex).nonEmpty)
+      env.graph.foreach { g =>
+        val r = g.run(
+          ports.GraphQuery.ResearcherById(
+            org.scholarchain.core.ResearcherId("researcher:v1:" + "0" * 32)
+          )
+        )
+        assertEquals(r.map(_.rows), Right(Nil))
+      }
+    } finally env.close()
   }
 
   test(

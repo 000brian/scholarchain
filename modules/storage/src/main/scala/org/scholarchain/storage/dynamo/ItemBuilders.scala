@@ -33,6 +33,11 @@ final class MetricCacheAccumulator(val researcherId: String, val windowLabel: St
   var communityId: Option[String] = None
   var mrWorkIds: Option[List[String]] = None
   var provenance: Option[Provenance] = None
+
+  /** Provenance of each metric family as read (breadth, group_size, bridges, kcore). The RM1 item
+    * keeps the breadth provenance (unchanged); RM4 ranking items use the family of their metric.
+    */
+  val familyProvenance: mutable.Map[String, Provenance] = mutable.Map.empty
   val families: mutable.Set[String] = mutable.Set.empty
 
   private def setWindow(w: YearWindow): Unit =
@@ -45,6 +50,7 @@ final class MetricCacheAccumulator(val researcherId: String, val windowLabel: St
     families += family
     m.values.foreach(v => values.update(v.metric, v.value))
     identityConfidence = Some(m.identityConfidence)
+    familyProvenance.update(family, m.provenance)
     if (family == "breadth") provenance = Some(m.provenance)
   }
 

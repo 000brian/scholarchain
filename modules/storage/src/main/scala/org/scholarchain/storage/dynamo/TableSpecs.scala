@@ -168,8 +168,8 @@ object TableSpecs {
 
   val ResearcherMetricCache: TableSpec = TableSpec(
     "ResearcherMetricCache",
-    "researcher#<researcherId>",
-    "window#<windowLabel>",
+    "researcher#<researcherId> | ranking#<windowLabel>#<metric wire name> (RM4)",
+    "window#<windowLabel> | rank#<NNNN> (RM4, rank from 0001)",
     appendOnly = false,
     ttlAttribute = None,
     List(
@@ -190,6 +190,14 @@ object TableSpecs {
         "Idempotent reload: insert if absent, replace only when the item hash changed (version check)",
         "PutItem with condition",
         "pk, sk as RM1"
+      ),
+      AccessPattern(
+        "RM4",
+        "Top-K researchers of one window by one ranked metric (runtime.rankingCacheTopK per window " +
+          "and metric; value descending, then researcherId; communities_connected: value, then " +
+          "cross_community_degree descending, then researcherId). Upsert-if-changed like RM3.",
+        "Query Limit k",
+        "pk = ranking#<windowLabel>#<metric>, begins_with(sk, rank#)"
       )
     ),
     _.researcherMetricCacheTable
@@ -222,4 +230,9 @@ object TableSpecs {
   def versionSk(version: Long): String = f"v#$version%08d"
   def researcherPk(researcherId: String): String = s"researcher#$researcherId"
   def windowLabelSk(label: String): String = s"window#$label"
+  val WindowSkPrefix = "window#"
+  def rankingPk(windowLabel: String, metricWire: String): String =
+    s"ranking#$windowLabel#$metricWire"
+  def rankSk(rank: Int): String = f"rank#$rank%04d"
+  val RankSkPrefix = "rank#"
 }

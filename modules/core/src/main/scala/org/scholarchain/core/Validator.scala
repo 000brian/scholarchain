@@ -900,8 +900,8 @@ object Validator {
     val countRule = s.operation match {
       case QueryOperation.ShortestPath =>
         check(s.researcherIds.size == 2, s"$field.researcherIds: shortest_path needs exactly 2")
-      case QueryOperation.BridgeResearchers => Nil
-      case _                                =>
+      case op if QueryOperation.mayOmitResearchers.contains(op) => Nil
+      case _                                                    =>
         check(s.researcherIds.nonEmpty, s"$field.researcherIds: must not be empty")
     }
     countRule ++
@@ -926,6 +926,10 @@ object Validator {
 
   implicit val answerClaim: Validator[AnswerClaim] = instance { c =>
     schema("AnswerClaim", c.schemaVersion) ++
+      check(
+        AnswerClaim.isValidClaimId(c.claimId),
+        s"claimId: '${c.claimId}' must match ${AnswerClaim.ClaimIdPattern}"
+      ) ++
       nonBlank("claimText", c.claimText) ++
       check(
         c.status == VerificationStatus.Unsupported || c.evidenceIds.nonEmpty,
@@ -934,26 +938,103 @@ object Validator {
       each("evidenceIds", c.evidenceIds)(stableId) ++
       distinct("evidenceIds", c.evidenceIds) ++
       optional("window", c.window)(window) ++
+      optional("uncertainty", c.uncertainty)(nonBlank) ++
       textHash(c.provenance, c.claimText, "claimText") ++
       prov(c.provenance)
   }
 
   implicit val answerResponse: Validator[AnswerResponse] = instance { r =>
-    val bundleIds = r.bundle.items.map(_.evidenceId).toSet
+    val bundleIds = r.bundle.toList.flatMap(_.items.map(_.evidenceId)).toSet
+    val claimIds = r.claims.map(_.claimId)
+    val abstentionRule =
+      if (r.abstained)
+        check(
+          r.abstentionReason.nonEmpty,
+          "abstentionReason: required when abstained is true"
+        ) ++ optional("abstentionReason", r.abstentionReason)(nonBlank)
+      else
+        check(
+          r.abstentionReason.isEmpty,
+          "abstentionReason: must be null when abstained is false"
+        ) ++
+          check(r.bundle.nonEmpty, "bundle: required unless the response abstains") ++
+          check(r.claims.nonEmpty, "claims: must not be empty unless the response abstains")
     schema("AnswerResponse", r.schemaVersion) ++
       nonBlank("question", r.question) ++
       nonBlank("answerText", r.answerText) ++
       optional("modelId", r.modelId)(nonBlank) ++
       check(r.question == r.plan.question, "plan.question: must equal question") ++
       nested("plan", queryPlan.validate(r.plan)) ++
-      nested("bundle", evidenceBundle.validate(r.bundle)) ++
-      check(r.claims.nonEmpty, "claims: must not be empty") ++
+      optional("bundle", r.bundle)((f, b) => nested(f, evidenceBundle.validate(b))) ++
+      abstentionRule ++
       each("claims", r.claims)((f, c) => nested(f, answerClaim.validate(c))) ++
+      check(
+        claimIds.distinct.size == claimIds.size,
+        s"claims.claimId: claim IDs must be unique within the response " +
+          s"(duplicates: ${claimIds.diff(claimIds.distinct).distinct.mkString(", ")})"
+      ) ++
       each("claims", r.claims)((f, c) =>
         c.evidenceIds.filterNot(bundleIds).map(id => s"$f.evidenceIds: $id is not in bundle")
       ) ++
       each("identityNotes", r.identityNotes)(nonBlank) ++
       textHash(r.provenance, r.answerText, "answerText") ++
       prov(r.provenance)
+  }
+
+  implicit val queryAudit: Validator[QueryAudit] = instance { a =>
+    def hash(field: String, h: String): List[String] =
+      check(ContentHash.isWellFormed(h), s"$field: '$h' must be sha256:<64 lowercase hex>")
+    def nonNegative(field: String, n: Long): List[String] =
+      check(n >= 0L, s"$field: $n must be >= 0")
+    val statusNames = VerificationStatus.values.map(_.wire)
+    schema("QueryAudit", a.schemaVersion) ++
+      stableId("queryRunId", a.queryRunId) ++
+      hash("questionHash", a.questionHash) ++
+      nested("plan", queryPlan.validate(a.plan)) ++
+      check(
+        a.plan.graphRunId == a.graphRunId,
+        s"plan.graphRunId: ${a.plan.graphRunId} must equal graphRunId ${a.graphRunId}"
+      ) ++
+      each("resolvedResearcherIds", a.resolvedResearcherIds)(stableId) ++
+      distinct("resolvedResearcherIds", a.resolvedResearcherIds) ++
+      each("unresolvedNames", a.unresolvedNames)(nonBlank) ++
+      each("evidenceIds", a.evidenceIds)(stableId) ++
+      distinct("evidenceIds", a.evidenceIds) ++
+      optional("bundleId", a.bundleId)(stableId) ++
+      stableId("graphRunId", a.graphRunId) ++
+      each("metricPolicyVersions", a.metricPolicyVersions)(nonBlank) ++
+      each("promptVersions", a.promptVersions)((f, p) =>
+        check(
+          QueryAudit.isValidPromptVersion(p),
+          s"$f: '$p' must match ${QueryAudit.PromptVersionPattern}"
+        )
+      ) ++
+      distinct("promptVersions", a.promptVersions) ++
+      optional("modelId", a.modelId)(nonBlank) ++
+      optional("inputTokens", a.inputTokens)(nonNegative) ++
+      optional("outputTokens", a.outputTokens)(nonNegative) ++
+      nonNegative("latencyMillis", a.latencyMillis) ++
+      each("stageMillis", a.stageMillis.keys.toList.sorted)(nonBlank) ++
+      a.stageMillis.toList.sortBy(_._1).flatMap { case (k, v) =>
+        nonNegative(s"stageMillis[$k]", v)
+      } ++
+      a.verificationCounts.toList.sortBy(_._1).flatMap { case (k, v) =>
+        check(
+          statusNames.contains(k),
+          s"verificationCounts: '$k' is not a verification status " +
+            s"(expected one of: ${statusNames.mkString(", ")})"
+        ) ++ nonNegative(s"verificationCounts[$k]", v.toLong)
+      } ++
+      hash("answerHash", a.answerHash) ++
+      check(
+        a.provenance.sourceType == SourceType.Runtime,
+        s"provenance.sourceType: a QueryAudit is produced by the runtime, so its source must be " +
+          s"runtime (got ${a.provenance.sourceType.wire})"
+      ) ++
+      check(
+        a.provenance.runId == a.queryRunId,
+        s"provenance.runId: ${a.provenance.runId} must equal queryRunId ${a.queryRunId}"
+      ) ++
+      prov(a.provenance)
   }
 }

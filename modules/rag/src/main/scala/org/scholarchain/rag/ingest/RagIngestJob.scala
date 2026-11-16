@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 
 import scala.collection.immutable.ListMap
+import scala.util.control.NonFatal
 
 import org.scholarchain.core.{Hashing, RunId, SemanticDocument, SemanticDocumentType}
 import org.scholarchain.core.config.{ConfigLoader, EmbeddingProvider, ScholarChainConfig}
@@ -17,9 +18,15 @@ import org.scholarchain.rag.semantic.{
   TextSource
 }
 import org.scholarchain.storage.StorageConfig
-import org.scholarchain.storage.ingest.IngestReport
+import org.scholarchain.storage.aws.{AwsClientSettings, AwsStorageEnvironment}
+import org.scholarchain.storage.ingest.{
+  DocumentExtras,
+  IngestReport,
+  TextStore,
+  VectorIngestPipeline
+}
 import org.scholarchain.storage.local.LocalStorageEnvironment
-import org.scholarchain.storage.ports.{MetaValue, MetadataFilter}
+import org.scholarchain.storage.ports.{EmbeddingPort, MetaValue, MetadataFilter, VectorIndexPort}
 import org.scholarchain.storage.source.{ExportManifest, LocalDirectorySource, RejectLog}
 
 /** The rag ingest job: renders every registered template from a Spark JSON Lines export, embeds
@@ -28,10 +35,10 @@ import org.scholarchain.storage.source.{ExportManifest, LocalDirectorySource, Re
   * environment (the second run must skip 100%), then runs the retrieval smoke samples and writes
   * `<out>/run-report.json`.
   *
-  * This phase supports `--stores local` only (storage's in-memory fakes) together with the `fake`
-  * provider: no network, no AWS. The job refuses `fake` for any other store and refuses live
-  * providers for local stores. AWS wiring (S3, DynamoDB, S3 Vectors adapters) is deferred to the
-  * first deploy.
+  * Stores (`--stores`): `local` (storage's in-memory fakes) with the `fake` provider only, or `aws`
+  * (Phase 9, A1: storage's [[AwsStorageEnvironment]], S3, DynamoDB and S3 Vectors) with the
+  * `voyage` provider only. The job refuses `fake` for AWS stores and live providers for local
+  * stores. The AWS path is compiled and unit-tested with stub stores; it has never been run.
   *
   * Bounds: `<out>` must not exist (a new root per attempt); a step longer than 60 minutes or free
   * disk below 15 GB stops the run.
@@ -95,10 +102,14 @@ object RagIngestJob {
     }
   }
 
-  /** The provider and store combinations this job accepts. */
+  /** The provider and store combinations this job accepts: `fake` with `local` stores, and `voyage`
+    * with `aws` stores (Phase 9, A1). The fake is never used for a stored index; live providers
+    * never run against local stores; Bedrock embeddings are not used for the AWS index (quota 0).
+    */
   def checkProviderAndStores(provider: EmbeddingProvider, stores: String): Either[String, Unit] =
     (provider, stores) match {
       case (EmbeddingProvider.Fake, "local") => Right(())
+      case (EmbeddingProvider.Voyage, "aws") => Right(())
       case (EmbeddingProvider.Fake, s)       =>
         Left(
           s"the fake embedder is for local tests only and is never used for a stored index ('$s' stores)"
@@ -107,9 +118,87 @@ object RagIngestJob {
         Left(
           s"provider ${p.wire} would call a live API; local runs use the fake provider (no network)"
         )
+      case (p, "aws") =>
+        Left(s"provider ${p.wire} is not used for AWS stores (voyage only)")
       case (_, s) =>
-        Left(s"stores '$s' are not wired in this phase (local only; AWS wiring is deferred)")
+        Left(s"stores '$s' are not known (local or aws)")
     }
+
+  /** The stores one ingest run writes to: storage's in-memory environment or its AWS environment.
+    */
+  trait IngestStores extends AutoCloseable {
+    def kind: String
+    def description: String
+    def pipeline(
+        embedder: EmbeddingPort,
+        sourceDataset: String,
+        extrasOf: SemanticDocument => DocumentExtras
+    ): VectorIngestPipeline
+    def vectors: VectorIndexPort
+    def textStore: TextStore
+    def rejectsTotal: Long
+    def report(cfg: StorageConfig): ujson.Obj
+  }
+
+  /** storage's in-memory fakes ([[LocalStorageEnvironment]]). */
+  final class LocalIngestStores(val env: LocalStorageEnvironment, val kind: String = "local")
+      extends IngestStores {
+    val description = "storage in-memory fakes (LocalStorageEnvironment); no AWS call, no network"
+    def pipeline(e: EmbeddingPort, s: String, x: SemanticDocument => DocumentExtras) =
+      env.pipeline(e, s, extrasOf = x)
+    def vectors: VectorIndexPort = env.vectors
+    def textStore: TextStore = env.textStore
+    def rejectsTotal: Long = env.rejects.total
+    def report(cfg: StorageConfig): ujson.Obj = ujson.Obj(
+      "indexCounts" -> ujson.Obj.from(
+        env.spec.indexes.map(i => i.name -> ujson.Num(env.vectors.count(i.name).toDouble))
+      ),
+      "textObjects" -> env.objects.objectCount,
+      "textBytes" -> env.objects.totalBytes.toDouble,
+      "vectorPutCalls" -> env.vectors.putCalls.get.toDouble,
+      "vectorsWritten" -> env.vectors.vectorsWritten.get.toDouble,
+      "ledgerItems" -> env.kv.itemCount(cfg.dynamoDb.runLedgerTable).toDouble,
+      "registryItems" -> env.kv.itemCount(cfg.dynamoDb.artifactRegistryTable).toDouble
+    )
+    def close(): Unit = env.close()
+  }
+
+  /** storage's AWS environment ([[AwsStorageEnvironment]]): S3, DynamoDB and S3 Vectors. */
+  final class AwsIngestStores(env: AwsStorageEnvironment) extends IngestStores {
+    val kind = "aws"
+    val description =
+      "AWS stores through storage's AwsStorageEnvironment (S3, DynamoDB, S3 Vectors)"
+    def pipeline(e: EmbeddingPort, s: String, x: SemanticDocument => DocumentExtras) =
+      env.pipeline(e, s, extrasOf = x)
+    def vectors: VectorIndexPort = env.vectors
+    def textStore: TextStore = env.textStore
+    def rejectsTotal: Long = env.rejects.total
+    def report(cfg: StorageConfig): ujson.Obj = ujson.Obj("retries" -> env.retryReport)
+    def close(): Unit = env.close()
+  }
+
+  /** Builds the stores of `--stores` (`local` or `aws`). Building the AWS stores makes no network
+    * call (SDK clients connect on first use).
+    */
+  val defaultStores: (StorageConfig, String, Path) => Either[String, IngestStores] =
+    (cfg, stores, rejectFile) =>
+      stores match {
+        case "local" =>
+          Right(new LocalIngestStores(LocalStorageEnvironment.create(cfg, Some(rejectFile))))
+        case "aws" =>
+          try
+            Right(
+              new AwsIngestStores(
+                AwsStorageEnvironment.fromConfig(
+                  cfg,
+                  AwsClientSettings(cfg.region, 10000, 60000, 60000, maxAttempts = 1),
+                  Some(rejectFile)
+                )
+              )
+            )
+          catch { case NonFatal(e) => Left(s"AWS stores could not be built: ${e.getMessage}") }
+        case other => Left(s"stores '$other' are not known (local or aws)")
+      }
 
   def loadConfig(path: Path): Either[String, ScholarChainConfig] = {
     val text = new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
@@ -138,7 +227,11 @@ object RagIngestJob {
     }
 
   /** Runs the job and returns the report (also written to `<out>/run-report.json`). */
-  def run(opts: Options): ujson.Obj = {
+  def run(
+      opts: Options,
+      storesFactory: (StorageConfig, String, Path) => Either[String, IngestStores] = defaultStores,
+      wiring: EmbeddingProviders.Wiring = EmbeddingProviders.Wiring()
+  ): ujson.Obj = {
     if (Files.exists(opts.out)) sys.error(s"${opts.out} exists; every attempt uses a new root")
     Files.createDirectories(opts.out)
     val report = ujson.Obj(
@@ -168,16 +261,18 @@ object RagIngestJob {
 
     val t0 = System.nanoTime()
     val renderRejects = new RejectLog(Some(opts.out.resolve("render-rejects.jsonl")))
-    var env: LocalStorageEnvironment = null
+    var env: IngestStores = null
     try {
       val config = loadConfig(opts.config).fold(e => sys.error(e), identity)
       val cfg = StorageConfig.from(config).fold(e => sys.error(e.mkString("; ")), identity)
       val provider = cfg.embedding.providerKind.fold(e => sys.error(e), identity)
       checkProviderAndStores(provider, opts.stores).fold(e => sys.error(e), identity)
       val doc =
-        EmbeddingProviders.create(config, InputType.Document).fold(e => sys.error(e), identity)
+        EmbeddingProviders
+          .create(config, InputType.Document, wiring)
+          .fold(e => sys.error(e), identity)
       val query =
-        EmbeddingProviders.create(config, InputType.Query).fold(e => sys.error(e), identity)
+        EmbeddingProviders.create(config, InputType.Query, wiring).fold(e => sys.error(e), identity)
 
       val src = new LocalDirectorySource(opts.exportDir)
       val manifest = src.manifest()
@@ -197,7 +292,7 @@ object RagIngestJob {
         "heapMaxBytes" -> Runtime.getRuntime.maxMemory.toDouble,
         "processors" -> Runtime.getRuntime.availableProcessors,
         "freeDiskBytesAtStart" -> disk().toDouble,
-        "stores" -> "storage in-memory fakes (LocalStorageEnvironment); no AWS call, no network"
+        "stores" -> opts.stores
       )
       report("embedding") = ujson.Obj(
         "provider" -> provider.wire,
@@ -225,7 +320,9 @@ object RagIngestJob {
       report("runId") = runId.value
       write()
 
-      env = LocalStorageEnvironment.create(cfg, Some(opts.out.resolve("ingest-rejects.jsonl")))
+      env = storesFactory(cfg, opts.stores, opts.out.resolve("ingest-rejects.jsonl"))
+        .fold(e => sys.error(e), identity)
+      report("environment")("storesDescription") = env.description
       @volatile var corpus: RenderedCorpus = null
       val pipeline = env.pipeline(doc.port, SourceDataset, extrasOf = d => corpus.extrasOf(d))
       val builder = new ExportDocuments(src, manifest, cfg.vectors, renderRejects)
@@ -282,23 +379,15 @@ object RagIngestJob {
             val results = samples.map { d =>
               val q = sq.query(d.text)
               val q0 = System.nanoTime()
-              val r = retriever.retrieve(d.documentType, q, k)
+              // windowed documents are always queried within their own window (Phase 9: the
+              // retriever refuses a windowed query without a window filter)
+              val r = retriever.retrieve(d.documentType, q, k, RagIngestJob.windowFilter(d))
               val ms = (System.nanoTime() - q0) / 1e6
               val entries = r.toOption.map(_.context.entries).getOrElse(Nil)
               val rank = entries.indexWhere(_.vectorKey == d.vectorKey)
               val textOk =
                 entries.headOption.exists(e => env.textStore.fetch(e.textS3Uri, e.textHash).isRight)
-              // the same query restricted to the document's own window (how Phase 9 queries:
-              // every question states its window)
-              val windowRank = RagIngestJob.windowFilter(d) match {
-                case None => rank
-                case f    =>
-                  retriever
-                    .retrieve(d.documentType, q, k, f)
-                    .toOption
-                    .map(_.context.entries.indexWhere(_.vectorKey == d.vectorKey))
-                    .getOrElse(-1)
-              }
+              val windowRank = rank
               val top1 = entries.headOption.map(_.vectorKey).getOrElse("-")
               (d, q, rank, ms, textOk, r, windowRank, top1)
             }
@@ -330,17 +419,9 @@ object RagIngestJob {
         })
       }
       report("retrievalSmoke") = smoke
-      report("indexCounts") = ujson.Obj.from(
-        env.spec.indexes.map(i => i.name -> ujson.Num(env.vectors.count(i.name).toDouble))
-      )
-      report("store") = ujson.Obj(
-        "textObjects" -> env.objects.objectCount,
-        "textBytes" -> env.objects.totalBytes.toDouble,
-        "vectorPutCalls" -> env.vectors.putCalls.get.toDouble,
-        "vectorsWritten" -> env.vectors.vectorsWritten.get.toDouble,
-        "ledgerItems" -> env.kv.itemCount(cfg.dynamoDb.runLedgerTable).toDouble,
-        "registryItems" -> env.kv.itemCount(cfg.dynamoDb.artifactRegistryTable).toDouble
-      )
+      val storeReport = env.report(cfg)
+      storeReport.value.get("indexCounts").foreach(c => report("indexCounts") = c)
+      report("store") = ujson.Obj.from(storeReport.value.filterNot(_._1 == "indexCounts"))
       report("embedderUsage") =
         ujson.Obj("document" -> doc.usage.toJson, "query" -> query.usage.toJson)
       report("rejects") = ujson.Obj(
@@ -348,7 +429,7 @@ object RagIngestJob {
         "renderByTable" -> ujson.Arr.from(renderRejects.byStageAndTable.map { case ((s, t), n) =>
           ujson.Obj("stage" -> s, "table" -> t, "count" -> n.toDouble)
         }),
-        "ingest" -> env.rejects.total.toDouble
+        "ingest" -> env.rejectsTotal.toDouble
       )
       report("status") = "completed"
     } catch {

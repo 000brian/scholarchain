@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "question": "Compare Hugo O. Sousa and Ricardo Campos 0001 across windows, with their team sizes, communities, the top coauthor-breadth ranking and some context.",
+  "graphRunId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+  "steps": [
+    {
+      "operation": "researcher_ranking",
+      "researcherIds": [],
+      "window": {
+        "startYear": 2015,
+        "endYear": 2025
+      },
+      "parameters": {
+        "limit": "10",
+        "metric": "distinct_coauthors"
+      }
+    },
+    {
+      "operation": "max_team_size",
+      "researcherIds": [
+        "researcher:v1:6d39fb31017461bdf6bbe118864d1809"
+      ],
+      "window": {
+        "startYear": 2015,
+        "endYear": 2025
+      },
+      "parameters": {}
+    },
+    {
+      "operation": "community_analysis",
+      "researcherIds": [
+        "researcher:v1:6d39fb31017461bdf6bbe118864d1809",
+        "researcher:v1:b09b464e25f55dd98a87bd4f0c20577c"
+      ],
+      "window": {
+        "startYear": 2015,
+        "endYear": 2025
+      },
+      "parameters": {}
+    },
+    {
+      "operation": "temporal_comparison",
+      "researcherIds": [
+        "researcher:v1:6d39fb31017461bdf6bbe118864d1809"
+      ],
+      "window": {
+        "startYear": 2015,
+        "endYear": 2019
+      },
+      "parameters": {
+        "metric": "distinct_coauthors"
+      }
+    },
+    {
+      "operation": "semantic_context",
+      "researcherIds": [],
+      "window": {
+        "startYear": 2015,
+        "endYear": 2025
+      },
+      "parameters": {
+        "topic": "temporal"
+      }
+    }
+  ],
+  "provenance": {
+    "schemaVersion": 1,
+    "sourceType": "runtime",
+    "datasetId": "scholarchain-graph",
+    "snapshotId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+    "sourceRecordIds": [
+      "researcher:v1:6d39fb31017461bdf6bbe118864d1809",
+      "researcher:v1:b09b464e25f55dd98a87bd4f0c20577c"
+    ],
+    "runId": "run:v1:d5b4e52fdf1171ad6d9e1f1251db9278",
+    "jobName": "rag.answer",
+    "policyVersion": "prompt-policy/1",
+    "contentHash": "sha256:de0409386a870fc5605e575e92b0f428409c881f1a360e6147a3cbc1682e5fdb"
+  }
+}

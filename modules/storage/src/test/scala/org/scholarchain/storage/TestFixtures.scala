@@ -25,6 +25,34 @@ object TestFixtures {
   lazy val storageConfig: StorageConfig =
     StorageConfig.from(config).fold(e => sys.error(e.mkString), identity)
 
+  /** The `runtime` section added to the test configuration (validated by ConfigLoader). */
+  val runtimeSection: ujson.Obj = ujson.Obj(
+    "defaultWindowLabel" -> "full-2015-2025",
+    "rankingCacheTopK" -> 3,
+    "maxBundleItems" -> 5,
+    "maxPathDepth" -> 4,
+    "graphResultLimit" -> 50,
+    "graphTimeoutMillis" -> 1000,
+    "maxResearcherNames" -> 5
+  )
+
+  lazy val runtimeConfig: ScholarChainConfig = {
+    val in = getClass.getResourceAsStream("/config/storage-local-v1.json")
+    val tree =
+      try ujson.read(new String(in.readAllBytes(), StandardCharsets.UTF_8))
+      finally in.close()
+    tree("runtime") = runtimeSection
+    ConfigLoader
+      .load(tree.render(indent = 2), "storage-runtime-v1.json", Map.empty)
+      .fold(e => sys.error(e.message), _.config)
+  }
+  lazy val runtimeStorageConfig: StorageConfig =
+    StorageConfig.from(runtimeConfig).fold(e => sys.error(e.mkString), identity)
+
+  /** Graph bounds of the runtime test configuration. */
+  lazy val graphSettings: org.scholarchain.storage.ports.GraphReadSettings =
+    org.scholarchain.storage.ports.GraphReadSettings.from(runtimeStorageConfig).toOption.get
+
   val Full = "full-2015-2025"
   val FullWindow: YearWindow = YearWindow(2015, 2025)
 

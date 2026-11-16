@@ -117,6 +117,109 @@ class RagIngestJobSuite extends munit.FunSuite {
         .exists(_.contains("live API"))
     )
     assert(RagIngestJob.checkProviderAndStores(EmbeddingProvider.Bedrock, "aws").isLeft)
+    // Phase 9 (A1): voyage is the one provider for AWS stores
+    assert(RagIngestJob.checkProviderAndStores(EmbeddingProvider.Voyage, "aws").isRight)
+    assert(RagIngestJob.checkProviderAndStores(EmbeddingProvider.Voyage, "s3").isLeft)
+  }
+
+  test(
+    "A1: --stores aws runs the voyage provider through the AWS stores factory (stub stores, stub transport)"
+  ) {
+    import org.scholarchain.rag.embedding.{FakeLexicalEmbedder, HttpResult, HttpTransport}
+    import org.scholarchain.storage.local.LocalStorageEnvironment
+    val root = Files.createTempDirectory("rag-job-aws")
+    val dir = writeExport(root.resolve("export"))
+    var transportCalls = 0
+    val stub = new HttpTransport {
+      def postJson(uri: java.net.URI, headers: List[(String, String)], body: String): HttpResult = {
+        transportCalls += 1
+        assert(headers.exists(_._2 == "Bearer test-key-not-real"))
+        val inputs = ujson.read(body)("input").arr.map(_.str)
+        val data = inputs.zipWithIndex.map { case (t, i) =>
+          ujson.Obj(
+            "index" -> i,
+            "embedding" -> ujson.Arr.from(
+              FakeLexicalEmbedder.vector(t, 1024).map(f => ujson.Num(f.toDouble))
+            )
+          )
+        }
+        HttpResult(
+          200,
+          ujson
+            .Obj("data" -> ujson.Arr.from(data), "usage" -> ujson.Obj("total_tokens" -> 10))
+            .render(),
+          None
+        )
+      }
+    }
+    val requested = scala.collection.mutable.ListBuffer.empty[String]
+    val factory: (
+        org.scholarchain.storage.StorageConfig,
+        String,
+        Path
+    ) => Either[String, RagIngestJob.IngestStores] =
+      (cfg, stores, _) => {
+        requested += stores
+        Right(
+          new RagIngestJob.LocalIngestStores(
+            LocalStorageEnvironment.create(cfg, None),
+            kind = "aws"
+          )
+        )
+      }
+    val wiring = org.scholarchain.rag.embedding.EmbeddingProviders.Wiring(
+      env = Map("SCHOLARCHAIN_VOYAGE_API_KEY" -> "test-key-not-real").get,
+      httpTransport = () => stub
+    )
+    val opts = RagIngestJob
+      .parse(
+        Array(
+          "--config",
+          configPath("rag-voyage-example-v1.json").toString,
+          "--export",
+          dir.toString,
+          "--out",
+          root.resolve("attempt-01").toString,
+          "--runs",
+          "1",
+          "--samples-per-index",
+          "3",
+          "--stores",
+          "aws"
+        )
+      )
+      .fold(fail(_), identity)
+    val r = RagIngestJob.run(opts, factory, wiring)
+    assertEquals(r("status").str, "completed", r.render(indent = 2))
+    assertEquals(requested.toList, List("aws"))
+    assertEquals(r("environment")("stores").str, "aws")
+    assertEquals(r("embedding")("provider").str, "voyage")
+    assertEquals(r("runs")(0)("ingest")("written").num, 15.0)
+    assert(transportCalls > 0)
+    assert(!r.render().contains("test-key-not-real"), "the key never reaches the report")
+  }
+
+  test("A1: --stores aws with the fake provider is refused before any store is built") {
+    val root = Files.createTempDirectory("rag-job-aws-fake")
+    val dir = writeExport(root.resolve("export"))
+    var built = 0
+    val opts = RagIngestJob
+      .parse(
+        Array(
+          "--config",
+          configPath("rag-local-v1.json").toString,
+          "--export",
+          dir.toString,
+          "--out",
+          root.resolve("a").toString,
+          "--stores",
+          "aws"
+        )
+      )
+      .fold(fail(_), identity)
+    val r = RagIngestJob.run(opts, (_, _, _) => { built += 1; Left("not built") })
+    assert(r("status").str.contains("never used for a stored index"), r("status").str)
+    assertEquals(built, 0)
   }
 
   test("a voyage configuration fails before any network use in a local run") {

@@ -159,7 +159,8 @@ object LocalRealRun {
       val dynRun =
         StorageVersion.runId("storage.dynamodb-load", s"sha256:$manifestSha", cfg.fingerprint)
       val kv = new InMemoryKeyValueStore(cfg.tableNames)
-      val loader = new DynamoLoader(src, manifest, kv, cfg.dynamoDb, rejects, parallelism = 1)
+      val loader =
+        new DynamoLoader(src, manifest, kv, cfg.dynamoDb, rejects, 1, rankingTopK = None)
       val files = nb.types.flatMap(_.files.map(f => (f.relativePath, f.rows, f.bytes, f.sha256)))
       val p1 = step("dynamodb-pass-1")(loader.load(1, dynRun, files))
       val writes1 = cfg.tableNames.toList.sorted.map(t => t -> kv.writeCount(t))

@@ -234,9 +234,113 @@ final case class EmbeddingSettings(
 }
 object EmbeddingSettings { implicit val readWriter: ReadWriter[EmbeddingSettings] = macroRW }
 
-/** The resolved configuration. The Phase 7 sections default to `None`; uPickle omits fields equal
-  * to their default, so a configuration without them serializes (and fingerprints) exactly as
-  * before Phase 7.
+// ---- Optional sections (Phase 9, additive) ---------------------------------------------------
+//
+// Same rules as the Phase 7 sections. The answer model ID is the existing models.answerModelId;
+// the window labels are the existing graph.windows labels.
+
+/** LLM provider named by `llm.provider` (new in Phase 9). */
+sealed trait LlmProvider extends WireEnum
+object LlmProvider extends WireEnumCompanion[LlmProvider]("llm provider") {
+
+  /** Anthropic Messages API; needs `llm.apiKeyEnvVar`. */
+  case object Anthropic extends LlmProvider { val wire = "anthropic" }
+
+  /** Amazon Bedrock InvokeModel. */
+  case object Bedrock extends LlmProvider { val wire = "bedrock" }
+
+  /** Deterministic local model; for tests and local runs only. */
+  case object Fake extends LlmProvider { val wire = "fake" }
+
+  val values: List[LlmProvider] = List(Anthropic, Bedrock, Fake)
+}
+
+/** Runtime LLM settings (section `llm`); the model ID is `models.answerModelId`.
+  *
+  * @param provider
+  *   wire name of an [[LlmProvider]]: `anthropic`, `bedrock` or `fake`
+  * @param maxOutputTokens
+  *   output token cap per request, 1..8192
+  * @param requestTimeoutMillis
+  *   per-request timeout, > 0
+  * @param maxRetries
+  *   retries of throttled and 5xx requests, >= 0
+  * @param retryBaseDelayMillis
+  *   first backoff delay, > 0
+  * @param retryMaxDelayMillis
+  *   backoff cap, >= retryBaseDelayMillis
+  * @param requestsPerMinute
+  *   client-side request rate limit, > 0
+  * @param maxStructuredRetries
+  *   retries of a model output that fails structured validation, 0..2
+  * @param contextTokenBudget
+  *   prompt input token budget, > 0
+  * @param apiKeyEnvVar
+  *   the NAME (never the value) of the environment variable holding the provider API key; same
+  *   rules as `embedding.apiKeyEnvVar` (`[A-Z][A-Z0-9_]*`, not starting with `SCHOLARCHAIN_CFG_`);
+  *   required for `anthropic`
+  */
+final case class LlmSettings(
+    provider: String,
+    maxOutputTokens: Int,
+    requestTimeoutMillis: Int,
+    maxRetries: Int,
+    retryBaseDelayMillis: Int,
+    retryMaxDelayMillis: Int,
+    requestsPerMinute: Int,
+    maxStructuredRetries: Int,
+    contextTokenBudget: Int,
+    apiKeyEnvVar: Option[String]
+) {
+  def providerKind: Either[String, LlmProvider] = LlmProvider.fromWire(provider)
+}
+object LlmSettings {
+  implicit val readWriter: ReadWriter[LlmSettings] = macroRW
+
+  val MaxOutputTokens: Int = 8192
+  val MaxStructuredRetries: Int = 2
+}
+
+/** Runtime query bounds (section `runtime`).
+  *
+  * @param defaultWindowLabel
+  *   window used when a question names none; one of the `graph.windows` labels
+  * @param rankingCacheTopK
+  *   ranking items cached per window and metric, 1..500
+  * @param maxBundleItems
+  *   evidence items per answer bundle, 1..400
+  * @param maxPathDepth
+  *   largest path search depth (coauthor edges), 1..6
+  * @param graphResultLimit
+  *   rows returned by one graph query template, 1..500
+  * @param graphTimeoutMillis
+  *   total time of one graph search, 1..30000
+  * @param maxResearcherNames
+  *   researcher names accepted from one question, 1..10
+  */
+final case class RuntimeSettings(
+    defaultWindowLabel: String,
+    rankingCacheTopK: Int,
+    maxBundleItems: Int,
+    maxPathDepth: Int,
+    graphResultLimit: Int,
+    graphTimeoutMillis: Int,
+    maxResearcherNames: Int
+)
+object RuntimeSettings {
+  implicit val readWriter: ReadWriter[RuntimeSettings] = macroRW
+
+  val MaxRankingCacheTopK: Int = 500
+  val MaxBundleItems: Int = 400
+  val MaxPathDepth: Int = 6
+  val MaxGraphResultLimit: Int = 500
+  val MaxGraphTimeoutMillis: Int = 30000
+  val MaxResearcherNames: Int = 10
+}
+
+/** The resolved configuration. The Phase 7 and Phase 9 sections default to `None`; uPickle omits
+  * fields equal to their default, so a configuration without them serializes (and fingerprints)
+  * exactly as before Phase 7.
   */
 final case class ScholarChainConfig(
     configVersion: Int,
@@ -251,7 +355,9 @@ final case class ScholarChainConfig(
     dynamoDb: Option[DynamoDbSettings] = None,
     neptune: Option[NeptuneSettings] = None,
     vectors: Option[VectorSettings] = None,
-    embedding: Option[EmbeddingSettings] = None
+    embedding: Option[EmbeddingSettings] = None,
+    llm: Option[LlmSettings] = None,
+    runtime: Option[RuntimeSettings] = None
 ) {
 
   /** `sha256:<hex>` of the compact JSON of the resolved configuration. Use it as the

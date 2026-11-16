@@ -27,6 +27,14 @@ object SchemaVersions {
     *   - ResearcherGroupMembership 1 (Phase 6, new).
     *   - SemanticDocument 1, VectorMetadata 1 (Phase 7, new). Phase 7 also adds graph labels and
     *     optional configuration sections without changing any existing version (additive).
+    *   - AnswerClaim 2 (Phase 9, breaking): adds required `claimId` (`claim-[0-9]{1,4}`) and
+    *     `uncertainty`; VerificationStatus wire names are now `verified`, `partially_supported`,
+    *     `unsupported`, `conflicting`.
+    *   - AnswerResponse 2 (Phase 9, breaking): claims are AnswerClaim v2; adds `abstained` and
+    *     `abstentionReason`; `bundle` is optional (only for abstaining responses).
+    *   - QueryAudit 1 (Phase 9, new). Phase 9 also adds QueryOperation and EvidenceType wire names
+    *     and the optional `llm` and `runtime` configuration sections (additive; QueryPlan,
+    *     EvidenceItem and ScholarChainConfig keep version 1).
     */
   val current: ListMap[String, Int] = ListMap(
     "Provenance" -> 1,
@@ -51,11 +59,12 @@ object SchemaVersions {
     "EvidenceItem" -> 1,
     "EvidenceBundle" -> 1,
     "QueryPlan" -> 1,
-    "AnswerClaim" -> 1,
-    "AnswerResponse" -> 1,
+    "AnswerClaim" -> 2,
+    "AnswerResponse" -> 2,
     "ScholarChainConfig" -> 1,
     "SemanticDocument" -> 1,
-    "VectorMetadata" -> 1
+    "VectorMetadata" -> 1,
+    "QueryAudit" -> 1
   )
 
   /** Versions readers accept, per schema name. Today exactly the current version. */

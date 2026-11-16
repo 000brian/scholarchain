@@ -10,8 +10,16 @@ import org.scholarchain.storage.ports.{BulkLoadJob, ObjectRef}
   *   - `failOnError = TRUE`: a bad row stops the job instead of loading a partial graph;
   *   - `parallelism = MEDIUM`: a conservative default for the db.t4g.medium free-trial instance;
   *   - `queueRequest = TRUE`: jobs queue instead of failing when another load runs;
-  *   - `updateSingleCardinalityProperties = TRUE`: reloading the same IDs replaces property values,
-  *     so a rerun of the same files converges to the same graph (IDs are the core stable IDs).
+  *   - `userProvidedEdgeIds = TRUE`: every relationship file carries an `:ID` column (the core
+  *     EdgeId), and the loader requires this flag set to TRUE when relationship IDs are provided.
+  *
+  * Phase 9 (A2), from AWS documentation captured by the human architect on Nov 15:
+  *   - `updateSingleCardinalityProperties` is not sent: the data-plane API page says it is not
+  *     supported for openCypher while the Loader Command page says it is.
+  *   - By default the loader does not update property values of an existing node or relationship;
+  *     it only adds missing labels and properties. Runbook: load each graph run into an empty
+  *     cluster; never reload changed files into the same cluster.
+  *   - `LOAD_DATA_DEADLOCK` failures of openCypher loads: retry the job with `parallelism = LOW`.
   */
 object BulkLoadRequests {
   val Format = "opencypher"
@@ -46,7 +54,7 @@ object BulkLoadRequests {
           failOnError = true,
           parallelism = "MEDIUM",
           queueRequest = true,
-          updateSingleCardinalityProperties = true,
+          userProvidedEdgeIds = true,
           dependencies = dependencies
         )
       )
@@ -62,8 +70,7 @@ object BulkLoadRequests {
       "failOnError" -> (if (job.failOnError) "TRUE" else "FALSE"),
       "parallelism" -> job.parallelism,
       "queueRequest" -> (if (job.queueRequest) "TRUE" else "FALSE"),
-      "updateSingleCardinalityProperties" -> (if (job.updateSingleCardinalityProperties) "TRUE"
-                                              else "FALSE")
+      "userProvidedEdgeIds" -> (if (job.userProvidedEdgeIds) "TRUE" else "FALSE")
     )
     if (job.dependencies.nonEmpty)
       o("dependencies") = ujson.Arr.from(job.dependencies.map(ujson.Str(_)))

@@ -18,8 +18,17 @@ final case class StorageConfig(
     embedding: EmbeddingSettings,
     neptune: Option[NeptuneSettings],
     windows: List[NamedWindow],
-    fingerprint: String
+    fingerprint: String,
+    runtime: Option[RuntimeSettings] = None
 ) {
+
+  /** The configured `graph.windows` labels (the only window labels storage accepts). */
+  def windowLabels: List[String] = windows.map(_.label)
+
+  /** The `runtime` section, or Left when it is not configured. */
+  def requireRuntime: Either[String, RuntimeSettings] =
+    runtime.toRight("runtime section is not configured")
+
   def tableNames: Set[String] = Set(
     dynamoDb.runLedgerTable,
     dynamoDb.entityLinkCacheTable,
@@ -53,7 +62,8 @@ object StorageConfig {
           c.embedding.get,
           c.neptune,
           c.graph.windows,
-          c.fingerprint
+          c.fingerprint,
+          c.runtime
         )
       )
   }

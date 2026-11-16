@@ -122,6 +122,14 @@ final case class DynamoLoadReport(
   * QuerySession is runtime-only (0 items). RunLedger gets one claim and one summary event per pass
   * (append-only audit). Coauthor edges are not loaded into DynamoDB (Neptune and S3 hold them).
   *
+  * Ranking items (RM4, Phase 9), when `rankingTopK` is set: the top `rankingTopK` researchers of
+  * every window for each metric of [[RankingMetrics.ranked]], built from the same
+  * [[MetricCacheAccumulator]]s as the RM1 items (only researchers whose RM1 item was built, and
+  * only those that have the metric value), ordered by [[RankingOrder]]. Display names come from
+  * `canonical_researcher` (read once, during the EntityLinkCache pass); a ranked researcher without
+  * a canonical record is rejected, never defaulted. Written upsert-if-changed and counted under
+  * `ResearcherMetricCacheRanking`.
+  *
   * `parallelism` bounds concurrent conditional writes (1 = sequential, the local default).
   */
 final class DynamoLoader(
@@ -130,9 +138,16 @@ final class DynamoLoader(
     kv: KeyValueStore,
     tables: DynamoDbSettings,
     rejects: RejectLog,
-    parallelism: Int
+    parallelism: Int,
+    rankingTopK: Option[Int]
 ) {
   require(parallelism >= 1 && parallelism <= 64, "parallelism must be in 1..64")
+  require(
+    rankingTopK.forall(k =>
+      k >= 1 && k <= org.scholarchain.core.config.RuntimeSettings.MaxRankingCacheTopK
+    ),
+    "rankingTopK must be in 1..500"
+  )
   private val Stage = "dynamodb-load"
   private val writer = new ConditionalWriter(kv)
 
@@ -156,10 +171,14 @@ final class DynamoLoader(
     def close(): Unit = pool.foreach { p => p.shutdown(); p.awaitTermination(1, TimeUnit.HOURS) }
   }
 
-  private def metricCache(stats: TableLoadStats, sizes: mutable.ArrayBuilder.ofInt): Unit = {
+  private def metricCache(
+      stats: TableLoadStats,
+      sizes: mutable.ArrayBuilder.ofInt
+  ): List[RankingAccumulator] = {
     val table = tables.researcherMetricCacheTable
     val windows = manifest.withPrefix("metrics:breadth:").flatMap(_.windowLabel).sorted
-    windows.foreach { w =>
+    windows.flatMap { w =>
+      val ranking = rankingTopK.map(new RankingAccumulator(w, _))
       val acc = mutable.LinkedHashMap.empty[String, MetricCacheAccumulator]
       def get(r: String) = acc.getOrElseUpdate(r, new MetricCacheAccumulator(r, w))
       List(
@@ -207,10 +226,46 @@ final class DynamoLoader(
             sizes += ItemSize.of(stamped)
             stats.writeUnits.addAndGet(ItemSize.writeUnits(stamped).toLong)
             ws.submit(writer.upsertIfChanged(table, item))
+            ranking.foreach(_.offer(a))
         }
       }
       ws.close()
+      ranking.toList
     }
+  }
+
+  private def rankingItems(
+      stats: TableLoadStats,
+      rankings: List[RankingAccumulator],
+      names: collection.Map[String, String]
+  ): Unit = {
+    val table = tables.researcherMetricCacheTable
+    val ws = new Writes(stats)
+    rankings.foreach { r =>
+      r.rankings.foreach { case (metric, entries) =>
+        entries.zipWithIndex.foreach { case (e, i) =>
+          names.get(e.researcherId) match {
+            case None =>
+              stats.rejected.incrementAndGet()
+              rejects.record(
+                Reject(
+                  Stage,
+                  "ResearcherMetricCacheRanking",
+                  s"${r.windowLabel}/${metric.wire}/${e.researcherId}",
+                  0,
+                  "ranked researcher has no canonical_researcher record (no display name)"
+                )
+              )
+            case Some(name) =>
+              val item = RankingItems.item(r.windowLabel, metric, i + 1, e, name)
+              stats.items.incrementAndGet()
+              stats.writeUnits.addAndGet(ItemSize.writeUnits(ItemHash.stamp(item, 1L)).toLong)
+              ws.submit(writer.upsertIfChanged(table, item))
+          }
+        }
+      }
+    }
+    ws.close()
   }
 
   private def evidenceBundles(stats: TableLoadStats): Unit = {
@@ -231,8 +286,13 @@ final class DynamoLoader(
     ws.close()
   }
 
-  private def entityLinks(stats: TableLoadStats): Long = {
+  /** EntityLinkCache items; also returns the display names of the `wanted` researcher IDs. */
+  private def entityLinks(
+      stats: TableLoadStats,
+      wanted: Set[String]
+  ): (Long, mutable.HashMap[String, String]) = {
     var skipped = 0L
+    val names = mutable.HashMap.empty[String, String]
     val ws = new Writes(stats)
     TableReader.foreach[CanonicalResearcher](
       source,
@@ -240,6 +300,7 @@ final class DynamoLoader(
       rejects,
       Stage
     ) { r =>
+      if (wanted.contains(r.researcherId.value)) names.update(r.researcherId.value, r.displayName)
       val (items, s) = ItemBuilders.entityLinks(r)
       skipped += s
       items.foreach { item =>
@@ -249,7 +310,7 @@ final class DynamoLoader(
       }
     }
     ws.close()
-    skipped
+    (skipped, names)
   }
 
   private def artifacts(stats: TableLoadStats, files: List[(String, Long, Long, String)]): Unit = {
@@ -285,15 +346,18 @@ final class DynamoLoader(
     val ledger = RunLedger.open(kv, tables.runLedgerTable, runId, s"dynamodb-load pass $pass")
     val stats = ListMap(
       "ResearcherMetricCache" -> new TableLoadStats("ResearcherMetricCache"),
+      "ResearcherMetricCacheRanking" -> new TableLoadStats("ResearcherMetricCacheRanking"),
       "EvidenceBundle" -> new TableLoadStats("EvidenceBundle"),
       "EntityLinkCache" -> new TableLoadStats("EntityLinkCache"),
       "ArtifactRegistry" -> new TableLoadStats("ArtifactRegistry"),
       "QuerySession" -> new TableLoadStats("QuerySession")
     )
     val sizes = new mutable.ArrayBuilder.ofInt
-    metricCache(stats("ResearcherMetricCache"), sizes)
+    val rankings = metricCache(stats("ResearcherMetricCache"), sizes)
     evidenceBundles(stats("EvidenceBundle"))
-    val skipped = entityLinks(stats("EntityLinkCache"))
+    val (skipped, names) =
+      entityLinks(stats("EntityLinkCache"), rankings.flatMap(_.researcherIds).toSet)
+    rankingItems(stats("ResearcherMetricCacheRanking"), rankings, names)
     artifacts(stats("ArtifactRegistry"), neptuneFiles)
     val report = DynamoLoadReport(
       pass,

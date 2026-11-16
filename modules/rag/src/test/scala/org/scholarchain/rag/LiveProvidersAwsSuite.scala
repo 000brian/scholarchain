@@ -190,7 +190,10 @@ class LiveProvidersAwsSuite extends munit.FunSuite {
       assertEquals(report.rejected, 0L)
       val retriever = new SemanticRetriever(q.port, q.spec, env.vectors, vectors)
       expected.foreach { case (t, query, key) =>
-        val hits = retriever.retrieve(t, query, 3).fold(e => fail(e), _.context.entries)
+        // Phase 9: windowed indexes are queried within one window
+        val hits = retriever
+          .retrieve(t, query, 3, Some(SemanticRetriever.windowFilter(2015, 2025)))
+          .fold(e => fail(e), _.context.entries)
         assertEquals(hits.headOption.map(_.vectorKey), Some(key), s"query '$query'")
       }
       assert(doc.usage.requests <= 2L && q.usage.requests <= 8L + 5L)

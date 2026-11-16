@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scholarchain.example.invalid/schemas/query-plan-draft-v1",
+  "title": "ScholarChain query plan draft, version 1",
+  "description": "Output of the query planner (prompt query-planner-v1) and of the deterministic RulePlanner. Validated by org.scholarchain.rag.runtime.PlanDraftSchema; window labels, limit and depth bounds come from configuration (graph.windows, runtime.rankingCacheTopK, runtime.maxPathDepth, runtime.maxResearcherNames).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "operations",
+    "researcherNames",
+    "orcids",
+    "windowLabel",
+    "comparisonWindowLabels",
+    "rankingMetric",
+    "limit",
+    "maxPathDepth",
+    "topic",
+    "unsupportedConstraints"
+  ],
+  "properties": {
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "researcher_lookup",
+          "collaboration_breadth",
+          "coauthor_neighborhood",
+          "shortest_path",
+          "connected_component",
+          "bridge_researchers",
+          "researcher_ranking",
+          "max_team_size",
+          "community_analysis",
+          "temporal_comparison",
+          "semantic_context"
+        ]
+      }
+    },
+    "researcherNames": {
+      "type": "array",
+      "description": "At most runtime.maxResearcherNames entries.",
+      "items": { "type": "string", "minLength": 1, "maxLength": 100 }
+    },
+    "orcids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^(https://orcid\\.org/)?[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{3}[0-9X]$"
+      }
+    },
+    "windowLabel": {
+      "type": ["string", "null"],
+      "description": "One of the configured graph.windows labels.",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "comparisonWindowLabels": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" }
+    },
+    "rankingMetric": {
+      "type": ["string", "null"],
+      "enum": [
+        "publication_count",
+        "distinct_coauthors",
+        "total_coauthor_occurrences",
+        "average_coauthors_per_paper",
+        "max_coauthors_on_one_paper",
+        "weighted_degree",
+        "coreness",
+        "participation_coefficient",
+        "cross_community_degree",
+        "communities_connected",
+        null
+      ]
+    },
+    "limit": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "description": "At most runtime.rankingCacheTopK."
+    },
+    "maxPathDepth": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "description": "At most runtime.maxPathDepth."
+    },
+    "topic": { "type": ["string", "null"], "minLength": 1, "maxLength": 200 },
+    "unsupportedConstraints": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "text"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["venue", "institution", "window", "other"] },
+          "text": { "type": "string", "minLength": 1, "maxLength": 200 }
+        }
+      }
+    }
+  }
+}

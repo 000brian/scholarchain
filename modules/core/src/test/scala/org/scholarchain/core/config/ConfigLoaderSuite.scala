@@ -319,9 +319,16 @@ class ConfigLoaderSuite extends munit.FunSuite {
     assertEquals(cfg.models.embeddingModelId, "example-embedding-model")
     assertEquals(cfg.storage.vectorBucket, "example-vector-bucket")
     assertEquals(cfg.storage.neptuneEndpoint, "neptune.example.invalid")
-    assertEquals(c.origins.keySet, ConfigLoader.allKeys.map(_.path).toSet)
+    assertEquals(
+      c.origins.keySet,
+      ConfigLoader.allKeys
+        .map(_.path)
+        .filterNot(p => p.startsWith("llm.") || p.startsWith("runtime."))
+        .toSet
+    )
     assert(c.origins.values.forall(_ == ConfigOrigin.File(SectionsFile)))
     assertNotEquals(cfg.fingerprint, loaded().config.fingerprint)
+    assertEquals((cfg.llm, cfg.runtime), (None, None))
   }
 
   test("the config stores the NAME of the API-key variable; the loader never reads its value") {
@@ -514,6 +521,198 @@ class ConfigLoaderSuite extends munit.FunSuite {
     )
     val names = ConfigLoader.allKeys.map(_.envVar)
     assertEquals(names.distinct.size, names.size)
-    assertEquals(ConfigLoader.allKeys.size, ConfigLoader.keys.size + 37)
+    // 37 Phase 7 section keys + 10 llm keys + 7 runtime keys (Phase 9).
+    assertEquals(ConfigLoader.allKeys.size, ConfigLoader.keys.size + 37 + 10 + 7)
+  }
+
+  // ---- Phase 9 optional sections (llm, runtime) --------------------------------------------
+
+  val RuntimeFile = "valid-v1-runtime.json"
+
+  lazy val runtimeText: String = {
+    val src =
+      Source.fromInputStream(getClass.getResourceAsStream(s"/config/$RuntimeFile"), "UTF-8")
+    try src.mkString
+    finally src.close()
+  }
+
+  def editRuntime(f: ujson.Value => Unit): String = {
+    val tree = ujson.read(runtimeText)
+    f(tree)
+    tree.render()
+  }
+
+  def loadRuntime(text: String = runtimeText, env: Map[String, String] = Map.empty) =
+    ConfigLoader.load(text, RuntimeFile, env)
+
+  def loadedRuntime(text: String = runtimeText, env: Map[String, String] = Map.empty) =
+    loadRuntime(text, env).fold(e => fail(e.message), identity)
+
+  test("Phase 9: without llm and runtime the config serializes and fingerprints as before") {
+    val c = loaded().config
+    assertEquals((c.llm, c.runtime), (None, None))
+    val keys = ujson.read(upickle.default.write(c)).obj.keys.toList
+    assert(!keys.contains("llm") && !keys.contains("runtime"), keys)
+    assertEquals(c.fingerprint, c.copy(llm = None, runtime = None).fingerprint)
+  }
+
+  test("Phase 9: the llm and runtime sections load every value from the file") {
+    val c = loadedRuntime()
+    val l = c.config.llm.get
+    assertEquals(
+      l,
+      LlmSettings(
+        provider = "anthropic",
+        maxOutputTokens = 2048,
+        requestTimeoutMillis = 60000,
+        maxRetries = 3,
+        retryBaseDelayMillis = 500,
+        retryMaxDelayMillis = 20000,
+        requestsPerMinute = 50,
+        maxStructuredRetries = 1,
+        contextTokenBudget = 12000,
+        apiKeyEnvVar = Some("SCHOLARCHAIN_EXAMPLE_LLM_API_KEY")
+      )
+    )
+    assertEquals(l.providerKind, Right(LlmProvider.Anthropic))
+    assertEquals(
+      c.config.runtime,
+      Some(RuntimeSettings("2015-2025", 100, 200, 4, 100, 10000, 5))
+    )
+    // The model ID stays models.answerModelId; the window is a graph.windows label.
+    assertEquals(c.config.models.answerModelId, "example-answer-model")
+    assert(c.config.graph.windows.exists(_.label == c.config.runtime.get.defaultWindowLabel))
+    val phase9 = ConfigLoader.allKeys
+      .map(_.path)
+      .filter(p => p.startsWith("llm.") || p.startsWith("runtime."))
+    assertEquals(phase9.size, 17)
+    phase9.foreach(p => assertEquals(c.origins.get(p), Some(ConfigOrigin.File(RuntimeFile)), p))
+    assertNotEquals(c.config.fingerprint, loaded().config.fingerprint)
+  }
+
+  test("Phase 9: a partially configured llm or runtime section reports every missing key") {
+    val llmResult = loadRuntime(editRuntime { j =>
+      j("llm").obj.remove("maxOutputTokens")
+      j("llm").obj.remove("contextTokenBudget")
+    })
+    assertError(
+      llmResult,
+      "llm.maxOutputTokens: required because section llm is configured; set it in " +
+        "valid-v1-runtime.json or in SCHOLARCHAIN_CFG_LLM_MAX_OUTPUT_TOKENS"
+    )
+    assertError(llmResult, "llm.contextTokenBudget: required because section llm is configured")
+    val rtResult = load(env = Map("SCHOLARCHAIN_CFG_RUNTIME_MAX_PATH_DEPTH" -> "3"))
+    assertError(rtResult, "runtime.defaultWindowLabel: required because section runtime")
+    assertEquals(rtResult.left.map(_.messages.size), Left(6))
+    val llmOnly = load(env = Map("SCHOLARCHAIN_CFG_LLM_PROVIDER" -> "fake"))
+    assertEquals(llmOnly.left.map(_.messages.size), Left(8))
+  }
+
+  test("Phase 9: llm and runtime keys come from the environment with precedence") {
+    val c = loadedRuntime(env =
+      Map(
+        "SCHOLARCHAIN_CFG_LLM_PROVIDER" -> "fake",
+        "SCHOLARCHAIN_CFG_LLM_MAX_STRUCTURED_RETRIES" -> "2",
+        "SCHOLARCHAIN_CFG_RUNTIME_DEFAULT_WINDOW_LABEL" -> "2020-2025"
+      )
+    )
+    assertEquals(c.config.llm.flatMap(_.providerKind.toOption), Some(LlmProvider.Fake))
+    assertEquals(c.config.llm.map(_.maxStructuredRetries), Some(2))
+    assertEquals(c.config.runtime.map(_.defaultWindowLabel), Some("2020-2025"))
+    assertEquals(
+      c.origins("runtime.defaultWindowLabel"),
+      ConfigOrigin.Environment("SCHOLARCHAIN_CFG_RUNTIME_DEFAULT_WINDOW_LABEL")
+    )
+    assertEquals(c.origins("llm.maxOutputTokens"), ConfigOrigin.File(RuntimeFile))
+  }
+
+  test("Phase 9: llm.apiKeyEnvVar is a variable NAME, required only for anthropic") {
+    val noKey = editRuntime(_("llm").obj.remove("apiKeyEnvVar"))
+    assertError(loadRuntime(noKey), "llm.apiKeyEnvVar: required for provider anthropic")
+    List("fake", "bedrock").foreach { p =>
+      val c = loadedRuntime(noKey, Map("SCHOLARCHAIN_CFG_LLM_PROVIDER" -> p))
+      assertEquals(c.config.llm.flatMap(_.apiKeyEnvVar), None, p)
+    }
+    assertError(
+      loadRuntime(editRuntime(_("llm")("apiKeyEnvVar") = "anthropic_key")),
+      "llm.apiKeyEnvVar: 'anthropic_key' must match"
+    )
+    assertError(
+      loadRuntime(editRuntime(_("llm")("apiKeyEnvVar") = "SCHOLARCHAIN_CFG_LLM_KEY")),
+      "llm.apiKeyEnvVar: 'SCHOLARCHAIN_CFG_LLM_KEY' must not start with SCHOLARCHAIN_CFG_"
+    )
+    val c = loadedRuntime(env = Map("SCHOLARCHAIN_EXAMPLE_LLM_API_KEY" -> "placeholder-not-a-key"))
+    assert(!upickle.default.write(c.config).contains("placeholder-not-a-key"))
+  }
+
+  test("Phase 9: llm values are checked") {
+    def bad(key: String, value: ujson.Value, fragment: String)(implicit
+        loc: munit.Location
+    ): Unit =
+      assertError(loadRuntime(editRuntime(_("llm")(key) = value)), fragment)
+    bad("provider", "openai", "llm.provider: unknown llm provider 'openai'")
+    bad("maxOutputTokens", 0, "llm.maxOutputTokens: 0 is outside 1..8192")
+    bad("maxOutputTokens", 8193, "llm.maxOutputTokens: 8193 is outside 1..8192")
+    bad("requestTimeoutMillis", 0, "llm.requestTimeoutMillis: 0 must be > 0")
+    bad("maxRetries", -1, "llm.maxRetries: -1 must be >= 0")
+    bad("retryBaseDelayMillis", 0, "llm.retryBaseDelayMillis: 0 must be > 0")
+    bad("retryMaxDelayMillis", 499, "llm.retryMaxDelayMillis: 499 is less than")
+    bad("requestsPerMinute", 0, "llm.requestsPerMinute: 0 must be > 0")
+    bad("maxStructuredRetries", -1, "llm.maxStructuredRetries: -1 is outside 0..2")
+    bad("maxStructuredRetries", 3, "llm.maxStructuredRetries: 3 is outside 0..2")
+    bad("contextTokenBudget", 0, "llm.contextTokenBudget: 0 must be > 0")
+    bad("maxOutputTokens", "2048", "llm.maxOutputTokens: expected an integer")
+    // Boundaries are accepted.
+    List("maxOutputTokens" -> 1, "maxOutputTokens" -> 8192, "maxStructuredRetries" -> 0)
+      .foreach { case (k, v) => loadedRuntime(editRuntime(_("llm")(k) = v)) }
+    loadedRuntime(editRuntime(_("llm")("retryMaxDelayMillis") = 500))
+    loadedRuntime(editRuntime(_("llm")("maxRetries") = 0))
+  }
+
+  test("Phase 9: runtime values are checked") {
+    def bad(key: String, value: ujson.Value, fragment: String)(implicit
+        loc: munit.Location
+    ): Unit =
+      assertError(loadRuntime(editRuntime(_("runtime")(key) = value)), fragment)
+    bad(
+      "defaultWindowLabel",
+      "full-2015-2025",
+      "runtime.defaultWindowLabel: 'full-2015-2025' is not a graph.windows label " +
+        "(expected one of: 2015-2019, 2020-2025, 2015-2025)"
+    )
+    bad("rankingCacheTopK", 0, "runtime.rankingCacheTopK: 0 is outside 1..500")
+    bad("rankingCacheTopK", 501, "runtime.rankingCacheTopK: 501 is outside 1..500")
+    bad("maxBundleItems", 0, "runtime.maxBundleItems: 0 is outside 1..400")
+    bad("maxBundleItems", 401, "runtime.maxBundleItems: 401 is outside 1..400")
+    bad("maxPathDepth", 0, "runtime.maxPathDepth: 0 is outside 1..6")
+    bad("maxPathDepth", 7, "runtime.maxPathDepth: 7 is outside 1..6")
+    bad("graphResultLimit", 0, "runtime.graphResultLimit: 0 is outside 1..500")
+    bad("graphResultLimit", 501, "runtime.graphResultLimit: 501 is outside 1..500")
+    bad("graphTimeoutMillis", 0, "runtime.graphTimeoutMillis: 0 is outside 1..30000")
+    bad("graphTimeoutMillis", 30001, "runtime.graphTimeoutMillis: 30001 is outside 1..30000")
+    bad("maxResearcherNames", 0, "runtime.maxResearcherNames: 0 is outside 1..10")
+    bad("maxResearcherNames", 11, "runtime.maxResearcherNames: 11 is outside 1..10")
+    bad("unknownKey", 1, "runtime.unknownKey: unknown configuration key")
+    List(
+      "rankingCacheTopK" -> 500,
+      "maxBundleItems" -> 400,
+      "maxPathDepth" -> 6,
+      "graphResultLimit" -> 500,
+      "graphTimeoutMillis" -> 30000,
+      "maxResearcherNames" -> 10,
+      "maxPathDepth" -> 1
+    ).foreach { case (k, v) => loadedRuntime(editRuntime(_("runtime")(k) = v)) }
+  }
+
+  test("Phase 9: environment variable names of the new keys follow the rule") {
+    assertEquals(
+      ConfigKey.envVarFor("llm.maxStructuredRetries"),
+      "SCHOLARCHAIN_CFG_LLM_MAX_STRUCTURED_RETRIES"
+    )
+    assertEquals(ConfigKey.envVarFor("llm.apiKeyEnvVar"), "SCHOLARCHAIN_CFG_LLM_API_KEY_ENV_VAR")
+    assertEquals(
+      ConfigKey.envVarFor("runtime.defaultWindowLabel"),
+      "SCHOLARCHAIN_CFG_RUNTIME_DEFAULT_WINDOW_LABEL"
+    )
   }
 }

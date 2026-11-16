@@ -2,7 +2,7 @@ package org.scholarchain.rag
 
 import java.nio.file.{Files, Path}
 
-import org.scholarchain.core.{SemanticDocument, SemanticDocumentType}
+import org.scholarchain.core.{SemanticDocument, SemanticDocumentType, YearWindow}
 import org.scholarchain.core.config.EmbeddingProvider
 import org.scholarchain.rag.embedding._
 import org.scholarchain.rag.retrieval._
@@ -53,13 +53,22 @@ class RetrievalSmokeSuite extends munit.FunSuite {
   private def docOf(c: RenderedCorpus, key: String): SemanticDocument =
     c.documents.find(_.vectorKey == key).get
 
+  /** Windowed types are queried within one window (default the full window), as Phase 9 requires.
+    */
   private def top(
       w: World,
       t: SemanticDocumentType,
       q: String,
-      k: Int = 5
-  ): List[SemanticContextEntry] =
-    w.retriever.retrieve(t, q, k).fold(e => fail(e), _.context.entries)
+      k: Int = 5,
+      window: YearWindow = FullWindow
+  ): List[SemanticContextEntry] = {
+    val f =
+      if (SemanticDocumentType.requiresWindow.contains(t))
+        Some(SemanticRetriever.windowFilter(window.startYear, window.endYear))
+      else None
+    w.retriever.retrieve(t, q, k, f).fold(e => fail(e), _.context.entries)
+  }
+  private val fullFilter = Some(SemanticRetriever.windowFilter(2015, 2025))
 
   private def ownWordsQuery(w: World, d: SemanticDocument): String =
     new SmokeQueries(w.corpus.documents.filter(_.indexName == d.indexName).map(_.text))
@@ -78,7 +87,8 @@ class RetrievalSmokeSuite extends munit.FunSuite {
   world.test("a community's own distinctive words return that community first (window-specific)") {
     w =>
       val d = docOf(w.corpus, s"cm:$W1:${rD.value}")
-      val hits = top(w, SemanticDocumentType.CommunitySummary, ownWordsQuery(w, d))
+      val hits =
+        top(w, SemanticDocumentType.CommunitySummary, ownWordsQuery(w, d), window = W1Window)
       assertEquals(hits.head.vectorKey, d.vectorKey)
       assertEquals(hits.head.windowStartYear, Some(2021))
   }
@@ -157,7 +167,7 @@ class RetrievalSmokeSuite extends munit.FunSuite {
       w.env.vectors,
       localConfig.vectors.get
     )
-      .retrieve(SemanticDocumentType.ResearcherProfile, "Quentin Albrecht", 5)
+      .retrieve(SemanticDocumentType.ResearcherProfile, "Quentin Albrecht", 5, fullFilter)
       .toOption
       .get
     assertEquals(r.context.entries, Nil)
@@ -166,11 +176,33 @@ class RetrievalSmokeSuite extends munit.FunSuite {
 
   world.test("query bounds: blank, too long, and topK outside 1..vectors.queryTopK are refused") {
     w =>
-      assert(w.retriever.retrieve(SemanticDocumentType.ResearcherProfile, "  ", 5).isLeft)
-      assert(w.retriever.retrieve(SemanticDocumentType.ResearcherProfile, "x" * 2001, 5).isLeft)
-      assert(w.retriever.retrieve(SemanticDocumentType.ResearcherProfile, "x", 0).isLeft)
-      assert(w.retriever.retrieve(SemanticDocumentType.ResearcherProfile, "x", 31).isLeft)
-      assert(w.retriever.retrieve(SemanticDocumentType.ResearcherProfile, "x", 30).isRight)
+      val p = SemanticDocumentType.ResearcherProfile
+      assert(w.retriever.retrieve(p, "  ", 5, fullFilter).isLeft)
+      assert(w.retriever.retrieve(p, "x" * 2001, 5, fullFilter).isLeft)
+      assert(w.retriever.retrieve(p, "x", 0, fullFilter).isLeft)
+      assert(w.retriever.retrieve(p, "x", 31, fullFilter).isLeft)
+      assert(w.retriever.retrieve(p, "x", 30, fullFilter).isRight)
+  }
+
+  world.test("Phase 9: a windowed index is never queried without a window filter") { w =>
+    List(
+      SemanticDocumentType.ResearcherProfile,
+      SemanticDocumentType.CommunitySummary,
+      SemanticDocumentType.CollaborationPath
+    ).foreach { t =>
+      val noFilter = w.retriever.retrieve(t, "Quentin Albrecht", 5)
+      assert(noFilter.left.exists(_.contains("window filter")), s"${t.wire}: $noFilter")
+      val loose = w.retriever.retrieve(
+        t,
+        "Quentin Albrecht",
+        5,
+        Some(MetadataFilter.Gte("windowStartYear", 2015L))
+      )
+      assert(loose.isLeft, s"${t.wire}: a range is not one window")
+      assert(w.retriever.retrieve(t, "Quentin Albrecht", 5, fullFilter).isRight)
+    }
+    // papers are not windowed: no filter needed
+    assert(w.retriever.retrieve(SemanticDocumentType.PaperSummary, "parsing", 5).isRight)
   }
 
   world.test("a document-side spec cannot be used as a query retriever") { w =>
@@ -196,7 +228,17 @@ class SemanticContextSuite extends munit.FunSuite {
       val qe = EmbeddingProviders.create(localConfig, InputType.Query).toOption.get
       env.pipeline(doc.port, "dblp", corpus.extrasOf).run(sparkRun, corpus.documents.iterator)
       val r = new SemanticRetriever(qe.port, qe.spec, env.vectors, localConfig.vectors.get)
-      (r.retrieve(SemanticDocumentType.ResearcherProfile, q, 3).toOption.get.context, corpus)
+      (
+        r.retrieve(
+          SemanticDocumentType.ResearcherProfile,
+          q,
+          3,
+          Some(SemanticRetriever.windowFilter(2015, 2025))
+        ).toOption
+          .get
+          .context,
+        corpus
+      )
     } finally env.close()
   }
 

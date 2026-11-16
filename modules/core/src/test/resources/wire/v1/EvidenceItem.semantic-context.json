@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "evidence:v1:0b9f3039cbfead6120bb3598f3e79212",
+  "evidenceType": "semantic_context",
+  "subjectIds": [
+    "chunk:v1:794b0bd5791f0c269f919eae558f2cef",
+    "researcher:v1:6d39fb31017461bdf6bbe118864d1809"
+  ],
+  "window": {
+    "startYear": 2015,
+    "endYear": 2025
+  },
+  "metric": null,
+  "snippet": null,
+  "provenance": {
+    "schemaVersion": 1,
+    "sourceType": "runtime",
+    "datasetId": "scholarchain-graph",
+    "snapshotId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+    "sourceRecordIds": [
+      "rp:2015-2025:researcher:v1:6d39fb31017461bdf6bbe118864d1809",
+      "chunk:v1:794b0bd5791f0c269f919eae558f2cef"
+    ],
+    "runId": "run:v1:d5b4e52fdf1171ad6d9e1f1251db9278",
+    "jobName": "rag.answer",
+    "policyVersion": "prompt-policy/1",
+    "contentHash": null
+  }
+}

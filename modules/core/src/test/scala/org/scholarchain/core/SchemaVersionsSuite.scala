@@ -31,11 +31,12 @@ class SchemaVersionsSuite extends munit.FunSuite {
         "EvidenceItem" -> 1,
         "EvidenceBundle" -> 1,
         "QueryPlan" -> 1,
-        "AnswerClaim" -> 1,
-        "AnswerResponse" -> 1,
+        "AnswerClaim" -> 2, // v2 in Phase 9: claimId, uncertainty, new status wire names
+        "AnswerResponse" -> 2, // v2 in Phase 9: abstained, abstentionReason, optional bundle
         "ScholarChainConfig" -> 1,
         "SemanticDocument" -> 1, // new in Phase 7
-        "VectorMetadata" -> 1 // new in Phase 7
+        "VectorMetadata" -> 1, // new in Phase 7
+        "QueryAudit" -> 1 // new in Phase 9
       )
     )
   }
@@ -72,8 +73,14 @@ class SchemaVersionsSuite extends munit.FunSuite {
         "graph_path",
         "metric",
         "match_decision",
-        "external_record"
+        "external_record",
+        // Phase 9 addition (additive; the names above are unchanged)
+        "semantic_context"
       )
+    )
+    assertEquals(
+      EvidenceType.values.filter(EvidenceType.requiresWindow).map(_.wire),
+      List("coauthor_edge", "graph_path", "metric")
     )
     assertEquals(
       CollaborationMetric.values.map(_.wire),
@@ -106,13 +113,31 @@ class SchemaVersionsSuite extends munit.FunSuite {
         "coauthor_neighborhood",
         "shortest_path",
         "connected_component",
-        "bridge_researchers"
+        "bridge_researchers",
+        // Phase 9 additions (additive; the names above are unchanged)
+        "researcher_ranking",
+        "max_team_size",
+        "community_analysis",
+        "temporal_comparison",
+        "semantic_context"
       )
     )
     assertEquals(
-      VerificationStatus.values.map(_.wire),
-      List("verified", "partially_verified", "unsupported", "contradicted")
+      QueryOperation.values.filterNot(QueryOperation.requiresWindow).map(_.wire),
+      List("researcher_lookup")
     )
+    assertEquals(
+      QueryOperation.values.filter(QueryOperation.mayOmitResearchers).map(_.wire),
+      List("bridge_researchers", "researcher_ranking", "semantic_context")
+    )
+    // Phase 9 (breaking, with AnswerClaim v2): partially_verified -> partially_supported,
+    // contradicted -> conflicting.
+    assertEquals(
+      VerificationStatus.values.map(_.wire),
+      List("verified", "partially_supported", "unsupported", "conflicting")
+    )
+    assertEquals(PlanSource.values.map(_.wire), List("llm", "rule"))
+    assertEquals(config.LlmProvider.values.map(_.wire), List("anthropic", "bedrock", "fake"))
     assertEquals(
       GraphNodeLabel.values.map(_.wire),
       List(

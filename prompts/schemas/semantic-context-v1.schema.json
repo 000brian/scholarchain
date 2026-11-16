@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scholarchain.example.invalid/schemas/semantic-context-v1",
+  "title": "ScholarChain semantic context block, version 1",
+  "description": "The compact semantic-context block (format scholarchain.rag.semantic-context v1) produced by org.scholarchain.rag.retrieval.SemanticRetriever and validated by org.scholarchain.rag.runtime.SemanticContextSchema. Pointers only: no document text and no graph facts. Descriptive context only; never a source of counts, paths, components, communities or bridge scores.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "formatVersion", "usage", "query", "entries"],
+  "properties": {
+    "format": { "type": "string", "enum": ["scholarchain.rag.semantic-context"] },
+    "formatVersion": { "type": "integer", "const": 1 },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "neverASourceOf", "graphFactsAllowed", "statement"],
+      "properties": {
+        "role": { "type": "string", "enum": ["descriptive-context-only"] },
+        "neverASourceOf": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["counts", "paths", "components", "communities", "bridge_scores"]
+          }
+        },
+        "graphFactsAllowed": { "type": "boolean", "const": false },
+        "statement": { "type": "string" }
+      }
+    },
+    "query": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index", "queryEmbeddingModel", "topK", "filterKeys"],
+      "properties": {
+        "index": { "type": "string" },
+        "queryEmbeddingModel": { "type": "string" },
+        "topK": { "type": "integer", "minimum": 1 },
+        "filterKeys": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "vectorKey",
+          "index",
+          "score",
+          "documentType",
+          "subjectIds",
+          "window",
+          "textS3Uri",
+          "textHash",
+          "embeddingModel"
+        ],
+        "properties": {
+          "vectorKey": { "type": "string" },
+          "index": { "type": "string" },
+          "score": { "type": "number" },
+          "documentType": {
+            "type": "string",
+            "enum": [
+              "researcher_profile",
+              "community_summary",
+              "collaboration_path",
+              "paper_summary",
+              "topic_institution_summary"
+            ]
+          },
+          "subjectIds": { "type": "array", "items": { "type": "string" } },
+          "window": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "required": ["startYear", "endYear"],
+            "properties": {
+              "startYear": { "type": "integer" },
+              "endYear": { "type": "integer" }
+            }
+          },
+          "textS3Uri": { "type": "string", "pattern": "^s3://" },
+          "textHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "embeddingModel": { "type": "string" }
+        }
+      }
+    }
+  }
+}

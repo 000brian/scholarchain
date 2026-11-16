@@ -132,6 +132,14 @@ class DynamoSuite extends munit.FunSuite {
       Set("RunLedger", "ArtifactRegistry")
     )
     assertEquals(TableSpecs.all.map(_.tableName(tables)).toSet, storageConfig.tableNames)
+    val rm4 = TableSpecs.ResearcherMetricCache.accessPatterns.find(_.id == "RM4").get
+    assert(rm4.keyCondition.contains("ranking#<windowLabel>#<metric>"), rm4.keyCondition)
+    assert(TableSpecs.ResearcherMetricCache.skFormat.contains("rank#<NNNN>"))
+    assertEquals(
+      TableSpecs.rankingPk(Full, "publication_count"),
+      s"ranking#$Full#publication_count"
+    )
+    assertEquals(TableSpecs.rankSk(7), "rank#0007")
     val turn = ItemBuilders.sessionTurn("s1", 1, "sha256:x", None, 1800000000L)
     assertEquals(turn.long("expiresAt"), Some(1800000000L))
   }
@@ -180,7 +188,7 @@ class DynamoSuite extends munit.FunSuite {
     val src = new LocalDirectorySource(dir)
     val kv = store()
     val loader =
-      new DynamoLoader(src, src.manifest(), kv, tables, new RejectLog(None), parallelism = 1)
+      new DynamoLoader(src, src.manifest(), kv, tables, new RejectLog(None), 1, rankingTopK = None)
     val run =
       StorageVersion.runId("storage.dynamodb-load", "sha256:test", storageConfig.fingerprint)
     val files = List(("nodes/Researcher/researcher-00000.csv.gz", 4L, 100L, "a" * 64))
@@ -205,8 +213,11 @@ class DynamoSuite extends munit.FunSuite {
       .get
     assertEquals(Contract.decode[EvidenceItem](ev.str("record")), Right(pathEvidence.head))
     assert(
-      kv.scanAll(tables.researcherMetricCacheTable).forall(_.str(Item.Pk).startsWith("researcher#"))
+      kv.scanAll(tables.researcherMetricCacheTable)
+        .forall(_.str(Item.Pk).startsWith("researcher#")),
+      "no ranking items without rankingTopK"
     )
+    assertEquals(p1.tables("ResearcherMetricCacheRanking").items.get, 0L)
     assert(
       storageConfig.tableNames.forall(t =>
         kv.scanAll(t).forall(i => !i.str(Item.Pk).startsWith("edge"))
@@ -214,6 +225,46 @@ class DynamoSuite extends munit.FunSuite {
     )
     assertEquals(kv.itemCount(tables.querySessionTable), 0L)
     assert(p1.metricItemSizes.count == 4 && p1.metricItemSizes.max < 1024)
+  }
+
+  test(
+    "RM4: the loader writes top-K ranking items per window and metric; a rerun changes nothing"
+  ) {
+    val dir = writeExport(tempDir("dyn-rank"))
+    val src = new LocalDirectorySource(dir)
+    val kv = store()
+    val rejects = new RejectLog(None)
+    val loader = new DynamoLoader(src, src.manifest(), kv, tables, rejects, 1, Some(3))
+    val run =
+      StorageVersion.runId("storage.dynamodb-load", "sha256:rank", storageConfig.fingerprint)
+    val p1 = loader.load(1, run, Nil)
+    // 10 ranked metrics x top 3 of 4 researchers (every fixture researcher has every value)
+    assertEquals(p1.tables("ResearcherMetricCacheRanking").inserted.get, 30L)
+    assertEquals(p1.tables("ResearcherMetricCache").inserted.get, 4L)
+    assertEquals(rejects.total, 0L)
+    val t = tables.researcherMetricCacheTable
+    val items = kv.query(t, s"ranking#$Full#publication_count", Some("rank#"), 10, false)
+    assertEquals(items.map(_.str(Item.Sk)), List("rank#0001", "rank#0002", "rank#0003"))
+    // P: B and C have 2 works, A and D have 1; ties by researcherId code point
+    val expected = (List(rB, rC).map(_.value).sorted(CodePointOrder.ordering) :+
+      List(rA, rD).map(_.value).min(CodePointOrder.ordering))
+    assertEquals(items.map(_.str("researcherId")), expected)
+    assertEquals(items.map(_.str("displayName")), expected.map(id => names(ResearcherId(id))))
+    assertEquals(items.map(_.get("value")), List("2", "2", "1").map(v => Some(AttrValue.N(v))))
+    assertEquals(items.map(_.long("rank")), List(1L, 2L, 3L).map(Some(_)))
+    items.foreach { i =>
+      assertEquals(i.str("runId"), sparkRun.value)
+      assertEquals(i.str("policyVersion"), "graph-v1")
+      assertEquals(i.str("metric"), "publication_count")
+    }
+    RankingMetrics.ranked.foreach { m =>
+      assertEquals(kv.query(t, s"ranking#$Full#${m.wire}", None, 10, false).size, 3, m.wire)
+    }
+    val writes = kv.writeCount(t)
+    val p2 = loader.load(2, run, Nil)
+    assertEquals(p2.tables("ResearcherMetricCacheRanking").unchanged.get, 30L)
+    assertEquals(p2.dataChanges, 0L)
+    assertEquals(kv.writeCount(t), writes, "unchanged ranking items are never rewritten")
   }
 
   test("a changed fact is updated (version 2) on the next load, never duplicated") {

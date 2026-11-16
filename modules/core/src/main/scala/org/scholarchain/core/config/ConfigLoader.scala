@@ -71,8 +71,8 @@ final case class LoadedConfig(config: ScholarChainConfig, origins: ListMap[Strin
   *   2. the configuration file named by `SCHOLARCHAIN_CONFIG_FILE`;
   *   3. nothing: a key absent from both is an error. There are no defaults.
   *
-  * Optional sections ([[ConfigLoader.sections]], Phase 7): a section none of whose keys is set
-  * resolves to `None`; a section with any key set must have all its required keys set (same
+  * Optional sections ([[ConfigLoader.sections]], Phase 7 and Phase 9): a section none of whose keys
+  * is set resolves to `None`; a section with any key set must have all its required keys set (same
   * precedence per key), otherwise every missing key is reported.
   *
   * `configVersion` comes only from the file. Unknown file keys, unknown `SCHOLARCHAIN_CFG_*`
@@ -112,7 +112,9 @@ object ConfigLoader {
     ConfigKey("bridge.topK", WholeNumber)
   )
 
-  /** Optional sections (Phase 7, additive). */
+  /** Optional sections: `objectStore`, `dynamoDb`, `neptune`, `vectors`, `embedding` (Phase 7,
+    * additive) and `llm`, `runtime` (Phase 9, additive).
+    */
   val sections: List[ConfigSection] = List(
     ConfigSection(
       "objectStore",
@@ -179,6 +181,35 @@ object ConfigLoader {
         ConfigKey("embedding.tokensPerMinute", WholeNumber)
       ),
       List(ConfigKey("embedding.apiKeyEnvVar", Text))
+    ),
+    // Phase 9 (additive).
+    ConfigSection(
+      "llm",
+      List(
+        ConfigKey("llm.provider", Text),
+        ConfigKey("llm.maxOutputTokens", WholeNumber),
+        ConfigKey("llm.requestTimeoutMillis", WholeNumber),
+        ConfigKey("llm.maxRetries", WholeNumber),
+        ConfigKey("llm.retryBaseDelayMillis", WholeNumber),
+        ConfigKey("llm.retryMaxDelayMillis", WholeNumber),
+        ConfigKey("llm.requestsPerMinute", WholeNumber),
+        ConfigKey("llm.maxStructuredRetries", WholeNumber),
+        ConfigKey("llm.contextTokenBudget", WholeNumber)
+      ),
+      List(ConfigKey("llm.apiKeyEnvVar", Text))
+    ),
+    ConfigSection(
+      "runtime",
+      List(
+        ConfigKey("runtime.defaultWindowLabel", Text),
+        ConfigKey("runtime.rankingCacheTopK", WholeNumber),
+        ConfigKey("runtime.maxBundleItems", WholeNumber),
+        ConfigKey("runtime.maxPathDepth", WholeNumber),
+        ConfigKey("runtime.graphResultLimit", WholeNumber),
+        ConfigKey("runtime.graphTimeoutMillis", WholeNumber),
+        ConfigKey("runtime.maxResearcherNames", WholeNumber)
+      ),
+      Nil
     )
   )
 
@@ -431,6 +462,31 @@ object ConfigLoader {
           requestsPerMinute = i("embedding.requestsPerMinute"),
           tokensPerMinute = i("embedding.tokensPerMinute")
         )
+      ),
+      llm = section("llm")(
+        LlmSettings(
+          provider = s("llm.provider"),
+          maxOutputTokens = i("llm.maxOutputTokens"),
+          requestTimeoutMillis = i("llm.requestTimeoutMillis"),
+          maxRetries = i("llm.maxRetries"),
+          retryBaseDelayMillis = i("llm.retryBaseDelayMillis"),
+          retryMaxDelayMillis = i("llm.retryMaxDelayMillis"),
+          requestsPerMinute = i("llm.requestsPerMinute"),
+          maxStructuredRetries = i("llm.maxStructuredRetries"),
+          contextTokenBudget = i("llm.contextTokenBudget"),
+          apiKeyEnvVar = v.get("llm.apiKeyEnvVar").map(_.asInstanceOf[String])
+        )
+      ),
+      runtime = section("runtime")(
+        RuntimeSettings(
+          defaultWindowLabel = s("runtime.defaultWindowLabel"),
+          rankingCacheTopK = i("runtime.rankingCacheTopK"),
+          maxBundleItems = i("runtime.maxBundleItems"),
+          maxPathDepth = i("runtime.maxPathDepth"),
+          graphResultLimit = i("runtime.graphResultLimit"),
+          graphTimeoutMillis = i("runtime.graphTimeoutMillis"),
+          maxResearcherNames = i("runtime.maxResearcherNames")
+        )
       )
     )
   }
@@ -500,7 +556,9 @@ object ConfigValidator {
       c.dynamoDb.toList.flatMap(dynamoDb) ++
       c.neptune.toList.flatMap(neptune) ++
       c.vectors.toList.flatMap(vectors) ++
-      c.embedding.toList.flatMap(embedding)
+      c.embedding.toList.flatMap(embedding) ++
+      c.llm.toList.flatMap(llm) ++
+      c.runtime.toList.flatMap(runtime(_, labels))
   }
 
   // ---- Phase 7 optional sections -------------------------------------------------------------
@@ -600,13 +658,7 @@ object ConfigValidator {
       case Right(_) => Nil
     }
     providerRule ++
-      e.apiKeyEnvVar.toList.flatMap { n =>
-        check(n.matches(EnvVarName), s"embedding.apiKeyEnvVar: '$n' must match $EnvVarName") ++
-          check(
-            !n.startsWith(ConfigLoader.EnvPrefix),
-            s"embedding.apiKeyEnvVar: '$n' must not start with ${ConfigLoader.EnvPrefix}"
-          )
-      } ++
+      e.apiKeyEnvVar.toList.flatMap(apiKeyEnvVarName("embedding.apiKeyEnvVar", _)) ++
       check(
         e.dimensions >= VectorMetadata.MinDimensions &&
           e.dimensions <= VectorMetadata.MaxDimensions,
@@ -618,4 +670,72 @@ object ConfigValidator {
       positive("embedding.requestsPerMinute", e.requestsPerMinute) ++
       positive("embedding.tokensPerMinute", e.tokensPerMinute)
   }
+
+  /** The NAME of an API-key environment variable (never its value). */
+  private def apiKeyEnvVarName(field: String, n: String): List[String] =
+    check(n.matches(EnvVarName), s"$field: '$n' must match $EnvVarName") ++
+      check(
+        !n.startsWith(ConfigLoader.EnvPrefix),
+        s"$field: '$n' must not start with ${ConfigLoader.EnvPrefix}"
+      )
+
+  private def inRange(field: String, n: Int, min: Int, max: Int): List[String] =
+    check(n >= min && n <= max, s"$field: $n is outside $min..$max")
+
+  // ---- Phase 9 optional sections -------------------------------------------------------------
+
+  private def llm(l: LlmSettings): List[String] = {
+    val providerRule = l.providerKind match {
+      case Left(msg)                    => List(s"llm.provider: $msg")
+      case Right(LlmProvider.Anthropic) =>
+        check(l.apiKeyEnvVar.nonEmpty, "llm.apiKeyEnvVar: required for provider anthropic")
+      case Right(_) => Nil
+    }
+    providerRule ++
+      l.apiKeyEnvVar.toList.flatMap(apiKeyEnvVarName("llm.apiKeyEnvVar", _)) ++
+      inRange("llm.maxOutputTokens", l.maxOutputTokens, 1, LlmSettings.MaxOutputTokens) ++
+      positive("llm.requestTimeoutMillis", l.requestTimeoutMillis) ++
+      retries("llm", l.maxRetries, l.retryBaseDelayMillis, l.retryMaxDelayMillis) ++
+      positive("llm.requestsPerMinute", l.requestsPerMinute) ++
+      inRange(
+        "llm.maxStructuredRetries",
+        l.maxStructuredRetries,
+        0,
+        LlmSettings.MaxStructuredRetries
+      ) ++
+      positive("llm.contextTokenBudget", l.contextTokenBudget)
+  }
+
+  private def runtime(r: RuntimeSettings, windowLabels: List[String]): List[String] =
+    check(
+      windowLabels.contains(r.defaultWindowLabel),
+      s"runtime.defaultWindowLabel: '${r.defaultWindowLabel}' is not a graph.windows label " +
+        s"(expected one of: ${windowLabels.mkString(", ")})"
+    ) ++
+      inRange(
+        "runtime.rankingCacheTopK",
+        r.rankingCacheTopK,
+        1,
+        RuntimeSettings.MaxRankingCacheTopK
+      ) ++
+      inRange("runtime.maxBundleItems", r.maxBundleItems, 1, RuntimeSettings.MaxBundleItems) ++
+      inRange("runtime.maxPathDepth", r.maxPathDepth, 1, RuntimeSettings.MaxPathDepth) ++
+      inRange(
+        "runtime.graphResultLimit",
+        r.graphResultLimit,
+        1,
+        RuntimeSettings.MaxGraphResultLimit
+      ) ++
+      inRange(
+        "runtime.graphTimeoutMillis",
+        r.graphTimeoutMillis,
+        1,
+        RuntimeSettings.MaxGraphTimeoutMillis
+      ) ++
+      inRange(
+        "runtime.maxResearcherNames",
+        r.maxResearcherNames,
+        1,
+        RuntimeSettings.MaxResearcherNames
+      )
 }

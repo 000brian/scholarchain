@@ -51,7 +51,8 @@ class WireContractSuite extends munit.FunSuite {
       Example("AnswerClaim", answerClaim),
       Example("AnswerResponse", answerResponse),
       Example("SemanticDocument", semanticDocument),
-      Example("VectorMetadata", vectorMetadata)
+      Example("VectorMetadata", vectorMetadata),
+      Example("QueryAudit", queryAudit)
     )
   }
 
@@ -69,7 +70,13 @@ class WireContractSuite extends munit.FunSuite {
 
   /** Superseded frozen examples kept on disk: (schema, superseded version). */
   val superseded: List[(String, Int)] =
-    List("WorkRecord" -> 1, "CoauthorPairCandidate" -> 1, "MatchDecision" -> 1)
+    List(
+      "WorkRecord" -> 1,
+      "CoauthorPairCandidate" -> 1,
+      "MatchDecision" -> 1,
+      "AnswerClaim" -> 1,
+      "AnswerResponse" -> 1
+    )
 
   /** Additional frozen examples of current schemas: (file name, schema, fixture). */
   val variants: List[(String, String, MatchDecision)] = List(

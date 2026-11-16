@@ -106,6 +106,10 @@ object AdjudicationOutcome extends WireEnumCompanion[AdjudicationOutcome]("adjud
   val values: List[AdjudicationOutcome] = List(Accept, Reject, Abstain)
 }
 
+/** Kind of an [[EvidenceItem]].
+  *
+  * Phase 9 (additive; every earlier wire name is unchanged): adds `semantic_context`.
+  */
 sealed trait EvidenceType extends WireEnum
 object EvidenceType extends WireEnumCompanion[EvidenceType]("evidence type") {
   case object Work extends EvidenceType { val wire = "work" }
@@ -116,8 +120,28 @@ object EvidenceType extends WireEnumCompanion[EvidenceType]("evidence type") {
   case object MatchDecision extends EvidenceType { val wire = "match_decision" }
   case object ExternalRecord extends EvidenceType { val wire = "external_record" }
 
+  /** A pointer to a retrieved semantic document (a vector-search hit: researcher profile, community
+    * summary, collaboration path summary, ...). Its window is optional (it is not in
+    * [[requiresWindow]]); when the document describes a window, the item states it.
+    *
+    * A `semantic_context` item is descriptive only. It is never evidence for a count, an edge, a
+    * path, a component, a community or a bridge score: vector similarity is not proof of a
+    * coauthorship edge or of a numerical graph metric. Those facts are supported only by graph
+    * evidence (`metric`, `coauthor_edge`, `graph_path`, `work`, `match_decision`).
+    */
+  case object SemanticContext extends EvidenceType { val wire = "semantic_context" }
+
   val values: List[EvidenceType] =
-    List(Work, Authorship, CoauthorEdge, GraphPath, Metric, MatchDecision, ExternalRecord)
+    List(
+      Work,
+      Authorship,
+      CoauthorEdge,
+      GraphPath,
+      Metric,
+      MatchDecision,
+      ExternalRecord,
+      SemanticContext
+    )
 
   /** Evidence types that describe the temporal graph and therefore must state a time window. */
   val requiresWindow: Set[EvidenceType] = Set(CoauthorEdge, GraphPath, Metric)
@@ -225,6 +249,15 @@ object GroupKind extends WireEnumCompanion[GroupKind]("group kind") {
   val values: List[GroupKind] = List(Component, Community)
 }
 
+/** An allowlisted operation of a [[QueryStep]].
+  *
+  * Phase 9 (additive; every earlier wire name is unchanged): adds `researcher_ranking`,
+  * `max_team_size`, `community_analysis`, `temporal_comparison` and `semantic_context`.
+  *
+  * Researcher counts per step (checked by the `QueryPlan` validator): `shortest_path` needs exactly
+  * 2; `researcher_ranking`, `bridge_researchers` and `semantic_context` may have none
+  * ([[mayOmitResearchers]]); every other operation needs at least 1.
+  */
 sealed trait QueryOperation extends WireEnum
 object QueryOperation extends WireEnumCompanion[QueryOperation]("query operation") {
   case object ResearcherLookup extends QueryOperation { val wire = "researcher_lookup" }
@@ -234,28 +267,81 @@ object QueryOperation extends WireEnumCompanion[QueryOperation]("query operation
   case object ConnectedComponent extends QueryOperation { val wire = "connected_component" }
   case object BridgeResearchers extends QueryOperation { val wire = "bridge_researchers" }
 
+  /** Rank researchers by one stored metric in one window (top-K). */
+  case object ResearcherRanking extends QueryOperation { val wire = "researcher_ranking" }
+
+  /** Maximum team size (M_r) of researchers and the works that reach it. */
+  case object MaxTeamSize extends QueryOperation { val wire = "max_team_size" }
+
+  /** Community membership, size and cross-community position of researchers. */
+  case object CommunityAnalysis extends QueryOperation { val wire = "community_analysis" }
+
+  /** The same facts compared across windows (one step per window). */
+  case object TemporalComparison extends QueryOperation { val wire = "temporal_comparison" }
+
+  /** Descriptive semantic context (vector search); never evidence for graph facts. */
+  case object SemanticContext extends QueryOperation { val wire = "semantic_context" }
+
   val values: List[QueryOperation] = List(
     ResearcherLookup,
     CollaborationBreadth,
     CoauthorNeighborhood,
     ShortestPath,
     ConnectedComponent,
-    BridgeResearchers
+    BridgeResearchers,
+    ResearcherRanking,
+    MaxTeamSize,
+    CommunityAnalysis,
+    TemporalComparison,
+    SemanticContext
   )
 
-  /** Operations over the temporal graph; they must state a time window. */
+  /** Operations over the temporal graph; they must state a time window. Every operation except
+    * `researcher_lookup`.
+    */
   val requiresWindow: Set[QueryOperation] = values.toSet - ResearcherLookup
+
+  /** Operations whose step may name no researcher (an empty `researcherIds`). */
+  val mayOmitResearchers: Set[QueryOperation] =
+    Set(ResearcherRanking, BridgeResearchers, SemanticContext)
 }
 
+/** Outcome of deterministic claim verification of an [[AnswerClaim]] (the spec's four outcomes).
+  *
+  * Phase 9 (breaking, wire names only, with AnswerClaim v2): `partially_verified` was renamed
+  * `partially_supported` and `contradicted` was renamed `conflicting`; `verified` and `unsupported`
+  * are unchanged.
+  */
 sealed trait VerificationStatus extends WireEnum
 object VerificationStatus extends WireEnumCompanion[VerificationStatus]("verification status") {
+
+  /** Every check against the cited evidence passes. */
   case object Verified extends VerificationStatus { val wire = "verified" }
-  case object PartiallyVerified extends VerificationStatus { val wire = "partially_verified" }
+
+  /** Some numbers or names are verified; others are not covered by the cited evidence. */
+  case object PartiallySupported extends VerificationStatus { val wire = "partially_supported" }
+
+  /** No valid supporting evidence. The only status that may cite no evidence. */
   case object Unsupported extends VerificationStatus { val wire = "unsupported" }
-  case object Contradicted extends VerificationStatus { val wire = "contradicted" }
+
+  /** A number or name contradicts its cited evidence. */
+  case object Conflicting extends VerificationStatus { val wire = "conflicting" }
 
   val values: List[VerificationStatus] =
-    List(Verified, PartiallyVerified, Unsupported, Contradicted)
+    List(Verified, PartiallySupported, Unsupported, Conflicting)
+}
+
+/** How the [[QueryPlan]] recorded in a [[QueryAudit]] was produced (new in Phase 9). */
+sealed trait PlanSource extends WireEnum
+object PlanSource extends WireEnumCompanion[PlanSource]("plan source") {
+
+  /** A model-produced plan draft that passed allowlist validation. */
+  case object Llm extends PlanSource { val wire = "llm" }
+
+  /** The deterministic rule planner (also the fallback after failed model drafts). */
+  case object Rule extends PlanSource { val wire = "rule" }
+
+  val values: List[PlanSource] = List(Llm, Rule)
 }
 
 /** Graph node labels. The `nodeId` format of each label is checked by the `GraphNode` validator.

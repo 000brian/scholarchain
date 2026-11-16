@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 2,
+  "question": "Which researcher named Wei Wang has the most distinct coauthors in 2015-2025?",
+  "answerText": "The name 'Wei Wang' matches several researchers in the ScholarChain graph, so no answer is given for it.",
+  "modelId": null,
+  "plan": {
+    "schemaVersion": 1,
+    "question": "Which researcher named Wei Wang has the most distinct coauthors in 2015-2025?",
+    "graphRunId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+    "steps": [
+      {
+        "operation": "researcher_ranking",
+        "researcherIds": [],
+        "window": {
+          "startYear": 2015,
+          "endYear": 2025
+        },
+        "parameters": {
+          "metric": "distinct_coauthors",
+          "limit": "10"
+        }
+      }
+    ],
+    "provenance": {
+      "schemaVersion": 1,
+      "sourceType": "runtime",
+      "datasetId": "scholarchain-graph",
+      "snapshotId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+      "sourceRecordIds": [
+        "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7"
+      ],
+      "runId": "run:v1:d5b4e52fdf1171ad6d9e1f1251db9278",
+      "jobName": "rag.answer",
+      "policyVersion": "prompt-policy/1",
+      "contentHash": "sha256:9b633afe827fdc48d1ce2d6991547b1d5a09ac99323fbaa423d12a6564944a76"
+    }
+  },
+  "bundle": null,
+  "claims": [],
+  "identityNotes": [
+    "'Wei Wang' has several candidate researchers; none was chosen."
+  ],
+  "abstained": true,
+  "abstentionReason": "ambiguous researcher name",
+  "provenance": {
+    "schemaVersion": 1,
+    "sourceType": "runtime",
+    "datasetId": "scholarchain-graph",
+    "snapshotId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+    "sourceRecordIds": [
+      "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7"
+    ],
+    "runId": "run:v1:d5b4e52fdf1171ad6d9e1f1251db9278",
+    "jobName": "rag.answer",
+    "policyVersion": "prompt-policy/1",
+    "contentHash": "sha256:269dde2555724ca75ea181fa1b12637f8e87407e4ce9db1efe122fb92aceaeef"
+  }
+}

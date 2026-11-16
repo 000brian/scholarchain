@@ -1,0 +1,61 @@
+{
+  "configVersion": 1,
+  "environment": "test",
+  "aws": {
+    "region": "us-east-1",
+    "accountId": "123456789012"
+  },
+  "storage": {
+    "rawBucket": "example-raw-bucket",
+    "curatedBucket": "example-curated-bucket",
+    "graphBucket": "example-graph-bucket",
+    "vectorBucket": "example-vector-bucket",
+    "vectorIndex": "example-vector-index",
+    "neptuneEndpoint": "neptune.example.invalid",
+    "dynamoDbTable": "example-table"
+  },
+  "entityResolution": {
+    "policyVersion": "match-policy/1",
+    "matchThreshold": 0.9,
+    "reviewThreshold": 0.7
+  },
+  "models": {
+    "embeddingModelId": "example-embedding-model",
+    "answerModelId": "example-answer-model"
+  },
+  "graph": {
+    "windows": [
+      { "label": "2015-2019", "startYear": 2015, "endYear": 2019 },
+      { "label": "2020-2025", "startYear": 2020, "endYear": 2025 },
+      { "label": "2015-2025", "startYear": 2015, "endYear": 2025 }
+    ],
+    "minEdgeWeight": 0.0
+  },
+  "bridge": {
+    "algorithm": "example-algorithm",
+    "sampleSize": 100,
+    "randomSeed": 7,
+    "topK": 10
+  },
+  "llm": {
+    "provider": "anthropic",
+    "maxOutputTokens": 2048,
+    "requestTimeoutMillis": 60000,
+    "maxRetries": 3,
+    "retryBaseDelayMillis": 500,
+    "retryMaxDelayMillis": 20000,
+    "requestsPerMinute": 50,
+    "maxStructuredRetries": 1,
+    "contextTokenBudget": 12000,
+    "apiKeyEnvVar": "SCHOLARCHAIN_EXAMPLE_LLM_API_KEY"
+  },
+  "runtime": {
+    "defaultWindowLabel": "2015-2025",
+    "rankingCacheTopK": 100,
+    "maxBundleItems": 200,
+    "maxPathDepth": 4,
+    "graphResultLimit": 100,
+    "graphTimeoutMillis": 10000,
+    "maxResearcherNames": 5
+  }
+}

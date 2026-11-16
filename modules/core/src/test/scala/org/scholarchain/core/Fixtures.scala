@@ -641,11 +641,13 @@ object Fixtures {
   val claimText = "Hugo O. Sousa has 2 distinct coauthors in 2015-2025."
 
   val answerClaim: AnswerClaim = AnswerClaim(
-    schemaVersion = 1,
+    schemaVersion = 2,
+    claimId = "claim-1",
     claimText = claimText,
     evidenceIds = List(metricEvidence.evidenceId),
     status = VerificationStatus.Verified,
     window = Some(window),
+    uncertainty = None,
     provenance = runtimeProvenance(List(sousa.value), Some(claimText))
   )
 
@@ -653,14 +655,140 @@ object Fixtures {
     "Between 2015 and 2025 Hugo O. Sousa has 2 distinct coauthors in the ScholarChain graph."
 
   val answerResponse: AnswerResponse = AnswerResponse(
-    schemaVersion = 1,
+    schemaVersion = 2,
     question = question,
     answerText = answerText,
     modelId = Some("example-answer-model"),
     plan = queryPlan,
-    bundle = evidenceBundle,
+    bundle = Some(evidenceBundle),
     claims = List(answerClaim),
     identityNotes = List("Hugo O. Sousa resolved with confidence 0.97 (match-policy/1)."),
+    abstained = false,
+    abstentionReason = None,
     provenance = runtimeProvenance(List(sousa.value), Some(answerText))
+  )
+
+  // ---- Phase 9 runtime records ----------------------------------------------------------
+
+  /** A claim the verifier could not support: cites nothing and states its uncertainty. */
+  val unsupportedClaimText = "Hugo O. Sousa is the most central researcher in the graph."
+  val unsupportedClaim: AnswerClaim = AnswerClaim(
+    schemaVersion = 2,
+    claimId = "claim-2",
+    claimText = unsupportedClaimText,
+    evidenceIds = Nil,
+    status = VerificationStatus.Unsupported,
+    window = None,
+    uncertainty = Some("No centrality evidence exists in the bundle."),
+    provenance = runtimeProvenance(List(sousa.value), Some(unsupportedClaimText))
+  )
+
+  val ambiguousQuestion =
+    "Which researcher named Wei Wang has the most distinct coauthors in 2015-2025?"
+  val ambiguousPlan: QueryPlan = QueryPlan(
+    schemaVersion = 1,
+    question = ambiguousQuestion,
+    graphRunId = graphRun,
+    steps = List(
+      QueryStep(
+        QueryOperation.ResearcherRanking,
+        Nil,
+        Some(window),
+        Map("metric" -> "distinct_coauthors", "limit" -> "10")
+      )
+    ),
+    provenance = runtimeProvenance(List(graphRun.value), Some(ambiguousQuestion))
+  )
+
+  val abstainText =
+    "The name 'Wei Wang' matches several researchers in the ScholarChain graph, so no answer is " +
+      "given for it."
+
+  /** An abstaining response: no bundle, no claims, a reason. */
+  val abstainedResponse: AnswerResponse = AnswerResponse(
+    schemaVersion = 2,
+    question = ambiguousQuestion,
+    answerText = abstainText,
+    modelId = None,
+    plan = ambiguousPlan,
+    bundle = None,
+    claims = Nil,
+    identityNotes = List("'Wei Wang' has several candidate researchers; none was chosen."),
+    abstained = true,
+    abstentionReason = Some("ambiguous researcher name"),
+    provenance = runtimeProvenance(List(graphRun.value), Some(abstainText))
+  )
+
+  /** A plan using every Phase 9 operation (researcher counts per operation rule). */
+  val runtimeQuestion =
+    "Compare Hugo O. Sousa and Ricardo Campos 0001 across windows, with their team sizes, " +
+      "communities, the top coauthor-breadth ranking and some context."
+  val runtimeOperationsPlan: QueryPlan = QueryPlan(
+    schemaVersion = 1,
+    question = runtimeQuestion,
+    graphRunId = graphRun,
+    steps = List(
+      QueryStep(
+        QueryOperation.ResearcherRanking,
+        Nil,
+        Some(window),
+        Map("limit" -> "10", "metric" -> "distinct_coauthors")
+      ),
+      QueryStep(QueryOperation.MaxTeamSize, List(sousa), Some(window), Map.empty),
+      QueryStep(QueryOperation.CommunityAnalysis, List(sousa, campos), Some(window), Map.empty),
+      QueryStep(
+        QueryOperation.TemporalComparison,
+        List(sousa),
+        Some(YearWindow(2015, 2019)),
+        Map("metric" -> "distinct_coauthors")
+      ),
+      QueryStep(QueryOperation.SemanticContext, Nil, Some(window), Map("topic" -> "temporal"))
+    ),
+    provenance = runtimeProvenance(List(sousa.value, campos.value), Some(runtimeQuestion))
+  )
+
+  /** A semantic-context evidence item: a pointer to the researcher-profile chunk, no window rule.
+    */
+  val semanticEvidence: EvidenceItem = EvidenceItem(
+    schemaVersion = 1,
+    evidenceId =
+      EvidenceId.of(EvidenceType.SemanticContext, queryRun, List(profileChunk.value, sousa.value)),
+    evidenceType = EvidenceType.SemanticContext,
+    subjectIds = List(profileChunk.value, sousa.value),
+    window = Some(window),
+    metric = None,
+    snippet = None,
+    provenance = runtimeProvenance(List(profileVectorKey, profileChunk.value), None)
+  )
+
+  val plannerPromptText = "fixture query-planner prompt text"
+  val synthesisPromptText = "fixture answer-synthesis prompt text"
+
+  val queryAudit: QueryAudit = QueryAudit(
+    schemaVersion = 1,
+    queryRunId = queryRun,
+    questionHash = ContentHash.of(question),
+    plan = queryPlan,
+    planSource = PlanSource.Rule,
+    resolvedResearcherIds = List(sousa),
+    unresolvedNames = Nil,
+    evidenceIds = List(workEvidence.evidenceId, metricEvidence.evidenceId),
+    bundleId = Some(evidenceBundle.bundleId),
+    graphRunId = graphRun,
+    metricPolicyVersions = List("metric-policy/1"),
+    promptVersions = List(
+      QueryAudit.promptVersion("query-planner-v1", plannerPromptText),
+      QueryAudit.promptVersion("answer-synthesis-v1", synthesisPromptText)
+    ),
+    modelId = Some("example-answer-model"),
+    inputTokens = Some(1200L),
+    outputTokens = Some(180L),
+    latencyMillis = 42L,
+    stageMillis = Map("planner" -> 3L, "resolver" -> 5L, "verification" -> 1L),
+    verificationCounts =
+      Map("verified" -> 1, "partially_supported" -> 0, "unsupported" -> 0, "conflicting" -> 0),
+    answerHash = ContentHash.of(answerText),
+    abstained = false,
+    provenance = runtimeProvenance(List(sousa.value, evidenceBundle.bundleId.value), None)
   )
 }

@@ -81,6 +81,20 @@ final class ExportDocuments(
     RenderedCorpus(docs.result(), extras, stats.toMap, notes)
   }
 
+  /** Only Spark's verbatim summaries (researcher profiles, communities, paths); no paper summaries.
+    * Used by the Phase 9 benchmark runner, which builds no paper index locally.
+    */
+  def renderSparkSummaries(): RenderedCorpus = {
+    val stats = mutable.LinkedHashMap(
+      TemplateRegistry.all
+        .filter(_.source.isInstanceOf[TextSource.SparkVerbatim])
+        .map(t => t.templateId -> new TemplateStats): _*
+    )
+    val docs = Vector.newBuilder[SemanticDocument]
+    sparkSummaries(stats, docs)
+    RenderedCorpus(docs.result(), Map.empty, stats.toMap, Map.empty)
+  }
+
   private def sparkSummaries(
       stats: mutable.Map[String, TemplateStats],
       out: mutable.Builder[SemanticDocument, Vector[SemanticDocument]]

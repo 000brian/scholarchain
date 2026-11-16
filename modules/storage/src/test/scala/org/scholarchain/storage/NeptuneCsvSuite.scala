@@ -152,7 +152,7 @@ class NeptuneCsvSuite extends munit.FunSuite {
 
   test("loaded into the in-memory graph, the CSV answers the read-only templates") {
     val (out, r, _) = build()
-    val g = new InMemoryGraph(rowCap = 10)
+    val g = new InMemoryGraph(rowCap = 10, graphSettings)
     List("nodes", "edges").foreach(stage =>
       r.types
         .filter(_.stage == stage)
@@ -161,7 +161,11 @@ class NeptuneCsvSuite extends munit.FunSuite {
     )
     val nb = g.run(GraphQuery.CoauthorNeighbors(rB, Full, 10)).toOption.get
     assertEquals(nb.rows.map(_.values("coauthorId").str).toSet, Set(rA.value, rC.value))
-    val path = g.run(GraphQuery.PathBetween(rA, rD, Full, 6)).toOption.get
+    val work = g.run(GraphQuery.WorkById(w1)).toOption.get.rows.head.values
+    assertEquals(work("displayName").str, workNodes.head.displayName)
+    assertEquals((work("year").num, work("teamSize").num), (2016.0, 2.0))
+    assertEquals((work("venueKey").str, work("dblpKey").str), ("conf/x", "conf/x/A16"))
+    val path = g.run(GraphQuery.PathBetween(rA, rD, Full, 4)).toOption.get
     assertEquals(path.rows.head.values("researcherIds").arr.map(_.str).toList, pathSubjects)
     assertEquals(path.rows.head.values("evidenceKeys").arr.size, 3)
     assertEquals(g.run(GraphQuery.PathBetween(rA, rD, Full, 2)).toOption.get.rows, Nil)
@@ -197,5 +201,83 @@ class NeptuneCsvSuite extends munit.FunSuite {
     assert(BulkLoadRequests.build(prefix.copy(key = "graph/x"), role, "us-east-1", Nil).isLeft)
     assert(BulkLoadRequests.build(prefix, "not-an-arn", "us-east-1", Nil).isLeft)
     assert(BulkLoadRequests.build(prefix, role, "nowhere", Nil).isLeft)
+  }
+
+  test("A2: the load request sends userProvidedEdgeIds TRUE and no updateSingleCardinality") {
+    val prefix =
+      ObjectRef("example-graph-bucket", "graph/dataset=d/snapshot=s/run=x/neptune/edges/")
+    val role = "arn:aws:iam::123456789012:role/example-neptune-loader"
+    val job = BulkLoadRequests.build(prefix, role, "us-east-1", List("load-1")).toOption.get
+    val json = BulkLoadRequests.toJson(job)
+    assertEquals(json("userProvidedEdgeIds").str, "TRUE")
+    assertEquals(json("parallelism").str, "MEDIUM")
+    assert(!json.value.keys.exists(_.toLowerCase.contains("cardinality")), json.render())
+    assertEquals(
+      json.value.keys.toSet,
+      Set(
+        "source",
+        "format",
+        "iamRoleArn",
+        "region",
+        "failOnError",
+        "parallelism",
+        "queueRequest",
+        "userProvidedEdgeIds",
+        "dependencies"
+      )
+    )
+  }
+
+  private def allRows(out: Path, r: NeptuneBuildReport) =
+    r.types.flatMap(_.files).map { f =>
+      val raw = Files.newInputStream(out.resolve(f.relativePath))
+      val in = if (f.relativePath.endsWith(".gz")) new GZIPInputStream(raw) else raw
+      val br = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))
+      try {
+        val lines = Iterator.continually(br.readLine()).takeWhile(_ != null).toList
+        (
+          f.relativePath,
+          OpenCypherCsv.parseLine(lines.head),
+          lines.tail.map(OpenCypherCsv.parseLine)
+        )
+      } finally br.close()
+    }
+
+  test("A2: a full build writes no :ID twice across all files (nodes and relationships)") {
+    val (out, r, _) = build()
+    val ids = allRows(out, r).flatMap { case (_, header, rows) =>
+      val c = header.indexOf(":ID")
+      rows.map(_(c))
+    }
+    assert(ids.size > 20, ids.size.toString)
+    val dups = ids.groupBy(identity).collect { case (k, v) if v.size > 1 => k }
+    assertEquals(dups.toList, Nil)
+  }
+
+  test("A2: no typed cell is written as null, NaN or Infinity; typed cells parse or are empty") {
+    val (out, r, _) = build()
+    val bad = Set("null", "NULL", "NaN", "Infinity", "-Infinity", "+Infinity")
+    val files = allRows(out, r)
+    var typedCells = 0
+    files.foreach { case (path, header, rows) =>
+      header.zipWithIndex.filterNot(_._1.startsWith(":")).foreach { case (h, i) =>
+        val tpe = h.split(":", 2)(1)
+        rows.foreach { row =>
+          val v = row(i)
+          if (tpe != "String") {
+            typedCells += 1
+            assert(!bad.contains(v), s"$path $h = '$v'")
+            val ok = v.isEmpty || (tpe match {
+              case "Int" | "Long" => v.toLongOption.nonEmpty
+              case "Double"       => v.toDoubleOption.exists(d => !d.isNaN && !d.isInfinite)
+              case "Bool"         => v == "true" || v == "false"
+              case _              => false
+            })
+            assert(ok, s"$path $h = '$v' is not a $tpe")
+          } else assert(v != "null", s"$path $h holds the text null")
+        }
+      }
+    }
+    assert(typedCells > 50, typedCells.toString)
   }
 }
