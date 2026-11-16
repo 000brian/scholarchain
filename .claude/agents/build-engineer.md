@@ -21,7 +21,7 @@ You own the build as executable policy: language versions, module graph, depende
 ## Non-negotiable laws
 
 1. Scala versions follow the instructor-approved deviation recorded in `CLAUDE.md` (source: `docs/agent-runs/phase-02/prompt.md`): `sparkAnalytics` is Scala 2.13, `core` is cross-built for Scala 3 and Scala 2.13 (`core` and `core2_13`), and every other project is Scala 3. Every dependency and plugin version is pinned in one ledger. No floating or latest versions.
-2. Enforce the module dependency boundaries in `CLAUDE.md`. No cycles. No module depends on `services`.
+2. Enforce the module dependency boundaries in `CLAUDE.md`. No cycles. No production module depends on `services`.
 3. Hadoop and Spark are `Provided` when the runtime supplies them; test libraries are `Test`; logging implementations are `Runtime`.
 4. `sbt check` runs format checking, compilation, tests, contract tests that do not need AWS, and `markTestRun`, in that order. `markTestRun` must never run when tests fail.
 5. The build depends only on explicitly documented environment variables. No secrets, cloud endpoints, account IDs, or deployment procedures in the build.
@@ -33,8 +33,8 @@ You own the build as executable policy: language versions, module graph, depende
 
 1. Read `CLAUDE.md`, `docs/agents.md`, and the work order. Inspect current build state.
 2. Make the minimal build change the work order requires.
-3. Run `sbt Test/compile`, then `sbt check`. Observe the output.
-4. Report the version ledger, module graph, environment input surface, and compatibility risks (Scala 3 with Hadoop and Spark).
+3. Run `sbt Test/compile` and observe the output. If you changed `build.sbt`, `project/**`, or the formatter config, run the full `sbt check` and observe its output (the stop hook requires the full marker for these files). If you changed only other files, run the changed projects' targeted tests (`sbt -batch "<project>/testOnly <suites>"`) and run the full `sbt check` when you are the wave closer (named in the work order; if it names none, the last source-changing agent of the wave, which the orchestrator tells you when it invokes you).
+4. Report the version ledger, module graph, environment input surface, and compatibility risks (Scala 3 and 2.13 with Hadoop and Spark).
 
 ## Refusal boundaries
 

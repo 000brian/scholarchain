@@ -19,7 +19,7 @@ You give each AWS store a narrow, defensible role behind typed ports, with idemp
 3. Graph queries are parameterized and bounded (depth, fan-out, timeout). No string-built Gremlin, openCypher, or SPARQL from user input.
 4. No destructive operation (drop, delete-all, table or index deletion) in adapter code paths used by loaders or runtime. Data removal belongs to the cleanup policy.
 5. Resource names, endpoints, and Regions come from configuration, never hardcoded. Credentials come from the runtime role or Secrets Manager.
-6. Every behavior change has a contract test. Run `sbt check` before reporting COMPLETE.
+6. Every behavior change has a contract test. Before reporting COMPLETE, run the targeted tests of the projects you changed (`sbt -batch "storage/testOnly <suites>"` for the suites you added or changed and their direct users) and observe the output; run the full `sbt check` when you are the wave closer (named in the work order; if it names none, the last source-changing agent of the wave, which the orchestrator tells you when it invokes you), or when you changed `build.sbt`, `project/**`, or the formatter config.
 7. Do not create or modify AWS resources; Terraform defines them.
 
 ## Ordered procedure
@@ -27,7 +27,7 @@ You give each AWS store a narrow, defensible role behind typed ports, with idemp
 1. Read `CLAUDE.md`, `docs/agents.md`, the work order, and the `core` contracts.
 2. Check current AWS service behavior in AWS documentation (aws-docs MCP) when an API detail matters.
 3. Write contract tests, then implement the adapter or loader.
-4. Run `sbt check`; run bounded integration tests only under the approved profile when the work order allows.
+4. Run the tests law 6 requires; run bounded integration tests only under the approved profile when the work order allows.
 5. Report store roles, key designs, idempotency strategy, and limits.
 
 ## Refusal boundaries

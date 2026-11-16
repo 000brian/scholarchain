@@ -13,13 +13,16 @@
 #      dependency-updater has no Write.
 #   4. Roster parity: every agent file appears in the docs/agents.md ownership table and
 #      every agent in that table has a file. Every writing agent appears in the guard's
-#      ownership map.
+#      ownership map. Ownership parity samples (amendment-02): releases/**, config/**
+#      and .claude/hook-tests/** have the same owner in docs/agents.md and in the
+#      guard's owner_of().
 #   5. Report contract: every agent file names all 14 standard report fields.
 #   6. Commands: required commands exist, each has a description, names a responsible
 #      agent that exists, and has a Gates section.
 #   7. JSON syntax of .claude/settings.json and .mcp.json.
 #   8. Hooks: every hook referenced by settings.json exists and is executable; every
-#      script in .claude/hooks is referenced; bash -n passes on every hook.
+#      script in .claude/hooks is referenced; bash -n passes on every hook and on every
+#      required self-test script in .claude/hook-tests (amendment-02).
 # Exit 0 when all checks pass, 1 (standalone) or 2 (hook mode) on any failure.
 # Must stay compatible with macOS /bin/bash 3.2.
 
@@ -46,7 +49,7 @@ except Exception: pass' 2>/dev/null)"
   fi
   REL="${FILE#"$ROOT"/}"
   case "$REL" in
-    CLAUDE.md|docs/agents.md|.mcp.json|.claude/agents/*|.claude/hooks/*|.claude/commands/*|.claude/settings.json) ;;
+    CLAUDE.md|docs/agents.md|.mcp.json|.claude/agents/*|.claude/hooks/*|.claude/hook-tests/*|.claude/commands/*|.claude/settings.json) ;;
     *) exit 0 ;;
   esac
   exec 1>&2   # hook feedback must reach the agent on stderr
@@ -54,7 +57,10 @@ fi
 
 REQUIRED_AGENTS="factory-engineer build-engineer domain-engineer dataset-engineer hadoop-engineer entity-resolution-engineer spark-engineer storage-engineer rag-engineer service-engineer test-engineer code-reviewer infra-engineer deploy-engineer experiment-engineer documentation-engineer incident-responder dependency-updater"
 REQUIRED_COMMANDS="deploy rollback incident run-pipeline experiment"
+REQUIRED_SELFTESTS=".claude/hook-tests/guard-selftest.sh .claude/hook-tests/stop-hook-selftest.sh"
 REPORT_FIELDS="STATUS OWNER WORK_ORDER FILES_CREATED FILES_MODIFIED COMMANDS_RUN TEST_RESULTS VALIDATION_RESULTS ASSUMPTIONS RISKS MANUAL_ACTION_REQUIRED BLOCKED-ON_OWNER BLOCKED-ON_EVIDENCE NEXT_GATE"
+# Ownership parity samples: <owner_of case pattern>|<owner>|<docs/agents.md path text>
+OWNERSHIP_SAMPLES="releases/*|deploy-engineer|releases/** config/*|infra-engineer|config/** .claude/*|factory-engineer|.claude/hook-tests/**"
 
 FAILS=0
 PASSES=0
@@ -145,6 +151,22 @@ if [ -f docs/agents.md ]; then
   for n in $TABLE_AGENTS; do
     [ -f ".claude/agents/$n.md" ] || fail "docs/agents.md lists '$n' but .claude/agents/$n.md does not exist (orphan)"
   done
+  # Ownership parity samples (amendment-02). Globbing is off while the samples expand.
+  set -f
+  for s in $OWNERSHIP_SAMPLES; do
+    pat="${s%%|*}"; rest="${s#*|}"; own="${rest%%|*}"; doc="${rest#*|}"
+    if grep -F "$pat" .claude/hooks/guard-dangerous.sh 2>/dev/null | grep -qF "echo \"$own\""; then
+      pass "owner_of maps $pat to $own"
+    else
+      fail "guard-dangerous.sh owner_of() does not map '$pat' to '$own'"
+    fi
+    if grep -E "^\| \`$own\` \|" docs/agents.md | grep -qF "\`$doc\`"; then
+      pass "docs/agents.md gives $doc to $own"
+    else
+      fail "docs/agents.md '$own' row does not list \`$doc\`"
+    fi
+  done
+  set +f
 else
   fail "docs/agents.md is missing"
 fi
@@ -194,6 +216,16 @@ fi
 for h in .claude/hooks/*.sh; do
   [ -e "$h" ] || continue
   if bash -n "$h" 2>/dev/null; then pass "$h bash -n"; else fail "$h fails bash -n"; fi
+done
+for h in $REQUIRED_SELFTESTS; do
+  if [ ! -f "$h" ]; then fail "required self-test $h is missing"
+  elif bash -n "$h" 2>/dev/null; then pass "$h bash -n"
+  else fail "$h fails bash -n"
+  fi
+done
+for h in .claude/hook-tests/*; do
+  [ -e "$h" ] || continue
+  case " $REQUIRED_SELFTESTS " in *" $h "*) ;; *) fail "file $h in .claude/hook-tests is not a listed self-test (orphan)" ;; esac
 done
 
 echo "validate-agent-files.sh: $PASSES checks passed, $FAILS failed."

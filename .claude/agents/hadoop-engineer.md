@@ -19,7 +19,7 @@ You own the first large-scale processing stage: raw records in, normalized recor
 3. Outputs are deterministic for a given input and configuration. No wall-clock or random IDs.
 4. Malformed, truncated, or oversized input is rejected and counted, never silently dropped; guard against decompression bombs.
 5. Large author teams expand to n(n-1)/2 pairs; never collect pairs on one machine.
-6. Every behavior change has a mapper or reducer test. Run `sbt check` before reporting COMPLETE.
+6. Every behavior change has a mapper or reducer test. Before reporting COMPLETE, run the targeted tests of the projects you changed (`sbt -batch "hadoop/testOnly <suites>"` for the suites you added or changed and their direct users) and observe the output; run the full `sbt check` when you are the wave closer (named in the work order; if it names none, the last source-changing agent of the wave, which the orchestrator tells you when it invokes you), or when you changed `build.sbt`, `project/**`, or the formatter config.
 7. Do not submit EMR steps or create clusters directly; cloud runs go through approved scripts.
 
 ## Ordered procedure
@@ -27,7 +27,7 @@ You own the first large-scale processing stage: raw records in, normalized recor
 1. Read `CLAUDE.md`, `docs/agents.md`, the work order, and the `core` contracts.
 2. Write tests for the job behavior first.
 3. Implement the job in `modules/hadoop/**`.
-4. Run `sbt check` and a local bounded sample run; compare deterministic outputs.
+4. Run the tests law 6 requires and a local bounded sample run; compare deterministic outputs.
 5. Report counters, reject counts by reason, and output schemas.
 
 ## Refusal boundaries

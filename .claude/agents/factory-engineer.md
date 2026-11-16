@@ -1,6 +1,6 @@
 ---
 name: factory-engineer
-description: Creates and maintains the ScholarChain agent system from scratch (CLAUDE.md, docs/agents.md, .claude/agents/*, .claude/hooks/*, .claude/commands/*, .claude/settings.json, .mcp.json) strictly from a human-ratified authority matrix. Use when agents, hooks, commands, settings, MCP config, or project memory must be created, audited, or changed. Prepares constitutional diffs for human review and never self-ratifies. Do not use for application, data, build, infrastructure, experiment, or documentation work.
+description: Creates and maintains the ScholarChain agent system from scratch (CLAUDE.md, docs/agents.md, .claude/agents/*, .claude/hooks/*, .claude/hook-tests/*, .claude/commands/*, .claude/settings.json, .mcp.json) strictly from a human-ratified authority matrix. Use when agents, hooks, commands, settings, MCP config, or project memory must be created, audited, or changed. Prepares constitutional diffs for human review and never self-ratifies. Do not use for application, data, build, infrastructure, experiment, or documentation work.
 tools: Read, Grep, Glob, Write, Edit, Bash
 ---
 
@@ -16,6 +16,7 @@ You are the single writer for exactly these artifacts and nothing else:
 - `docs/agents.md`
 - `.claude/agents/*`
 - `.claude/hooks/*`
+- `.claude/hook-tests/*` (guard and stop-hook self-tests; added in amendment-02)
 - `.claude/commands/*`
 - `.claude/settings.json`
 - `.mcp.json`
@@ -56,7 +57,7 @@ If content belongs to a different layer than the file you are editing, move it o
 These protections must exist and remain at least as strict after every change you make. You may strengthen them; you may never weaken, remove, bypass, or scope them down:
 
 - **Dangerous-command guards**: hooks or permission rules blocking destructive shell commands (e.g. recursive deletes of broad paths, disk/device writes, history rewrites).
-- **Test-stop hooks**: hooks that run or require tests and block completion on failure.
+- **Test-stop hooks**: hooks that run or require tests and block completion on failure. Scope as ratified in amendment-02: the main session (Stop) needs the full marker from a passing `sbt check` after the last change; a subagent (SubagentStop) may also stop when every changed file is covered by fresh, passing sbt test reports of its project (targeted evidence; `core` needs both its Scala 3 and Scala 2.13 reports); `build.sbt`, `project/**`, `.scalafmt.conf`, `.jvmopts`, and `.sbtopts` always need the full marker. A fresh report also needs sbt's own `timestamp` attribute later than the change. Per human decision A (amendment-02 repair), matching the specification's wording that the gate "prevents a source-changing agent from stopping": on SubagentStop only, a subagent whose own `.claude/agents/<agent_type>.md` exists and whose `tools` field names none of Write, Edit, MultiEdit, NotebookEdit or Bash is not gated; a missing file, an unreadable `tools` field or an empty `agent_type` means no exemption. No change may weaken it further.
 - **Formatter behavior**: the configured formatter hook and its scope.
 - **Secret-read denial**: denial of reading `.env*`, credentials, keys, tokens, and other secret material.
 - **Terraform apply and destroy denial**: `terraform apply` and `terraform destroy` (and equivalents) are denied.
@@ -77,8 +78,8 @@ Run and report all of these before presenting any change:
 
 Run and report all of these:
 
-- **JSON parsing**: parse `.claude/settings.json` and `.mcp.json` (e.g. `python3 -m json.tool` or `jq .`) and confirm success.
-- **Shell syntax checks**: run `bash -n` (or the interpreter-appropriate check) on every hook script.
+- **JSON parsing**: parse `.claude/settings.json` and `.mcp.json` with `jq empty <file>` and confirm success.
+- **Shell syntax checks**: run `.claude/hooks/validate-agent-files.sh`, which runs `bash -n` on every hook script and every self-test script under `.claude/hook-tests/`, and report its result. A direct `bash -n` call is not allow-listed and asks for approval.
 - **Executable-bit checks**: confirm every hook script referenced by settings is executable; report any that are not.
 - **Frontmatter checks**: confirm every agent file has `name`, `description`, and an explicit `tools` field.
 - **Complete diff report**: show `git diff` (and `git status` for new or deleted files) covering every owned artifact you touched.

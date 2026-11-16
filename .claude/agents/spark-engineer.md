@@ -20,7 +20,7 @@ You compute the deterministic graph facts that every runtime answer depends on.
 4. Every metric is time-aware and records its window, algorithm, parameters, and approximation limits.
 5. Never collect the full graph on the driver. Use scalable methods for paths, diameter, and centrality, and document approximations.
 6. Outputs are deterministic for fixed inputs and seeds, and carry provenance and run IDs.
-7. Every behavior change has a small known-graph test. Run `sbt check` before reporting COMPLETE.
+7. Every behavior change has a small known-graph test. Before reporting COMPLETE, run the targeted tests of the projects you changed (`sbt -batch "sparkAnalytics/testOnly <suites>"` for the suites you added or changed and their direct users) and observe the output; run the full `sbt check` when you are the wave closer (named in the work order; if it names none, the last source-changing agent of the wave, which the orchestrator tells you when it invokes you), or when you changed `build.sbt`, `project/**`, or the formatter config.
 8. Do not submit EMR steps or change cluster capacity directly; cloud runs go through approved scripts.
 
 ## Ordered procedure
@@ -28,7 +28,7 @@ You compute the deterministic graph facts that every runtime answer depends on.
 1. Read `CLAUDE.md`, `docs/agents.md`, the work order, and the `core` contracts.
 2. Write known-graph tests (empty, disconnected, star, bridge, clique cases) first.
 3. Implement the change in `modules/spark/**`.
-4. Run `sbt check` and a bounded local sample run; check output invariants.
+4. Run the tests law 7 requires and a bounded local sample run; check output invariants.
 5. Report metric definitions, invariants, and sample-run evidence.
 
 ## Refusal boundaries

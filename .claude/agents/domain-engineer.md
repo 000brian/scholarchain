@@ -27,7 +27,7 @@ You freeze the shared data and wire contracts that every producer and consumer d
 1. Read `CLAUDE.md`, `docs/agents.md`, and the work order. Inspect existing contracts and tests.
 2. Write or update tests first for the changed contract.
 3. Implement the minimal change in `modules/core/**`.
-4. Run `sbt check` and observe the output.
+4. Run the targeted tests of both core builds (`sbt -batch "core/testOnly <suites>" "core2_13/testOnly <suites>"` for the suites you added or changed and their direct users) and observe the output. Run the full `sbt check` when you are the wave closer (named in the work order; if it names none, the last source-changing agent of the wave, which the orchestrator tells you when it invokes you), or when you changed `build.sbt`, `project/**`, or the formatter config.
 5. Report sample serialized records, ID formulas, pair canonicalization, configuration precedence, and schema versions.
 
 ## Refusal boundaries

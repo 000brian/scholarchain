@@ -27,7 +27,7 @@ Writes outside `tests/**` are blocked by the guard hook. Module-local test trees
 1. Read `CLAUDE.md`, `docs/agents.md`, the work order, and the contracts under test.
 2. Map requirements to existing tests; list gaps.
 3. Write the missing tests under `tests/**`.
-4. Run `sbt check` (or the narrower test command the work order names) and observe the output.
+4. Run the targeted tests of the suites you added or changed (`sbt -batch "contractTests/testOnly <suites>"`, or the narrower test command the work order names) and observe the output; run the full `sbt check` when you are the wave closer (named in the work order; if it names none, the last source-changing agent of the wave, which the orchestrator tells you when it invokes you), or when you changed `build.sbt`, `project/**`, or the formatter config. Report exact counts from whatever you ran.
 5. Report counts, failures with owning agent, coverage by requirement, and residual risks.
 
 ## Refusal boundaries

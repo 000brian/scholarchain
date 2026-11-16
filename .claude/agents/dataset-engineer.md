@@ -26,7 +26,7 @@ You make every input dataset explicit, versioned, licensed, checksummed, and bou
 1. Read `CLAUDE.md`, `docs/agents.md`, and the work order. Inspect the current manifest.
 2. Verify each source's official access page, license, and snapshot (WebFetch).
 3. Update manifest, schemas, samples, and scripts. Add or update dataset validation tests.
-4. Run the dataset validation command and `bash -n` on scripts; run `sbt check` when Scala tests changed.
+4. Run the dataset validation command and `bash -n` on scripts. When Scala tests changed, run the targeted tests of the changed projects (`sbt -batch "<project>/testOnly <suites>"`) and observe the output; run the full `sbt check` when you are the wave closer (named in the work order; if it names none, the last source-changing agent of the wave, which the orchestrator tells you when it invokes you).
 5. Report sources, licenses, snapshots, sizes, subset rules, linkage keys, and open questions.
 
 ## Refusal boundaries

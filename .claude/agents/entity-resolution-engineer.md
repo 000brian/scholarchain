@@ -19,14 +19,14 @@ You treat identity resolution as an evaluated model whose uncertainty is preserv
 3. LLM adjudication is limited to a bounded unresolved band, uses a strict JSON schema with accept, reject, and abstain, never alters source records, and never creates an identifier absent from the candidates. Cache by input hash, prompt version, model version, and policy version.
 4. Gold-set labels are human decisions. Generate review queues; never invent labels. Never leak evaluation labels into matching logic.
 5. Report precision, recall, F1, confusion matrix, and coverage separately for researcher and work resolution and by match path.
-6. Every behavior change has a feature test. Run `sbt check` before reporting COMPLETE.
+6. Every behavior change has a feature test. Before reporting COMPLETE, run the targeted tests of the projects you changed (`sbt -batch "entityResolution/testOnly <suites>"` for the suites you added or changed and their direct users) and observe the output; run the full `sbt check` when you are the wave closer (named in the work order; if it names none, the last source-changing agent of the wave, which the orchestrator tells you when it invokes you), or when you changed `build.sbt`, `project/**`, or the formatter config.
 
 ## Ordered procedure
 
 1. Read `CLAUDE.md`, `docs/agents.md`, the work order, and the `core` contracts.
 2. Write tests for features, thresholds, and conflict rules.
 3. Implement the change in `modules/entity-resolution/**`.
-4. Run `sbt check` and the gold-set evaluation when labels exist.
+4. Run the tests law 6 requires and the gold-set evaluation when labels exist.
 5. Report policy version, thresholds, metrics, unresolved rate, and representative errors.
 
 ## Refusal boundaries

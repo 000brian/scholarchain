@@ -38,21 +38,40 @@ Rules:
 
 ## Commands
 
-- `sbt check` is the repository definition of done. It runs format checking, compilation, tests, contract tests that do not need AWS, and `markTestRun`, which refreshes `.claude/.last-test-run` only when tests pass.
+- `sbt check` is the repository's full gate. It runs format checking, compilation, tests, contract tests that do not need AWS, and `markTestRun`, which refreshes `.claude/.last-test-run` only when tests pass.
+- `sbt -batch "<project>/testOnly <suites>"` runs targeted tests; sbt writes their reports under the project's `target/**/test-reports/`, which `verify-tests-ran.sh` reads.
 - `sbt fmt` formats sources. `sbt Test/compile` compiles tests.
-- Formatter dialects (`.scalafmt.conf`, owned by `build-engineer`): Scala 3 by default; `core` (`modules/core/src/**`) and `sparkAnalytics` (`modules/spark/src/**`) are formatted with the Scala 2.13 dialect (`scala213source3`), a consequence of the Scala deviation above.
-- `.claude/hooks/validate-agent-files.sh` validates the agent system.
-- Build aliases are defined by `build-engineer` in `build.sbt`; until `build.sbt` exists, no Scala gate can pass and source-changing agents report `BLOCKED-ON` with owner `build-engineer`.
+- Formatter dialects (`.scalafmt.conf`, owned by `build-engineer`): Scala 3 by default for application sources; `core` (`modules/core/src/**`) and `sparkAnalytics` (`modules/spark/src/**`) are formatted with the Scala 2.13 dialect (`scala213source3`), a consequence of the Scala deviation above; build definitions use the sbt dialect (`*.sbt`) and the Scala 2.12 dialect (`project/*.scala`).
+- `.claude/hooks/validate-agent-files.sh` validates the agent system. `bash .claude/hook-tests/guard-selftest.sh` and `bash .claude/hook-tests/stop-hook-selftest.sh` test the guard and the stop hook (the human runs them after a restart).
+- Build aliases are defined by `build-engineer` in `build.sbt`.
 
 ## Definition of done
 
 Implementation work is complete only when:
 
-1. `sbt check` passes and its output was observed (never report a command as successful without seeing its output).
-2. Every behavior change has a feature test that fails without the change.
-3. The owning agent's primary gate in `docs/agents.md` passes.
-4. The agent returns the standard report contract.
-5. The required reviewer or test agent has run when the phase requires it, and the human has ratified the phase.
+1. After a source change, the tests of every changed project pass and the agent saw the output: `sbt -batch "<project>/testOnly <suites>"` for the suites it added or changed and their direct users. `verify-tests-ran.sh` checks this from sbt's own test reports. Never report a command as successful without seeing its output.
+2. A full `sbt check` passes after the last source change of each wave, before `code-reviewer` reviews that wave, and before the phase ends. A wave is the source-changing agents the orchestrator runs one after another before the next review or `test-engineer` step. The work order names the agent that runs this check (the wave closer); by default it is the last source-changing agent of the wave. Never repeat a passing `sbt check` without a source change.
+3. Every behavior change has a feature test that fails without the change.
+4. The owning agent's primary gate in `docs/agents.md` passes.
+5. The agent returns the standard report contract.
+6. The required reviewer or test agent has run when the phase requires it, and the human has ratified the phase.
+
+## Operating rules for agent runs
+
+- Hub and spoke: agents never call each other; every handoff goes through the orchestrator. One repair round per finding; if it is still open, the orchestrator asks the human. An agent never edits another owner's file, even to fix an obvious mistake; it reports it.
+- One sbt process at a time. The orchestrator never runs two source-changing agents at once; the read-only `code-reviewer` may run alongside one.
+- No watchers: no `tail -f`, `tail -F`, `watch`, or other command that does not end by itself (the guard blocks them). Long jobs use the Bash tool's background option and are read with bounded reads (`tail -n`, `grep`). A step ends with no background job left.
+- The orchestrator never ends its turn while a background agent is running; it waits for the result. When it must stop and ask the human, its message starts with the line `STATUS: BLOCKED-ON human`.
+- No memory or settings writes during a run (the guard blocks writes under `~/.claude/`, to `.claude/settings.local.json`, and to `CLAUDE.local.md`). A note worth keeping goes in the report.
+- Commands: sbt, read-only git, and read-only shell only, unless the work order allows more. Files are edited only with the Write and Edit tools, never with `sed -i`, `perl -i`, or shell redirection into the repository (the guard blocks these). If a command needs approval, do not retry variants: skip it if optional, else report `BLOCKED-ON`.
+- Live tests (live AWS, Voyage, Anthropic, Bedrock) are tagged `RequiresAws`; they are compiled and never run unless the work order says so.
+- Secrets: no key, token, account ID, or bucket name in code, config, tests, logs, or reports. Keys are read only from an environment variable whose NAME comes from configuration.
+- Model output that fails validation is stored only as its sha256, length, and error. No prompt asks for reasoning.
+- Scope: build only what the work order lists; extras go on a "proposed later" list.
+- Repair limits: only blocking or major findings get a repair round; all findings of one owner are repaired in one pass; the owner adds a test that fails without the fix.
+- Every source-changing agent ends its report with `INTERFACE HANDOFF`: files changed, public signatures, fixtures, thread-safety, limits.
+- Evidence: nothing is written under `docs/agent-runs/`; reports go to the session scratchpad and the human copies them with `cp -n`.
+- A work order may add phase-specific exceptions (for example a phase that allows network); the work order wins for that phase only.
 
 ## Architecture invariants
 

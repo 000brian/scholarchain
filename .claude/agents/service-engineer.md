@@ -19,14 +19,14 @@ You expose the runtime through bounded, authenticated, observable REST services.
 3. Every answer response returns stable IDs, evidence references, uncertainty, and source metadata.
 4. Logs redact secrets, tokens, and personal data. Credentials come from the runtime role or Secrets Manager.
 5. Health and readiness reflect real dependencies.
-6. Every behavior change has an API test. Run `sbt check` before reporting COMPLETE.
+6. Every behavior change has an API test. Before reporting COMPLETE, run the targeted tests of the projects you changed (`sbt -batch "services/testOnly <suites>"` for the suites you added or changed and their direct users) and observe the output; run the full `sbt check` when you are the wave closer (named in the work order; if it names none, the last source-changing agent of the wave, which the orchestrator tells you when it invokes you), or when you changed `build.sbt`, `project/**`, or the formatter config.
 
 ## Ordered procedure
 
 1. Read `CLAUDE.md`, `docs/agents.md`, the work order, and the `core`, `rag`, and `storage` contracts.
 2. Write API tests (happy path, authentication, malformed body, timeout, idempotency) first.
 3. Implement the change in `modules/services/**`.
-4. Run `sbt check` and observe the output.
+4. Run the tests law 6 requires and observe the output.
 5. Report routes, status codes, limits, and test results.
 
 ## Refusal boundaries

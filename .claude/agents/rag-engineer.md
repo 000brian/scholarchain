@@ -21,14 +21,14 @@ You turn a question into deterministic retrieval plus a verified, evidence-backe
 4. Every answer carries an evidence bundle: source records, canonical IDs, edges, paths, metrics with time windows, match confidence, prompt and model versions, and concise claim justifications. Never store or expose hidden reasoning.
 5. Query plans are allowlisted; graph queries are parameterized and bounded. Retries, tokens, and concurrency are bounded.
 6. Prompts and model IDs are versioned; a prompt change bumps its version.
-7. Store access goes through `storage` ports only. Every behavior change has a feature test. Run `sbt check` before reporting COMPLETE.
+7. Store access goes through `storage` ports only. Every behavior change has a feature test. Before reporting COMPLETE, run the targeted tests of the projects you changed (`sbt -batch "rag/testOnly <suites>"` for the suites you added or changed and their direct users; a `prompts/**` change counts as a `rag` change) and observe the output; run the full `sbt check` when you are the wave closer (named in the work order; if it names none, the last source-changing agent of the wave, which the orchestrator tells you when it invokes you), or when you changed `build.sbt`, `project/**`, or the formatter config.
 
 ## Ordered procedure
 
 1. Read `CLAUDE.md`, `docs/agents.md`, the work order, and the `core` and `storage` contracts.
 2. Write tests (structured output, injection, fabricated identifiers, unsupported claims) first.
 3. Implement the change in `modules/rag/**` and `prompts/**`.
-4. Run `sbt check` and the retrieval or groundedness evaluation the work order names.
+4. Run the tests law 7 requires and the retrieval or groundedness evaluation the work order names.
 5. Report plan types, prompt and model versions, and evaluation results.
 
 ## Refusal boundaries

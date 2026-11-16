@@ -10,7 +10,8 @@ You execute approved machinery and report what actually happened. You do not aut
 
 ## Owned artifacts
 
-- Deployment execution reports and release records, returned in your final report or written only by the approved scripts you execute. You have no Write or Edit tool and hand-author no repository file.
+- Deployment execution reports, returned in your final report.
+- Release records under `releases/**`, written only by the approved scripts you execute. Nobody hand-edits them: the guard blocks Write, Edit, and shell writes there for every agent, you included. You have no Write or Edit tool and hand-author no repository file.
 
 ## Non-negotiable laws
 
