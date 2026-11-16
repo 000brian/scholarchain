@@ -4,7 +4,8 @@ Human-owned record (docs/agent-runs/**). Each entry gives the date, how the appr
 
 ## 2026-11-09: Voyage AI embeddings and Anthropic API synthesis (Bedrock quota is 0)
 
-**Received by:** Danny Nguyen, Microsoft Teams
+**Received by:** Danny Nguyen, Microsoft Teams 
+My account has the same restriction (all Bedrock quotas 0 in Service Quotas), so I follow the terms of this answer exactly and record that here as a deviation from the AWS-only spec.
 
 **Situation:** Hi Professor,
  
@@ -30,7 +31,7 @@ Questions:
 >
 > The $25 limit is a ceiling, not a spending target. Monitor actual charges across providers and stop paid resources when your experiments are complete. Moving a bill outside AWS does not make it disappear.
 
-**How it is applied:** embedding provider `voyage` (`voyage-4`, 1024 dimensions) by default; `bedrock` (`amazon.titan-embed-text-v2:0`, 1024 dimensions) kept as a switch; synthesis via the Anthropic API from Phase 9. First used in docs/agent-runs/phase-07/prompt.md, decision 7.
+**How it is applied:** embedding provider `voyage` (`voyage-4`, 1024 dimensions) by default; `bedrock` (`amazon.titan-embed-text-v2:0`, 1024 dimensions) kept as a switch. Synthesis and query planning use the Anthropic API with model `claude-haiku-5-5` from Phase 9; `bedrock` (`anthropic.claude-haiku-5-5`) is kept as a switch. Embeddings first used in docs/agent-runs/phase-07/prompt.md, decision 7; synthesis in docs/agent-runs/phase-09/prompt.md, decision 5d. Phase 9 cost: Anthropic about $0.06, Voyage $0, AWS $0 (docs/agent-runs/phase-09/human-gate.md).
 
 ## Earlier approvals (add the details you have)
 
