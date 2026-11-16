@@ -37,10 +37,17 @@ final case class VerifiedClaim(
   *     bridge claim.
   *
   * Status: `conflicting` when a number, year, hop count or bound value contradicts its cited
-  * evidence; `unsupported` when no valid evidence supports the claim; `verified` when every check
-  * passes; `partially_supported` when some checks pass and others are not covered.
+  * evidence (an unbound non-year number that matches no value of the cited graph items included,
+  * Phase 9 m-1); `unsupported` when no valid evidence supports the claim; `verified` when every
+  * check passes and at least one check was made; `partially_supported` when some checks pass and
+  * others are not covered, or when the claim has nothing checkable (reason
+  * [[ClaimVerification.NothingCheckable]]).
   */
 object ClaimVerification {
+
+  /** The reason of a claim with valid citations and nothing checkable in its text. */
+  val NothingCheckable = "nothing checkable"
+
   private val StableIdRe =
     "\\b(researcher|work|evidence|edge|run|mention|chunk|link):v1:[0-9a-f]{32}\\b".r
   private val ClaimIdRe = "\\bclaim-[0-9]{1,4}\\b".r
@@ -195,7 +202,10 @@ object ClaimVerification {
           conflicts += s"year $lit is not a window, edge or work year of the cited evidence"
         else uncovered += s"year $lit is not supported by graph evidence"
       } else if (values.exists { case (_, v) => literalMatches(lit, v) }) checked += 1
-      else uncovered += s"number $lit is not a value of the cited graph evidence"
+      // m-1: a number that matches no value of the cited graph items contradicts them
+      else if (graph.nonEmpty)
+        conflicts += s"number $lit is not a value of the cited graph evidence"
+      else uncovered += s"number $lit is not supported by graph evidence"
     }
 
     // ---- bound numbers ----
@@ -225,11 +235,16 @@ object ClaimVerification {
     val semanticOnly = graph.isEmpty && validItems.nonEmpty
     val cs = conflicts.result().distinct
     val us = uncovered.result().distinct
+    // m-1: `verified` needs at least one passed check; with nothing checkable the claim is only
+    // partially supported
+    val nothingCheckable =
+      cs.isEmpty && validItems.nonEmpty && !(semanticOnly && graphish) && us.isEmpty && checked == 0
     val status =
       if (cs.nonEmpty) VerificationStatus.Conflicting
       else if (validItems.isEmpty) VerificationStatus.Unsupported
       else if (semanticOnly && graphish) VerificationStatus.Unsupported
-      else if (us.isEmpty) VerificationStatus.Verified
+      else if (us.isEmpty && checked > 0) VerificationStatus.Verified
+      else if (nothingCheckable) VerificationStatus.PartiallySupported
       else if (checked > 0) VerificationStatus.PartiallySupported
       else VerificationStatus.Unsupported
     val reasons =
@@ -238,7 +253,9 @@ object ClaimVerification {
                        "semantic context cannot support a number, edge, path, component, community or bridge claim"
                      )
                    else Nil) ++
-        (if (validItems.isEmpty && cs.isEmpty) List("no cited evidence is in the bundle") else Nil)
+        (if (validItems.isEmpty && cs.isEmpty) List("no cited evidence is in the bundle")
+         else Nil) ++
+        (if (nothingCheckable) List(ClaimVerification.NothingCheckable) else Nil)
     VerifiedClaim(c, status, valid, reasons.distinct, checked)
   }
 }

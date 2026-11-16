@@ -323,12 +323,14 @@ class ConfigLoaderSuite extends munit.FunSuite {
       c.origins.keySet,
       ConfigLoader.allKeys
         .map(_.path)
-        .filterNot(p => p.startsWith("llm.") || p.startsWith("runtime."))
+        .filterNot(p =>
+          p.startsWith("llm.") || p.startsWith("runtime.") || p.startsWith("service.")
+        )
         .toSet
     )
     assert(c.origins.values.forall(_ == ConfigOrigin.File(SectionsFile)))
     assertNotEquals(cfg.fingerprint, loaded().config.fingerprint)
-    assertEquals((cfg.llm, cfg.runtime), (None, None))
+    assertEquals((cfg.llm, cfg.runtime, cfg.service), (None, None, None))
   }
 
   test("the config stores the NAME of the API-key variable; the loader never reads its value") {
@@ -521,8 +523,9 @@ class ConfigLoaderSuite extends munit.FunSuite {
     )
     val names = ConfigLoader.allKeys.map(_.envVar)
     assertEquals(names.distinct.size, names.size)
-    // 37 Phase 7 section keys + 10 llm keys + 7 runtime keys (Phase 9).
-    assertEquals(ConfigLoader.allKeys.size, ConfigLoader.keys.size + 37 + 10 + 7)
+    // 37 Phase 7 section keys + 10 llm keys + 7 runtime keys (Phase 9) + 14 service keys
+    // (Phase 10).
+    assertEquals(ConfigLoader.allKeys.size, ConfigLoader.keys.size + 37 + 10 + 7 + 14)
   }
 
   // ---- Phase 9 optional sections (llm, runtime) --------------------------------------------

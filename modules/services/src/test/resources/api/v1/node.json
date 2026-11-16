@@ -1,0 +1,32 @@
+{
+  "graphRunId": "run:v1:ce890bd70723da010b9dffac391c0f97",
+  "kind": "researcher",
+  "nodeId": "researcher:v1:52838581632176f586270440374529a0",
+  "properties": {
+    "averageCoauthorsPerPaper": 1.3333333333333333,
+    "communityId": "researcher:v1:61ad71f7aee0afa1185ca185ab9e3042",
+    "communitySize": 4,
+    "componentId": "researcher:v1:21f8a521e3cd4745980f0d36597d96ea",
+    "componentSize": 7,
+    "coreness": 2,
+    "datasetId": "scholarchain-graph",
+    "displayName": "Greta Olsen",
+    "distinctCoauthors": 3,
+    "identityConfidence": 0.95,
+    "identityOutcome": "conflict",
+    "maxCoauthorsOnOnePaper": 2,
+    "mentionCount": 2,
+    "metricsWindowEndYear": 2025,
+    "metricsWindowLabel": "full-2015-2025",
+    "metricsWindowStartYear": 2015,
+    "minIdentityConfidence": 0.95,
+    "participationCoefficient": 0,
+    "policyVersion": "graph-v1",
+    "publicationCount": 3,
+    "runId": "run:v1:ce890bd70723da010b9dffac391c0f97",
+    "snapshotId": "dblp-2026-11-01",
+    "totalCoauthorOccurrences": 4,
+    "weightedDegree": 4,
+    "workCount": 3
+  }
+}

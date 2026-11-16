@@ -1,5 +1,6 @@
 package org.scholarchain.storage.dynamo
 
+import org.scholarchain.core.Hashing
 import org.scholarchain.core.config.DynamoDbSettings
 
 /** One documented access pattern: who reads or writes, and with which key condition. */
@@ -86,8 +87,8 @@ object TableSpecs {
 
   val QuerySession: TableSpec = TableSpec(
     "QuerySession",
-    "session#<sessionId>",
-    "turn#<NNNNNN>",
+    "session#<sessionId> | job#<jobId> (QS4) | idempotency#<sha256 hex of (scope, key)> (QS5)",
+    "turn#<NNNNNN> | job (QS4) | idempotency (QS5)",
     appendOnly = false,
     ttlAttribute = Some("expiresAt"),
     List(
@@ -100,9 +101,24 @@ object TableSpecs {
       ),
       AccessPattern(
         "QS3",
-        "Expire abandoned sessions (DynamoDB TTL on expiresAt; sessions are disposable)",
+        "Expire abandoned sessions, jobs and idempotency records (DynamoDB TTL on expiresAt, " +
+          "epoch seconds; all three are disposable; readers treat an expired item as absent)",
         "TTL",
         "expiresAt < now"
+      ),
+      AccessPattern(
+        "QS4",
+        "One job (Phase 10): read it; create it put-if-absent; change it (claim, reclaim, " +
+          "release, succeed with its result, fail, stage) only at the version the caller read",
+        "GetItem; PutItem attribute_not_exists(pk); PutItem attribute_exists(pk) AND version = :read",
+        "pk = job#<jobId>, sk = job"
+      ),
+      AccessPattern(
+        "QS5",
+        "One idempotency record (Phase 10): claim it put-if-absent (a losing claim reads the " +
+          "existing record; an expired record is replaced at its version); read it",
+        "GetItem; PutItem attribute_not_exists(pk); PutItem attribute_exists(pk) AND version = :read",
+        "pk = idempotency#<sha256 hex of canonical (scope, Idempotency-Key)>, sk = idempotency"
       )
     ),
     _.querySessionTable
@@ -222,6 +238,15 @@ object TableSpecs {
   def researcherSk(researcherId: String): String = s"researcher#$researcherId"
   def sessionPk(sessionId: String): String = s"session#$sessionId"
   def turnSk(turn: Int): String = f"turn#$turn%06d"
+  def jobPk(jobId: String): String = s"job#$jobId"
+  val JobSk = "job"
+
+  /** QS5 partition key: the sha256 of the canonical encoding of (caller scope, Idempotency-Key), so
+    * neither value is stored in clear and two scopes never share a key.
+    */
+  def idempotencyPk(scope: String, idempotencyKey: String): String =
+    "idempotency#" + Hashing.sha256Hex(Hashing.canonicalEncoding(Seq(scope, idempotencyKey)))
+  val IdempotencySk = "idempotency"
   def evidencePk(evidenceId: String): String = s"evidence#$evidenceId"
   def windowSk(start: Int, end: Int): String = s"window#$start-$end"
   val NoWindowSk = "window#none"

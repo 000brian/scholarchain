@@ -58,16 +58,58 @@ object PromptTemplate {
   private val Placeholder = "\\{\\{([A-Z_]+)\\}\\}".r
 }
 
-/** The two runtime prompts of one workflow. */
-final case class PromptSet(planner: PromptTemplate, synthesis: PromptTemplate) {
+/** The two runtime prompts of one workflow and the answer-claims schema the synthesis prompt asks
+  * for (the planner's schema is always `query-plan-draft-v1`).
+  */
+final case class PromptSet(
+    planner: PromptTemplate,
+    synthesis: PromptTemplate,
+    claims: AnswerClaimsSpec = AnswerClaimsSpec.V1
+) {
   def versions: List[String] = List(planner.version, synthesis.version)
+
+  /** Output schemas used with these prompts. */
+  def schemaIds: List[String] =
+    List(PlanDraftSchema.SchemaId, claims.schemaId, SemanticContextSchema.SchemaId)
 }
 
+/** One named prompt set: the prompt IDs and the claims schema they go with. The configuration has
+  * no prompt key (core's `llm` section is unchanged), so the set is chosen by the caller
+  * (`--prompts` of the benchmark runner, [[RuntimeService]] options); the default is
+  * [[Prompts.Current]].
+  */
+final case class PromptSetSpec(
+    name: String,
+    plannerId: String,
+    synthesisId: String,
+    claims: AnswerClaimsSpec
+)
+
 object Prompts {
-  val PlannerId = "query-planner-v1"
-  val SynthesisId = "answer-synthesis-v1"
+
+  /** Phase 9 prompts (kept unchanged as the record of that run). */
+  val V1: PromptSetSpec =
+    PromptSetSpec("v1", "query-planner-v1", "answer-synthesis-v1", AnswerClaimsSpec.V1)
+
+  /** Phase 10 prompts: q26 venue-as-topic rule, smaller synthesis output (decision 5b, 5c). */
+  val V2: PromptSetSpec =
+    PromptSetSpec("v2", "query-planner-v2", "answer-synthesis-v2", AnswerClaimsSpec.V2)
+
+  /** The prompt set used unless a caller names another. */
+  val Current: PromptSetSpec = V2
+  val Sets: List[PromptSetSpec] = List(V1, V2)
+
+  def setNamed(name: String): Either[String, PromptSetSpec] =
+    Sets
+      .find(_.name == name)
+      .toRight(s"unknown prompt set '$name' (known: ${Sets.map(_.name).mkString(", ")})")
+
+  val PlannerId: String = Current.plannerId
+  val SynthesisId: String = Current.synthesisId
+
+  /** Every schema file under `prompts/schemas/`. */
   val SchemaIds: List[String] =
-    List("query-plan-draft-v1", "answer-claims-v1", "semantic-context-v1")
+    List("query-plan-draft-v1", "answer-claims-v1", "answer-claims-v2", "semantic-context-v1")
 
   /** Loads `<root>/runtime/<promptId>.md`. */
   def load(root: Path, promptId: String): Either[String, PromptTemplate] = {
@@ -80,11 +122,13 @@ object Prompts {
     } catch { case NonFatal(e) => Left(s"cannot load prompt $promptId: ${e.getMessage}") }
   }
 
-  def loadSet(root: Path): Either[String, PromptSet] =
+  def loadSet(root: Path): Either[String, PromptSet] = loadSet(root, Current)
+
+  def loadSet(root: Path, spec: PromptSetSpec): Either[String, PromptSet] =
     for {
-      p <- load(root, PlannerId)
-      s <- load(root, SynthesisId)
-    } yield PromptSet(p, s)
+      p <- load(root, spec.plannerId)
+      s <- load(root, spec.synthesisId)
+    } yield PromptSet(p, s, spec.claims)
 
   /** The schema file of `schemaId` under `<root>/schemas/`. */
   def schemaFile(root: Path, schemaId: String): Path =

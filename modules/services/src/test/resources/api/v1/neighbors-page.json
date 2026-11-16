@@ -1,0 +1,24 @@
+{
+  "nextCursor": "eyJkaXJlY3Rpb24iOiJib3RoIiwiZWRnZVR5cGVzIjpbIkNPQVVUSE9SRURfV0lUSCJdLCJncmFwaFJ1bklkIjoicnVuOnYxOmNlODkwYmQ3MDcyM2RhMDEwYjlkZmZhYzM5MWMwZjk3IiwibGltaXQiOjIsIm5vZGVJZCI6InJlc2VhcmNoZXI6djE6NTI4Mzg1ODE2MzIxNzZmNTg2MjcwNDQwMzc0NTI5YTAiLCJvZmZzZXQiOjIsInYiOjEsIndpbmRvdyI6ImZ1bGwtMjAxNS0yMDI1In0",
+  "nodeId": "researcher:v1:52838581632176f586270440374529a0",
+  "rows": [
+    {
+      "coauthorId": "researcher:v1:85c338876538cbd3a7b4155d2f92a302",
+      "displayName": "Dan Brown",
+      "edgeType": "COAUTHORED_WITH",
+      "evidenceKey": "edge:v1:e428be65a24ad31b7300ba6e471ea749",
+      "jointPublicationCount": 2,
+      "weight": 2
+    },
+    {
+      "coauthorId": "researcher:v1:61ad71f7aee0afa1185ca185ab9e3042",
+      "displayName": "Carol King",
+      "edgeType": "COAUTHORED_WITH",
+      "evidenceKey": "edge:v1:592fef62734f5f9d143be6e4253bd882",
+      "jointPublicationCount": 1,
+      "weight": 1
+    }
+  ],
+  "truncated": false,
+  "window": "full-2015-2025"
+}

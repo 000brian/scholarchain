@@ -338,7 +338,11 @@ lazy val dockerBuildLocal =
 
 lazy val services = (project in file("modules/services"))
   .configs(AwsTest)
-  .dependsOn(coreScala3, rag, storage)
+  .dependsOn(
+    coreScala3,
+    rag % "compile->compile;test->test",
+    storage % "compile->compile;test->test"
+  )
   .settings(
     name := "scholarchain-services",
     commonSettings,

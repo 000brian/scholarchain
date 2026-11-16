@@ -99,6 +99,33 @@ class ClaimVerificationSuite extends munit.FunSuite {
   private def status(c: DraftClaim): VerifiedClaim =
     ClaimVerification.verify(AnswerDraft("s", List(c), Nil), built.bundle).head
 
+  test("m-1: verified needs a passed check; nothing checkable is partially supported") {
+    val qualitative =
+      status(claim("this researcher is a key broker between all communities.", List(cAlice)))
+    assertEquals(qualitative.status, PartiallySupported, qualitative.reasons.toString)
+    assertEquals(qualitative.reasons, List(ClaimVerification.NothingCheckable))
+    assertEquals(qualitative.checked, 0)
+    // a descriptive semantic claim with nothing checkable: partially supported too
+    val descriptive =
+      status(claim("profiles similar to the question were retrieved as context only.", List(sem)))
+    assertEquals(descriptive.status, PartiallySupported, descriptive.reasons.toString)
+    // one passed check (a name) is enough for verified
+    assertEquals(
+      status(claim("Alice Smith is a key broker between all communities.", List(cAlice))).status,
+      Verified
+    )
+    // the semantic-only rule still wins for graph claims
+    assertEquals(
+      status(claim("profiles show many coauthors.", List(sem))).status,
+      Unsupported
+    )
+  }
+
+  test("m-1: an unbound number without cited graph items is not a conflict but unsupported") {
+    val v = status(claim("profiles mention 38 papers.", List(sem)))
+    assertEquals(v.status, Unsupported, v.reasons.toString)
+  }
+
   test("a correct claim is verified") {
     val v = status(
       claim(
@@ -121,12 +148,11 @@ class ClaimVerificationSuite extends munit.FunSuite {
       ).status,
       Conflicting
     )
-    assertNotEquals(
-      status(
-        claim("In 2015-2025, Alice Smith has 38 distinct coauthors (C).", List(cAlice))
-      ).status,
-      Verified
-    )
+    // m-1: an unbound non-year number that matches no value of the cited graph items conflicts
+    val unbound =
+      status(claim("In 2015-2025, Alice Smith has 38 distinct coauthors (C).", List(cAlice)))
+    assertEquals(unbound.status, Conflicting, unbound.reasons.toString)
+    assert(unbound.reasons.exists(_.contains("number 38 is not a value")), unbound.reasons.toString)
     // rounding follows the stated precision: 3.43 and 3.4286 match 3.4285714; 3 and 3.4 do not
     assertEquals(
       status(
@@ -205,11 +231,12 @@ class ClaimVerificationSuite extends munit.FunSuite {
       status(claim("Alice Smith and Bob Jones are coauthors.", List(sem))).status,
       Unsupported
     )
+    // descriptive use is kept; with nothing checkable it is partially supported (m-1)
     assertEquals(
       status(
         claim("Similar profiles were retrieved as descriptive context only.", List(sem))
       ).status,
-      Verified
+      PartiallySupported
     )
     // a number bound to semantic context alongside graph evidence is not covered
     assertEquals(

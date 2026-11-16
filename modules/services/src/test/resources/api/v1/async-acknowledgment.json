@@ -1,0 +1,6 @@
+{
+  "jobId": "job-00000000-0000-4000-8000-000000000001",
+  "queryId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+  "status": "QUEUED",
+  "statusUrl": "/v1/jobs/job-00000000-0000-4000-8000-000000000001"
+}

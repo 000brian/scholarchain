@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ScholarChain services logging: one JSON object per line on stdout (the services write the JSON
+     themselves, see org.scholarchain.services.ServiceLog). AWS SDK and HTTP client internals are
+     kept at WARN so request bodies, headers and credentials are never logged at DEBUG. -->
+<configuration>
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%msg%n</pattern>
+    </encoder>
+  </appender>
+  <logger name="software.amazon" level="WARN"/>
+  <logger name="org.apache" level="WARN"/>
+  <root level="INFO">
+    <appender-ref ref="STDOUT"/>
+  </root>
+</configuration>

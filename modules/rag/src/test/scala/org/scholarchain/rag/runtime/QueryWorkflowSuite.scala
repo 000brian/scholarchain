@@ -140,6 +140,176 @@ class QueryWorkflowSuite extends munit.FunSuite {
     assert(!r.response.abstained, r.response.answerText)
   }
 
+  test("m-2: a homonym suffix that names neither the sole candidate's value nor name is unknown") {
+    // the folded key 'alice smith' has one candidate, Alice Smith (no dblp homonym number)
+    val r = ask("How many distinct coauthors does Alice Smith 0007 have in 2015-2025?")
+    assertEquals(r.draft.researcherNames, List("Alice Smith 0007"))
+    assert(
+      r.resolver.resolutions.head.isInstanceOf[Resolution.Unknown],
+      r.resolver.resolutions.toString
+    )
+    assertEquals(r.resolver.resolved, Nil)
+    assert(r.response.abstained)
+    // without a suffix the sole candidate still resolves
+    assertEquals(
+      ask("How many distinct coauthors does Alice Smith have in 2015-2025?").resolver.resolved
+        .map(_.candidate.ref.id),
+      List(rA)
+    )
+  }
+
+  test("m-4: the query run ID hashes the graph run; code version rag-runtime/2") {
+    assertEquals(QueryWorkflow.CodeVersion, "rag-runtime/2")
+    val req = QueryRequest("How many distinct coauthors does Carol King have in 2015-2025?")
+    val other = RunId.of("spark.test", "code", "other-input", "config").toOption.get
+    val a = wf.queryRunId(req).toOption.get
+    val b = w.workflow(c = w.ctx.copy(graphRunId = other)).queryRunId(req).toOption.get
+    assertNotEquals(a, b)
+    assertNotEquals(QueryRequest.fingerprint(req, sparkRun), QueryRequest.fingerprint(req, other))
+    assertEquals(ask(req.question).queryRunId, a)
+  }
+
+  test("m-4: a bundle Conflict from putBundle becomes an answer note and a result field") {
+    // asked only here: another world answers it first, and a copy of its bundle with one metric
+    // value changed is stored in this suite's world under the same IDs (what a reload with other
+    // content but the same query run ID left behind before m-4)
+    val q = "What is the largest team size of Carol King in 2015-2025?"
+    val other = world()
+    val first = other.workflow().run(QueryRequest(q)).fold(e => fail(e), identity)
+    other.env.close()
+    assertEquals(first.storeConflicts, Nil)
+    assert(!first.response.answerText.contains("already held different content"))
+    val b = first.response.bundle.get
+    val target = b.items.find(_.metric.isDefined).get
+    val altered = b.copy(items = b.items.map { i =>
+      if (i == target) i.copy(metric = i.metric.map(m => m.copy(value = m.value + 1))) else i
+    })
+    assert(w.env.evidence.putBundle(altered).isRight)
+    val second = ask(q)
+    assertEquals(second.queryRunId, first.queryRunId)
+    assertEquals(second.response.bundle, first.response.bundle)
+    assertEquals(second.storeConflicts.head, s"bundle ${b.bundleId.value}")
+    assertEquals(second.storeConflicts.size, 2, second.storeConflicts.toString)
+    assert(second.storeConflicts(1).startsWith(target.evidenceId.value))
+    assert(second.notes.exists(_.contains("already held different content")), second.notes.toString)
+    assert(
+      second.response.answerText.contains("this answer's evidence bundle and 1 evidence item(s)")
+    )
+    // EB1 item conflicts are listed too
+    val write = org.scholarchain.storage.runtime.BundleWrite(
+      second.response.bundle.get.bundleId,
+      org.scholarchain.storage.dynamo.Change.Unchanged,
+      0,
+      1,
+      List("evidence:v1:" + "c" * 32 + "/window#2015-2025"),
+      10
+    )
+    assertEquals(
+      QueryWorkflow.conflictsOf(Some(Right(write))),
+      List("evidence:v1:" + "c" * 32 + "/window#2015-2025")
+    )
+    assert(
+      QueryWorkflow
+        .conflictNote(QueryWorkflow.conflictsOf(Some(Right(write))))
+        .get
+        .contains("1 evidence item(s)")
+    )
+    assertEquals(QueryWorkflow.conflictNote(Nil), None)
+  }
+
+  /** The workflow over this suite's world, through stores whose write switches tests flip. */
+  private lazy val flaky = new RuntimeServiceFixtures.FlakyStores(w.env, storageConfig)
+  private lazy val flakyWf = new QueryWorkflow(
+    flaky.stores,
+    w.ctx,
+    new FakeModel(w.rule),
+    w.prompts,
+    Some(w.retriever),
+    storageConfig.vectors.collaborationPathIndex
+  )
+
+  test("U-1: a putBundle Left is a workflow Left (retryable), and a retry then succeeds") {
+    val q = QueryRequest("Who are the direct collaborators of Carol King in 2015-2025?")
+    flaky.failEvidenceWrites.set(true)
+    val l =
+      try flakyWf.run(q)
+      finally flaky.failEvidenceWrites.set(false)
+    assert(l.isLeft, l.map(_.response.answerText).toString)
+    assert(l.left.exists(_.startsWith(QueryWorkflow.BundleWriteFailedPrefix)), l.toString)
+    assert(l.left.exists(_.contains("injected evidence write failure")), l.toString)
+    // nothing was audited for the failed attempt
+    val runId = flakyWf.queryRunId(q).fold(e => fail(e), identity)
+    assertEquals(w.env.audits.read(runId, 10).map(_.size), Right(0))
+    // the same query with healthy stores succeeds under the same deterministic IDs
+    val r = flakyWf.run(q).fold(e => fail(e), identity)
+    assertEquals(r.queryRunId, runId)
+    assert(r.bundleWrite.exists(_.isRight))
+    assertEquals(r.storeConflicts, Nil)
+    val b = r.response.bundle.get
+    assertEquals(
+      w.env.evidence.getBundle(b.bundleId).map(_.map(_.bundleId)),
+      Right(Some(b.bundleId))
+    )
+    // helper: a Left write is a failure; a successful write (conflicts included) is not
+    assert(QueryWorkflow.bundleWriteFailure(Some(Left("x"))).isDefined)
+    assertEquals(QueryWorkflow.bundleWriteFailure(r.bundleWrite), None)
+    assertEquals(QueryWorkflow.bundleWriteFailure(None), None)
+  }
+
+  test("U-1: an audit append Left is a workflow Left (retryable), and a retry then succeeds") {
+    val q = QueryRequest("Who are the direct collaborators of Bob Jones in 2015-2025?")
+    flaky.failAuditWrites.set(true)
+    val l =
+      try flakyWf.run(q)
+      finally flaky.failAuditWrites.set(false)
+    assert(l.isLeft, l.map(_.response.answerText).toString)
+    assert(l.left.exists(_.startsWith(QueryWorkflow.AuditWriteFailedPrefix)), l.toString)
+    assert(l.left.exists(_.contains("injected audit write failure")), l.toString)
+    val runId = flakyWf.queryRunId(q).fold(e => fail(e), identity)
+    assertEquals(w.env.audits.read(runId, 10).map(_.size), Right(0))
+    // the retry finds the bundle the failed attempt stored unchanged, and appends the audit
+    val r = flakyWf.run(q).fold(e => fail(e), identity)
+    assertEquals(r.queryRunId, runId)
+    assertEquals(r.storeConflicts, Nil)
+    assert(r.auditWrite.isRight, r.auditWrite.toString)
+    assertEquals(w.env.audits.read(runId, 10).map(_.size), Right(1))
+  }
+
+  test("QueryRequest.topic: overrides the draft's topic, is part of the fingerprint, is bounded") {
+    val q = "Which researchers have the most distinct coauthors in 2015-2025?"
+    val plain = ask(q)
+    assertEquals(plain.draft.topic, None)
+    val withTopic =
+      wf.run(QueryRequest(q, None, Some("  KDD  "))).fold(e => fail(e), identity)
+    assertEquals(withTopic.draft.topic, Some("KDD"))
+    assert(withTopic.plannedSteps.forall(_.topic.contains("KDD")))
+    assert(
+      withTopic.response.answerText.contains("profile similarity"),
+      withTopic.response.answerText
+    )
+    assertNotEquals(withTopic.queryRunId, plain.queryRunId)
+    // canonical form: the same topic with other whitespace gives the same run ID
+    assertEquals(wf.queryRunId(QueryRequest(q, None, Some("KDD"))), Right(withTopic.queryRunId))
+    // an explicit topic replaces the planner's topic
+    val replaced = wf
+      .run(
+        QueryRequest(
+          "Which researchers working on KDD have the most distinct coauthors in 2015-2025?",
+          None,
+          Some("ACL")
+        )
+      )
+      .fold(e => fail(e), identity)
+    assertEquals(replaced.draft.topic, Some("ACL"))
+    assert(wf.validate(QueryRequest(q, None, Some("t" * 200))).isRight)
+    assert(wf.validate(QueryRequest(q, None, Some("t" * 201))).left.exists(_.contains("topic")))
+    assert(wf.validate(QueryRequest(q, None, Some("   "))).left.exists(_.contains("blank")))
+    assert(wf.validate(QueryRequest(q, None, Some("a\u0007b"))).left.exists(_.contains("control")))
+    assert(wf.run(QueryRequest(q, None, Some("t" * 201))).isLeft)
+    assert(wf.validate(QueryRequest(q, Some("w1999-2000"))).isLeft)
+    assert(wf.validate(QueryRequest("   ")).isLeft)
+  }
+
   test("unknown name: abstain for that name") {
     val r = ask("How many distinct coauthors does Zebulon Quartermaine have in 2015-2025?")
     assert(r.resolver.resolutions.head.isInstanceOf[Resolution.Unknown])

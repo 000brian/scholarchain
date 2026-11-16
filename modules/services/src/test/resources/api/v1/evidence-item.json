@@ -1,0 +1,30 @@
+{
+  "evidenceId": "evidence:v1:702bd817d5a23c9ef611578d607fc969",
+  "evidenceType": "match_decision",
+  "metric": null,
+  "provenance": {
+    "contentHash": "sha256:62921ec25f30e016ddbd75511e6fc96bfdd72bdb2b6508437bc8b5572279048b",
+    "datasetId": "scholarchain-graph",
+    "jobName": "rag.query",
+    "policyVersion": "graph-v1",
+    "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+    "schemaVersion": 1,
+    "snapshotId": "run:v1:ce890bd70723da010b9dffac391c0f97",
+    "sourceRecordIds": [
+      "EntityLinkCache:name#carol king/researcher#researcher:v1:61ad71f7aee0afa1185ca185ab9e3042",
+      "run:v1:ce890bd70723da010b9dffac391c0f97"
+    ],
+    "sourceType": "runtime"
+  },
+  "schemaVersion": 1,
+  "snippet": "name=Carol King\nresearcherId=researcher:v1:61ad71f7aee0afa1185ca185ab9e3042\naskedName=Carol King\nmatchedValue=Carol King\nresolved=true\noutcome=accepted\nconfidence=0.9900\npublicationCount=2\ndistinctCoauthors=3\ntopCoauthorNames=Greta Olsen | Bob Jones | Dan Brown\ntopCoauthorIds=researcher:v1:52838581632176f586270440374529a0,researcher:v1:6d5118d4d7503bbe730c2f85502fc54e,researcher:v1:85c338876538cbd3a7b4155d2f92a302\ncontextWindowLabel=full-2015-2025",
+  "sourceUris": [
+    "scholarchain:EntityLinkCache:name#carol king/researcher#researcher:v1:61ad71f7aee0afa1185ca185ab9e3042",
+    "scholarchain:run:v1:ce890bd70723da010b9dffac391c0f97"
+  ],
+  "subjectIds": [
+    "researcher:v1:61ad71f7aee0afa1185ca185ab9e3042",
+    "identity=carol king"
+  ],
+  "window": null
+}

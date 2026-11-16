@@ -1,0 +1,7 @@
+{
+  "details": {},
+  "error": "WORKFLOW_TIMEOUT",
+  "message": "The query did not finish within the synchronous deadline.",
+  "retryable": true,
+  "traceId": "0000000000000000000000000000000f"
+}

@@ -1,0 +1,7 @@
+{
+  "details": {},
+  "error": "INVALID_JSON",
+  "message": "The request body is not valid JSON.",
+  "retryable": false,
+  "traceId": "00000000000000000000000000000008"
+}

@@ -144,6 +144,30 @@ class DynamoSuite extends munit.FunSuite {
     assertEquals(turn.long("expiresAt"), Some(1800000000L))
   }
 
+  test("QuerySession: QS4 jobs and QS5 idempotency records share the table and its TTL") {
+    val qs = TableSpecs.QuerySession
+    assertEquals(qs.accessPatterns.map(_.id), List("QS1", "QS2", "QS3", "QS4", "QS5"))
+    assertEquals(qs.ttlAttribute, Some("expiresAt"))
+    assert(!qs.appendOnly)
+    val qs4 = qs.accessPatterns.find(_.id == "QS4").get
+    val qs5 = qs.accessPatterns.find(_.id == "QS5").get
+    assertEquals(qs4.keyCondition, "pk = job#<jobId>, sk = job")
+    assert(qs5.keyCondition.startsWith("pk = idempotency#<sha256"), qs5.keyCondition)
+    List(qs4, qs5).foreach { p =>
+      assert(p.operation.contains("attribute_not_exists(pk)"), p.id)
+      assert(p.operation.contains("version = :read"), p.id)
+    }
+    assert(qs.pkFormat.contains("job#<jobId>") && qs.pkFormat.contains("idempotency#"))
+    assertEquals(TableSpecs.jobPk("job-1"), "job#job-1")
+    assertEquals(TableSpecs.JobSk, "job")
+    assertEquals(TableSpecs.IdempotencySk, "idempotency")
+    val pk = TableSpecs.idempotencyPk("full", "k")
+    assert(pk.matches("idempotency#[0-9a-f]{64}"), pk)
+    assertNotEquals(pk, TableSpecs.idempotencyPk("read-only", "k"))
+    // the canonical encoding keeps (scope, key) pairs apart even when concatenations agree
+    assertNotEquals(TableSpecs.idempotencyPk("a", "bc"), TableSpecs.idempotencyPk("ab", "c"))
+  }
+
   test("item size follows the DynamoDB sizing rules") {
     val i = Item(
       "ab" -> AttrValue.S("xyz"),

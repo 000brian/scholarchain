@@ -1,0 +1,56 @@
+{
+  "configVersion": 1,
+  "environment": "test",
+  "aws": {
+    "region": "us-east-1",
+    "accountId": "123456789012"
+  },
+  "storage": {
+    "rawBucket": "example-raw-bucket",
+    "curatedBucket": "example-curated-bucket",
+    "graphBucket": "example-graph-bucket",
+    "vectorBucket": "example-vector-bucket",
+    "vectorIndex": "example-vector-index",
+    "neptuneEndpoint": "neptune.example.invalid",
+    "dynamoDbTable": "example-table"
+  },
+  "entityResolution": {
+    "policyVersion": "match-policy/1",
+    "matchThreshold": 0.9,
+    "reviewThreshold": 0.7
+  },
+  "models": {
+    "embeddingModelId": "example-embedding-model",
+    "answerModelId": "example-answer-model"
+  },
+  "graph": {
+    "windows": [
+      { "label": "2015-2019", "startYear": 2015, "endYear": 2019 },
+      { "label": "2020-2025", "startYear": 2020, "endYear": 2025 },
+      { "label": "2015-2025", "startYear": 2015, "endYear": 2025 }
+    ],
+    "minEdgeWeight": 0.0
+  },
+  "bridge": {
+    "algorithm": "example-algorithm",
+    "sampleSize": 100,
+    "randomSeed": 7,
+    "topK": 10
+  },
+  "service": {
+    "port": 8080,
+    "apiKeyEnvVar": "SCHOLARCHAIN_EXAMPLE_API_KEY",
+    "readOnlyApiKeyEnvVar": "SCHOLARCHAIN_EXAMPLE_READ_ONLY_API_KEY",
+    "maxRequestBytes": 65536,
+    "syncDeadlineMillis": 20000,
+    "maxConcurrentQueries": 8,
+    "workerConcurrency": 4,
+    "jobMaxAttempts": 3,
+    "jobLeaseMillis": 120000,
+    "jobTtlSeconds": 86400,
+    "circuitFailureThreshold": 5,
+    "circuitOpenMillis": 30000,
+    "requestsPerMinute": 120,
+    "jobQueueUrl": "https://queue.example.invalid/example-jobs"
+  }
+}

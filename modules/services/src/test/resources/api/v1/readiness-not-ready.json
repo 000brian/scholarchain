@@ -1,0 +1,9 @@
+{
+  "checks": {
+    "graph": "fail",
+    "jobs": "ok",
+    "metrics": "ok"
+  },
+  "role": "all",
+  "status": "not_ready"
+}

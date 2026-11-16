@@ -338,9 +338,86 @@ object RuntimeSettings {
   val MaxResearcherNames: Int = 10
 }
 
-/** The resolved configuration. The Phase 7 and Phase 9 sections default to `None`; uPickle omits
-  * fields equal to their default, so a configuration without them serializes (and fingerprints)
-  * exactly as before Phase 7.
+// ---- Optional section (Phase 10, additive) ---------------------------------------------------
+//
+// Same rules as the Phase 7 and Phase 9 sections: absent unless a key is set, then every required
+// key is set, no defaults.
+
+/** REST service settings (section `service`).
+  *
+  * The two API-key fields hold only environment variable NAMES; the configuration loader never
+  * reads their values (the services module does, at startup).
+  *
+  * @param port
+  *   listening port, 1..65535
+  * @param apiKeyEnvVar
+  *   the NAME of the environment variable holding the full-access API key; same rules as
+  *   `llm.apiKeyEnvVar` (`[A-Z][A-Z0-9_]*`, not starting with `SCHOLARCHAIN_CFG_`)
+  * @param readOnlyApiKeyEnvVar
+  *   the NAME of the environment variable holding the read-only API key; same rules, and different
+  *   from `apiKeyEnvVar`
+  * @param maxRequestBytes
+  *   largest accepted request body, 1024..1048576 bytes
+  * @param syncDeadlineMillis
+  *   deadline of a synchronous query, 1..120000
+  * @param maxConcurrentQueries
+  *   synchronous queries running at once, 1..64
+  * @param workerConcurrency
+  *   asynchronous job workers, 1..64
+  * @param jobMaxAttempts
+  *   attempts of one asynchronous job, 1..5
+  * @param jobLeaseMillis
+  *   job lease, 10000..900000, and greater than `syncDeadlineMillis`
+  * @param jobTtlSeconds
+  *   lifetime of a job record and of an idempotency record, 3600..604800, and
+  *   `jobTtlSeconds * 1000 > jobLeaseMillis`
+  * @param circuitFailureThreshold
+  *   consecutive failures that open the circuit breaker, 1..100
+  * @param circuitOpenMillis
+  *   time the circuit stays open, 1000..600000
+  * @param requestsPerMinute
+  *   per-process rate limit over all authenticated routes, > 0
+  * @param jobQueueUrl
+  *   optional `https://` URL of the job queue; whether it is required (for example by the AWS store
+  *   wiring) is decided by the services module, not by core
+  */
+final case class ServiceSettings(
+    port: Int,
+    apiKeyEnvVar: String,
+    readOnlyApiKeyEnvVar: String,
+    maxRequestBytes: Int,
+    syncDeadlineMillis: Int,
+    maxConcurrentQueries: Int,
+    workerConcurrency: Int,
+    jobMaxAttempts: Int,
+    jobLeaseMillis: Int,
+    jobTtlSeconds: Int,
+    circuitFailureThreshold: Int,
+    circuitOpenMillis: Int,
+    requestsPerMinute: Int,
+    jobQueueUrl: Option[String]
+)
+object ServiceSettings {
+  implicit val readWriter: ReadWriter[ServiceSettings] = macroRW
+
+  val MinMaxRequestBytes: Int = 1024
+  val MaxMaxRequestBytes: Int = 1048576
+  val MaxSyncDeadlineMillis: Int = 120000
+  val MaxConcurrentQueries: Int = 64
+  val MaxWorkerConcurrency: Int = 64
+  val MaxJobAttempts: Int = 5
+  val MinJobLeaseMillis: Int = 10000
+  val MaxJobLeaseMillis: Int = 900000
+  val MinJobTtlSeconds: Int = 3600
+  val MaxJobTtlSeconds: Int = 604800
+  val MaxCircuitFailureThreshold: Int = 100
+  val MinCircuitOpenMillis: Int = 1000
+  val MaxCircuitOpenMillis: Int = 600000
+}
+
+/** The resolved configuration. The Phase 7, Phase 9 and Phase 10 sections default to `None`;
+  * uPickle omits fields equal to their default, so a configuration without them serializes (and
+  * fingerprints) exactly as before Phase 7.
   */
 final case class ScholarChainConfig(
     configVersion: Int,
@@ -357,7 +434,8 @@ final case class ScholarChainConfig(
     vectors: Option[VectorSettings] = None,
     embedding: Option[EmbeddingSettings] = None,
     llm: Option[LlmSettings] = None,
-    runtime: Option[RuntimeSettings] = None
+    runtime: Option[RuntimeSettings] = None,
+    service: Option[ServiceSettings] = None
 ) {
 
   /** `sha256:<hex>` of the compact JSON of the resolved configuration. Use it as the

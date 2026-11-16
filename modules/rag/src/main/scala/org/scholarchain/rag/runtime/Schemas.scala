@@ -42,11 +42,27 @@ private[runtime] final class JsonReader(
 
 object JsonSupport {
 
-  /** Model output is accepted only as one JSON object, optionally inside a single Markdown code
-    * fence (```json ... ```). Anything else fails closed.
+  /** Whitespace around model output: Java whitespace, Unicode space separators (no-break spaces
+    * included) and the byte-order mark.
+    */
+  def isOuterSpace(c: Char): Boolean =
+    Character.isWhitespace(c) || Character.isSpaceChar(c) || c == '﻿'
+
+  /** `s` without leading and trailing [[isOuterSpace]] characters. */
+  def stripOuterSpace(s: String): String = {
+    var a = 0
+    var b = s.length
+    while (a < b && isOuterSpace(s.charAt(a))) a += 1
+    while (b > a && isOuterSpace(s.charAt(b - 1))) b -= 1
+    s.substring(a, b)
+  }
+
+  /** Model output is accepted only as one JSON object, surrounded by nothing but whitespace
+    * ([[isOuterSpace]]), optionally inside a single Markdown code fence (```json ... ```). Anything
+    * else (prose, a second value) fails closed.
     */
   def parseObject(text: String): Either[String, ujson.Obj] = {
-    val t = Option(text).getOrElse("").trim
+    val t = stripOuterSpace(Option(text).getOrElse(""))
     val unfenced =
       if (t.startsWith("```") && t.endsWith("```") && t.length >= 6) {
         val inner = t.stripPrefix("```").stripSuffix("```")
@@ -58,7 +74,7 @@ object JsonSupport {
         }
       } else t
     try
-      ujson.read(unfenced.trim) match {
+      ujson.read(stripOuterSpace(unfenced)) match {
         case o: ujson.Obj => Right(o)
         case _            => Left("output is not a JSON object")
       }
@@ -256,24 +272,53 @@ final case class AnswerDraft(
   )
 }
 
-/** Schema `answer-claims-v1` (file `prompts/schemas/answer-claims-v1.schema.json`). */
+/** The limits of one version of the answer-claims schema. `numbersInText`: every entry of a claim's
+  * `numbers` must appear as a number literal in that claim's text (v2).
+  */
+final case class AnswerClaimsSpec(
+    schemaId: String,
+    maxClaims: Int,
+    maxTextChars: Int,
+    maxNumbersPerClaim: Int,
+    numbersInText: Boolean
+)
+
+object AnswerClaimsSpec {
+
+  /** `answer-claims-v1` (Phase 9). */
+  val V1: AnswerClaimsSpec =
+    AnswerClaimsSpec("answer-claims-v1", 40, 600, 20, numbersInText = false)
+
+  /** `answer-claims-v2` (Phase 10, decision 5b): smaller output, so it fits the output cap. */
+  val V2: AnswerClaimsSpec = AnswerClaimsSpec("answer-claims-v2", 15, 300, 10, numbersInText = true)
+
+  val all: List[AnswerClaimsSpec] = List(V1, V2)
+}
+
+/** Schemas `answer-claims-v1` and `answer-claims-v2` (files
+  * `prompts/schemas/answer-claims-v{1,2}.schema.json`; same fields, different limits, see
+  * [[AnswerClaimsSpec]]). The constants and the one-argument methods are v1.
+  */
 object AnswerClaimsSchema {
-  val SchemaId = "answer-claims-v1"
+  val SchemaId: String = AnswerClaimsSpec.V1.schemaId
   val Fields: List[String] = List("summary", "claims", "missingEvidence")
   val ClaimFields: List[String] = List("claimId", "text", "evidenceIds", "numbers", "uncertainty")
   val NumberFields: List[String] = List("value", "evidenceId", "field")
   val EvidenceIdPattern = "evidence:v1:[0-9a-f]{32}"
   val ClaimIdPattern = "claim-[0-9]{1,4}"
-  val MaxClaims = 40
-  val MaxTextChars = 600
+  val MaxClaims: Int = AnswerClaimsSpec.V1.maxClaims
+  val MaxTextChars: Int = AnswerClaimsSpec.V1.maxTextChars
   val MaxSummaryChars = 600
   val MaxEvidencePerClaim = 20
-  val MaxNumbersPerClaim = 20
+  val MaxNumbersPerClaim: Int = AnswerClaimsSpec.V1.maxNumbersPerClaim
   val MaxUncertaintyChars = 300
   val MaxMissing = 10
 
-  val shape: SchemaShape = SchemaShape(
-    SchemaId,
+  // number literals of a claim text (the v2 numbers-in-text rule)
+  private val NumberLiteral = "[0-9]+(?:\\.[0-9]+)?".r
+
+  def shapeOf(spec: AnswerClaimsSpec): SchemaShape = SchemaShape(
+    spec.schemaId,
     Map(
       "" -> (Fields, Fields),
       "claims[]" -> (ClaimFields, ClaimFields),
@@ -282,10 +327,28 @@ object AnswerClaimsSchema {
     Map("claims[].numbers[].field" -> EvidenceValues.Fields)
   )
 
-  def validate(text: String): Either[String, AnswerDraft] =
-    JsonSupport.parseObject(text).flatMap(validateJson)
+  val shape: SchemaShape = shapeOf(AnswerClaimsSpec.V1)
 
-  def validateJson(root: ujson.Value): Either[String, AnswerDraft] = {
+  /** True when `value` appears in `text` as a number literal (integers exactly; decimals rounded to
+    * the literal's precision, as [[ClaimVerification.literalMatches]]).
+    */
+  def appearsInText(value: Double, text: String): Boolean =
+    NumberLiteral
+      .findAllIn(text)
+      .exists(lit => ClaimVerification.literalMatches(lit, value))
+
+  def validate(text: String): Either[String, AnswerDraft] = validate(text, AnswerClaimsSpec.V1)
+
+  def validate(text: String, spec: AnswerClaimsSpec): Either[String, AnswerDraft] =
+    JsonSupport.parseObject(text).flatMap(validateJson(_, spec))
+
+  def validateJson(root: ujson.Value): Either[String, AnswerDraft] =
+    validateJson(root, AnswerClaimsSpec.V1)
+
+  def validateJson(root: ujson.Value, spec: AnswerClaimsSpec): Either[String, AnswerDraft] = {
+    val MaxClaims = spec.maxClaims
+    val MaxTextChars = spec.maxTextChars
+    val MaxNumbersPerClaim = spec.maxNumbersPerClaim
     import JsonSupport._
     val errors = collection.mutable.ListBuffer.empty[String]
     def e(m: String): Unit = errors += m
@@ -342,6 +405,12 @@ object AnswerClaimsSchema {
                     }
                   }
               }
+              if (spec.numbersInText && t.nonEmpty)
+                nums.zipWithIndex.foreach { case (n, j) =>
+                  // the value is model output: the error names the position only
+                  if (!appearsInText(n.value, t))
+                    e(s"$p.numbers[$j]: the value does not appear in the claim text")
+                }
               val unc = c("uncertainty") match {
                 case ujson.Null => None
                 case v          => text(s"$p.uncertainty", v, MaxUncertaintyChars)

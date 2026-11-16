@@ -1,0 +1,12 @@
+{
+  "attempts": 1,
+  "createdAt": "2026-11-15T00:00:00Z",
+  "error": null,
+  "jobId": "job-00000000-0000-4000-8000-000000000001",
+  "mode": "async",
+  "queryId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+  "resultUrl": "/v1/jobs/job-00000000-0000-4000-8000-000000000001/result",
+  "stage": "audit",
+  "state": "SUCCEEDED",
+  "updatedAt": "2026-11-15T00:00:00Z"
+}

@@ -71,7 +71,7 @@ final case class LoadedConfig(config: ScholarChainConfig, origins: ListMap[Strin
   *   2. the configuration file named by `SCHOLARCHAIN_CONFIG_FILE`;
   *   3. nothing: a key absent from both is an error. There are no defaults.
   *
-  * Optional sections ([[ConfigLoader.sections]], Phase 7 and Phase 9): a section none of whose keys
+  * Optional sections ([[ConfigLoader.sections]], Phases 7, 9 and 10): a section none of whose keys
   * is set resolves to `None`; a section with any key set must have all its required keys set (same
   * precedence per key), otherwise every missing key is reported.
   *
@@ -113,7 +113,7 @@ object ConfigLoader {
   )
 
   /** Optional sections: `objectStore`, `dynamoDb`, `neptune`, `vectors`, `embedding` (Phase 7,
-    * additive) and `llm`, `runtime` (Phase 9, additive).
+    * additive), `llm`, `runtime` (Phase 9, additive) and `service` (Phase 10, additive).
     */
   val sections: List[ConfigSection] = List(
     ConfigSection(
@@ -210,6 +210,26 @@ object ConfigLoader {
         ConfigKey("runtime.maxResearcherNames", WholeNumber)
       ),
       Nil
+    ),
+    // Phase 10 (additive).
+    ConfigSection(
+      "service",
+      List(
+        ConfigKey("service.port", WholeNumber),
+        ConfigKey("service.apiKeyEnvVar", Text),
+        ConfigKey("service.readOnlyApiKeyEnvVar", Text),
+        ConfigKey("service.maxRequestBytes", WholeNumber),
+        ConfigKey("service.syncDeadlineMillis", WholeNumber),
+        ConfigKey("service.maxConcurrentQueries", WholeNumber),
+        ConfigKey("service.workerConcurrency", WholeNumber),
+        ConfigKey("service.jobMaxAttempts", WholeNumber),
+        ConfigKey("service.jobLeaseMillis", WholeNumber),
+        ConfigKey("service.jobTtlSeconds", WholeNumber),
+        ConfigKey("service.circuitFailureThreshold", WholeNumber),
+        ConfigKey("service.circuitOpenMillis", WholeNumber),
+        ConfigKey("service.requestsPerMinute", WholeNumber)
+      ),
+      List(ConfigKey("service.jobQueueUrl", Text))
     )
   )
 
@@ -487,6 +507,24 @@ object ConfigLoader {
           graphTimeoutMillis = i("runtime.graphTimeoutMillis"),
           maxResearcherNames = i("runtime.maxResearcherNames")
         )
+      ),
+      service = section("service")(
+        ServiceSettings(
+          port = i("service.port"),
+          apiKeyEnvVar = s("service.apiKeyEnvVar"),
+          readOnlyApiKeyEnvVar = s("service.readOnlyApiKeyEnvVar"),
+          maxRequestBytes = i("service.maxRequestBytes"),
+          syncDeadlineMillis = i("service.syncDeadlineMillis"),
+          maxConcurrentQueries = i("service.maxConcurrentQueries"),
+          workerConcurrency = i("service.workerConcurrency"),
+          jobMaxAttempts = i("service.jobMaxAttempts"),
+          jobLeaseMillis = i("service.jobLeaseMillis"),
+          jobTtlSeconds = i("service.jobTtlSeconds"),
+          circuitFailureThreshold = i("service.circuitFailureThreshold"),
+          circuitOpenMillis = i("service.circuitOpenMillis"),
+          requestsPerMinute = i("service.requestsPerMinute"),
+          jobQueueUrl = v.get("service.jobQueueUrl").map(_.asInstanceOf[String])
+        )
       )
     )
   }
@@ -558,7 +596,8 @@ object ConfigValidator {
       c.vectors.toList.flatMap(vectors) ++
       c.embedding.toList.flatMap(embedding) ++
       c.llm.toList.flatMap(llm) ++
-      c.runtime.toList.flatMap(runtime(_, labels))
+      c.runtime.toList.flatMap(runtime(_, labels)) ++
+      c.service.toList.flatMap(service)
   }
 
   // ---- Phase 7 optional sections -------------------------------------------------------------
@@ -738,4 +777,66 @@ object ConfigValidator {
         1,
         RuntimeSettings.MaxResearcherNames
       )
+
+  // ---- Phase 10 optional section -------------------------------------------------------------
+
+  private def service(s: ServiceSettings): List[String] = {
+    import ServiceSettings._
+    check(s.port >= 1 && s.port <= 65535, s"service.port: ${s.port} is outside 1..65535") ++
+      apiKeyEnvVarName("service.apiKeyEnvVar", s.apiKeyEnvVar) ++
+      apiKeyEnvVarName("service.readOnlyApiKeyEnvVar", s.readOnlyApiKeyEnvVar) ++
+      check(
+        s.readOnlyApiKeyEnvVar != s.apiKeyEnvVar,
+        s"service.readOnlyApiKeyEnvVar: '${s.readOnlyApiKeyEnvVar}' must differ from " +
+          "service.apiKeyEnvVar"
+      ) ++
+      inRange(
+        "service.maxRequestBytes",
+        s.maxRequestBytes,
+        MinMaxRequestBytes,
+        MaxMaxRequestBytes
+      ) ++
+      inRange("service.syncDeadlineMillis", s.syncDeadlineMillis, 1, MaxSyncDeadlineMillis) ++
+      inRange("service.maxConcurrentQueries", s.maxConcurrentQueries, 1, MaxConcurrentQueries) ++
+      inRange("service.workerConcurrency", s.workerConcurrency, 1, MaxWorkerConcurrency) ++
+      inRange("service.jobMaxAttempts", s.jobMaxAttempts, 1, MaxJobAttempts) ++
+      inRange("service.jobLeaseMillis", s.jobLeaseMillis, MinJobLeaseMillis, MaxJobLeaseMillis) ++
+      check(
+        s.jobLeaseMillis > s.syncDeadlineMillis,
+        s"service.jobLeaseMillis: ${s.jobLeaseMillis} must be greater than " +
+          s"syncDeadlineMillis ${s.syncDeadlineMillis}"
+      ) ++
+      inRange("service.jobTtlSeconds", s.jobTtlSeconds, MinJobTtlSeconds, MaxJobTtlSeconds) ++
+      check(
+        s.jobTtlSeconds.toLong * 1000L > s.jobLeaseMillis.toLong,
+        s"service.jobTtlSeconds: ${s.jobTtlSeconds} s must be longer than " +
+          s"jobLeaseMillis ${s.jobLeaseMillis} ms"
+      ) ++
+      inRange(
+        "service.circuitFailureThreshold",
+        s.circuitFailureThreshold,
+        1,
+        MaxCircuitFailureThreshold
+      ) ++
+      inRange(
+        "service.circuitOpenMillis",
+        s.circuitOpenMillis,
+        MinCircuitOpenMillis,
+        MaxCircuitOpenMillis
+      ) ++
+      positive("service.requestsPerMinute", s.requestsPerMinute) ++
+      s.jobQueueUrl.toList.flatMap(u =>
+        check(isHttpsUrl(u), s"service.jobQueueUrl: '$u' must be an https:// URL with a host")
+      )
+  }
+
+  /** An absolute `https://` URL with a host, no whitespace and no user information. */
+  private def isHttpsUrl(u: String): Boolean =
+    u.startsWith("https://") && !u.exists(_.isWhitespace) && {
+      try {
+        val uri = new java.net.URI(u)
+        uri.getScheme == "https" && uri.getHost != null && uri.getHost.nonEmpty &&
+        uri.getRawUserInfo == null
+      } catch { case NonFatal(_) => false }
+    }
 }

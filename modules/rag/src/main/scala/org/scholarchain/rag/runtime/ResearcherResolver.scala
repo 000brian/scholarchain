@@ -85,9 +85,11 @@ final case class ResolverOutput(
 
 /** Stage 2, ResearcherResolver: names (folded with `AuthorNameKey.foldedName` by storage's
   * [[org.scholarchain.storage.runtime.EntityLinkReader]]) and ORCID iDs to canonical researchers.
-  * Exactly one candidate resolves; a dblp homonym suffix (`Wei Wang 0003`) matching exactly one
-  * candidate's name resolves; anything else is ambiguous (candidates listed with context) or
-  * unknown, and the answer abstains for that name. Affiliations: none (no institution data yet).
+  * Exactly one candidate resolves, unless the asked name carries a dblp homonym suffix that matches
+  * neither its matched value nor its display name (then the name is unknown, Phase 9 m-2); a dblp
+  * homonym suffix (`Wei Wang 0003`) matching exactly one of several candidates' names resolves;
+  * anything else is ambiguous (candidates listed with context) or unknown, and the answer abstains
+  * for that name. Affiliations: none (no institution data yet).
   */
 final class ResearcherResolver(stores: RuntimeStores, ctx: RuntimeContext) {
   import ResearcherResolver._
@@ -153,15 +155,18 @@ final class ResearcherResolver(stores: RuntimeStores, ctx: RuntimeContext) {
           .map(_.head)
           .toList
           .sortBy(_.researcherId.value)
+        val hasSuffix = isName && DblpSuffix.findFirstIn(asked.trim).isDefined
+        val norm = asked.trim.replaceAll("\\s+", " ")
+        def suffixMatches(c: EntityLinkCandidate) =
+          c.matchedValue.equalsIgnoreCase(norm) || c.displayName.equalsIgnoreCase(norm)
         cands match {
-          case Nil      => Resolution.Unknown(asked)
+          case Nil => Resolution.Unknown(asked)
+          // m-2: a homonym suffix that names neither the sole candidate's matched value nor its
+          // display name asks for another researcher, so the name is unknown
+          case c :: Nil if hasSuffix && !suffixMatches(c) => Resolution.Unknown(asked)
           case c :: Nil => Resolution.Resolved(asked, context(c), bySuffix = false)
           case many     =>
-            val bySuffix =
-              if (isName && DblpSuffix.findFirstIn(asked.trim).isDefined) {
-                val norm = asked.trim.replaceAll("\\s+", " ")
-                many.filter(c => c.matchedValue == norm || c.displayName == norm)
-              } else Nil
+            val bySuffix = if (hasSuffix) many.filter(suffixMatches) else Nil
             bySuffix match {
               case one :: Nil => Resolution.Resolved(asked, context(one), bySuffix = true)
               case _          =>

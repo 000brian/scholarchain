@@ -1,0 +1,88 @@
+{
+  "abstained": false,
+  "attemptCount": 2,
+  "bundleId": "evidence:v1:3397ff44763060bf4efc5beb3908e4e1",
+  "evidenceIds": [
+    "evidence:v1:702bd817d5a23c9ef611578d607fc969",
+    "evidence:v1:8f4fe5726bc36e957b0fc22cddc502ae",
+    "evidence:v1:dbfe2a26c56632cace25f4e14a86d4c4",
+    "evidence:v1:ec922f44e85a4abf2f7cdac49c7b0d5d",
+    "evidence:v1:c86d15bceed5fc4cabfabd06b9476d25",
+    "evidence:v1:b6a1f64fe5c9feafac2ce71dad172c34",
+    "evidence:v1:96531da7c5d9a6d1bdd82065da19d0ad"
+  ],
+  "graphRunId": "run:v1:ce890bd70723da010b9dffac391c0f97",
+  "inputTokens": null,
+  "latencyMillis": 0,
+  "metricPolicyVersions": [
+    "metric-policy/1"
+  ],
+  "modelId": "fake-rule-template-v1",
+  "notes": [
+    "rankings use one stored metric; no composite score is computed"
+  ],
+  "outputTokens": null,
+  "plan": {
+    "graphRunId": "run:v1:ce890bd70723da010b9dffac391c0f97",
+    "provenance": {
+      "contentHash": "sha256:b979e47efe668dc58e2ac7647aa8b37b6a052cb59b40896636f806d9a773c186",
+      "datasetId": "scholarchain-graph",
+      "jobName": "rag.query",
+      "policyVersion": "rule-planner/1",
+      "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+      "schemaVersion": 1,
+      "snapshotId": "run:v1:ce890bd70723da010b9dffac391c0f97",
+      "sourceRecordIds": [
+        "run:v1:ce890bd70723da010b9dffac391c0f97"
+      ],
+      "sourceType": "runtime"
+    },
+    "question": "How many distinct coauthors does Carol King have in 2015-2025?",
+    "schemaVersion": 1,
+    "steps": [
+      {
+        "operation": "collaboration_breadth",
+        "parameters": {
+          "metric": "distinct_coauthors",
+          "windowLabel": "full-2015-2025"
+        },
+        "researcherIds": [
+          "researcher:v1:61ad71f7aee0afa1185ca185ab9e3042"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      }
+    ]
+  },
+  "planSource": "rule",
+  "promptVersions": [
+    "query-planner-v2@sha256:60b5260e9c2eeabff46150fb09cf41a89fe39fbd23701b7023cdf0663e5684a1",
+    "answer-synthesis-v2@sha256:f1f23c569b8a6504e658459eb425a122fa6e9bc54ba5ddedc1141675c8903537"
+  ],
+  "queryId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+  "resolvedResearcherIds": [
+    "researcher:v1:61ad71f7aee0afa1185ca185ab9e3042"
+  ],
+  "scoreComponents": [],
+  "stageMillis": {
+    "community": 0,
+    "evidence": 0,
+    "identity": 0,
+    "metrics": 0,
+    "paths": 0,
+    "planner": 0,
+    "resolver": 0,
+    "semantic": 0,
+    "synthesis": 0,
+    "verification": 0
+  },
+  "unresolvedNames": [],
+  "verificationCounts": {
+    "conflicting": 0,
+    "partially_supported": 0,
+    "unsupported": 0,
+    "verified": 3
+  }
+}

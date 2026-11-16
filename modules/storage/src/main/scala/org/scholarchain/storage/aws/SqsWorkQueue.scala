@@ -13,18 +13,26 @@ import software.amazon.awssdk.services.sqs.model._
   *
   * `ack` acknowledges a processed message (SQS DeleteMessage on its receipt handle); this is the
   * queue's consumption protocol, not data removal. `release` sets the visibility timeout to 0.
+  *
+  * @param visibilitySeconds
+  *   the visibility timeout sent with every receive; None uses the queue's own visibility timeout
+  *   (the Phase 10 job queue: set by Terraform, longer than `service.jobLeaseMillis`)
   */
 final class SqsWorkQueue(
     client: SqsClient,
     queueUrl: String,
     waitSeconds: Int,
-    visibilitySeconds: Int
+    visibilitySeconds: Option[Int]
 ) extends WorkQueue {
   require(waitSeconds >= 0 && waitSeconds <= 20, "waitSeconds must be in 0..20")
   require(
-    visibilitySeconds >= 0 && visibilitySeconds <= 43200,
+    visibilitySeconds.forall(v => v >= 0 && v <= 43200),
     "visibilitySeconds must be in 0..43200"
   )
+
+  /** A queue that sends `visibilitySeconds` with every receive (the embedding work queue). */
+  def this(client: SqsClient, queueUrl: String, waitSeconds: Int, visibilitySeconds: Int) =
+    this(client, queueUrl, waitSeconds, Some(visibilitySeconds))
 
   def enqueue(items: Seq[WorkItem]): Int =
     items
@@ -52,18 +60,14 @@ final class SqsWorkQueue(
       .sum
 
   def receive(max: Int): List[ReceivedWork] = {
-    val r = AwsErrors.guard(
-      client.receiveMessage(
-        ReceiveMessageRequest
-          .builder()
-          .queueUrl(queueUrl)
-          .maxNumberOfMessages(math.max(1, math.min(10, max)))
-          .waitTimeSeconds(waitSeconds)
-          .visibilityTimeout(visibilitySeconds)
-          .messageSystemAttributeNames(MessageSystemAttributeName.APPROXIMATE_RECEIVE_COUNT)
-          .build()
-      )
-    )
+    val b = ReceiveMessageRequest
+      .builder()
+      .queueUrl(queueUrl)
+      .maxNumberOfMessages(math.max(1, math.min(10, max)))
+      .waitTimeSeconds(waitSeconds)
+      .messageSystemAttributeNames(MessageSystemAttributeName.APPROXIMATE_RECEIVE_COUNT)
+    visibilitySeconds.foreach(v => b.visibilityTimeout(v))
+    val r = AwsErrors.guard(client.receiveMessage(b.build()))
     r.messages().asScala.toList.map { m =>
       val o = ujson.read(m.body()).obj
       val count = Option(m.attributes().get(MessageSystemAttributeName.APPROXIMATE_RECEIVE_COUNT))

@@ -1,0 +1,389 @@
+{
+  "answer": {
+    "abstained": false,
+    "abstentionReason": null,
+    "answerText": "Overview (not verified; only the claims below are checked against evidence): Stored collaboration metrics for the requested researchers.\n\nClaims:\n- [claim-1] Carol King (researcher:v1:61ad71f7aee0afa1185ca185ab9e3042) is the researcher matched for this question (identity outcome accepted, confidence 0.9900).\n- [claim-2] In 2015-2025, Carol King has 2 publications (P), 3 distinct coauthors (C), 1.5000 average coauthors per paper (A), 2 coauthors at most on one paper (M).\n- [claim-3] In 2015-2025, Carol King's collaboration intensity is 3: weighted degree W equals total coauthor occurrences T in this data, so they are one finding.\n\nNotes:\n- 'Carol King' was resolved to Carol King (researcher:v1:61ad71f7aee0afa1185ca185ab9e3042).",
+    "bundleId": "evidence:v1:3397ff44763060bf4efc5beb3908e4e1",
+    "claims": [
+      {
+        "claimId": "claim-1",
+        "claimText": "Carol King (researcher:v1:61ad71f7aee0afa1185ca185ab9e3042) is the researcher matched for this question (identity outcome accepted, confidence 0.9900).",
+        "evidenceIds": [
+          "evidence:v1:702bd817d5a23c9ef611578d607fc969"
+        ],
+        "provenance": {
+          "contentHash": "sha256:2cd4b1ea03e09c46507247b0406f7b70c0deb0c1f4e1a2562b9092300533eb0a",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v2",
+          "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:ce890bd70723da010b9dffac391c0f97",
+          "sourceRecordIds": [
+            "evidence:v1:702bd817d5a23c9ef611578d607fc969"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": null,
+        "window": null
+      },
+      {
+        "claimId": "claim-2",
+        "claimText": "In 2015-2025, Carol King has 2 publications (P), 3 distinct coauthors (C), 1.5000 average coauthors per paper (A), 2 coauthors at most on one paper (M).",
+        "evidenceIds": [
+          "evidence:v1:8f4fe5726bc36e957b0fc22cddc502ae",
+          "evidence:v1:dbfe2a26c56632cace25f4e14a86d4c4",
+          "evidence:v1:c86d15bceed5fc4cabfabd06b9476d25",
+          "evidence:v1:b6a1f64fe5c9feafac2ce71dad172c34"
+        ],
+        "provenance": {
+          "contentHash": "sha256:cd1236c01efbb0de5acf1d569e4b36bd47190fcef4943e1b5f8d7af42c04b7c6",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v2",
+          "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:ce890bd70723da010b9dffac391c0f97",
+          "sourceRecordIds": [
+            "evidence:v1:8f4fe5726bc36e957b0fc22cddc502ae",
+            "evidence:v1:dbfe2a26c56632cace25f4e14a86d4c4",
+            "evidence:v1:c86d15bceed5fc4cabfabd06b9476d25",
+            "evidence:v1:b6a1f64fe5c9feafac2ce71dad172c34"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": null,
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "claimId": "claim-3",
+        "claimText": "In 2015-2025, Carol King's collaboration intensity is 3: weighted degree W equals total coauthor occurrences T in this data, so they are one finding.",
+        "evidenceIds": [
+          "evidence:v1:96531da7c5d9a6d1bdd82065da19d0ad",
+          "evidence:v1:ec922f44e85a4abf2f7cdac49c7b0d5d"
+        ],
+        "provenance": {
+          "contentHash": "sha256:2b46ad8a8ee1e200918e74db07a2fa5138f4d8f1e23e40e95af476492aefe98d",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v2",
+          "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:ce890bd70723da010b9dffac391c0f97",
+          "sourceRecordIds": [
+            "evidence:v1:96531da7c5d9a6d1bdd82065da19d0ad",
+            "evidence:v1:ec922f44e85a4abf2f7cdac49c7b0d5d"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": null,
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "evidenceId": "evidence:v1:702bd817d5a23c9ef611578d607fc969",
+        "evidenceType": "match_decision",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:62921ec25f30e016ddbd75511e6fc96bfdd72bdb2b6508437bc8b5572279048b",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:ce890bd70723da010b9dffac391c0f97",
+          "sourceRecordIds": [
+            "EntityLinkCache:name#carol king/researcher#researcher:v1:61ad71f7aee0afa1185ca185ab9e3042",
+            "run:v1:ce890bd70723da010b9dffac391c0f97"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Carol King\nresearcherId=researcher:v1:61ad71f7aee0afa1185ca185ab9e3042\naskedName=Carol King\nmatchedValue=Carol King\nresolved=true\noutcome=accepted\nconfidence=0.9900\npublicationCount=2\ndistinctCoauthors=3\ntopCoauthorNames=Greta Olsen | Bob Jones | Dan Brown\ntopCoauthorIds=researcher:v1:52838581632176f586270440374529a0,researcher:v1:6d5118d4d7503bbe730c2f85502fc54e,researcher:v1:85c338876538cbd3a7b4155d2f92a302\ncontextWindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:61ad71f7aee0afa1185ca185ab9e3042",
+          "identity=carol king"
+        ],
+        "window": null
+      },
+      {
+        "evidenceId": "evidence:v1:8f4fe5726bc36e957b0fc22cddc502ae",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "publication_count",
+          "value": 2
+        },
+        "provenance": {
+          "contentHash": "sha256:ee2c9a52cea8f52c18839811a543a4d2639713061fa56b248268f234411d799e",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "metric-policy/1",
+          "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:61ad71f7aee0afa1185ca185ab9e3042/window#full-2015-2025",
+            "run:v1:ce890bd70723da010b9dffac391c0f97"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Carol King\nresearcherId=researcher:v1:61ad71f7aee0afa1185ca185ab9e3042\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:61ad71f7aee0afa1185ca185ab9e3042",
+          "metric=publication_count",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:dbfe2a26c56632cace25f4e14a86d4c4",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "distinct_coauthors",
+          "value": 3
+        },
+        "provenance": {
+          "contentHash": "sha256:ee2c9a52cea8f52c18839811a543a4d2639713061fa56b248268f234411d799e",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "metric-policy/1",
+          "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:61ad71f7aee0afa1185ca185ab9e3042/window#full-2015-2025",
+            "run:v1:ce890bd70723da010b9dffac391c0f97"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Carol King\nresearcherId=researcher:v1:61ad71f7aee0afa1185ca185ab9e3042\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:61ad71f7aee0afa1185ca185ab9e3042",
+          "metric=distinct_coauthors",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:ec922f44e85a4abf2f7cdac49c7b0d5d",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "total_coauthor_occurrences",
+          "value": 3
+        },
+        "provenance": {
+          "contentHash": "sha256:ee2c9a52cea8f52c18839811a543a4d2639713061fa56b248268f234411d799e",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "metric-policy/1",
+          "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:61ad71f7aee0afa1185ca185ab9e3042/window#full-2015-2025",
+            "run:v1:ce890bd70723da010b9dffac391c0f97"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Carol King\nresearcherId=researcher:v1:61ad71f7aee0afa1185ca185ab9e3042\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:61ad71f7aee0afa1185ca185ab9e3042",
+          "metric=total_coauthor_occurrences",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:c86d15bceed5fc4cabfabd06b9476d25",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "average_coauthors_per_paper",
+          "value": 1.5
+        },
+        "provenance": {
+          "contentHash": "sha256:ee2c9a52cea8f52c18839811a543a4d2639713061fa56b248268f234411d799e",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "metric-policy/1",
+          "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:61ad71f7aee0afa1185ca185ab9e3042/window#full-2015-2025",
+            "run:v1:ce890bd70723da010b9dffac391c0f97"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Carol King\nresearcherId=researcher:v1:61ad71f7aee0afa1185ca185ab9e3042\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:61ad71f7aee0afa1185ca185ab9e3042",
+          "metric=average_coauthors_per_paper",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:b6a1f64fe5c9feafac2ce71dad172c34",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "max_coauthors_on_one_paper",
+          "value": 2
+        },
+        "provenance": {
+          "contentHash": "sha256:ee2c9a52cea8f52c18839811a543a4d2639713061fa56b248268f234411d799e",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "metric-policy/1",
+          "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:61ad71f7aee0afa1185ca185ab9e3042/window#full-2015-2025",
+            "run:v1:ce890bd70723da010b9dffac391c0f97"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Carol King\nresearcherId=researcher:v1:61ad71f7aee0afa1185ca185ab9e3042\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:61ad71f7aee0afa1185ca185ab9e3042",
+          "metric=max_coauthors_on_one_paper",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:96531da7c5d9a6d1bdd82065da19d0ad",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "weighted_degree",
+          "value": 3
+        },
+        "provenance": {
+          "contentHash": "sha256:ee2c9a52cea8f52c18839811a543a4d2639713061fa56b248268f234411d799e",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "metric-policy/1",
+          "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:61ad71f7aee0afa1185ca185ab9e3042/window#full-2015-2025",
+            "run:v1:ce890bd70723da010b9dffac391c0f97"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Carol King\nresearcherId=researcher:v1:61ad71f7aee0afa1185ca185ab9e3042\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:61ad71f7aee0afa1185ca185ab9e3042",
+          "metric=weighted_degree",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      }
+    ],
+    "identityNotes": [
+      "'Carol King' was resolved to Carol King (researcher:v1:61ad71f7aee0afa1185ca185ab9e3042)."
+    ],
+    "modelId": "fake-rule-template-v1",
+    "plan": {
+      "graphRunId": "run:v1:ce890bd70723da010b9dffac391c0f97",
+      "provenance": {
+        "contentHash": "sha256:b979e47efe668dc58e2ac7647aa8b37b6a052cb59b40896636f806d9a773c186",
+        "datasetId": "scholarchain-graph",
+        "jobName": "rag.query",
+        "policyVersion": "rule-planner/1",
+        "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+        "schemaVersion": 1,
+        "snapshotId": "run:v1:ce890bd70723da010b9dffac391c0f97",
+        "sourceRecordIds": [
+          "run:v1:ce890bd70723da010b9dffac391c0f97"
+        ],
+        "sourceType": "runtime"
+      },
+      "question": "How many distinct coauthors does Carol King have in 2015-2025?",
+      "schemaVersion": 1,
+      "steps": [
+        {
+          "operation": "collaboration_breadth",
+          "parameters": {
+            "metric": "distinct_coauthors",
+            "windowLabel": "full-2015-2025"
+          },
+          "researcherIds": [
+            "researcher:v1:61ad71f7aee0afa1185ca185ab9e3042"
+          ],
+          "window": {
+            "endYear": 2025,
+            "startYear": 2015
+          }
+        }
+      ]
+    },
+    "provenance": {
+      "contentHash": "sha256:3c4e5a20bbd5220c0d7e8fdba1f27a1fd4e20b8de28b3113db0965d8342a6c19",
+      "datasetId": "scholarchain-graph",
+      "jobName": "rag.answer",
+      "policyVersion": "answer-synthesis-v2",
+      "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+      "schemaVersion": 1,
+      "snapshotId": "run:v1:ce890bd70723da010b9dffac391c0f97",
+      "sourceRecordIds": [
+        "evidence:v1:3397ff44763060bf4efc5beb3908e4e1"
+      ],
+      "sourceType": "runtime"
+    },
+    "question": "How many distinct coauthors does Carol King have in 2015-2025?",
+    "schemaVersion": 2
+  },
+  "links": {
+    "evidence": [
+      "/v1/evidence/evidence:v1:702bd817d5a23c9ef611578d607fc969",
+      "/v1/evidence/evidence:v1:8f4fe5726bc36e957b0fc22cddc502ae?window=2015-2025",
+      "/v1/evidence/evidence:v1:dbfe2a26c56632cace25f4e14a86d4c4?window=2015-2025",
+      "/v1/evidence/evidence:v1:c86d15bceed5fc4cabfabd06b9476d25?window=2015-2025",
+      "/v1/evidence/evidence:v1:b6a1f64fe5c9feafac2ce71dad172c34?window=2015-2025",
+      "/v1/evidence/evidence:v1:96531da7c5d9a6d1bdd82065da19d0ad?window=2015-2025",
+      "/v1/evidence/evidence:v1:ec922f44e85a4abf2f7cdac49c7b0d5d?window=2015-2025"
+    ],
+    "explain": "/v1/explain/run:v1:bbee9fc0b28acc2fcc708857f332798e"
+  },
+  "notes": [],
+  "queryId": "run:v1:bbee9fc0b28acc2fcc708857f332798e"
+}

@@ -1,0 +1,11 @@
+{
+  "constraints": {
+    "yearFrom": 2015,
+    "yearTo": 2025
+  },
+  "mode": "sync",
+  "output": {
+    "includeEvidence": true
+  },
+  "question": "How many distinct coauthors does Carol King have in 2015-2025?"
+}

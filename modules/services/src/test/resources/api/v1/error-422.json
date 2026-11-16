@@ -1,0 +1,14 @@
+{
+  "details": {
+    "fieldErrors": [
+      {
+        "field": "constraints.venues",
+        "problem": "must be empty (no venue metrics yet)"
+      }
+    ]
+  },
+  "error": "UNSUPPORTED_CONSTRAINT",
+  "message": "A constraint of this request is not supported.",
+  "retryable": false,
+  "traceId": "0000000000000000000000000000000d"
+}

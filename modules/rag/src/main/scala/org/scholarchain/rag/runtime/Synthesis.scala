@@ -42,62 +42,42 @@ final class QueryPlanner(
       "QUESTION" -> Prompts.asData(question, QueryRequest.MaxQuestionChars)
     )
     val attempts = List.newBuilder[ModelAttempt]
+    val task = ModelTask.Planner
     prompt.render(values) match {
       case Left(e) =>
-        fallback(question, attempts.result(), s"planner prompt could not be rendered: $e")
+        fallback(
+          question,
+          attempts.result(),
+          s"planner prompt could not be rendered: $e",
+          TaskCallCounters.PromptRender
+        )
       case Right((system, user0)) =>
         var user = user0
         var result: Option[PlanDraft] = None
         var lastError = ""
+        var lastKind = TaskCallCounters.OutputInvalid
         var n = 0
         while (result.isEmpty && n <= ctx.maxStructuredRetries) {
           n += 1
-          model.complete(
-            ModelRequest(
-              ModelTask.Planner,
-              system,
-              user,
-              ctx.maxOutputTokens,
-              PlannerFakeInput(question)
-            )
+          model.invoke(
+            ModelRequest(task, system, user, ctx.maxOutputTokens, PlannerFakeInput(question))
           ) match {
             case Left(f) =>
-              attempts += ModelAttempt(
-                ModelTask.Planner.wire,
-                n,
-                ModelAttempt.CallFailed,
-                None,
-                None,
-                Some(f.message.take(300)),
-                None,
-                None
-              )
+              attempts += ModelAttempt.callFailed(task.wire, n, f)
               lastError = s"model call failed: ${f.message.take(200)}"
+              lastKind = TaskCallCounters.CallFailed
               n = Int.MaxValue - 1 // a failed call is not retried here (the client already retried)
             case Right(reply) =>
               PlanDraftSchema.validate(reply.text, b) match {
                 case Right(d) =>
-                  attempts += ModelAttempt(
-                    ModelTask.Planner.wire,
-                    n,
-                    ModelAttempt.Valid,
-                    Some(ContentHash.of(reply.text)),
-                    Some(reply.text.length),
-                    None,
-                    reply.inputTokens,
-                    reply.outputTokens
-                  )
+                  attempts += ModelAttempt.valid(task.wire, n, reply)
                   result = Some(d)
-                case Left(err) =>
-                  attempts += ModelAttempt.invalid(
-                    ModelTask.Planner.wire,
-                    n,
-                    reply.text,
-                    err,
-                    reply.inputTokens,
-                    reply.outputTokens
-                  )
+                case Left(err0) =>
+                  val err = ModelAttempt.invalidError(reply, err0)
+                  model.usage.recordInvalidOutput(task)
+                  attempts += ModelAttempt.invalid(task.wire, n, reply, err0)
                   lastError = s"plan draft failed validation: ${err.take(200)}"
+                  lastKind = TaskCallCounters.OutputInvalid
                   user =
                     user0 + s"\n\nYour previous output was rejected (${err.take(300)}). Return only a JSON object that matches query-plan-draft-v1."
               }
@@ -107,7 +87,7 @@ final class QueryPlanner(
           case Some(d) =>
             val source = if (model.provider == LlmProvider.Fake) PlanSource.Rule else PlanSource.Llm
             PlannerOutput(d, source, attempts.result(), None, None)
-          case None => fallback(question, attempts.result(), lastError)
+          case None => fallback(question, attempts.result(), lastError, lastKind)
         }
     }
   }
@@ -115,8 +95,10 @@ final class QueryPlanner(
   private def fallback(
       question: String,
       attempts: List[ModelAttempt],
-      reason: String
+      reason: String,
+      kind: String
   ): PlannerOutput = {
+    model.usage.recordFallback(ModelTask.Planner, kind)
     val t0 = System.nanoTime()
     val d = rule.draft(question)
     // the rule planner's own output is validated like a model's
@@ -140,7 +122,8 @@ final case class SynthesisInput(
     facts: List[Fact],
     evidence: BuiltEvidence,
     notes: List[String],
-    uncertain: Map[ResearcherId, String]
+    uncertain: Map[ResearcherId, String],
+    claims: AnswerClaimsSpec = AnswerClaimsSpec.V1
 )
 
 final case class SynthesisOutput(
@@ -158,14 +141,20 @@ final case class SynthesisOutput(
   private def sum(xs: List[Long]) = if (xs.isEmpty) None else Some(xs.sum)
 }
 
-/** Stage 8, AnswerSynthesis: prompt `answer-synthesis-v1`, output schema `answer-claims-v1`. The
-  * prompt input is a compact facts table plus the untrusted semantic excerpts, within
-  * `llm.contextTokenBudget` (4 characters per token; semantic excerpts are dropped first, then the
-  * lowest-ranked rows, and the answer says so). Output that fails validation gets at most
-  * `llm.maxStructuredRetries` retries; then, or when the model call fails, the deterministic
-  * template synthesis ([[FakeSynthesis]]) is the fallback.
+/** Stage 8, AnswerSynthesis: the synthesis prompt of the prompt set (`answer-synthesis-v1` or
+  * `-v2`) and its output schema (`claims`: `answer-claims-v1` or `-v2`). The prompt input is a
+  * compact facts table plus the untrusted semantic excerpts, within `llm.contextTokenBudget` (4
+  * characters per token; semantic excerpts are dropped first, then the lowest-ranked rows, and the
+  * answer says so). Output that fails validation gets at most `llm.maxStructuredRetries` retries;
+  * then, or when the model call fails, the deterministic template synthesis ([[FakeSynthesis]]) is
+  * the fallback.
   */
-final class AnswerSynthesis(model: LanguageModel, prompt: PromptTemplate, ctx: RuntimeContext) {
+final class AnswerSynthesis(
+    model: LanguageModel,
+    prompt: PromptTemplate,
+    ctx: RuntimeContext,
+    claims: AnswerClaimsSpec = AnswerClaimsSpec.V1
+) {
   val CharsPerToken = 4
 
   def run(input: SynthesisInput): SynthesisOutput = {
@@ -212,8 +201,9 @@ final class AnswerSynthesis(model: LanguageModel, prompt: PromptTemplate, ctx: R
          else Nil)
     val keptIds = (g.map(_.evidenceId) ++ s.map(_._1.evidenceId)).toSet
     val keptFacts = input.facts.filter(f => input.evidence.idOf.get(f).exists(keptIds.contains))
-    val reduced = input.copy(facts = keptFacts)
+    val reduced = input.copy(facts = keptFacts, claims = claims)
     val attempts = List.newBuilder[ModelAttempt]
+    val task = ModelTask.Synthesis
 
     rendered match {
       case Left(e) =>
@@ -221,63 +211,38 @@ final class AnswerSynthesis(model: LanguageModel, prompt: PromptTemplate, ctx: R
           reduced,
           attempts.result(),
           s"synthesis prompt could not be rendered: $e",
-          budgetNotes
+          budgetNotes,
+          TaskCallCounters.PromptRender
         )
       case Right((system, user0)) =>
         var user = user0
         var result: Option[AnswerDraft] = None
         var lastError = ""
+        var lastKind = TaskCallCounters.OutputInvalid
         var n = 0
         while (result.isEmpty && n <= ctx.maxStructuredRetries) {
           n += 1
-          model.complete(
-            ModelRequest(
-              ModelTask.Synthesis,
-              system,
-              user,
-              ctx.maxOutputTokens,
-              SynthesisFakeInput(reduced)
-            )
+          model.invoke(
+            ModelRequest(task, system, user, ctx.maxOutputTokens, SynthesisFakeInput(reduced))
           ) match {
             case Left(f) =>
-              attempts += ModelAttempt(
-                ModelTask.Synthesis.wire,
-                n,
-                ModelAttempt.CallFailed,
-                None,
-                None,
-                Some(f.message.take(300)),
-                None,
-                None
-              )
+              attempts += ModelAttempt.callFailed(task.wire, n, f)
               lastError = s"model call failed: ${f.message.take(200)}"
+              lastKind = TaskCallCounters.CallFailed
               n = Int.MaxValue - 1
             case Right(reply) =>
-              AnswerClaimsSchema.validate(reply.text) match {
+              AnswerClaimsSchema.validate(reply.text, claims) match {
                 case Right(d) =>
-                  attempts += ModelAttempt(
-                    ModelTask.Synthesis.wire,
-                    n,
-                    ModelAttempt.Valid,
-                    Some(ContentHash.of(reply.text)),
-                    Some(reply.text.length),
-                    None,
-                    reply.inputTokens,
-                    reply.outputTokens
-                  )
+                  attempts += ModelAttempt.valid(task.wire, n, reply)
                   result = Some(d)
-                case Left(err) =>
-                  attempts += ModelAttempt.invalid(
-                    ModelTask.Synthesis.wire,
-                    n,
-                    reply.text,
-                    err,
-                    reply.inputTokens,
-                    reply.outputTokens
-                  )
+                case Left(err0) =>
+                  val err = ModelAttempt.invalidError(reply, err0)
+                  model.usage.recordInvalidOutput(task)
+                  attempts += ModelAttempt.invalid(task.wire, n, reply, err0)
                   lastError = s"answer claims failed validation: ${err.take(200)}"
+                  lastKind = TaskCallCounters.OutputInvalid
                   user =
-                    user0 + s"\n\nYour previous output was rejected (${err.take(300)}). Return only a JSON object that matches answer-claims-v1."
+                    user0 + s"\n\nYour previous output was rejected (${err.take(300)}). Return only a JSON object that matches ${claims.schemaId}."
               }
           }
         }
@@ -295,7 +260,7 @@ final class AnswerSynthesis(model: LanguageModel, prompt: PromptTemplate, ctx: R
               notes,
               None
             )
-          case None => fallback(reduced, attempts.result(), lastError, budgetNotes)
+          case None => fallback(reduced, attempts.result(), lastError, budgetNotes, lastKind)
         }
     }
   }
@@ -304,11 +269,13 @@ final class AnswerSynthesis(model: LanguageModel, prompt: PromptTemplate, ctx: R
       input: SynthesisInput,
       attempts: List[ModelAttempt],
       reason: String,
-      budget: List[String]
+      budget: List[String],
+      kind: String
   ): SynthesisOutput = {
+    model.usage.recordFallback(ModelTask.Synthesis, kind)
     val t0 = System.nanoTime()
     val d = FakeSynthesis.render(input)
-    val checked = AnswerClaimsSchema.validateJson(d.toJson).getOrElse(d)
+    val checked = AnswerClaimsSchema.validateJson(d.toJson, input.claims).getOrElse(d)
     SynthesisOutput(
       checked,
       usedModel = false,
@@ -380,17 +347,20 @@ object AnswerSynthesis {
 
 /** Deterministic claim templates over the facts table (the `fake` provider's synthesis and the
   * fallback). Every number in a claim is a stored value of a cited fact, formatted with
-  * [[Fact.fmt]], and is listed in `numbers` with its evidence ID and field.
+  * [[Fact.fmt]], and is listed in `numbers` with its evidence ID and field. The output stays within
+  * the limits of the input's claims schema (`input.claims`): at most `maxClaims` claims (the first
+  * ones, in template order), and a claim whose text is longer than `maxTextChars` is left out.
   */
 object FakeSynthesis {
   import CollaborationMetric._
 
   private final class Builder(input: SynthesisInput) {
     val claims = mutable.ListBuffer.empty[DraftClaim]
+    private val spec = input.claims
     def id(f: Fact): Option[String] = input.evidence.idOf.get(f).map(_.value)
     def add(text: String, cites: List[Fact], numbers: List[(Double, Fact, String)]): Unit = {
       val ids = cites.flatMap(id).distinct
-      if (ids.nonEmpty && claims.size < AnswerClaimsSchema.MaxClaims) {
+      if (ids.nonEmpty && claims.size < spec.maxClaims && text.length <= spec.maxTextChars) {
         val nums = numbers.flatMap { case (v, f, field) =>
           id(f).map(DraftNumber(v, _, field))
         }.distinct
@@ -405,7 +375,7 @@ object FakeSynthesis {
           s"claim-${claims.size + 1}",
           text,
           ids,
-          nums.take(AnswerClaimsSchema.MaxNumbersPerClaim),
+          nums.take(spec.maxNumbersPerClaim),
           unc
         )
       }

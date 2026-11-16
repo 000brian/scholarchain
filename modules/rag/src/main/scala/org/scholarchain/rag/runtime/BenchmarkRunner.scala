@@ -8,27 +8,33 @@ import scala.util.control.NonFatal
 
 import org.scholarchain.core._
 import org.scholarchain.core.config.{ConfigLoader, LlmProvider, ScholarChainConfig}
-import org.scholarchain.rag.embedding.{EmbeddingProviders, InputType}
 import org.scholarchain.rag.retrieval.SemanticRetriever
-import org.scholarchain.rag.semantic.ExportDocuments
 import org.scholarchain.storage.StorageConfig
-import org.scholarchain.storage.local.{LocalRuntimeEnvironment, LocalRuntimeOptions}
-import org.scholarchain.storage.source.{ExportManifest, LocalDirectorySource, RejectLog}
+import org.scholarchain.storage.source.ExportManifest
 
 /** Runs the frozen benchmark questions through [[QueryWorkflow]] on the local runtime stores.
   *
   * {{{
-  * sbt -batch -J-Xmx12g "rag/runMain org.scholarchain.rag.runtime.BenchmarkRunner --config FILE --export DIR --neptune-csv DIR --questions FILE --out DIR --llm fake|anthropic"
+  * sbt -batch -J-Xmx12g "rag/runMain org.scholarchain.rag.runtime.BenchmarkRunner --config FILE --export DIR --neptune-csv DIR --questions FILE --out DIR --llm fake|anthropic [--prompts v1|v2]"
   * }}}
   *
-  * It loads storage's `LocalRuntimeEnvironment` (graph from the Neptune CSV files, tables from the
-  * export), renders and ingests only the researcher-profile, community and path documents into the
-  * in-memory vector index with the `fake` embedder (no paper index locally), runs every question
-  * one at a time, and writes `run-report.json` plus one `q-NN.json` per question. Rules: `--out`
-  * must not exist; `--llm` must equal the configuration's `llm.provider`; `--llm anthropic` refuses
-  * to start unless the environment variable named by `llm.apiKeyEnvVar` is set (its value is never
-  * read here beyond that check, and never written); a step over 30 minutes or an out-of-memory
-  * error stops the run. Every report is labelled "local stores, fake embeddings".
+  * It builds the runtime with [[RuntimeService.local]] (storage's `LocalRuntimeEnvironment`, the
+  * researcher-profile, community and path documents ingested with the `fake` embedder, no paper
+  * index locally), runs every question one at a time, and writes `run-report.json` plus one
+  * `q-NN.json` per question. Rules: `--out` must not exist; `--llm` must equal the configuration's
+  * `llm.provider`; `--llm anthropic` refuses to start unless the environment variable named by
+  * `llm.apiKeyEnvVar` is set (its value is never read here beyond that check, and never written);
+  * `--prompts` names the prompt set (default [[Prompts.Current]], `v2`; `v1` replays Phase 9); a
+  * step over 30 minutes or an out-of-memory error stops the run. Every report is labelled "local
+  * stores, fake embeddings".
+  *
+  * Model calls (R-5): `run-report.json` has a `modelCalls` section (per task: logical calls
+  * attempted, succeeded and failed by cause, HTTP attempts, retried attempts, invalid and truncated
+  * outputs, stop reasons, fallbacks, tokens). A run in which any logical call failed after its
+  * retries ends `failed: <n> model calls failed (<causes>)`; when the first 3 logical calls all
+  * fail with the same non-retryable 4xx (not 429), the run stops at once with `stopped: first 3
+  * model calls rejected with HTTP <status>`. Both exit non-zero. Retried attempts that later
+  * succeed and invalid-output fallbacks are counted, not failures.
   */
 object BenchmarkRunner {
   val Label = "local stores, fake embeddings"
@@ -43,14 +49,16 @@ object BenchmarkRunner {
       neptuneCsv: Path,
       questions: Path,
       out: Path,
-      llm: String
+      llm: String,
+      prompts: PromptSetSpec = Prompts.Current
   )
 
   def parse(args: Array[String]): Either[String, Options] =
     if (args.length % 2 != 0) Left("arguments must be --key value pairs")
     else {
       val m = args.grouped(2).map(a => a(0) -> a(1)).toMap
-      val known = Set("--config", "--export", "--neptune-csv", "--questions", "--out", "--llm")
+      val known =
+        Set("--config", "--export", "--neptune-csv", "--questions", "--out", "--llm", "--prompts")
       def req(k: String) = m.get(k).filter(_.trim.nonEmpty).toRight(s"$k is required")
       for {
         _ <- Either.cond(
@@ -67,13 +75,15 @@ object BenchmarkRunner {
           Set("fake", "anthropic").contains,
           "--llm must be fake or anthropic"
         )
+        p <- m.get("--prompts").map(Prompts.setNamed).getOrElse(Right(Prompts.Current))
       } yield Options(
         Paths.get(c).toAbsolutePath,
         Paths.get(e).toAbsolutePath,
         Paths.get(n).toAbsolutePath,
         Paths.get(q).toAbsolutePath,
         Paths.get(o).toAbsolutePath,
-        l
+        l,
+        p
       )
     }
 
@@ -150,7 +160,7 @@ object BenchmarkRunner {
       a
     }
     val t0 = System.nanoTime()
-    var runtime: LocalRuntimeEnvironment = null
+    var service: RuntimeService = null
     try {
       val config = loadConfig(opts.config).fold(e => sys.error(e), identity)
       preflight(config, opts.llm, env).fold(e => sys.error(e), identity)
@@ -165,81 +175,41 @@ object BenchmarkRunner {
         "exportManifestSha256" -> manifestSha,
         "questionsFile" -> opts.questions.getFileName.toString,
         "questionsSha256" -> Hashing.sha256Hex(questionsBytes),
-        "llm" -> opts.llm
+        "llm" -> opts.llm,
+        "promptSet" -> opts.prompts.name
       )
       write()
 
-      runtime = step("load-runtime-environment") {
-        LocalRuntimeEnvironment
-          .load(
-            cfg,
-            opts.exportDir,
-            opts.neptuneCsv,
-            LocalRuntimeOptions(rejectFile = Some(opts.out.resolve("load-rejects.jsonl")))
-          )
-          .fold(e => sys.error(e), identity)
+      val timer = new RuntimeService.StepTimer {
+        def apply[A](name: String)(f: => A): A = step(name)(f)
       }
-      report("runtimeEnvironment") = runtime.report.toJson
-      write()
-
-      val doc =
-        EmbeddingProviders.create(config, InputType.Document).fold(e => sys.error(e), identity)
-      val query =
-        EmbeddingProviders.create(config, InputType.Query).fold(e => sys.error(e), identity)
-      val src = new LocalDirectorySource(opts.exportDir)
-      val manifest = src.manifest()
-      val ingest = step("render-and-ingest-summaries") {
-        val rejects = new RejectLog(Some(opts.out.resolve("render-rejects.jsonl")))
-        try {
-          val corpus =
-            new ExportDocuments(src, manifest, cfg.vectors, rejects).renderSparkSummaries()
-          val runId = RunId
-            .of(
-              "rag.benchmark-ingest",
-              QueryWorkflow.CodeVersion,
-              s"sha256:$manifestSha",
-              config.fingerprint
-            )
-            .fold(e => sys.error(e), identity)
-          val s = runtime.pipeline(doc.port, "dblp").open(runId, "benchmark summaries")
-          s.ingest(corpus.documents.iterator)
-          val r = s.finish()
-          ujson.Obj(
-            "documents" -> corpus.documents.size.toDouble,
-            "documentsPerIndex" -> ujson.Obj.from(
-              corpus.documents.groupMapReduce(_.indexName)(_ => 1L)(_ + _).toList.sorted.map {
-                case (k, v) => k -> ujson.Num(v.toDouble)
-              }
-            ),
-            "renderRejects" -> rejects.total.toDouble,
-            "ingest" -> r.toJson,
-            "embedding" -> doc.spec.id,
-            "note" -> SemanticLabel
+      service = RuntimeService
+        .local(
+          config,
+          opts.exportDir,
+          opts.neptuneCsv,
+          RuntimeService.LocalOptions(
+            promptSet = opts.prompts,
+            loadRejectFile = Some(opts.out.resolve("load-rejects.jsonl")),
+            renderRejectFile = Some(opts.out.resolve("render-rejects.jsonl")),
+            llmWiring = llmWiring.copy(env = env),
+            steps = timer
           )
-        } finally rejects.close()
-      }
-      report("semanticIngest") = ingest
-      write()
-
-      val ctx = RuntimeContext
-        .from(config, manifest.sourceRunId, runtime.report.graphWindowLabels.toSet)
+        )
         .fold(e => sys.error(e), identity)
-      val prompts = Prompts.locate().flatMap(Prompts.loadSet).fold(e => sys.error(e), identity)
-      val rule = new RulePlanner(ctx.windows, ctx.bounds)
-      val model =
-        LlmFactory.create(config, rule, llmWiring.copy(env = env)).fold(e => sys.error(e), identity)
-      val retriever = new SemanticRetriever(query.port, query.spec, runtime.vectors, cfg.vectors)
-      val workflow = new QueryWorkflow(
-        runtime,
-        ctx,
-        model,
-        prompts,
-        Some(retriever),
-        cfg.vectors.collaborationPathIndex
-      )
+      service.localEnvironment.foreach(e => report("runtimeEnvironment") = e.report.toJson)
+      service.ingestReport.foreach(r => report("semanticIngest") = r)
+      write()
+
+      val ctx = service.context
+      val prompts = service.prompts
+      val model = service.model
+      // a live run stops at once when its first calls are all rejected (R-5)
+      if (model.provider != LlmProvider.Fake) model.usage.armEarlyStop()
+      val retriever = service.retriever.getOrElse(sys.error("the local runtime has no retriever"))
       report("versions") = ujson.Obj(
         "prompts" -> ujson.Arr.from(prompts.versions.map(ujson.Str(_))),
-        "schemas" -> ujson.Arr.from(Prompts.SchemaIds.map(ujson.Str(_))),
+        "schemas" -> ujson.Arr.from(prompts.schemaIds.map(ujson.Str(_))),
         "model" -> model.modelId,
         "provider" -> model.provider.wire,
         "codeVersion" -> QueryWorkflow.CodeVersion
@@ -249,7 +219,7 @@ object BenchmarkRunner {
       val results = questions.zipWithIndex.map { case (q, i) =>
         val id = q("id").str
         step(s"question-$id") {
-          val out = workflow.run(QueryRequest(q("question").str))
+          val out = service.workflow.run(QueryRequest(q("question").str))
           val eval = BenchmarkEvaluation.evaluate(q, out, ctx)
           Files.write(
             opts.out.resolve(f"q-${i + 1}%02d.json"),
@@ -258,6 +228,7 @@ object BenchmarkRunner {
               .render(indent = 2)
               .getBytes(StandardCharsets.UTF_8)
           )
+          model.usage.earlyStopReason.foreach(r => throw new StopRun(r))
           (q, out, eval)
         }
       }
@@ -271,14 +242,17 @@ object BenchmarkRunner {
       val planted =
         step("planted-errors")(BenchmarkEvaluation.plantedErrors(results.flatMap(_._2.toOption)))
       report("results") = BenchmarkEvaluation.summarize(results, semantic, planted)
-      report("llmUsage") = model.usage.toJson
-      report("status") = "completed"
+      report("status") = model.usage.failureStatus.getOrElse("completed")
     } catch {
       case e: StopRun          => report("status") = s"stopped: ${e.getMessage}"
       case e: OutOfMemoryError => report("status") = s"stopped: out of memory (${e.getMessage})"
       case NonFatal(e) => report("status") = s"failed: ${e.getClass.getSimpleName}: ${e.getMessage}"
     } finally {
-      if (runtime != null) runtime.close()
+      if (service != null) {
+        report("llmUsage") = service.model.usage.toJson
+        report("modelCalls") = service.model.usage.modelCallsJson
+        service.close()
+      }
       report("totalMillis") = ((System.nanoTime() - t0) / 1000000L).toDouble
       write()
     }
@@ -537,6 +511,7 @@ object BenchmarkEvaluation {
           )
         )
         .getOrElse(ujson.Null)
+      base("storeConflicts") = ujson.Arr.from(r.storeConflicts.map(ujson.Str(_)))
       base("auditWrite") = r.auditWrite.fold(
         ujson.Str(_),
         w => ujson.Obj("attempt" -> w.attempt, "bytes" -> w.encodedBytes)

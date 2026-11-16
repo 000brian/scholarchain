@@ -22,19 +22,23 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import software.amazon.awssdk.services.neptunedata.NeptunedataClient
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3vectors.S3VectorsClient
+import software.amazon.awssdk.services.sqs.SqsClient
 
 /** The synchronous SDK clients behind one [[AwsStorageEnvironment]]. Tests pass stub clients; the
   * runtime uses [[AwsSdkClients.build]]. `neptune` is None when the `neptune` section is not
-  * configured.
+  * configured. `sqs` (the Phase 10 job queue client) is always built by [[AwsSdkClients.build]];
+  * stub-client tests that need no queue leave it None.
   */
 final case class AwsSdkClients(
     s3: S3Client,
     dynamoDb: DynamoDbClient,
     s3Vectors: S3VectorsClient,
-    neptune: Option[NeptunedataClient]
+    neptune: Option[NeptunedataClient],
+    sqs: Option[SqsClient] = None
 ) extends AutoCloseable {
   def close(): Unit = {
-    s3.close(); dynamoDb.close(); s3Vectors.close(); neptune.foreach(_.close())
+    s3.close(); dynamoDb.close(); s3Vectors.close(); neptune.foreach(_.close());
+    sqs.foreach(_.close())
   }
 }
 
@@ -100,7 +104,16 @@ object AwsSdkClients {
       credentials.foreach(b.credentialsProvider)
       b.build()
     }
-    AwsSdkClients(s3, dynamo, vectors, neptune)
+    val sqs = {
+      val b = SqsClient
+        .builder()
+        .region(settings.awsRegion)
+        .httpClient(http())
+        .overrideConfiguration(settings.overrides())
+      credentials.foreach(b.credentialsProvider)
+      b.build()
+    }
+    AwsSdkClients(s3, dynamo, vectors, neptune, Some(sqs))
   }
 }
 
@@ -177,6 +190,9 @@ final class AwsStorageEnvironment private (
       sleeper,
       extrasOf
     )
+
+  /** The SQS client for the job queue (see [[org.scholarchain.storage.jobs.ServiceStores.aws]]). */
+  private[storage] def sqsClient: Option[SqsClient] = clients.sqs
 
   /** Calls and retries per store since construction. */
   def retryReport: ujson.Obj = ujson.Obj(

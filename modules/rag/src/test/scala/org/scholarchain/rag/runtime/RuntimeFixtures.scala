@@ -712,10 +712,13 @@ object RuntimeFixtures {
     new World(env, exportDir, csv)
   }
 
-  /** A model that returns scripted replies in order (then repeats the last), recording requests. */
+  /** A model that returns scripted replies in order (then repeats the last), recording requests.
+    * `stopReason` is the stop reason of every reply.
+    */
   final class ScriptedModel(
       replies: List[Either[ModelFailure, String]],
-      val modelId: String = "scripted-test-model"
+      val modelId: String = "scripted-test-model",
+      stopReason: Option[String] = Some("end_turn")
   ) extends LanguageModel {
     val provider: org.scholarchain.core.config.LlmProvider =
       org.scholarchain.core.config.LlmProvider.Anthropic
@@ -724,10 +727,9 @@ object RuntimeFixtures {
     private var i = 0
     def complete(r: ModelRequest): Either[ModelFailure, ModelReply] = synchronized {
       requests += r
-      usage.requests += 1
       val reply = replies(math.min(i, replies.size - 1))
       i += 1
-      reply.map(t => ModelReply(t, Some(100L), Some(20L)))
+      reply.map(t => ModelReply(t, Some(100L), Some(20L), stopReason))
     }
   }
 
@@ -746,7 +748,7 @@ object RuntimeFixtures {
       (r.fake match {
         case PlannerFakeInput(q)   => Right(rule.draft(q).toJson.render())
         case SynthesisFakeInput(i) => synthesis(i)
-      }).map(t => ModelReply(t, Some(10L), Some(5L)))
+      }).map(t => ModelReply(t, Some(10L), Some(5L), Some("end_turn")))
     }
   }
 }

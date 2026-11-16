@@ -13,22 +13,42 @@ import org.scholarchain.storage.dynamo.RankingMetrics
 
 /** One question with its optional explicit constraints. User text is data: it is never turned into
   * query text, only parsed into a typed [[PlanDraft]].
+  *
+  * @param windowLabel
+  *   a configured `graph.windows` label; overrides the window the planner reads from the question
+  * @param topic
+  *   an explicit topic (at most [[QueryRequest.MaxTopicChars]] characters after
+  *   [[QueryRequest.canonicalText]]); overrides the planner draft's topic
   */
-final case class QueryRequest(question: String, windowLabel: Option[String] = None)
+final case class QueryRequest(
+    question: String,
+    windowLabel: Option[String] = None,
+    topic: Option[String] = None
+)
 
 object QueryRequest {
   val MaxQuestionChars = 2000
+  val MaxTopicChars: Int = PlanBounds.MaxTopicChars
 
   /** NFC, trimmed, whitespace runs collapsed: the form that is hashed into the query run ID. */
-  def canonicalQuestion(q: String): String =
-    Normalizer.normalize(Option(q).getOrElse(""), Normalizer.Form.NFC).trim.replaceAll("\\s+", " ")
+  def canonicalQuestion(q: String): String = canonicalText(q)
 
-  /** `sha256:` of the canonical question plus constraints (the query run ID input fingerprint). */
-  def fingerprint(r: QueryRequest): String =
+  /** NFC, trimmed, whitespace runs collapsed (questions and topics). */
+  def canonicalText(s: String): String =
+    Normalizer.normalize(Option(s).getOrElse(""), Normalizer.Form.NFC).trim.replaceAll("\\s+", " ")
+
+  /** `sha256:` of the canonical question, the constraints (window label, canonical topic) and the
+    * Spark graph run being queried: the query run ID input fingerprint. The graph run is part of it
+    * (Phase 9 m-4), so reloading the stores with another graph run gives new query run, evidence
+    * and bundle IDs instead of colliding with stored ones.
+    */
+  def fingerprint(r: QueryRequest, graphRunId: RunId): String =
     ContentHash.of(
       ujson
         .Obj(
+          "graphRunId" -> graphRunId.value,
           "question" -> canonicalQuestion(r.question),
+          "topic" -> r.topic.map(t => ujson.Str(canonicalText(t))).getOrElse(ujson.Null),
           "windowLabel" -> r.windowLabel.map(ujson.Str(_)).getOrElse(ujson.Null)
         )
         .render()
@@ -150,7 +170,8 @@ object RuntimeContext {
 }
 
 /** What happened to one model call. Model text that fails validation is never kept: only its
-  * sha256, its length and the validation error.
+  * sha256, its length and the validation error. `stopReason` is the provider's `stop_reason`
+  * ([[StopReasons.Unknown]] when the reply has none, and for a failed call, which has no reply).
   */
 final case class ModelAttempt(
     task: String,
@@ -160,7 +181,8 @@ final case class ModelAttempt(
     outputLength: Option[Int],
     error: Option[String],
     inputTokens: Option[Long],
-    outputTokens: Option[Long]
+    outputTokens: Option[Long],
+    stopReason: String
 ) {
   def toJson: ujson.Obj = ujson.Obj(
     "task" -> task,
@@ -170,7 +192,8 @@ final case class ModelAttempt(
     "outputLength" -> outputLength.map(n => ujson.Num(n.toDouble)).getOrElse(ujson.Null),
     "error" -> error.map(ujson.Str(_)).getOrElse(ujson.Null),
     "inputTokens" -> inputTokens.map(n => ujson.Num(n.toDouble)).getOrElse(ujson.Null),
-    "outputTokens" -> outputTokens.map(n => ujson.Num(n.toDouble)).getOrElse(ujson.Null)
+    "outputTokens" -> outputTokens.map(n => ujson.Num(n.toDouble)).getOrElse(ujson.Null),
+    "stopReason" -> stopReason
   )
 }
 
@@ -179,24 +202,56 @@ object ModelAttempt {
   val Invalid = "invalid"
   val CallFailed = "call-failed"
 
+  def stopReasonOf(r: ModelReply): String =
+    r.stopReason.filter(_.nonEmpty).getOrElse(StopReasons.Unknown)
+
+  /** A reply that passed validation. */
+  def valid(task: String, n: Int, r: ModelReply): ModelAttempt =
+    ModelAttempt(
+      task,
+      n,
+      Valid,
+      Some(ContentHash.of(r.text)),
+      Some(r.text.length),
+      None,
+      r.inputTokens,
+      r.outputTokens,
+      stopReasonOf(r)
+    )
+
+  /** A call that failed after the client's retries (no reply, so the stop reason is unknown). */
+  def callFailed(task: String, n: Int, f: ModelFailure): ModelAttempt =
+    ModelAttempt(
+      task,
+      n,
+      CallFailed,
+      None,
+      None,
+      Some(f.message.take(300)),
+      None,
+      None,
+      StopReasons.Unknown
+    )
+
+  /** The validation error of an invalid reply: [[StopReasons.TruncatedError]] when the provider
+    * stopped at `max_tokens` (the output was cut off), else the validator's error.
+    */
+  def invalidError(r: ModelReply, validationError: String): String =
+    if (r.stopReason.contains(StopReasons.MaxTokens)) StopReasons.TruncatedError
+    else validationError
+
   /** The record of a model output that failed validation: hash, length, error; never the text. */
-  def invalid(
-      task: String,
-      n: Int,
-      text: String,
-      error: String,
-      in: Option[Long],
-      out: Option[Long]
-  ): ModelAttempt =
+  def invalid(task: String, n: Int, r: ModelReply, validationError: String): ModelAttempt =
     ModelAttempt(
       task,
       n,
       Invalid,
-      Some(ContentHash.of(text)),
-      Some(text.length),
-      Some(error.take(300)),
-      in,
-      out
+      Some(ContentHash.of(r.text)),
+      Some(r.text.length),
+      Some(invalidError(r, validationError).take(300)),
+      r.inputTokens,
+      r.outputTokens,
+      stopReasonOf(r)
     )
 }
 

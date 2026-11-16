@@ -1,0 +1,7 @@
+{
+  "details": {},
+  "error": "UNAUTHENTICATED",
+  "message": "A valid API key is required in the X-Api-Key header.",
+  "retryable": false,
+  "traceId": "00000000000000000000000000000009"
+}

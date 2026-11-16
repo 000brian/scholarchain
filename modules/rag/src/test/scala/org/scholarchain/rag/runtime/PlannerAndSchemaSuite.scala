@@ -3,6 +3,8 @@ package org.scholarchain.rag.runtime
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
+import scala.util.chaining._
+
 import org.scholarchain.core._
 
 /** Schemas, prompts, plan-draft validation (allowlist), the rule planner, and the bounded retry and
@@ -21,14 +23,174 @@ class PlannerAndSchemaSuite extends munit.FunSuite {
     ujson.read(new String(Files.readAllBytes(Prompts.schemaFile(root, id)), StandardCharsets.UTF_8))
 
   test("each schema file and its Scala validator agree on fields, required fields and enums") {
-    List(PlanDraftSchema.shape, AnswerClaimsSchema.shape, SemanticContextSchema.shape).foreach {
-      s =>
-        assertEquals(SchemaFiles.differences(schemaJson(s.schemaId), s), Nil, s.schemaId)
+    List(
+      PlanDraftSchema.shape,
+      AnswerClaimsSchema.shape,
+      AnswerClaimsSchema.shapeOf(AnswerClaimsSpec.V2),
+      SemanticContextSchema.shape
+    ).foreach { s =>
+      assertEquals(SchemaFiles.differences(schemaJson(s.schemaId), s), Nil, s.schemaId)
     }
     assertEquals(
       Prompts.SchemaIds.toSet,
-      Set(PlanDraftSchema.SchemaId, AnswerClaimsSchema.SchemaId, SemanticContextSchema.SchemaId)
+      Set(
+        PlanDraftSchema.SchemaId,
+        AnswerClaimsSchema.SchemaId,
+        AnswerClaimsSpec.V2.schemaId,
+        SemanticContextSchema.SchemaId
+      )
     )
+    // the claims limits of each file equal its spec
+    AnswerClaimsSpec.all.foreach { spec =>
+      val f = schemaJson(spec.schemaId)
+      val claims = f("properties")("claims")
+      assertEquals(claims("maxItems").num.toInt, spec.maxClaims, spec.schemaId)
+      assertEquals(
+        claims("items")("properties")("text")("maxLength").num.toInt,
+        spec.maxTextChars,
+        spec.schemaId
+      )
+      assertEquals(
+        claims("items")("properties")("numbers")("maxItems").num.toInt,
+        spec.maxNumbersPerClaim,
+        spec.schemaId
+      )
+    }
+  }
+
+  test("v1 prompts, schema, configs and the benchmark are unchanged (Phase 9 record)") {
+    def sha(p: java.nio.file.Path) = Hashing.sha256Hex(Files.readAllBytes(p))
+    val conf = root.getParent.resolve("modules/rag/src/test/resources")
+    assertEquals(
+      sha(root.resolve("runtime/answer-synthesis-v1.md")),
+      "b319a4766ef2ee75dccec2b9f9f0b3268db795e622e4ed411e799a35f1a0565d"
+    )
+    assertEquals(
+      sha(root.resolve("runtime/query-planner-v1.md")),
+      "444a10a8e4366de8cd62608d2a5af587a7449d4e772a96bdc01cec1ef2979ea5"
+    )
+    assertEquals(
+      sha(Prompts.schemaFile(root, "answer-claims-v1")),
+      "96a7b82fa767fc45b7ce7d1a53d75a817833787f21f7ab7312001d49303658ba"
+    )
+    assertEquals(
+      sha(conf.resolve("config/rag-runtime-anthropic-v1.json")),
+      "1b966d1b5bfb72cc58c09be5cf522addc5161a493d7661c178f71b28d2cc72fc"
+    )
+    assertEquals(
+      sha(conf.resolve("config/rag-runtime-local-v1.json")),
+      "274531064d0e13b8d1d469898bf76b47f001fba68c4bffa5d9c15feb0399b029"
+    )
+    assertEquals(
+      sha(conf.resolve("benchmark/benchmark-v1.json")),
+      "b58c5e1a6cb29e192035ce77308c20e2597d2d1dbaf8d136761ae5c3316ff3ac"
+    )
+  }
+
+  test("v2 configs: v2 limits (4096 output tokens, 19 requests per minute)") {
+    val anth = org.scholarchain.rag.RagFixtures.loadConfig("/config/rag-runtime-anthropic-v2.json")
+    val local = org.scholarchain.rag.RagFixtures.loadConfig("/config/rag-runtime-local-v2.json")
+    val a = anth.llm.get
+    assertEquals((a.provider, a.maxOutputTokens, a.requestsPerMinute), ("anthropic", 4096, 19))
+    assertEquals(a.apiKeyEnvVar, Some("SCHOLARCHAIN_ANTHROPIC_API_KEY"))
+    assertEquals(local.llm.get.provider, "fake")
+    assertEquals(local.embedding.get.provider, "fake")
+    // 19 requests x 4,096 tokens stay under the account's 80,000 output tokens per minute
+    assert(a.requestsPerMinute.toLong * a.maxOutputTokens <= 80000L)
+  }
+
+  test("the v2 prompt set: v2 prompts with the v2 claims schema; v1 still loads") {
+    assertEquals(Prompts.Current, Prompts.V2)
+    assertEquals(prompts.claims, AnswerClaimsSpec.V2)
+    val v1 = Prompts.loadSet(root, Prompts.V1).fold(e => fail(e), identity)
+    assert(v1.planner.version.startsWith("query-planner-v1@sha256:"))
+    assertEquals(v1.claims, AnswerClaimsSpec.V1)
+    assert(prompts.synthesis.fileText.contains("answer-claims-v2"))
+    assert(prompts.synthesis.fileText.contains("at most 15 claims"))
+    assertEquals(prompts.schemaIds(1), "answer-claims-v2")
+    assertEquals(Prompts.setNamed("v1"), Right(Prompts.V1))
+    assert(Prompts.setNamed("v3").isLeft)
+  }
+
+  test("q26: planner v2 reads a venue name researchers work on as a topic, not a venue filter") {
+    val t = prompts.planner.fileText
+    assert(t.contains("working on WSDM") && t.contains("profiles mention SIGIR"), t)
+    assert(t.contains("published in <venue>") && t.contains("papers in <venue>"))
+    assert(
+      !prompts.planner.fileText.equals(Prompts.load(root, "query-planner-v1").toOption.get.fileText)
+    )
+  }
+
+  // ---- answer-claims-v2 -----------------------------------------------------------------------
+
+  private val ev = "evidence:v1:" + "a" * 32
+  private def claimJson(text: String, numbers: List[Double]): ujson.Obj = ujson.Obj(
+    "claimId" -> "claim-1",
+    "text" -> text,
+    "evidenceIds" -> ujson.Arr(ev),
+    "numbers" -> ujson.Arr.from(
+      numbers.map(n => ujson.Obj("value" -> n, "evidenceId" -> ev, "field" -> "value"))
+    ),
+    "uncertainty" -> ujson.Null
+  )
+  private def draft(claims: List[ujson.Obj]): ujson.Obj =
+    ujson.Obj(
+      "summary" -> "s",
+      "claims" -> ujson.Arr.from(claims),
+      "missingEvidence" -> ujson.Arr()
+    )
+
+  test("answer-claims-v2: at most 15 claims, 300-character text, 10 numbers; v1 keeps its limits") {
+    val V2 = AnswerClaimsSpec.V2
+    def ok(d: ujson.Obj, s: AnswerClaimsSpec) = AnswerClaimsSchema.validateJson(d, s).isRight
+    val fifteen = (1 to 15)
+      .map(i => claimJson(s"Alice has $i.", List(i.toDouble)).tap(_("claimId") = s"claim-$i"))
+      .toList
+    assert(ok(draft(fifteen), V2))
+    val sixteen = fifteen :+ claimJson("Alice has 16.", List(16)).tap(_("claimId") = "claim-16")
+    assert(!ok(draft(sixteen), V2))
+    assert(ok(draft(sixteen), AnswerClaimsSpec.V1))
+    val long = "x" * 301
+    assert(!ok(draft(List(claimJson(long, Nil))), V2))
+    assert(ok(draft(List(claimJson(long, Nil))), AnswerClaimsSpec.V1))
+    val tenNums = (1 to 10).map(_.toDouble).toList
+    val text10 = s"Values ${tenNums.map(Fact.fmt).mkString(", ")}."
+    assert(ok(draft(List(claimJson(text10, tenNums))), V2))
+    val elevenNums = (1 to 11).map(_.toDouble).toList
+    val text11 = s"Values ${elevenNums.map(Fact.fmt).mkString(", ")}."
+    assert(!ok(draft(List(claimJson(text11, elevenNums))), V2))
+  }
+
+  test("answer-claims-v2: numbers lists only numbers that appear in the claim text") {
+    val V2 = AnswerClaimsSpec.V2
+    def v(text: String, nums: List[Double]) =
+      AnswerClaimsSchema.validateJson(draft(List(claimJson(text, nums))), V2)
+    assert(v("Alice Smith has 37 coauthors.", List(37)).isRight)
+    assert(v("Alice Smith has 3.4286 coauthors per paper.", List(3.4285714)).isRight)
+    val missing = v("Alice Smith has 37 coauthors.", List(37, 12))
+    assert(missing.left.exists(_.contains("does not appear in the claim text")), missing.toString)
+    // the error names the position, never the model's value
+    assert(!missing.left.toOption.get.contains("12"), missing.toString)
+    // v1 does not check it
+    assert(
+      AnswerClaimsSchema
+        .validateJson(draft(List(claimJson("Alice Smith has 37 coauthors.", List(37, 12)))))
+        .isRight
+    )
+  }
+
+  test("model output surrounded only by whitespace (Unicode included) is accepted") {
+    val g = valid.render()
+    List(
+      s"\n\n  $g  \n",
+      s" $g ",
+      s"﻿$g ",
+      s"　```json\n$g\n``` "
+    ).foreach { t =>
+      assert(PlanDraftSchema.validate(t, bounds).isRight, t.map(_.toInt).take(3).toString)
+    }
+    assert(PlanDraftSchema.validate(s"$g x", bounds).isLeft, "anything else still fails")
+    assert(PlanDraftSchema.validate(s"$g $g", bounds).isLeft)
   }
 
   test("the agreement check is not ceremonial: a changed field or enum is reported") {
@@ -46,13 +208,13 @@ class PlannerAndSchemaSuite extends munit.FunSuite {
 
   test("prompts are loaded by path, hashed into versioned IDs, and every placeholder is filled") {
     assert(QueryAudit.isValidPromptVersion(prompts.planner.version))
-    assert(prompts.planner.version.startsWith("query-planner-v1@sha256:"))
-    assert(prompts.synthesis.version.startsWith("answer-synthesis-v1@sha256:"))
+    assert(prompts.planner.version.startsWith("query-planner-v2@sha256:"))
+    assert(prompts.synthesis.version.startsWith("answer-synthesis-v2@sha256:"))
     val text = new String(
-      Files.readAllBytes(root.resolve("runtime/query-planner-v1.md")),
+      Files.readAllBytes(root.resolve("runtime/query-planner-v2.md")),
       StandardCharsets.UTF_8
     )
-    assertEquals(prompts.planner.version, QueryAudit.promptVersion("query-planner-v1", text))
+    assertEquals(prompts.planner.version, QueryAudit.promptVersion("query-planner-v2", text))
     assert(prompts.planner.render(Map.empty).isLeft, "missing placeholder values are refused")
     // a placeholder inside user text is never expanded
     val v = prompts.planner.placeholders

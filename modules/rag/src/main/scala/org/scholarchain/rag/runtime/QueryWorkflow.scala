@@ -5,9 +5,17 @@ import scala.util.control.NonFatal
 
 import org.scholarchain.core._
 import org.scholarchain.rag.retrieval.SemanticRetriever
+import org.scholarchain.storage.dynamo.Change
 import org.scholarchain.storage.runtime.{AuditWrite, BundleWrite, RuntimeStores}
 
-/** Everything one query produced. The response and audit are contract-valid core records. */
+/** Everything one query produced. The response and audit are contract-valid core records.
+  *
+  * @param storeConflicts
+  *   keys the evidence store already held with different content when this query's bundle was
+  *   written (`bundle <bundleId>` and EB1 `evidenceId/window` keys; never overwritten, Phase 9
+  *   m-4). Non-empty means the stored copies may differ from `response.bundle`; the answer carries
+  *   a note saying so.
+  */
 final case class WorkflowResult(
     queryRunId: RunId,
     request: QueryRequest,
@@ -25,20 +33,22 @@ final case class WorkflowResult(
     auditWrite: Either[String, AuditWrite],
     stageMillis: ListMap[String, Long],
     notes: List[String],
-    abstentions: List[String]
+    abstentions: List[String],
+    storeConflicts: List[String]
 ) {
   def attempts: List[ModelAttempt] = planner.attempts ++ synthesis.attempts
 }
 
-/** Stage 10, Audit: builds the [[QueryAudit]], appends it with storage's `QueryAuditWriter`, and
-  * stores the bundle with `EvidenceStore` (EB3, put-if-absent; each item also as EB1).
+/** Stage 10, Audit: stores the bundle with `EvidenceStore` (EB3, put-if-absent; each item also as
+  * EB1) before the answer text is final, so a conflict can be stated in it, then appends the
+  * [[QueryAudit]] with storage's `QueryAuditWriter`. A Left from either write makes the workflow
+  * return Left (Phase 10 U-1), so `WorkflowResult.bundleWrite` and `auditWrite` of a returned
+  * result are never Left.
   */
 final class AuditStage(stores: RuntimeStores) {
-  def persist(
-      bundle: Option[EvidenceBundle],
-      audit: QueryAudit
-  ): (Option[Either[String, BundleWrite]], Either[String, AuditWrite]) =
-    (bundle.map(stores.evidence.putBundle), stores.audits.append(audit))
+  def putBundle(bundle: Option[EvidenceBundle]): Option[Either[String, BundleWrite]] =
+    bundle.map(stores.evidence.putBundle)
+  def append(audit: QueryAudit): Either[String, AuditWrite] = stores.audits.append(audit)
 }
 
 /** The runtime collaboration-analysis workflow: QueryPlanner, ResearcherResolver,
@@ -46,8 +56,13 @@ final class AuditStage(stores: RuntimeStores) {
   * AnswerSynthesis, ClaimVerification and Audit, in that order. Stores are reached only through
   * storage's [[RuntimeStores]].
   *
-  * The query run ID is `RunId.of("rag.query", CodeVersion, sha256(canonical question and
-  * constraints), config fingerprint)`, so the same question and configuration give the same run ID.
+  * The query run ID is `RunId.of("rag.query", CodeVersion, QueryRequest.fingerprint(request,
+  * graphRunId), config fingerprint)`: the same question, constraints, graph run and configuration
+  * give the same run ID.
+  *
+  * Thread safety: one instance may run queries on several threads at once when its stores, model
+  * and retriever are thread-safe (storage's runtime stores, the model clients and the retriever of
+  * this module are). Per-query state lives in each call; the stage objects held here are stateless.
   */
 final class QueryWorkflow(
     stores: RuntimeStores,
@@ -64,28 +79,28 @@ final class QueryWorkflow(
   private val planner = new QueryPlanner(model, prompts.planner, rule, ctx)
   private val resolver = new ResearcherResolver(stores, ctx)
   private val evidenceBuilder = new EvidenceBuilder(ctx)
-  private val synthesis = new AnswerSynthesis(model, prompts.synthesis, ctx)
+  private val synthesis = new AnswerSynthesis(model, prompts.synthesis, ctx, prompts.claims)
   private val auditStage = new AuditStage(stores)
 
+  /** The graph run this workflow queries. */
+  def graphRunId: RunId = ctx.graphRunId
+
   def queryRunId(r: QueryRequest): Either[String, RunId] =
-    RunId.of(JobName, CodeVersion, QueryRequest.fingerprint(r), ctx.configFingerprint)
+    RunId.of(
+      JobName,
+      CodeVersion,
+      QueryRequest.fingerprint(r, ctx.graphRunId),
+      ctx.configFingerprint
+    )
 
-  def run(request: QueryRequest): Either[String, WorkflowResult] =
-    try runChecked(request)
-    catch {
-      case NonFatal(e) =>
-        Left(
-          s"workflow failed: ${e.getClass.getSimpleName}: ${Option(e.getMessage).getOrElse("").take(300)}"
-        )
-    }
-
-  private def runChecked(request: QueryRequest): Either[String, WorkflowResult] = {
+  /** The request in canonical form (question and topic canonical), or why rag rejects it: a blank
+    * or over-long question, a window label that is not configured, a blank, over-long or
+    * control-character topic. A request that passes is never rejected by [[run]] for its content;
+    * any later Left of [[run]] is an internal or store failure.
+    */
+  def validate(request: QueryRequest): Either[String, QueryRequest] = {
     val question = QueryRequest.canonicalQuestion(request.question)
-    val t0 = clock()
-    val stages = ListMap.newBuilder[String, Long]
-    def timed[A](name: String)(f: => A): A = {
-      val s = clock(); val a = f; stages += name -> math.max(0L, (clock() - s) / 1000000L); a
-    }
+    val topic = request.topic.map(QueryRequest.canonicalText)
     for {
       _ <- Either.cond(question.nonEmpty, (), "question is blank")
       _ <- Either.cond(
@@ -96,12 +111,64 @@ final class QueryWorkflow(
       _ <- request.windowLabel.fold[Either[String, Unit]](Right(()))(w =>
         Either.cond(ctx.windowLabels.contains(w), (), s"window '$w' is not a configured window")
       )
-      runId <- queryRunId(request.copy(question = question))
-      plannerOut = timed("planner")(planner.plan(question))
-      _ = plannerOut.millisInFallback.foreach(ms => stages += "plannerFallback" -> ms)
+      _ <- topic.fold[Either[String, Unit]](Right(())) { t =>
+        if (t.isEmpty) Left("topic is blank")
+        else if (t.length > QueryRequest.MaxTopicChars)
+          Left(s"topic exceeds ${QueryRequest.MaxTopicChars} characters")
+        else if (JsonSupport.hasControl(t)) Left("topic contains control characters")
+        else Right(())
+      }
+    } yield request.copy(question = question, topic = topic)
+  }
+
+  /** Runs one query. `onStage` is called with each stage name ([[QueryWorkflow.StageNames]]) as the
+    * stage starts; an exception it throws is ignored and never breaks the query.
+    *
+    * A Left for a request that passed [[validate]] is an internal or store failure, safe to retry
+    * (the IDs are deterministic and the writes are put-if-absent or append-only). It includes a
+    * failed evidence bundle write ([[QueryWorkflow.BundleWriteFailedPrefix]]) and a failed audit
+    * append ([[QueryWorkflow.AuditWriteFailedPrefix]]): a Right result has its bundle stored and
+    * its audit appended. A bundle `Conflict` or item conflicts are not failures: they become
+    * `storeConflicts` and an answer note.
+    */
+  def run(
+      request: QueryRequest,
+      onStage: String => Unit = QueryWorkflow.NoStageListener
+  ): Either[String, WorkflowResult] =
+    try runChecked(request, onStage)
+    catch {
+      case NonFatal(e) =>
+        Left(
+          s"workflow failed: ${e.getClass.getSimpleName}: ${Option(e.getMessage).getOrElse("").take(300)}"
+        )
+    }
+
+  private def runChecked(
+      request: QueryRequest,
+      onStage: String => Unit
+  ): Either[String, WorkflowResult] = {
+    val t0 = clock()
+    val stages = ListMap.newBuilder[String, Long]
+    def notifyStage(name: String): Unit =
+      try onStage(name)
+      catch { case NonFatal(_) => () }
+    def timed[A](name: String)(f: => A): A = {
+      notifyStage(name)
+      val s = clock(); val a = f; stages += name -> math.max(0L, (clock() - s) / 1000000L); a
+    }
+    for {
+      canonical <- validate(request)
+      question = canonical.question
+      runId <- queryRunId(canonical)
+      planned = timed("planner")(planner.plan(question))
+      _ = planned.millisInFallback.foreach(ms => stages += "plannerFallback" -> ms)
+      // an explicit topic of the request overrides the planner's
+      plannerOut = canonical.topic.fold(planned)(t =>
+        planned.copy(draft = planned.draft.copy(topic = Some(t)))
+      )
       draft = plannerOut.draft
       resolution = timed("resolver")(resolver.resolve(draft.researcherNames, draft.orcids))
-      assembled = assemble(question, request, draft, resolution)
+      assembled = assemble(question, canonical, draft, resolution)
       semanticStage = new SemanticContextStage(retriever, stores, ctx)
       metricsOut = timed("metrics")(
         new CollaborationMetrics(stores, ctx, semanticStage).run(assembled.executable)
@@ -139,7 +206,8 @@ final class QueryWorkflow(
             facts.filter(built.idOf.contains),
             built,
             baseNotes,
-            uncertain
+            uncertain,
+            prompts.claims
           )
         )
       )
@@ -250,7 +318,12 @@ final class QueryWorkflow(
     }
     val kept = verified.filter(_.kept)
     val removed = verified.filterNot(_.kept)
-    val notes = (baseNotes ++ synthOut.budgetNotes ++ synthOut.sanitizeNotes ++
+    // the bundle is written (put-if-absent) before the answer text is final, so a conflict with
+    // stored content can be stated in the answer (Phase 9 m-4)
+    val bundleWrite = auditStage.putBundle(built.bundle)
+    val storeConflicts = QueryWorkflow.conflictsOf(bundleWrite)
+    val notes = (baseNotes ++ QueryWorkflow.conflictNote(storeConflicts).toList ++
+      synthOut.budgetNotes ++ synthOut.sanitizeNotes ++
       synthOut.fallbackReason
         .map(r =>
           s"The synthesis model output could not be used ($r); claims were written by the deterministic template fallback."
@@ -390,6 +463,10 @@ final class QueryWorkflow(
       )
     )
     for {
+      // a failed bundle write is a workflow failure (Phase 10 U-1): the answer's evidence links
+      // would not resolve. The IDs are deterministic and the write is put-if-absent, so a retry
+      // of the same query is safe.
+      _ <- QueryWorkflow.bundleWriteFailure(bundleWrite).toLeft(())
       _ <- Contract.validate(response) match {
         case Nil => Right(());
         case e   => Left(s"answer response failed its contract: ${e.take(5).mkString("; ")}")
@@ -398,8 +475,10 @@ final class QueryWorkflow(
         case Nil => Right(());
         case e   => Left(s"query audit failed its contract: ${e.take(5).mkString("; ")}")
       }
+      // a failed audit append is a workflow failure too (Phase 10 U-1): explain would not find
+      // the answered query. A retry appends under the same deterministic query run ID.
+      aw <- auditStage.append(audit).left.map(e => s"$AuditWriteFailedPrefix ${e.take(500)}")
     } yield {
-      val (bw, aw) = auditStage.persist(bundle, audit)
       val _ = auditStart
       WorkflowResult(
         runId,
@@ -414,11 +493,12 @@ final class QueryWorkflow(
         plannerOut,
         response,
         audit,
-        bw,
-        aw,
+        bundleWrite,
+        Right(aw),
         stageSoFar,
         notes,
-        abstentions
+        abstentions,
+        storeConflicts
       )
     }
   }
@@ -597,7 +677,61 @@ private[runtime] final case class Assembled(
 
 object QueryWorkflow {
   val JobName = "rag.query"
-  val CodeVersion = "rag-runtime/1"
+
+  /** Part of every query run ID; `rag-runtime/2` since Phase 10 (graph run in the fingerprint). */
+  val CodeVersion = "rag-runtime/2"
   val DefaultLimit = 10
   val Label = "local stores, fake embeddings"
+
+  /** The stage names passed to the `onStage` listener of [[QueryWorkflow.run]], in order. */
+  val StageNames: List[String] = List(
+    "planner",
+    "resolver",
+    "metrics",
+    "paths",
+    "community",
+    "semantic",
+    "evidence",
+    "identity",
+    "synthesis",
+    "verification",
+    "audit"
+  )
+
+  val NoStageListener: String => Unit = _ => ()
+
+  /** Keys the store already held with different content: `bundle <bundleId>` when the EB3 write was
+    * a `Conflict`, then the EB1 `evidenceId/window` keys of `itemConflicts`.
+    */
+  def conflictsOf(write: Option[Either[String, BundleWrite]]): List[String] =
+    write.flatMap(_.toOption).toList.flatMap { w =>
+      (if (w.bundle == Change.Conflict) List(s"bundle ${w.bundleId.value}") else Nil) ++
+        w.itemConflicts
+    }
+
+  /** Prefix of the workflow `Left` when the evidence bundle write failed (Phase 10 U-1). */
+  val BundleWriteFailedPrefix: String = "evidence bundle write failed:"
+
+  /** Prefix of the workflow `Left` when the query audit append failed (Phase 10 U-1). */
+  val AuditWriteFailedPrefix: String = "query audit write failed:"
+
+  /** The workflow failure for a bundle write that returned `Left` (none for no bundle, or for a
+    * successful write, including `Conflict` and item conflicts, which become an answer note).
+    */
+  def bundleWriteFailure(write: Option[Either[String, BundleWrite]]): Option[String] =
+    write.flatMap(_.left.toOption).map(e => s"$BundleWriteFailedPrefix ${e.take(500)}")
+
+  /** The answer note for store conflicts (none when there are none). */
+  def conflictNote(conflicts: List[String]): Option[String] =
+    if (conflicts.isEmpty) None
+    else {
+      val bundle = conflicts.exists(_.startsWith("bundle "))
+      val items = conflicts.count(!_.startsWith("bundle "))
+      val parts =
+        (if (bundle) List("this answer's evidence bundle") else Nil) ++
+          (if (items > 0) List(s"$items evidence item(s)") else Nil)
+      Some(
+        s"The evidence store already held different content for ${parts.mkString(" and ")}; the stored copies were kept unchanged, so evidence read back from the store may differ from the evidence of this answer."
+      )
+    }
 }
