@@ -391,12 +391,14 @@ final class EvidenceBuilder(ctx: RuntimeContext) {
           window,
           None,
           None,
+          // C-03: the source record is the vector key; the text is tied by its content hash. The
+          // text's S3 URI (it names the bucket) never enters evidence
           Provenance(
             1,
             SourceType.Runtime,
             DatasetId,
             ctx.graphRunId.value,
-            List(e.vectorKey, e.textS3Uri),
+            List(e.vectorKey),
             runId,
             JobName,
             SemanticPolicy,

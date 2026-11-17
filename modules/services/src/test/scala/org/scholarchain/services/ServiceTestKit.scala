@@ -64,10 +64,13 @@ object ServiceTestKit {
     override def requestId(): String = s"req-${r.incrementAndGet()}"
   }
 
-  /** Runtime stores whose graph port can be slowed and counted (readiness tests). */
+  /** Runtime stores whose graph port can be slowed and counted (readiness tests), and made to throw
+    * a StoreException with a given message (S-4 tests: a message naming a host and a table).
+    */
   final class SlowGraphStores(base: RuntimeStores) extends RuntimeStores {
     val graphDelayMillis = new AtomicLong(0L)
     val graphCalls = new AtomicLong(0L)
+    val graphThrows = new java.util.concurrent.atomic.AtomicReference[Option[String]](None)
     def settings = base.settings
     def windowLabels = base.windowLabels
     val graph: GraphReadPort = new GraphReadPort {
@@ -76,6 +79,7 @@ object ServiceTestKit {
         graphCalls.incrementAndGet()
         val d = graphDelayMillis.get
         if (d > 0) Thread.sleep(d)
+        graphThrows.get.foreach(m => throw new org.scholarchain.storage.StoreException(m, true))
         base.graph.run(q)
       }
     }
@@ -179,6 +183,39 @@ object ServiceTestKit {
       )
       .fold(e => { rt.close(); sys.error(e) }, identity)
     Harness(w, flaky, slow, rt, kv, queue, stores, server, clock, log, rt.model)
+  }
+
+  /** Service stores whose job writes can be scripted to answer `Left(message)` (S-3, S-4 tests):
+    * the next `succeedFailures` succeed calls, every setStage while `stageFails`, every job read
+    * while `getFails`.
+    */
+  final class ScriptedJobStores(base: ServiceStores, message: String) extends ServiceStores {
+    import org.scholarchain.storage.jobs._
+    val succeedFailures = new AtomicInteger(0)
+    val stageFails = new java.util.concurrent.atomic.AtomicBoolean(false)
+    val getFails = new java.util.concurrent.atomic.AtomicBoolean(false)
+    val succeedCalls = new AtomicInteger(0)
+    val idempotency: IdempotencyStore = base.idempotency
+    val jobQueue: org.scholarchain.storage.ports.WorkQueue = base.jobQueue
+    val jobs: JobStore = new JobStore {
+      private val j = base.jobs
+      def create(job: NewJob) = j.create(job)
+      def get(jobId: String, nowMillis: Long) =
+        if (getFails.get) Left(message) else j.get(jobId, nowMillis)
+      def claim(job: JobRecord, nowMillis: Long, leaseUntilMillis: Long) =
+        j.claim(job, nowMillis, leaseUntilMillis)
+      def reclaim(job: JobRecord, nowMillis: Long, leaseUntilMillis: Long) =
+        j.reclaim(job, nowMillis, leaseUntilMillis)
+      def release(job: JobRecord, nowMillis: Long) = j.release(job, nowMillis)
+      def succeed(job: JobRecord, nowMillis: Long, result: String): Either[String, JobChange] = {
+        succeedCalls.incrementAndGet()
+        if (succeedFailures.getAndUpdate(n => math.max(0, n - 1)) > 0) Left(message)
+        else j.succeed(job, nowMillis, result)
+      }
+      def fail(job: JobRecord, nowMillis: Long, error: JobError) = j.fail(job, nowMillis, error)
+      def setStage(job: JobRecord, nowMillis: Long, stage: String) =
+        if (stageFails.get) Left(message) else j.setStage(job, nowMillis, stage)
+    }
   }
 
   // ---- HTTP client (loopback only) ------------------------------------------------------------

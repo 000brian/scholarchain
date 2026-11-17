@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 2,
+  "queryRunId": "run:v1:d5b4e52fdf1171ad6d9e1f1251db9278",
+  "questionHash": "sha256:be93cac145553f67c72aa616c365813bc5273a8283b56eaeccce52d1a9007598",
+  "plan": {
+    "schemaVersion": 1,
+    "question": "Who has Hugo O. Sousa collaborated with between 2015 and 2025?",
+    "graphRunId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+    "steps": [
+      {
+        "operation": "researcher_lookup",
+        "researcherIds": [
+          "researcher:v1:6d39fb31017461bdf6bbe118864d1809"
+        ],
+        "window": null,
+        "parameters": {}
+      },
+      {
+        "operation": "collaboration_breadth",
+        "researcherIds": [
+          "researcher:v1:6d39fb31017461bdf6bbe118864d1809"
+        ],
+        "window": {
+          "startYear": 2015,
+          "endYear": 2025
+        },
+        "parameters": {
+          "metric": "distinct_coauthors"
+        }
+      }
+    ],
+    "provenance": {
+      "schemaVersion": 1,
+      "sourceType": "runtime",
+      "datasetId": "scholarchain-graph",
+      "snapshotId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+      "sourceRecordIds": [
+        "researcher:v1:6d39fb31017461bdf6bbe118864d1809"
+      ],
+      "runId": "run:v1:d5b4e52fdf1171ad6d9e1f1251db9278",
+      "jobName": "rag.answer",
+      "policyVersion": "prompt-policy/1",
+      "contentHash": "sha256:be93cac145553f67c72aa616c365813bc5273a8283b56eaeccce52d1a9007598"
+    }
+  },
+  "planSource": "rule",
+  "resolvedResearcherIds": [
+    "researcher:v1:6d39fb31017461bdf6bbe118864d1809"
+  ],
+  "unresolvedNames": [],
+  "evidenceIds": [
+    "evidence:v1:d8c6bb9bae6ed5cee33a778a8dd6e743",
+    "evidence:v1:956b66b5f8244d130969ed13b9ae909e"
+  ],
+  "bundleId": "evidence:v1:bb849f2bb61c5c6d0833a00f96fcd1e8",
+  "graphRunId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+  "metricPolicyVersions": [
+    "metric-policy/1"
+  ],
+  "promptVersions": [
+    "query-planner-v1@sha256:f1e27a42f06d67aa2685874b87f95ae27303a190b87a4470bc672e0b307f5b02",
+    "answer-synthesis-v1@sha256:228c11c8307865e8e7c510f47f662d77662bf09a6510348b837a5b1fb0c14a0b"
+  ],
+  "modelId": "example-answer-model",
+  "inputTokens": 1200,
+  "outputTokens": 180,
+  "latencyMillis": 42,
+  "stageMillis": {
+    "planner": 3,
+    "resolver": 5,
+    "verification": 1
+  },
+  "verificationCounts": {
+    "verified": 1,
+    "partially_supported": 0,
+    "unsupported": 0,
+    "conflicting": 0
+  },
+  "answerHash": "sha256:9fc3014899fb7c013c0d080323314d92a5eeb806e648e17f9066fe5563254ce7",
+  "abstained": false,
+  "provenance": {
+    "schemaVersion": 1,
+    "sourceType": "runtime",
+    "datasetId": "scholarchain-graph",
+    "snapshotId": "run:v1:fc416a4c7c92627cfd9e8edf99f08fe7",
+    "sourceRecordIds": [
+      "researcher:v1:6d39fb31017461bdf6bbe118864d1809",
+      "evidence:v1:bb849f2bb61c5c6d0833a00f96fcd1e8"
+    ],
+    "runId": "run:v1:d5b4e52fdf1171ad6d9e1f1251db9278",
+    "jobName": "rag.answer",
+    "policyVersion": "prompt-policy/1",
+    "contentHash": null
+  },
+  "queryTemplateIds": [
+    "researcher_by_id",
+    "coauthor_neighbors"
+  ],
+  "indexesQueried": [
+    "researcher-profile-v1"
+  ],
+  "metadataFilterKeys": [
+    "windowStartYear",
+    "windowEndYear"
+  ],
+  "modelCalls": {
+    "planner": {
+      "logicalCalls": 1,
+      "invalidOutputs": 0,
+      "truncatedOutputs": 0,
+      "droppedBoundNumbers": 0,
+      "fallbacks": 0
+    },
+    "synthesis": {
+      "logicalCalls": 2,
+      "invalidOutputs": 1,
+      "truncatedOutputs": 1,
+      "droppedBoundNumbers": 1,
+      "fallbacks": 0
+    }
+  },
+  "cacheHits": {
+    "researcher-metric-cache": 2
+  }
+}

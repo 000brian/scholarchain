@@ -355,7 +355,10 @@ object RuntimeSettings {
   *   `llm.apiKeyEnvVar` (`[A-Z][A-Z0-9_]*`, not starting with `SCHOLARCHAIN_CFG_`)
   * @param readOnlyApiKeyEnvVar
   *   the NAME of the environment variable holding the read-only API key; same rules, and different
-  *   from `apiKeyEnvVar`
+  *   from `apiKeyEnvVar`. Both service key names (Phase 11) also differ from `llm.apiKeyEnvVar` and
+  *   `embedding.apiKeyEnvVar`, and no API-key name may be one of
+  *   `ConfigValidator.ReservedEnvVarNames` (HOSTNAME, PATH, AWS_REGION, SCHOLARCHAIN_CONFIG_FILE,
+  *   ...)
   * @param maxRequestBytes
   *   largest accepted request body, 1024..1048576 bytes
   * @param syncDeadlineMillis

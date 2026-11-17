@@ -35,6 +35,11 @@ object SchemaVersions {
     *   - QueryAudit 1 (Phase 9, new). Phase 9 also adds QueryOperation and EvidenceType wire names
     *     and the optional `llm` and `runtime` configuration sections (additive; QueryPlan,
     *     EvidenceItem and ScholarChainConfig keep version 1).
+    *   - QueryAudit 2 (Phase 11, additive): adds `queryTemplateIds`, `indexesQueried`,
+    *     `metadataFilterKeys`, `modelCalls` and `cacheHits` (required on the v2 wire, absent from
+    *     the v1 wire). Readers accept versions 1 and 2 (see `supported`). Phase 11 also tightens
+    *     two rules without a version change: a `semantic_context` EvidenceItem carries no `metric`,
+    *     and configuration refusals no longer repeat the refused value.
     */
   val current: ListMap[String, Int] = ListMap(
     "Provenance" -> 1,
@@ -64,11 +69,16 @@ object SchemaVersions {
     "ScholarChainConfig" -> 1,
     "SemanticDocument" -> 1,
     "VectorMetadata" -> 1,
-    "QueryAudit" -> 1
+    "QueryAudit" -> 2
   )
 
-  /** Versions readers accept, per schema name. Today exactly the current version. */
-  val supported: Map[String, Set[Int]] = current.map { case (k, v) => k -> Set(v) }
+  /** Older versions readers still accept, per schema name (additive changes only). */
+  val stillReadable: Map[String, Set[Int]] = Map("QueryAudit" -> Set(1))
+
+  /** Versions readers accept, per schema name: the current version, plus `stillReadable`. */
+  val supported: Map[String, Set[Int]] = current.map { case (k, v) =>
+    k -> (stillReadable.getOrElse(k, Set.empty[Int]) + v)
+  }
 
   def currentOf(schema: String): Int =
     current.getOrElse(schema, throw new IllegalArgumentException(s"unknown schema '$schema'"))

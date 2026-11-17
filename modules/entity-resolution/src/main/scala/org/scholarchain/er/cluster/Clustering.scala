@@ -4,6 +4,7 @@ import scala.collection.mutable
 
 import org.scholarchain.core.{MatchPath, MentionId, ResearcherId}
 import org.scholarchain.er.data.Corpus
+import org.scholarchain.er.normalize.NameParts
 import org.scholarchain.er.policy.Reasons
 
 /** Path ranks: lower is stronger evidence. The assignment path of a merged cluster is its weakest
@@ -33,6 +34,10 @@ final class EdgeCollector {
     }
 
   def size: Int = best.size
+
+  /** True when an accepted decision joins the two dblp-prior clusters (names) directly. */
+  def contains(nameA: Int, nameB: Int): Boolean =
+    nameA != nameB && best.contains(EdgeCollector.key(nameA, nameB))
 
   /** Edges in merge order: confidence descending, then path rank, then the two prior-cluster names
     * (code point). Independent of input order.
@@ -102,14 +107,23 @@ final class ClusterResult(
   * unnumbered dblp name whose base also occurs numbered in the input together with one of those
   * numbered names (`merge-refused:dblp-disambiguation-profile`); the two mentions of a CONFLICT
   * pair decision (`merge-refused:conflict-pair`); or the two mentions of a REJECTED pair decision
-  * (`merge-refused:rejected-pair`). The last two are the cannot-links of [[CannotLinks]] (repair
-  * M1): a transitive chain A ~ B ~ C never puts a rejected or conflict pair (A, C) into one
-  * cluster. Cannot-link sets are kept per cluster root and merged small-into-large; a check scans
-  * the smaller of the two roots' sets, so memory stays at the size of the constraint list and the
-  * merge order (and therefore the output) is unchanged by the guard. A dblp-prior cluster that
-  * already holds two ORCID iDs or two mentions of one work is kept as it is (never split) and
-  * flagged conflict. Mentions without any decision stay in their dblp-prior cluster, so every
-  * mention has exactly one cluster. ResearcherIds follow the core earliest-paper rule.
+  * (`merge-refused:rejected-pair`); or, checked last, two dblp names with the same folded surname
+  * and conflicting given names (`NameParts.givenNameRelation == 0`) that no accepted decision joins
+  * directly (`merge-refused:given-name-conflict`, Phase 11 finding A-01), unless the edge's own two
+  * names are such a conflict (then the policy accepted a given-name conflict on direct evidence:
+  * the merge is applied and the final cluster is flagged `cluster-given-name-conflict` when it
+  * holds an unjudged conflict pair, so the uncertainty is reported). The rejected-pair and
+  * conflict-pair guards are the cannot-links of [[CannotLinks]] (repair M1): a transitive chain A ~
+  * B ~ C never puts a rejected or conflict pair (A, C) into one cluster. The given-name guard is
+  * the implied cannot-link for a pair no candidate compared (for example John Smith and Jane Smith
+  * in two coauthor-keyed fallback blocks with J. Smith); a direct accepted decision between the two
+  * names is the policy's own verdict on that pair and is not overridden. Cannot-link sets are kept
+  * per cluster root and merged small-into-large; a check scans the smaller of the two roots' sets,
+  * so memory stays at the size of the constraint list and the merge order (and therefore the
+  * output) is unchanged by the guard. A dblp-prior cluster that already holds two ORCID iDs or two
+  * mentions of one work is kept as it is (never split) and flagged conflict. Mentions without any
+  * decision stay in their dblp-prior cluster, so every mention has exactly one cluster.
+  * ResearcherIds follow the core earliest-paper rule.
   */
 object Clustering {
 
@@ -122,7 +136,9 @@ object Clustering {
       var priorClusters: Int,
       var pathRank: Int,
       var minConfidence: Double,
-      var cannot: IntOpenSet
+      var cannot: IntOpenSet,
+      // dblp names (dblp-prior clusters) of the cluster by folded surname (finding A-01)
+      val bySurname: mutable.HashMap[String, mutable.ArrayBuffer[Int]]
   )
 
   def run(corpus: Corpus, edges: EdgeCollector): ClusterResult =
@@ -156,10 +172,41 @@ object Clustering {
             val s = new IntOpenSet()
             cannotLinks.partnersOf(root).foreach(s.add)
             s
-          }
+          },
+          mutable.HashMap(p.surname -> mutable.ArrayBuffer(root))
         )
       }
     )
+
+    /** Two dblp names (same folded surname assumed) whose given names conflict and that no accepted
+      * decision joins directly.
+      */
+    def unjudgedConflict(x: Int, y: Int): Boolean =
+      NameParts.givenNameRelation(names.parts(x), names.parts(y)) == 0 && !edges.contains(x, y)
+
+    /** Finding A-01: true when the merged cluster would hold two dblp names with the same folded
+      * surname and conflicting given names (`NameParts.givenNameRelation == 0`) that no accepted
+      * decision joins directly. Scans the smaller surname map; per shared surname it compares the
+      * names of both sides pairwise (a cluster holds few names per surname).
+      */
+    def givenNameConflict(a: State, b: State): Boolean = {
+      val (s, l) = if (a.bySurname.size <= b.bySurname.size) (a, b) else (b, a)
+      s.bySurname.exists { case (surname, xs) =>
+        l.bySurname
+          .get(surname)
+          .exists(ys => xs.exists(x => ys.exists(y => unjudgedConflict(x, y))))
+      }
+    }
+
+    /** True when the edge's own two names have the same folded surname and conflicting given names:
+      * the policy accepted that conflict on direct evidence, so the merge is applied and a
+      * resulting unjudged conflict is flagged ([[Reasons.ClusterGivenNameConflict]]), not refused.
+      */
+    def edgeIsNameConflict(k: Long): Boolean = {
+      val pl = names.parts(EdgeCollector.left(k))
+      val pr = names.parts(EdgeCollector.right(k))
+      pl.surname == pr.surname && NameParts.givenNameRelation(pl, pr) == 0
+    }
 
     /** The strongest cannot-link kind between the clusters of roots `ra` and `rb`, if any. */
     def cannotLink(ra: Int, a: State, rb: Int, b: State): Option[Int] = {
@@ -198,10 +245,16 @@ object Clustering {
           )
             Some(Reasons.MergeDisambiguation)
           else
-            cannotLink(ra, a, rb, b).map {
-              case CannotLinks.Conflict => Reasons.MergeConflictPair
-              case _                    => Reasons.MergeRejectedPair
-            }
+            cannotLink(ra, a, rb, b)
+              .map {
+                case CannotLinks.Conflict => Reasons.MergeConflictPair
+                case _                    => Reasons.MergeRejectedPair
+              }
+              .orElse(
+                if (!edgeIsNameConflict(k) && givenNameConflict(a, b))
+                  Some(Reasons.MergeGivenNameConflict)
+                else None
+              )
         reason match {
           case Some(r) => refused(k) = r
           case None    =>
@@ -223,6 +276,9 @@ object Clustering {
               val t = big.cannot; big.cannot = small.cannot; small.cannot = t
             }
             big.cannot.addAll(small.cannot)
+            small.bySurname.foreach { case (surname, xs) =>
+              big.bySurname.getOrElseUpdate(surname, mutable.ArrayBuffer.empty) ++= xs
+            }
             states.remove(smallRoot)
             merges += 1
         }
@@ -250,9 +306,17 @@ object Clustering {
           if (anchor < 0 || before(corpus, i, anchor)) anchor = i
         }
       }
+      // an unjudged given-name conflict that a name-conflict edge brought in (finding A-01)
+      val givenNameConflict = priors.size > 1 && priors
+        .groupBy(names.parts(_).surname)
+        .valuesIterator
+        .exists(g =>
+          g.indices.exists(i => g.indices.exists(j => i < j && unjudgedConflict(g(i), g(j))))
+        )
       val flags = List(
         if (orcids.size > 1) Some(Reasons.ClusterMultipleOrcids) else None,
-        if (sameWork) Some(Reasons.ClusterSameWork) else None
+        if (sameWork) Some(Reasons.ClusterSameWork) else None,
+        if (givenNameConflict) Some(Reasons.ClusterGivenNameConflict) else None
       ).flatten
       val st = states.get(root)
       root -> ClusterInfo(

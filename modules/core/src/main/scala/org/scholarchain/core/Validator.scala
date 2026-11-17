@@ -875,6 +875,11 @@ object Validator {
         i.evidenceType != EvidenceType.Metric || i.metric.nonEmpty,
         "metric: required for metric evidence"
       ) ++
+      check(
+        i.evidenceType != EvidenceType.SemanticContext || i.metric.isEmpty,
+        "metric: must be null for semantic_context evidence (semantic context never supports a " +
+          "number)"
+      ) ++
       optional("metric", i.metric)((f, m) => nested(f, metricValue.validate(m))) ++
       optional("snippet", i.snippet)((f, s) =>
         nonBlank(f, s) ++ textHash(i.provenance, s, "snippet")
@@ -1035,6 +1040,50 @@ object Validator {
         a.provenance.runId == a.queryRunId,
         s"provenance.runId: ${a.provenance.runId} must equal queryRunId ${a.queryRunId}"
       ) ++
+      queryAuditV2(a) ++
       prov(a.provenance)
+  }
+
+  /** Rules of the QueryAudit version 2 fields (Phase 11). */
+  private def queryAuditV2(a: QueryAudit): List[String] = {
+    def name(f: String, s: String): List[String] =
+      check(QueryAudit.isValidName(s), s"$f: must match ${QueryAudit.NamePattern}")
+    def count(f: String, n: Long): List[String] = check(n >= 0L, s"$f: $n must be >= 0")
+    val atDefaults = a.queryTemplateIds.isEmpty && a.indexesQueried.isEmpty &&
+      a.metadataFilterKeys.isEmpty && a.modelCalls.isEmpty && a.cacheHits.isEmpty
+    check(
+      a.schemaVersion != 1 || atDefaults,
+      s"schemaVersion: version 1 carries none of ${QueryAudit.V2Fields.mkString(", ")}"
+    ) ++
+      each("queryTemplateIds", a.queryTemplateIds)(name) ++
+      distinct("queryTemplateIds", a.queryTemplateIds) ++
+      each("indexesQueried", a.indexesQueried)((f, s) =>
+        check(VectorIndexName.isValid(s), s"$f: must match ${VectorIndexName.Pattern}")
+      ) ++
+      distinct("indexesQueried", a.indexesQueried) ++
+      each("metadataFilterKeys", a.metadataFilterKeys)((f, s) =>
+        check(s.matches("\\S+"), s"$f: must be non-empty, no whitespace")
+      ) ++
+      distinct("metadataFilterKeys", a.metadataFilterKeys) ++
+      a.modelCalls.toList.sortBy(_._1).flatMap { case (task, c) =>
+        val f = s"modelCalls[$task]"
+        name("modelCalls.<key>", task) ++
+          count(s"$f.logicalCalls", c.logicalCalls) ++
+          count(s"$f.invalidOutputs", c.invalidOutputs) ++
+          count(s"$f.truncatedOutputs", c.truncatedOutputs) ++
+          count(s"$f.droppedBoundNumbers", c.droppedBoundNumbers) ++
+          count(s"$f.fallbacks", c.fallbacks) ++
+          check(
+            c.invalidOutputs <= c.logicalCalls,
+            s"$f.invalidOutputs: ${c.invalidOutputs} exceeds logicalCalls ${c.logicalCalls}"
+          ) ++
+          check(
+            c.truncatedOutputs <= c.logicalCalls,
+            s"$f.truncatedOutputs: ${c.truncatedOutputs} exceeds logicalCalls ${c.logicalCalls}"
+          )
+      } ++
+      a.cacheHits.toList.sortBy(_._1).flatMap { case (k, n) =>
+        name("cacheHits.<key>", k) ++ count(s"cacheHits[$k]", n)
+      }
   }
 }

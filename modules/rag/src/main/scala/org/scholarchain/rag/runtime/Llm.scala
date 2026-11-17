@@ -127,6 +127,12 @@ final class TaskCallCounters(val task: ModelTask) {
   val truncatedOutputs = new AtomicLong(0L)
   val stopReasons = new CounterMap
 
+  /** Bound numbers dropped from valid outputs (answer-claims v3), by failure class (L-1). */
+  val droppedBoundNumbers = new CounterMap
+
+  /** Bound numbers that made an output invalid (answer-claims v2), by failure class (L-1). */
+  val boundNumberErrors = new CounterMap
+
   /** Deterministic fallbacks by kind: [[TaskCallCounters.CallFailed]],
     * [[TaskCallCounters.OutputInvalid]], [[TaskCallCounters.PromptRender]].
     */
@@ -146,6 +152,8 @@ final class TaskCallCounters(val task: ModelTask) {
     "invalidOutputs" -> invalidOutputs.get.toDouble,
     "truncatedOutputs" -> truncatedOutputs.get.toDouble,
     "stopReasons" -> stopReasons.toJson,
+    "droppedBoundNumbers" -> droppedBoundNumbers.toJson,
+    "boundNumberErrors" -> boundNumberErrors.toJson,
     "fallbacks" -> ujson.Obj.from(
       List(
         TaskCallCounters.CallFailed,
@@ -212,6 +220,15 @@ final class LlmUsage {
   def recordInvalidOutput(task: ModelTask): Unit = { of(task).invalidOutputs.incrementAndGet(); () }
   def recordFallback(task: ModelTask, kind: String): Unit = of(task).fallbacks.add(kind)
 
+  /** Failure classes ([[NumberFormats.Classes]]) of the bound numbers one output dropped (v3) or
+    * was rejected for (v2).
+    */
+  def recordNumbers(task: ModelTask, dropped: List[String], errors: List[String]): Unit = {
+    val c = of(task)
+    dropped.foreach(c.droppedBoundNumbers.add(_))
+    errors.foreach(c.boundNumberErrors.add(_))
+  }
+
   /** The HTTP status when the first [[LlmUsage.EarlyStopCalls]] logical calls all failed with the
     * same non-retryable 4xx (not 429).
     */
@@ -273,6 +290,8 @@ final class LlmUsage {
       "retriedAttempts" -> retries.toDouble,
       "invalidOutputs" -> tasks.map(_.invalidOutputs.get).sum.toDouble,
       "truncatedOutputs" -> tasks.map(_.truncatedOutputs.get).sum.toDouble,
+      "droppedBoundNumbers" -> tasks.map(_.droppedBoundNumbers.total).sum.toDouble,
+      "boundNumberErrors" -> tasks.map(_.boundNumberErrors.total).sum.toDouble,
       "fallbacks" -> tasks.map(_.fallbacks.total).sum.toDouble,
       "inputTokens" -> inputTokens.toDouble,
       "outputTokens" -> outputTokens.toDouble
@@ -463,7 +482,8 @@ final class AnthropicClient private (
           Left(
             (
               AnthropicClient.transient(h.status),
-              s"anthropic HTTP ${h.status}: ${scrub(h.body)}",
+              // C-02: the status and the provider's short error type only, never the body text
+              s"anthropic HTTP ${h.status}${AnthropicClient.errorType(h.body).map(t => s" ($t)").getOrElse("")}",
               h.retryAfterSeconds,
               ModelFailure.http(h.status)
             )
@@ -488,6 +508,20 @@ object AnthropicClient {
   /** 429 (rate limit), 529 (overloaded) and other 5xx are retried; everything else fails at once.
     */
   def transient(status: Int): Boolean = status == 429 || status == 529 || status >= 500
+
+  /** The `error.type` token of an error body (`rate_limit_error`, ...) when it is a short `[a-z_]`
+    * word; nothing else of the body is ever kept (C-02).
+    */
+  def errorType(body: String): Option[String] =
+    try
+      ujson
+        .read(body)
+        .obj
+        .get("error")
+        .flatMap(_.obj.get("type"))
+        .flatMap(JsonSupport.str)
+        .filter(_.matches("[a-z_]{1,40}"))
+    catch { case NonFatal(_) => None }
 
   def create(
       modelId: String,
@@ -534,9 +568,18 @@ final class BedrockClaudeClient(
     invoker: BedrockInvoker,
     sleeper: Sleeper,
     clock: () => Long
-) extends LanguageModel {
+) extends LanguageModel
+    with AutoCloseable {
   val provider: LlmProvider = LlmProvider.Bedrock
   val usage = new LlmUsage
+
+  /** Closes the invoker when it is closeable (the SDK invoker holds a Bedrock Runtime client), so
+    * the runtime that owns this model releases it (U-5).
+    */
+  def close(): Unit = invoker match {
+    case c: AutoCloseable => c.close()
+    case _                => ()
+  }
   private val policy =
     RetryPolicy(
       settings.maxRetries,
@@ -554,13 +597,15 @@ final class BedrockClaudeClient(
     }
     usage.recordRetries(r.task, res.retries.toLong)
     res.result.left
-      .map(e =>
+      .map { e =>
+        val cause = BedrockClaudeClient.causeOf(e)
+        // C-02: the cause code and exception class only, never the SDK message (ARNs, accounts)
         ModelFailure(
-          s"bedrock: ${e.getMessage}".take(300),
+          s"bedrock call failed ($cause, ${e.getClass.getSimpleName})",
           res.retries,
-          BedrockClaudeClient.causeOf(e)
+          cause
         )
-      )
+      }
       .flatMap(b =>
         AnthropicMessages
           .parse(b)

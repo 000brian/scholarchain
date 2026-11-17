@@ -10,6 +10,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.jdk.CollectionConverters._
 import scala.reflect.runtime.universe.TypeTag
 
+import org.apache.hadoop.fs.Path
 import org.apache.spark.scheduler.{
   SparkListener,
   SparkListenerStageCompleted,
@@ -48,6 +49,12 @@ final class RunRefusedException(msg: String) extends RuntimeException(msg)
   * the run then writes no load manifests and no run manifest.
   */
 final class OutputVerificationException(msg: String) extends RuntimeException(msg)
+
+/** Raised when an upstream input lacks the provenance or completeness evidence the run requires
+  * (for example an entity-resolution run without `_SUCCESS` or `_manifest.json`). No output is
+  * written.
+  */
+final class InputRefusedException(msg: String) extends IllegalArgumentException(msg)
 
 /** Raised when an operational limit (free disk, stage time) is hit. */
 final class OperationalLimitException(msg: String) extends RuntimeException(msg)
@@ -89,7 +96,21 @@ object Files2 {
   * by a stable key before writing, so file contents are deterministic for fixed inputs. Tables are
   * never overwritten (ErrorIfExists).
   */
-final class OutputWriter(spark: SparkSession, val runDir: File, defaultPartitions: Int) {
+final class OutputWriter(
+    spark: SparkSession,
+    io: RunFs,
+    val runDir: Path,
+    defaultPartitions: Int
+) {
+
+  /** A local run directory (tests and local tools). */
+  def this(spark: SparkSession, runDir: File, defaultPartitions: Int) =
+    this(
+      spark,
+      new RunFs(spark.sparkContext.hadoopConfiguration),
+      RunFs.pathOf(runDir),
+      defaultPartitions
+    )
 
   private val pending = ArrayBuffer.empty[() => TableOutput]
 
@@ -105,14 +126,14 @@ final class OutputWriter(spark: SparkSession, val runDir: File, defaultPartition
       partitions: Int = -1
   ): Unit = {
     val n = if (partitions > 0) partitions else defaultPartitions
-    val dir = new File(runDir, relPath)
+    val dir = new Path(runDir, relPath)
     val keys = sortKeys.map(col)
     ds.toDF()
       .repartition(n, keys: _*)
       .sortWithinPartitions(keys: _*)
       .write
       .mode("errorifexists")
-      .parquet(dir.getPath)
+      .parquet(dir.toString)
     pending += (() => verify[R](name, relPath, mirror, windowLabel, uniqueKey, stores))
   }
 
@@ -125,8 +146,8 @@ final class OutputWriter(spark: SparkSession, val runDir: File, defaultPartition
       stores: Seq[String]
   ): TableOutput = {
     import spark.implicits._
-    val dir = new File(runDir, relPath)
-    val ds = spark.read.parquet(dir.getPath).as[R]
+    val dir = new Path(runDir, relPath)
+    val ds = spark.read.parquet(dir.toString).as[R]
     val records = ds.count()
     val (invalid, samples, sampled, rtFail) = mirror match {
       case None    => (0L, Seq.empty[String], 0, 0)
@@ -151,7 +172,7 @@ final class OutputWriter(spark: SparkSession, val runDir: File, defaultPartition
       samples,
       sampled,
       rtFail,
-      Files2.entries(runDir, dir)
+      io.entries(runDir, dir)
     )
   }
 
@@ -226,6 +247,10 @@ object Manifests {
   val RunManifestName = "_run_manifest.json"
   val RunReportName = "_run_report.json"
   val LoadDir = "_load_manifests"
+  val LoadTargets: Seq[String] = Seq("neptune", "dynamodb", "s3vectors", "s3")
+
+  /** Relative paths of the control files hashed into the run manifest (`controlFiles`). */
+  val ControlFiles: Seq[String] = RunReportName +: LoadTargets.map(t => s"$LoadDir/$t.json")
 
   def fileJson(f: FileEntry): ujson.Value =
     ujson.Obj("path" -> f.path, "bytes" -> f.bytes.toDouble, "sha256" -> f.sha256)
@@ -244,24 +269,30 @@ object Manifests {
     )
 
   /** Load manifests per store; each lists table paths, record counts, schema versions, run ID. */
-  def loadManifests(runId: String, tables: Seq[TableOutput]): Map[String, ujson.Value] = {
-    val targets = Seq("neptune", "dynamodb", "s3vectors", "s3")
-    targets.map { target =>
+  def loadManifests(
+      runId: String,
+      tables: Seq[TableOutput],
+      policyVersions: Option[ujson.Value] = None
+  ): Map[String, ujson.Value] = {
+    LoadTargets.map { target =>
       val ts = tables.filter(_.stores.contains(target))
-      target -> ujson.Obj(
-        "format" -> "scholarchain.spark.load-manifest",
-        "formatVersion" -> 1,
-        "target" -> target,
-        "runId" -> runId,
-        "runManifest" -> RunManifestName,
-        "note" -> ("Paths are relative to the run directory. Evidence tables are keyed by " +
-          "(evidenceId, window): EvidenceId.of ignores window and metric, so never deduplicate " +
-          "or bundle evidence across windows."),
-        "tables" -> ujson.Arr(ts.map { t =>
-          val o = tableJson(t)
-          o.value.remove("files")
-          o: ujson.Value
-        }: _*)
+      target -> ujson.Obj.from(
+        Seq[(String, ujson.Value)](
+          "format" -> "scholarchain.spark.load-manifest",
+          "formatVersion" -> 1,
+          "target" -> target,
+          "runId" -> runId
+        ) ++ policyVersions.map("policyVersions" -> _) ++ Seq[(String, ujson.Value)](
+          "runManifest" -> RunManifestName,
+          "note" -> ("Paths are relative to the run directory. Evidence tables are keyed by " +
+            "(evidenceId, window): EvidenceId.of ignores window and metric, so never " +
+            "deduplicate or bundle evidence across windows."),
+          "tables" -> ujson.Arr(ts.map { t =>
+            val o = tableJson(t)
+            o.value.remove("files")
+            o: ujson.Value
+          }: _*)
+        )
       )
     }.toMap
   }
@@ -283,6 +314,16 @@ object Manifests {
       tables: Seq[TableOutput],
       runManifest: ujson.Value,
       runReport: ujson.Obj
+  ): ujson.Obj =
+    writeVerified(RunFs.local, RunFs.pathOf(runDir), runId, tables, runManifest, runReport)
+
+  def writeVerified(
+      io: RunFs,
+      runDir: Path,
+      runId: String,
+      tables: Seq[TableOutput],
+      runManifest: ujson.Value,
+      runReport: ujson.Obj
   ): ujson.Obj = {
     val failing = failingTables(tables)
     val verification = ujson.Obj(
@@ -299,7 +340,7 @@ object Manifests {
       }: _*)
     )
     val report = ujson.Obj.from(runReport.value.toSeq :+ ("verification" -> verification))
-    Files2.writeString(new File(runDir, RunReportName), ujson.write(report, indent = 2))
+    io.writeString(new Path(runDir, RunReportName), ujson.write(report, indent = 2))
     if (failing.nonEmpty)
       throw new OutputVerificationException(
         s"run $runId refused: ${failing.size} exported table(s) failed core verification (" +
@@ -309,41 +350,103 @@ object Manifests {
             .mkString("; ") +
           s"); no load manifests and no $RunManifestName were written, see $RunReportName"
       )
-    loadManifests(runId, tables).foreach { case (target, json) =>
-      Files2.writeString(new File(runDir, s"$LoadDir/$target.json"), ujson.write(json, indent = 2))
+    val policyVersions = runManifest.objOpt.flatMap(_.get("policyVersions"))
+    loadManifests(runId, tables, policyVersions).foreach { case (target, json) =>
+      io.writeString(new Path(runDir, s"$LoadDir/$target.json"), ujson.write(json, indent = 2))
     }
+    // Phase 6 F6: the run report and the load manifests are hashed into the run manifest, so a
+    // reuse check can verify them (they are `_`-prefixed and not data files).
+    val control = ControlFiles.map { rel =>
+      val f = new Path(runDir, rel)
+      FileEntry(rel, io.length(f), io.sha256(f))
+    }
+    val withControl = ujson.Obj.from(
+      runManifest.obj.toSeq.filterNot(_._1 == "controlFiles") :+
+        ("controlFiles" -> ujson.Arr(control.map(fileJson): _*))
+    )
     // The run manifest is written last: its presence marks a complete, verified run.
-    Files2.writeString(new File(runDir, RunManifestName), ujson.write(runManifest, indent = 2))
+    io.writeString(new Path(runDir, RunManifestName), ujson.write(withControl, indent = 2))
     report
   }
 
+  /** [[verifyExisting]] for a local run directory (the JSON Lines export and local tools). */
+  def verifyExisting(
+      runDir: File,
+      runId: String,
+      expected: Seq[(String, String)],
+      requireControlFiles: Boolean
+  ): ujson.Value =
+    verifyExisting(RunFs.local, RunFs.pathOf(runDir), runId, expected, requireControlFiles)
+
+  def verifyExisting(runDir: File, runId: String): ujson.Value =
+    verifyExisting(runDir, runId, Nil, requireControlFiles = false)
+
   /** Verifies an existing run directory against its manifest. Returns the manifest when every
-    * listed file exists with the recorded size and sha256, no unlisted data file exists and the run
-    * ID matches; otherwise refuses.
+    * listed file exists with the recorded size and sha256, no unlisted data file exists, the run ID
+    * matches and every `expected` manifest field (for example `codeVersion`) holds the given
+    * string; otherwise refuses with [[RunRefusedException]].
+    *
+    * With `requireControlFiles` (the pipeline's reuse check, Phase 6 F6), the manifest must also
+    * list `controlFiles` (`_run_report.json` and every `_load_manifests/<target>.json`) with sizes
+    * and sha256 that match, and `_load_manifests/` must hold no unlisted file. A manifest written
+    * before control files were recorded is refused.
     */
-  def verifyExisting(runDir: File, runId: String): ujson.Value = {
-    val mf = new File(runDir, RunManifestName)
-    if (!mf.isFile)
+  def verifyExisting(
+      io: RunFs,
+      runDir: Path,
+      runId: String,
+      expected: Seq[(String, String)],
+      requireControlFiles: Boolean
+  ): ujson.Value = {
+    val mf = new Path(runDir, RunManifestName)
+    if (!io.isFile(mf))
       throw new RunRefusedException(
         s"$runDir exists without $RunManifestName (an incomplete or foreign output); " +
           "refusing to reuse it. Use a new attempt root."
       )
-    val m = ujson.read(Files2.readString(mf))
+    val m = ujson.read(io.readString(mf))
     if (m("runId").str != runId)
       throw new RunRefusedException(s"$runDir manifest runId ${m("runId").str} != expected $runId")
-    val listed = m("outputs").arr.flatMap(_("files").arr).map { f =>
+    expected.foreach { case (k, v) =>
+      val recorded = m.obj.get(k).flatMap(_.strOpt)
+      if (!recorded.contains(v))
+        throw new RunRefusedException(
+          s"$runDir manifest $k ${recorded.getOrElse("(absent)")} != current $v; " +
+            "refusing to reuse it"
+        )
+    }
+    def entries(field: String) = m(field).arr.toSeq.map { f =>
       (f("path").str, f("bytes").num.toLong, f("sha256").str)
     }
-    val problems = listed.flatMap { case (p, bytes, sha) =>
-      val f = new File(runDir, p)
-      if (!f.isFile) Some(s"missing $p")
-      else if (f.length() != bytes) Some(s"size changed $p")
-      else if (Files2.sha256(f) != sha) Some(s"content changed $p")
+    val listed = m("outputs").arr.toSeq.flatMap(_("files").arr).map { f =>
+      (f("path").str, f("bytes").num.toLong, f("sha256").str)
+    }
+    def check(xs: Seq[(String, Long, String)]) = xs.flatMap { case (p, bytes, sha) =>
+      val f = new Path(runDir, p)
+      if (!io.isFile(f)) Some(s"missing $p")
+      else if (io.length(f) != bytes) Some(s"size changed $p")
+      else if (io.sha256(f) != sha) Some(s"content changed $p")
       else None
     }
+    val controlProblems =
+      if (!requireControlFiles) Nil
+      else if (!m.obj.contains("controlFiles"))
+        List(s"no controlFiles in $RunManifestName (written before F6)")
+      else {
+        val control = entries("controlFiles")
+        val names = control.map(_._1).toSet
+        val missingNames = ControlFiles.filterNot(names).map(p => s"control file not listed $p")
+        val present = io
+          .listFiles(new Path(runDir, LoadDir))
+          .map(f => s"$LoadDir/${f.getName}")
+          .filterNot(p => p.startsWith(s"$LoadDir/.")) // local checksum files
+        val unlisted = present.filterNot(names).sorted.map(p => s"unlisted control file $p")
+        missingNames ++ check(control) ++ unlisted
+      }
     val listedPaths = listed.map(_._1).toSet
-    val extra = Files2.listData(runDir).map(Files2.rel(runDir, _)).filterNot(listedPaths)
-    val all = problems.toList ++ extra.map(p => s"unlisted file $p")
+    val extra = io.listData(runDir).map(io.rel(runDir, _)).filterNot(listedPaths)
+    val all =
+      check(listed).toList ++ extra.map(p => s"unlisted file $p") ++ controlProblems
     if (all.nonEmpty)
       throw new RunRefusedException(
         s"$runDir does not match its manifest (${all.size} problems, first: ${all.take(5).mkString(", ")}); refusing to reuse it"

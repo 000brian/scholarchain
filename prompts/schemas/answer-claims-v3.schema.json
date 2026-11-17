@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scholarchain.example.invalid/schemas/answer-claims-v3",
+  "title": "ScholarChain answer claims, version 3",
+  "description": "Output of answer synthesis (prompt answer-synthesis-v3). Validated by org.scholarchain.rag.runtime.AnswerClaimsSchema (spec V3), then every claim is checked by the deterministic ClaimVerification stage. Same fields and limits as v2 (at most 15 claims, claim text at most 300 characters, at most 10 numbers per claim). Difference from v2 (checked in code): an entry of a claim's numbers whose value does not appear as a number in that claim's text (digits, optionally with standard three-digit comma groups; never number words or percentages) is dropped and counted by a fixed failure class instead of rejecting the whole output; the verifier still checks every number of the text. summary, uncertainty and missingEvidence must contain no digits and no identifiers (checked in code).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary", "claims", "missingEvidence"],
+  "properties": {
+    "summary": { "type": "string", "minLength": 1, "maxLength": 600 },
+    "claims": {
+      "type": "array",
+      "maxItems": 15,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claimId", "text", "evidenceIds", "numbers", "uncertainty"],
+        "properties": {
+          "claimId": { "type": "string", "pattern": "^claim-[0-9]{1,4}$" },
+          "text": { "type": "string", "minLength": 1, "maxLength": 300 },
+          "evidenceIds": {
+            "type": "array",
+            "maxItems": 20,
+            "uniqueItems": true,
+            "items": { "type": "string", "pattern": "^evidence:v1:[0-9a-f]{32}$" }
+          },
+          "numbers": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["value", "evidenceId", "field"],
+              "properties": {
+                "value": { "type": "number" },
+                "evidenceId": { "type": "string", "pattern": "^evidence:v1:[0-9a-f]{32}$" },
+                "field": {
+                  "type": "string",
+                  "enum": [
+                    "value",
+                    "rank",
+                    "weight",
+                    "jointPublicationCount",
+                    "firstYear",
+                    "lastYear",
+                    "hops",
+                    "maxDepth",
+                    "depthSearched",
+                    "year",
+                    "teamSize",
+                    "confidence",
+                    "publicationCount",
+                    "distinctCoauthors",
+                    "windowStartYear",
+                    "windowEndYear"
+                  ]
+                }
+              }
+            }
+          },
+          "uncertainty": { "type": ["string", "null"], "minLength": 1, "maxLength": 300 }
+        }
+      }
+    },
+    "missingEvidence": {
+      "type": "array",
+      "maxItems": 10,
+      "items": { "type": "string", "minLength": 1, "maxLength": 300 }
+    }
+  }
+}

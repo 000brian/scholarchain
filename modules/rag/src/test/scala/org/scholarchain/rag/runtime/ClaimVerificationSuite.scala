@@ -152,7 +152,8 @@ class ClaimVerificationSuite extends munit.FunSuite {
     val unbound =
       status(claim("In 2015-2025, Alice Smith has 38 distinct coauthors (C).", List(cAlice)))
     assertEquals(unbound.status, Conflicting, unbound.reasons.toString)
-    assert(unbound.reasons.exists(_.contains("number 38 is not a value")), unbound.reasons.toString)
+    // Phase 11: reasons are fixed text and never repeat the model's number
+    assertEquals(unbound.reasons, List(ClaimVerification.Reasons.NumberConflict))
     // rounding follows the stated precision: 3.43 and 3.4286 match 3.4285714; 3 and 3.4 do not
     assertEquals(
       status(
@@ -183,7 +184,8 @@ class ClaimVerificationSuite extends munit.FunSuite {
   test("planted wrong window year: conflicting") {
     val v = status(claim("In 2018-2020, Alice Smith has 37 distinct coauthors (C).", List(cAlice)))
     assertEquals(v.status, Conflicting)
-    assert(v.reasons.exists(_.contains("year 2018")), v.reasons.toString)
+    // L-2: a range is checked as a window; the reason is fixed text
+    assertEquals(v.reasons, List(ClaimVerification.Reasons.RangeConflict))
     // edge years are allowed years for a cited edge
     assertEquals(
       status(
@@ -213,7 +215,7 @@ class ClaimVerificationSuite extends munit.FunSuite {
       )
     )
     assertEquals(v.status, Conflicting)
-    assert(v.reasons.exists(_.contains("hops")), v.reasons.toString)
+    assert(v.reasons.contains(ClaimVerification.Reasons.HopsConflict), v.reasons.toString)
   }
 
   test("semantic evidence cited for a number is unsupported; descriptive use is fine") {
@@ -273,8 +275,11 @@ class ClaimVerificationSuite extends munit.FunSuite {
     val v = status(
       claim(s"In 2015-2025, Alice Smith (${other.value}) has 37 distinct coauthors.", List(cAlice))
     )
-    assertNotEquals(v.status, Verified)
-    assert(v.reasons.exists(_.contains(other.value)))
+    // T-01: an identifier the cited evidence lacks makes the claim unsupported (never kept), and
+    // the reason never repeats the identifier
+    assertEquals(v.status, Unsupported, v.reasons.toString)
+    assert(v.reasons.contains(ClaimVerification.Reasons.IdNotCited), v.reasons.toString)
+    assert(!v.reasons.exists(_.contains(other.value)), v.reasons.toString)
     // a researcher ID that is in the bundle but not in the cited item is not covered either
     assertNotEquals(
       status(
@@ -330,12 +335,19 @@ class ClaimVerificationSuite extends munit.FunSuite {
     // (a) the review's exact input: 99/100 is not a dblp key, so both numbers are checked
     val a = status(claim("In 2015-2025, Alice Smith has 99/100 distinct coauthors.", List(cAlice)))
     assertNotEquals(a.status, Verified, a.reasons.toString)
-    assert(a.reasons.exists(_.contains("number 99")), a.reasons.toString)
+    assert(a.reasons.contains(ClaimVerification.Reasons.NumberConflict), a.reasons.toString)
     // (b) the review's exact input: "Smith" is not the venue of a cited work
     val b =
       status(claim("In 2015-2025, the distinct coauthors of Alice Smith (99).", List(cAlice)))
     assertNotEquals(b.status, Verified, b.reasons.toString)
-    assert(b.reasons.exists(_.contains("number 99")), b.reasons.toString)
+    assert(b.reasons.contains(ClaimVerification.Reasons.NumberConflict), b.reasons.toString)
+    // with the right value in place of 99 the same text verifies, so 99 itself was checked
+    assertEquals(
+      status(
+        claim("In 2015-2025, the distinct coauthors of Alice Smith (37).", List(cAlice))
+      ).status,
+      Verified
+    )
     // a venue "(n)" counts only for the venue of a cited work (this work is conf/acl, not KDD)
     val c = status(
       claim("\"Parsing Legal Contracts\" appeared at KDD (7) with team size 4.", List(work))

@@ -13,7 +13,13 @@ import org.scholarchain.storage.ingest.TextStore
 import org.scholarchain.storage.ports._
 import org.scholarchain.storage.s3.S3KeyLayout
 import software.amazon.awssdk.core.ResponseBytes
-import software.amazon.awssdk.core.exception.{SdkClientException, SdkException}
+import software.amazon.awssdk.core.exception.{
+  AbortedException,
+  ApiCallAttemptTimeoutException,
+  ApiCallTimeoutException,
+  SdkClientException,
+  SdkException
+}
 import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import software.amazon.awssdk.services.dynamodb.model.{
@@ -151,9 +157,87 @@ class AwsErrorMappingSuite extends munit.FunSuite {
     )
     assert(e2.transient, e2.getMessage)
     val client = SdkClientException.builder().message("io").build()
-    intercept[StoreException](
+    val e3 = intercept[StoreException](
       new DynamoDbKeyValueStore(new DynamoStub(() => client, None)).putIfAbsent(table, item("1"))
     )
+    assert(!e3.transient, "a client error without timeout or I/O cause stays permanent")
+  }
+
+  // ---- B-01 (Phase 11): client-side timeouts and I/O errors are transient ----
+
+  private def ioFailure(cause: Throwable): SdkClientException =
+    SdkClientException
+      .builder()
+      .message("Unable to execute HTTP request: example")
+      .cause(cause)
+      .build()
+
+  test(
+    "B-01 AwsErrors.wrap: client timeouts and I/O causes are transient, other client errors not"
+  ) {
+    val transientCases: List[(String, Throwable)] = List(
+      "api call timeout" -> ApiCallTimeoutException.builder().message("timed out").build(),
+      "attempt timeout" -> ApiCallAttemptTimeoutException.builder().message("attempt").build(),
+      "socket timeout" -> ioFailure(new java.net.SocketTimeoutException("Read timed out")),
+      "connection reset" -> ioFailure(new java.net.SocketException("Connection reset")),
+      "connect refused" -> ioFailure(new java.net.ConnectException("Connection refused")),
+      "nested unchecked I/O" -> ioFailure(
+        new java.io.UncheckedIOException(new java.io.IOException("broken pipe"))
+      )
+    )
+    transientCases.foreach { case (name, t) =>
+      assert(AwsErrors.wrap(t).transient, s"$name must be transient")
+    }
+    val permanentCases: List[(String, Throwable)] = List(
+      "no cause" -> SdkClientException.builder().message("Unable to load credentials").build(),
+      "non-I/O cause" -> SdkClientException
+        .builder()
+        .message("Unable to marshall request")
+        .cause(new IllegalArgumentException("bad"))
+        .build(),
+      "interrupted" -> AbortedException
+        .builder()
+        .message("Thread was interrupted")
+        .cause(new java.io.InterruptedIOException("interrupted"))
+        .build()
+    )
+    permanentCases.foreach { case (name, t) =>
+      assert(!AwsErrors.wrap(t).transient, s"$name must stay permanent")
+    }
+  }
+
+  test("B-01 a DynamoDB timeout is retried by RetryingKeyValueStore up to maxRetries") {
+    val timeout = () => ApiCallTimeoutException.builder().message("timed out").build()
+    val stub = new DynamoStub(timeout, None)
+    val kv = new RetryingKeyValueStore(
+      new DynamoDbKeyValueStore(stub),
+      RetryPolicy(maxRetries = 2, baseDelayMillis = 1, maxDelayMillis = 1),
+      Sleeper.none
+    )
+    val e = intercept[StoreException](kv.putIfAbsent(table, item("1")))
+    assert(e.transient, e.getMessage)
+    assertEquals(stub.puts, 3, "one attempt plus two retries")
+    assertEquals(kv.counters.retries.get, 2L)
+  }
+
+  test("B-01 an S3 I/O failure is retried by RetryingObjectStore, then succeeds") {
+    var failures = 1
+    val flaky = new S3Client {
+      def serviceName(): String = "s3"
+      def close(): Unit = ()
+      override def getObjectAsBytes(r: GetObjectRequest): ResponseBytes[GetObjectResponse] =
+        if (failures > 0) {
+          failures -= 1
+          throw ioFailure(new java.net.SocketException("Connection reset"))
+        } else ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), Array[Byte](1))
+    }
+    val os = new RetryingObjectStore(
+      new S3ObjectStore(flaky),
+      RetryPolicy(maxRetries = 2, baseDelayMillis = 1, maxDelayMillis = 1),
+      Sleeper.none
+    )
+    assertEquals(os.get(ref).map(_.toList), Some(List[Byte](1)))
+    assertEquals(os.counters.retries.get, 1L)
   }
 
   // ---- S3 ----
@@ -239,6 +323,36 @@ class AwsErrorMappingSuite extends munit.FunSuite {
         .putIfAbsent(ref, bytes, "text/plain", Map.empty)
     )
     assert(e.transient, e.getMessage)
+  }
+
+  // Phase 7 review-02 r2: openStream and head mapping, without AWS.
+  private final class S3ReadStub(fail: () => Throwable) extends S3Client {
+    def serviceName(): String = "s3"
+    def close(): Unit = ()
+    override def getObject(
+        r: GetObjectRequest
+    ): software.amazon.awssdk.core.ResponseInputStream[GetObjectResponse] = throw fail()
+    override def headObject(r: HeadObjectRequest): HeadObjectResponse = throw fail()
+  }
+
+  test("r2 S3 openStream and head: missing object is None, other errors keep their retry class") {
+    val missing = new S3ObjectStore(new S3ReadStub(() => noSuchKey()))
+    assertEquals(missing.openStream(ref), None)
+    assertEquals(missing.head(ref), None)
+    val notFound404 = new S3ObjectStore(
+      new S3ReadStub(() => S3Exception.builder().message("Not Found").statusCode(404).build())
+    )
+    assertEquals(notFound404.head(ref), None, "HEAD has no body, so S3 reports a bare 404")
+    val forbidden = new S3ObjectStore(
+      new S3ReadStub(() => S3Exception.builder().message("denied").statusCode(403).build())
+    )
+    assert(!intercept[StoreException](forbidden.openStream(ref)).transient)
+    assert(!intercept[StoreException](forbidden.head(ref)).transient)
+    val slow = new S3ObjectStore(
+      new S3ReadStub(() => S3Exception.builder().message("SlowDown").statusCode(503).build())
+    )
+    assert(intercept[StoreException](slow.openStream(ref)).transient)
+    assert(intercept[StoreException](slow.head(ref)).transient)
   }
 
   // ---- S3 Vectors ----

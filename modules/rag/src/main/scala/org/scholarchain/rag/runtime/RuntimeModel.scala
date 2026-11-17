@@ -53,6 +53,23 @@ object QueryRequest {
         )
         .render()
     )
+
+  /** [[fingerprint]] plus the prompt versions of the prompt set that answers it (Phase 11, U-3), so
+    * the same question under another prompt set gets another query run ID. Used by
+    * [[QueryWorkflow.queryRunId]] since `rag-runtime/3`.
+    */
+  def fingerprint(r: QueryRequest, graphRunId: RunId, promptVersions: List[String]): String =
+    ContentHash.of(
+      ujson
+        .Obj(
+          "graphRunId" -> graphRunId.value,
+          "promptVersions" -> ujson.Arr.from(promptVersions.map(ujson.Str(_))),
+          "question" -> canonicalQuestion(r.question),
+          "topic" -> r.topic.map(t => ujson.Str(canonicalText(t))).getOrElse(ujson.Null),
+          "windowLabel" -> r.windowLabel.map(ujson.Str(_)).getOrElse(ujson.Null)
+        )
+        .render()
+    )
 }
 
 /** A constraint the runtime cannot apply yet (no venue metrics, no institution data, an
@@ -172,6 +189,8 @@ object RuntimeContext {
 /** What happened to one model call. Model text that fails validation is never kept: only its
   * sha256, its length and the validation error. `stopReason` is the provider's `stop_reason`
   * ([[StopReasons.Unknown]] when the reply has none, and for a failed call, which has no reply).
+  * `droppedNumbers` (answer-claims v3) and `numberErrors` (v2 rejections) count bound numbers whose
+  * value was not in their claim text, by [[NumberFormats.failureClass]] (L-1; counts only).
   */
 final case class ModelAttempt(
     task: String,
@@ -182,8 +201,12 @@ final case class ModelAttempt(
     error: Option[String],
     inputTokens: Option[Long],
     outputTokens: Option[Long],
-    stopReason: String
+    stopReason: String,
+    droppedNumbers: Map[String, Long] = Map.empty,
+    numberErrors: Map[String, Long] = Map.empty
 ) {
+  private def counts(m: Map[String, Long]) =
+    ujson.Obj.from(m.toList.sortBy(_._1).map { case (k, v) => k -> ujson.Num(v.toDouble) })
   def toJson: ujson.Obj = ujson.Obj(
     "task" -> task,
     "attempt" -> attempt,
@@ -193,7 +216,9 @@ final case class ModelAttempt(
     "error" -> error.map(ujson.Str(_)).getOrElse(ujson.Null),
     "inputTokens" -> inputTokens.map(n => ujson.Num(n.toDouble)).getOrElse(ujson.Null),
     "outputTokens" -> outputTokens.map(n => ujson.Num(n.toDouble)).getOrElse(ujson.Null),
-    "stopReason" -> stopReason
+    "stopReason" -> stopReason,
+    "droppedBoundNumbers" -> counts(droppedNumbers),
+    "boundNumberErrors" -> counts(numberErrors)
   )
 }
 
@@ -201,6 +226,11 @@ object ModelAttempt {
   val Valid = "valid"
   val Invalid = "invalid"
   val CallFailed = "call-failed"
+
+  /** The fallback reason of a failed model call: its cause code only (`http-429`, `timeout`, ...),
+    * never the provider's message or body (C-02).
+    */
+  def callFailedReason(f: ModelFailure): String = s"model call failed (${f.cause})"
 
   def stopReasonOf(r: ModelReply): String =
     r.stopReason.filter(_.nonEmpty).getOrElse(StopReasons.Unknown)
@@ -227,7 +257,7 @@ object ModelAttempt {
       CallFailed,
       None,
       None,
-      Some(f.message.take(300)),
+      Some(callFailedReason(f)),
       None,
       None,
       StopReasons.Unknown

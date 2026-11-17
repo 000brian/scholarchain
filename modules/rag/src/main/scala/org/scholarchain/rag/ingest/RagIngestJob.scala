@@ -200,9 +200,24 @@ object RagIngestJob {
         case other => Left(s"stores '$other' are not known (local or aws)")
       }
 
-  def loadConfig(path: Path): Either[String, ScholarChainConfig] = {
+  /** The configuration file plus the `SCHOLARCHAIN_CFG_*` overrides of `env` (D-01: environment
+    * over file, as core's loader and services do; default the process environment), so a cloud
+    * ingest takes real bucket names from the environment, never from a committed file.
+    */
+  def loadConfig(
+      path: Path,
+      env: Map[String, String] = sys.env
+  ): Either[String, ScholarChainConfig] = {
     val text = new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
-    ConfigLoader.load(text, path.getFileName.toString, Map.empty).left.map(_.message).map(_.config)
+    ConfigLoader
+      .load(
+        text,
+        path.getFileName.toString,
+        env.filter(_._1.startsWith(ConfigLoader.EnvPrefix))
+      )
+      .left
+      .map(_.message)
+      .map(_.config)
   }
 
   def main(args: Array[String]): Unit = {

@@ -32,8 +32,12 @@
     <name>scholarchain.output.replaceIncomplete</name>
     <value>false</value>
     <description>When an output directory for the same run ID exists without a completion record,
-      fail (false) or replace it (true). A complete output (_SUCCESS plus _job.json) is always
-      reused, which makes reruns idempotent. Operational (not fingerprinted): rerunning a failed
+      fail (false) or replace it (true). A complete output (_SUCCESS plus _job.json) is reused,
+      which makes reruns idempotent, but only after JobRunner checks it: the identity fields of
+      _job.json (job, run ID, dataset, snapshot, code version, input fingerprint, input runs,
+      config fingerprint) must equal the current run's, and every non-hidden file must match the
+      recorded outputs list (path, length, sha256). A complete output that fails the check is
+      never replaced, whatever this setting says: the run fails and nothing is removed. Operational (not fingerprinted): rerunning a failed
       run with this set to true keeps the run ID and replaces that run's incomplete directory.</description>
   </property>
   <property>
@@ -261,12 +265,14 @@
   <!-- ===================== J05 blocking ===================== -->
   <property>
     <name>scholarchain.blocking.keyFamilies</name>
-    <value>dblp-base-name</value>
+    <value>dblp-base-name,initials-surname</value>
     <description>Primary blocking key families (comma-separated), keyed by the shared core rule
       AuthorNameKey (author-name-key/1): dblp-base-name (AuthorNameKey.baseNameKey: the dblp name
       without its homonym suffix, NFD) and initials-surname (AuthorNameKey.initialsSurnameKey:
-      "J. Smith", "John Smith" and "Jane Smith" share "j smith"). The default keeps the Phase 4
-      family only; set dblp-base-name,initials-surname to add the initials family.</description>
+      "J. Smith", "John Smith" and "Jane Smith" share "j smith"). The default runs both families,
+      the ones the er-v1 match policy reasons about (Phase 11, Phase 5 m5); set dblp-base-name to
+      keep only the Phase 4 family. Large initials-surname blocks are usually oversize and go
+      through the J05b fallback.</description>
   </property>
   <property>
     <name>scholarchain.blocking.maxBlockSize</name>

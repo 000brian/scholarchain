@@ -5,23 +5,63 @@ import java.io.File
 import scala.collection.mutable.{ArrayBuffer, LinkedHashMap}
 import scala.reflect.runtime.universe.TypeTag
 
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.apache.spark.sql.functions._
 import org.scholarchain.core._
 import org.scholarchain.core.config.NamedWindow
 
-/** Arguments of one pipeline run. Operational limits do not change outputs. */
+/** Arguments of one pipeline run. Operational limits do not change outputs.
+  *
+  * Locations are Hadoop paths (Phase 6 F9 part 2): `file:`, `hdfs:` or `s3:` URIs; a path without a
+  * scheme resolves against the session's default file system.
+  */
 final case class PipelineArgs(
-    hadoopExport: File,
-    identityAssignments: File,
-    outRoot: File,
+    hadoopExport: Path,
+    identityAssignments: Path,
+    outRoot: Path,
     config: SparkJobConfig,
     codeVersion: String,
     minFreeDiskBytes: Long,
     maxStageMillis: Long
 )
 
-final case class PipelineResult(runId: String, runDir: File, reused: Boolean, report: ujson.Value)
+object PipelineArgs {
+
+  /** Local directories (tests and the local runner). */
+  def apply(
+      hadoopExport: File,
+      identityAssignments: File,
+      outRoot: File,
+      config: SparkJobConfig,
+      codeVersion: String,
+      minFreeDiskBytes: Long,
+      maxStageMillis: Long
+  ): PipelineArgs =
+    PipelineArgs(
+      RunFs.pathOf(hadoopExport),
+      RunFs.pathOf(identityAssignments),
+      RunFs.pathOf(outRoot),
+      config,
+      codeVersion,
+      minFreeDiskBytes,
+      maxStageMillis
+    )
+}
+
+/** Result of one run. `runPath` is the qualified run directory. */
+final case class PipelineResult(
+    runId: String,
+    runPath: Path,
+    reused: Boolean,
+    report: ujson.Value
+) {
+
+  /** The run directory as a local file; only for `file:` runs (tests and local tools). */
+  def runDir: File =
+    if (runPath.toUri.getScheme == "file") new File(runPath.toUri)
+    else throw new UnsupportedOperationException(s"$runPath is not a local directory")
+}
 
 /** The Phase 6 collaboration-analysis pipeline (jobs 1-11 of the work order).
   *
@@ -37,6 +77,8 @@ final case class PipelineResult(runId: String, runDir: File, reused: Boolean, re
   *   - Broadcast joins are disabled (spark.sql.autoBroadcastJoinThreshold = -1, set by the runner),
   *     so no edge table is ever broadcast; only bounded ID lists (path sources, top-10, sampled
   *     seeds) are collected to the driver.
+  *   - Every location (inputs, output root, manifests, checkpoints, staging) goes through the
+  *     Hadoop FileSystem API ([[RunFs]]), so `file:`, `hdfs:` and `s3:` roots work alike.
   *   - Checkpoints (reliable, under the attempt root): authorship facts and pair works after the
   *     build, each window's coauthor edges and facts, and every iteration of components, label
   *     propagation, k-core and BFS, to cut lineage.
@@ -47,7 +89,8 @@ object Pipeline {
 
   final class Stages(
       spark: SparkSession,
-      outRoot: File,
+      io: RunFs,
+      outRoot: Path,
       minFreeDiskBytes: Long,
       maxStageMillis: Long
   ) {
@@ -55,7 +98,7 @@ object Pipeline {
     val disk: LinkedHashMap[String, Long] = LinkedHashMap.empty
 
     def apply[A](name: String)(body: => A): A = {
-      val free = outRoot.getUsableSpace
+      val free = io.usableSpace(outRoot)
       disk(name) = free
       if (free < minFreeDiskBytes)
         throw new OperationalLimitException(
@@ -75,16 +118,20 @@ object Pipeline {
   }
 
   /** Input files (relative path, bytes, sha256) per input table, and the fingerprint. */
-  def inputListing(args: PipelineArgs): (Seq[(String, String, Seq[FileEntry])], String) = {
+  def inputListing(
+      io: RunFs,
+      hadoopExport: Path,
+      identityAssignments: Path
+  ): (Seq[(String, String, Seq[FileEntry])], String) = {
     val hadoop = Inputs.HadoopTables.map { t =>
-      val dir = new File(args.hadoopExport, t)
-      ("hadoop", t, Files2.entries(args.hadoopExport, dir))
+      val dir = new Path(hadoopExport, t)
+      ("hadoop", t, io.entries(hadoopExport, dir))
     }
     val er = Seq(
       (
         "entity-resolution",
         "identity_assignment",
-        Files2.entries(args.identityAssignments, args.identityAssignments)
+        io.entries(identityAssignments, identityAssignments)
       )
     )
     val all = hadoop ++ er
@@ -94,53 +141,178 @@ object Pipeline {
     (all, "sha256:" + Hashing.sha256Hex(lines.mkString("\n")))
   }
 
-  private def readJsonIfExists(f: File): Option[ujson.Value] =
-    if (f.isFile) Some(ujson.read(Files2.readString(f))) else None
+  private def readJsonIfExists(io: RunFs, f: Path): Option[ujson.Value] =
+    io.readIfFile(f).map(ujson.read(_))
 
-  def run(spark: SparkSession, args: PipelineArgs): PipelineResult = {
-    val cfg = args.config
+  /** Layout of the entity-resolution run that `--identity-assignments` must point into. */
+  val ErAssignmentsRel = "decisions/identity_assignment"
+  val ErManifestName = "_manifest.json"
+  val ErManifestFormat = "scholarchain.er.run-manifest"
+  val SuccessMarker = "_SUCCESS"
+
+  /** Checks the entity-resolution run that produced the identity assignments and returns its run
+    * manifest (review B-02: provenance is rejected, not defaulted).
+    *
+    * Refuses (with [[InputRefusedException]]) unless: the assignments directory is
+    * `<erRun>/decisions/identity_assignment`; the ER run directory holds `_SUCCESS` and
+    * `_manifest.json` (an interrupted ER run writes both last); the manifest has format
+    * `scholarchain.er.run-manifest`, a well-formed `runId` and non-blank `jobName`, `codeVersion`
+    * and `policyVersion`; and the manifest's `outputs` under `decisions/identity_assignment/` list
+    * exactly the data files read, with the same sizes and sha256 (no partial or foreign file).
+    *
+    * @param assignmentFiles
+    *   the data files of the assignments directory (paths relative to it), as hashed for the input
+    *   listing
+    */
+  def checkErRun(
+      assignmentsLeaf: String,
+      assignmentsParentLeaf: String,
+      describe: String,
+      readErFile: String => Option[String],
+      assignmentFiles: Seq[FileEntry]
+  ): ujson.Value = {
+    def refuse(why: String): Nothing =
+      throw new InputRefusedException(s"identity assignments at $describe refused: $why")
+    if (s"$assignmentsParentLeaf/$assignmentsLeaf" != ErAssignmentsRel)
+      refuse(s"--identity-assignments must be the <erRun>/$ErAssignmentsRel directory of a run")
+    if (readErFile(SuccessMarker).isEmpty)
+      refuse(s"the entity-resolution run has no $SuccessMarker (incomplete or interrupted run)")
+    val text = readErFile(ErManifestName).getOrElse(
+      refuse(s"the entity-resolution run has no $ErManifestName")
+    )
+    val m = scala.util
+      .Try(ujson.read(text))
+      .toOption
+      .filter(_.objOpt.isDefined)
+      .getOrElse(refuse(s"$ErManifestName is not a JSON object"))
+    def str(k: String): String =
+      m.obj
+        .get(k)
+        .flatMap(_.strOpt)
+        .map(_.trim)
+        .filter(_.nonEmpty)
+        .getOrElse(
+          refuse(s"$ErManifestName has no non-blank string field '$k'")
+        )
+    if (str("format") != ErManifestFormat)
+      refuse(s"$ErManifestName format is ${str("format")}, expected $ErManifestFormat")
+    RunId.parse(str("runId")).fold(e => refuse(s"$ErManifestName runId: $e"), identity)
+    Seq("jobName", "codeVersion", "policyVersion").foreach(str)
+    val prefix = s"$ErAssignmentsRel/"
+    val listed = m.obj
+      .get("outputs")
+      .flatMap(_.arrOpt)
+      .getOrElse(refuse(s"$ErManifestName has no outputs list"))
+      .flatMap { o =>
+        val p = o.obj.get("path").flatMap(_.strOpt)
+        p.filter(_.startsWith(prefix)).map { path =>
+          val bytes = o.obj.get("bytes").flatMap(_.numOpt).map(_.toLong)
+          val sha = o.obj.get("sha256").flatMap(_.strOpt)
+          path -> (bytes, sha)
+        }
+      }
+      .toMap
+    if (listed.isEmpty) refuse(s"$ErManifestName lists no output under $prefix")
+    val actual = assignmentFiles.map(f => s"$prefix${f.path}" -> f).toMap
+    val problems =
+      listed.toSeq.sortBy(_._1).flatMap { case (p, (bytes, sha)) =>
+        actual.get(p) match {
+          case None                                => Some(s"listed file missing: $p")
+          case Some(f) if !bytes.contains(f.bytes) => Some(s"size differs: $p")
+          case Some(f) if !sha.contains(f.sha256)  => Some(s"content differs: $p")
+          case _                                   => None
+        }
+      } ++ actual.keys.toSeq.sorted.filterNot(listed.contains).map(p => s"unlisted file: $p")
+    if (problems.nonEmpty)
+      refuse(
+        s"files do not match $ErManifestName (${problems.size} problems, first: " +
+          s"${problems.take(5).mkString(", ")})"
+      )
+    m
+  }
+
+  private def checkErRunAt(
+      io: RunFs,
+      ia: Path,
+      assignmentFiles: Seq[FileEntry]
+  ): ujson.Value = {
+    val parent = Option(ia.getParent)
+    val erRunDir = parent.flatMap(p => Option(p.getParent))
+    checkErRun(
+      ia.getName,
+      parent.map(_.getName).getOrElse(""),
+      RunFs.display(ia),
+      name => erRunDir.flatMap(d => io.readIfFile(new Path(d, name))),
+      assignmentFiles
+    )
+  }
+
+  def run(spark: SparkSession, rawArgs: PipelineArgs): PipelineResult = {
+    val cfg = rawArgs.config
     SparkJobConfig.validate(cfg) match {
       case Nil => ()
       case e   => throw new IllegalArgumentException(s"invalid config: ${e.mkString("; ")}")
     }
+    val io = new RunFs(spark.sparkContext.hadoopConfiguration)
+    val args = rawArgs.copy(
+      hadoopExport = io.qualify(rawArgs.hadoopExport),
+      identityAssignments = io.qualify(rawArgs.identityAssignments),
+      outRoot = io.qualify(rawArgs.outRoot)
+    )
     require(
-      new File(args.hadoopExport, "work").isDirectory,
+      io.isDirectory(new Path(args.hadoopExport, "work")),
       s"no work table under ${args.hadoopExport}"
     )
     require(
-      args.identityAssignments.isDirectory,
+      io.isDirectory(args.identityAssignments),
       s"no identity assignments at ${args.identityAssignments}"
     )
-    val hadoopJob = readJsonIfExists(new File(args.hadoopExport, "_job.json")).getOrElse(
+    val hadoopJob = readJsonIfExists(io, new Path(args.hadoopExport, "_job.json")).getOrElse(
       throw new IllegalArgumentException(s"missing _job.json under ${args.hadoopExport}")
     )
-    val erRunDir = args.identityAssignments.getAbsoluteFile.getParentFile.getParentFile
-    val erManifest = readJsonIfExists(new File(erRunDir, "_manifest.json"))
     val snapshotId = hadoopJob("snapshotId").str
 
-    val (listing, inputFingerprint) = inputListing(args)
+    val (listing, inputFingerprint) =
+      inputListing(io, args.hadoopExport, args.identityAssignments)
+    val erManifest = checkErRunAt(
+      io,
+      args.identityAssignments,
+      listing.collect { case ("entity-resolution", _, fs) => fs }.flatten
+    )
     val runId = RunId
       .of(cfg.jobName, args.codeVersion, inputFingerprint, cfg.fingerprint)
       .fold(e => throw new IllegalArgumentException(e), identity)
     val hex = runId.value.stripPrefix(RunId.Prefix)
-    val runDir = new File(args.outRoot, s"run=$hex")
-    if (runDir.exists()) {
-      Manifests.verifyExisting(runDir, runId.value)
+    val runDir = new Path(args.outRoot, s"run=$hex")
+    if (io.exists(runDir)) {
+      Manifests.verifyExisting(
+        io,
+        runDir,
+        runId.value,
+        Seq(
+          "jobName" -> cfg.jobName,
+          "codeVersion" -> args.codeVersion,
+          "inputFingerprint" -> inputFingerprint,
+          "configFingerprint" -> cfg.fingerprint
+        ),
+        requireControlFiles = true
+      )
       val report =
-        readJsonIfExists(new File(runDir, Manifests.RunReportName)).getOrElse(ujson.Obj())
+        readJsonIfExists(io, new Path(runDir, Manifests.RunReportName)).getOrElse(ujson.Obj())
       println(s"[scholarchain] reusing verified output $runDir")
       return PipelineResult(runId.value, runDir, reused = true, report)
     }
-    runDir.mkdirs()
-    val checkpointDir = new File(args.outRoot, s"_checkpoint/run=$hex")
-    val stagingDir = new File(args.outRoot, s"_staging/run=$hex")
-    spark.sparkContext.setCheckpointDir(checkpointDir.getPath)
+    io.mkdirs(runDir)
+    val checkpointDir = new Path(args.outRoot, s"_checkpoint/run=$hex")
+    val stagingDir = new Path(args.outRoot, s"_staging/run=$hex")
+    spark.sparkContext.setCheckpointDir(checkpointDir.toString)
 
     val listener = new StageMetricsListener
     spark.sparkContext.addSparkListener(listener)
     try
       runCompute(
         spark,
+        io,
         args,
         cfg,
         runId.value,
@@ -158,35 +330,38 @@ object Pipeline {
 
   private def stage[R <: Product: TypeTag](
       spark: SparkSession,
-      staging: File,
+      staging: Path,
       name: String,
       decoded: Dataset[Decoded[R]]
   ): Dataset[Decoded[R]] = {
     import spark.implicits._
-    val dir = new File(staging, name)
-    decoded.write.mode("errorifexists").parquet(dir.getPath)
-    spark.read.parquet(dir.getPath).as[Decoded[R]]
+    val dir = new Path(staging, name)
+    decoded.write.mode("errorifexists").parquet(dir.toString)
+    spark.read.parquet(dir.toString).as[Decoded[R]]
   }
 
   // scalastyle:off method.length
   private def runCompute(
       spark: SparkSession,
+      io: RunFs,
       args: PipelineArgs,
       cfg: SparkJobConfig,
       runId: String,
-      runDir: File,
-      staging: File,
+      runDir: Path,
+      staging: Path,
       snapshotId: String,
       hadoopJob: ujson.Value,
-      erManifest: Option[ujson.Value],
+      erManifest: ujson.Value,
       listing: Seq[(String, String, Seq[FileEntry])],
       inputFingerprint: String,
       listener: StageMetricsListener
   ): PipelineResult = {
     import spark.implicits._
     val ctx = ProvCtx(runId, cfg.datasetId, snapshotId, cfg.policyVersion)
-    val st = new Stages(spark, args.outRoot, args.minFreeDiskBytes, args.maxStageMillis)
-    val out = new OutputWriter(spark, runDir, cfg.outputPartitions)
+    val st = new Stages(spark, io, args.outRoot, args.minFreeDiskBytes, args.maxStageMillis)
+    val out = new OutputWriter(spark, io, runDir, cfg.outputPartitions)
+    def decodeDir[R <: Product: TypeTag](dir: Path, decode: String => Decoded[R]) =
+      Inputs.decodeDir(spark, io, dir, decode)
     val cp: Algorithms.Checkpoint = df => df.checkpoint(eager = true)
     val report = LinkedHashMap.empty[String, ujson.Value]
     val iterStats = ArrayBuffer.empty[IterStats]
@@ -201,49 +376,49 @@ object Pipeline {
         spark,
         staging,
         "work",
-        Inputs.decodeDir(spark, new File(h, "work"), Inputs.decodeWork)
+        decodeDir(new Path(h, "work"), Inputs.decodeWork)
       )
       val m = stage(
         spark,
         staging,
         "author_mention",
-        Inputs.decodeDir(spark, new File(h, "author_mention"), Inputs.decodeMention)
+        decodeDir(new Path(h, "author_mention"), Inputs.decodeMention)
       )
       val t = stage(
         spark,
         staging,
         "publication_team",
-        Inputs.decodeDir(spark, new File(h, "publication_team"), Inputs.decodeTeam)
+        decodeDir(new Path(h, "publication_team"), Inputs.decodeTeam)
       )
       val p = stage(
         spark,
         staging,
         "coauthor_pair_candidate",
-        Inputs.decodeDir(spark, new File(h, "coauthor_pair_candidate"), Inputs.decodePair)
+        decodeDir(new Path(h, "coauthor_pair_candidate"), Inputs.decodePair)
       )
       val v = stage(
         spark,
         staging,
         "venue",
-        Inputs.decodeDir(spark, new File(h, "venue"), Inputs.decodeVenue)
+        decodeDir(new Path(h, "venue"), Inputs.decodeVenue)
       )
       val i = stage(
         spark,
         staging,
         "institution",
-        Inputs.decodeDir(spark, new File(h, "institution"), Inputs.decodeInstitution)
+        decodeDir(new Path(h, "institution"), Inputs.decodeInstitution)
       )
       val l = stage(
         spark,
         staging,
         "external_id_link",
-        Inputs.decodeDir(spark, new File(h, "external_id_link"), Inputs.decodeLink)
+        decodeDir(new Path(h, "external_id_link"), Inputs.decodeLink)
       )
       val a = stage(
         spark,
         staging,
         "identity_assignment",
-        Inputs.decodeDir(spark, args.identityAssignments, Inputs.decodeAssignment)
+        decodeDir(args.identityAssignments, Inputs.decodeAssignment)
       )
       val staged: Seq[(String, Dataset[_])] = Seq(
         "work" -> w,
@@ -754,7 +929,7 @@ object Pipeline {
         Seq("check", "windowLabel", "subjectId", "detail"),
         1
       )
-      new File(runDir, "integrity_violations/v1")
+      new Path(runDir, "integrity_violations/v1")
     }
 
     // ---- Stage 7: temporal change table ---------------------------------------------------
@@ -766,7 +941,7 @@ object Pipeline {
     // ---- Stage 8: verify every exported table through the core contract -----------------
     val tables = st("verify-outputs")(out.verifyAll())
     val integrityCounts = spark.read
-      .parquet(integrity.getPath)
+      .parquet(integrity.toString)
       .groupBy("check", "windowLabel")
       .count()
       .orderBy("check", "windowLabel")
@@ -795,9 +970,17 @@ object Pipeline {
     report("convergence") = ujson.Arr(iterStats.toSeq.map(Reports.iterJson): _*)
 
     // ---- Stage 9: manifests ---------------------------------------------------------------
+    // Both policy versions are recorded in the run manifest, the run report and every load
+    // manifest: the graph policy (Spark config) and the entity-resolution policy that produced the
+    // identity assignments (review B-02).
+    val policyVersions = ujson.Obj(
+      "graph" -> cfg.policyVersion,
+      "entityResolution" -> erManifest("policyVersion").str
+    )
+    report("policyVersions") = policyVersions
     val inputsJson = ujson.Obj(
       "hadoopExport" -> ujson.Obj(
-        "path" -> args.hadoopExport.getAbsolutePath,
+        "path" -> RunFs.display(args.hadoopExport),
         "runId" -> hadoopJob.obj.get("runId").getOrElse(ujson.Null),
         "jobName" -> hadoopJob.obj.get("jobName").getOrElse(ujson.Null),
         "snapshotId" -> snapshotId,
@@ -805,11 +988,13 @@ object Pipeline {
         "inputRuns" -> hadoopJob.obj.get("inputRuns").getOrElse(ujson.Arr())
       ),
       "identityAssignments" -> ujson.Obj(
-        "path" -> args.identityAssignments.getAbsolutePath,
-        "runId" -> erManifest.flatMap(_.obj.get("runId")).getOrElse(ujson.Null),
-        "jobName" -> erManifest.flatMap(_.obj.get("jobName")).getOrElse(ujson.Null),
-        "codeVersion" -> erManifest.flatMap(_.obj.get("codeVersion")).getOrElse(ujson.Null),
-        "policyVersion" -> erManifest.flatMap(_.obj.get("policyVersion")).getOrElse(ujson.Null)
+        "path" -> RunFs.display(args.identityAssignments),
+        "runId" -> erManifest("runId").str,
+        "jobName" -> erManifest("jobName").str,
+        "codeVersion" -> erManifest("codeVersion").str,
+        "policyVersion" -> erManifest("policyVersion").str,
+        "verified" -> (s"$SuccessMarker present; $ErManifestName outputs under " +
+          s"$ErAssignmentsRel match every file read (bytes and sha256)")
       ),
       "tables" -> ujson.Arr(listing.map { case (src, t, fs) =>
         ujson.Obj(
@@ -829,6 +1014,7 @@ object Pipeline {
       "configFingerprint" -> cfg.fingerprint,
       "config" -> ujson.read(cfg.json),
       "inputFingerprint" -> inputFingerprint,
+      "policyVersions" -> policyVersions,
       "inputs" -> inputsJson,
       "outputs" -> ujson.Arr(tables.map(Manifests.tableJson): _*)
     )
@@ -859,13 +1045,13 @@ object Pipeline {
         "format" -> ujson.Str("scholarchain.spark.run-report"),
         "formatVersion" -> ujson.Num(1),
         "runId" -> ujson.Str(runId),
-        "runDir" -> ujson.Str(runDir.getAbsolutePath),
+        "runDir" -> ujson.Str(RunFs.display(runDir)),
         "emrRun" -> ujson.Str("deferred until after deployment (human decision 10)")
       ) ++ report.toSeq
     )
     // Writes the run report; refuses the run (no load manifests, no run manifest) when any table
     // failed core verification; otherwise writes the load manifests and, last, the run manifest.
-    val written = Manifests.writeVerified(runDir, runId, tables, manifest, fullReport)
+    val written = Manifests.writeVerified(io, runDir, runId, tables, manifest, fullReport)
     PipelineResult(runId, runDir, reused = false, written)
   }
 }

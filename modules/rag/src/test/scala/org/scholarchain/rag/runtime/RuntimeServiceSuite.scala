@@ -53,7 +53,7 @@ class RuntimeServiceSuite extends munit.FunSuite {
     assertEquals(fx.service.graphRunId, RuntimeFixtures.sparkRun)
     assertEquals(fx.service.localEnvironment, Some(fx.world.env))
     assertEquals(fx.service.awsEnvironment, None)
-    assert(fx.service.prompts.synthesis.promptId == "answer-synthesis-v2")
+    assert(fx.service.prompts.synthesis.promptId == "answer-synthesis-v3")
   }
 
   test("fixture: an abstained question abstains") {
@@ -139,7 +139,7 @@ class RuntimeServiceSuite extends munit.FunSuite {
       assert(s.localEnvironment.isDefined)
       assert(s.ingestReport.exists(_("documents").num > 0))
       assertEquals(s.graphRunId, RuntimeFixtures.sparkRun)
-      assertEquals(s.prompts.claims, AnswerClaimsSpec.V2)
+      assertEquals(s.prompts.claims, AnswerClaimsSpec.V3)
       val r = s.workflow.run(answeredRequest).fold(e => fail(e), identity)
       assert(!r.response.abstained)
       val v1 = RuntimeService

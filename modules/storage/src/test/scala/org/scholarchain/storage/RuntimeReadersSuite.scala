@@ -316,6 +316,57 @@ class RuntimeReadersSuite extends munit.FunSuite {
     assert(s.audits.append(invalid).isLeft)
   }
 
+  // ---- QueryAudit v2 (Phase 11, step 3e) ------------------------------------------------
+
+  /** Copies of domain's frozen wire examples (`modules/core/src/test/resources/wire/v{1,2}`). */
+  private def frozen(version: Int): String = {
+    val in = getClass.getResourceAsStream(s"/wire/v$version/QueryAudit.json")
+    assert(in != null, s"wire/v$version/QueryAudit.json is on the test classpath")
+    try new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+    finally in.close()
+  }
+
+  test("QueryAuditWriter: the frozen v2 record is appended and read back unchanged") {
+    val (kv, s) = loaded()
+    val v2 = Contract.decode[QueryAudit](frozen(2)).toOption.get
+    assertEquals(v2.schemaVersion, 2)
+    assert(v2.queryTemplateIds.nonEmpty && v2.indexesQueried.nonEmpty, v2.toString)
+    assert(v2.metadataFilterKeys.nonEmpty && v2.modelCalls.nonEmpty && v2.cacheHits.nonEmpty)
+    val w = s.audits.append(v2).toOption.get
+    assertEquals(w.change, Change.Inserted)
+    val stored = kv.get(tables.runLedgerTable, w.key).get
+    assertEquals(stored.long("schemaVersion"), Some(2L))
+    assertEquals(ujson.read(stored.str("record")), ujson.read(frozen(2)), "same wire JSON")
+    assertEquals(s.audits.read(v2.queryRunId, 100), Right(List(v2)))
+  }
+
+  test("QueryAuditWriter: a stored v1 record still reads, next to a v2 record of the same run") {
+    val (kv, s) = loaded()
+    val v1Text = frozen(1)
+    val v1 = Contract.decode[QueryAudit](v1Text).toOption.get
+    assertEquals(v1.schemaVersion, 1)
+    // the item exactly as a Phase 10 writer stored it: raw v1 JSON in `record`
+    val runPk = TableSpecs.runPk(v1.queryRunId.value)
+    val legacy = Item(
+      Item.Pk -> AttrValue.S(runPk),
+      Item.Sk -> AttrValue.S("attempt#000001#00000001#query-audit"),
+      "eventType" -> AttrValue.S("query-audit"),
+      "schemaVersion" -> AttrValue.N("1"),
+      "record" -> AttrValue.S(v1Text)
+    )
+    assertEquals(kv.putIfAbsent(tables.runLedgerTable, legacy), ConditionalResult.Written)
+    assertEquals(s.audits.read(v1.queryRunId, 100), Right(List(v1)))
+    // a v1 record appended today keeps the v1 wire shape (no v2 keys)
+    val again = s.audits.append(v1).toOption.get
+    assertEquals(
+      ujson.read(kv.get(tables.runLedgerTable, again.key).get.str("record")),
+      ujson.read(v1Text)
+    )
+    val v2 = Contract.decode[QueryAudit](frozen(2)).toOption.get
+    s.audits.append(v2).toOption.get
+    assertEquals(s.audits.read(v1.queryRunId, 100), Right(List(v1, v1, v2)))
+  }
+
   test("readers turn store failures into Left") {
     val failing = new KeyValueStore {
       private def boom = throw new StoreException("ThrottlingException (HTTP 400)", true)

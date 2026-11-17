@@ -36,6 +36,12 @@ class JobLevelBlockingSuite extends munit.FunSuite {
   private val HotKey = Normalizer.normalize("José Hot", Normalizer.Form.NFD)
   private val Family = "dblp-base-name"
 
+  /** The suite's counts are single-family by design. Since Phase 11 (Phase 5 m5) the default is
+    * `dblp-base-name,initials-surname`, so every configuration here pins the one family.
+    */
+  private def pinned(overrides: (String, String)*): Configuration =
+    conf(work, ((Settings.Keys.BlockingFamilies -> Family) +: overrides)*)
+
   private def key(i: Int) = f"conf/sigir/JobHot$i%02d"
 
   private lazy val work = workDir("j05-hot")
@@ -55,7 +61,7 @@ class JobLevelBlockingSuite extends munit.FunSuite {
       out: String,
       overrides: (String, String)*
   ): (JobResult, JobResult, Configuration) = {
-    val c = conf(work, overrides*)
+    val c = pinned(overrides*)
     val ch = chain(c, input, work.resolve(out), Snapshot)
     assertEquals(ch.extract.main(Counters.Accepted), Members.toLong)
     val (j05, j06) = blockingAndCandidates(c, ch, work.resolve(out), Snapshot)
@@ -138,7 +144,7 @@ class JobLevelBlockingSuite extends munit.FunSuite {
       out: String,
       overrides: (String, String)*
   ): (CandidateStage, Configuration) = {
-    val c = conf(work, overrides*)
+    val c = pinned(overrides*)
     val ch = chain(c, input, work.resolve(out), Snapshot)
     assertEquals(ch.extract.main(Counters.Accepted), Members.toLong)
     (
@@ -226,13 +232,13 @@ class JobLevelBlockingSuite extends munit.FunSuite {
     "J06 guard: J05 under a permissive pair limit, J06 under 65: J06 skips the block, counts " +
       "and lists every member in unexpandedMembers/"
   ) {
-    val permissive = conf(work)
+    val permissive = pinned()
     val ch = chain(permissive, input, work.resolve("out-guard"), Snapshot)
     val (j05, _) = blockingAndCandidates(permissive, ch, work.resolve("out-guard"), Snapshot)
     assertEquals(j05.main(Counters.BlocksEmitted), 1L)
     assertEquals(j05.main(Counters.OversizeBlock), 0L)
 
-    val strict = conf(work, Settings.Keys.CandidateMaxPairsPerBlock -> "65")
+    val strict = pinned(Settings.Keys.CandidateMaxPairsPerBlock -> "65")
     val j06 = JobRunner.run(
       strict,
       JobRunner.fromRuns(List(j05.runId))(

@@ -273,14 +273,22 @@ final case class AnswerDraft(
 }
 
 /** The limits of one version of the answer-claims schema. `numbersInText`: every entry of a claim's
-  * `numbers` must appear as a number literal in that claim's text (v2).
+  * `numbers` must appear as a number literal in that claim's text (v2, v3; formats of
+  * [[NumberFormats]]). `dropUnmatchedNumbers` (v3): an entry whose value does not appear is dropped
+  * from `numbers` and counted by its [[NumberFormats.failureClass]], instead of rejecting the whole
+  * output; the verifier still checks every number of the text. `retryHints` (v3): a structured
+  * retry adds the fixed number-format hint, and asks for at most
+  * [[AnswerSynthesis.TruncatedMaxClaims]] claims after an output cut off at the output token limit
+  * (U-10).
   */
 final case class AnswerClaimsSpec(
     schemaId: String,
     maxClaims: Int,
     maxTextChars: Int,
     maxNumbersPerClaim: Int,
-    numbersInText: Boolean
+    numbersInText: Boolean,
+    dropUnmatchedNumbers: Boolean = false,
+    retryHints: Boolean = false
 )
 
 object AnswerClaimsSpec {
@@ -292,12 +300,36 @@ object AnswerClaimsSpec {
   /** `answer-claims-v2` (Phase 10, decision 5b): smaller output, so it fits the output cap. */
   val V2: AnswerClaimsSpec = AnswerClaimsSpec("answer-claims-v2", 15, 300, 10, numbersInText = true)
 
-  val all: List[AnswerClaimsSpec] = List(V1, V2)
+  /** `answer-claims-v3` (Phase 11, L-1): the v2 limits; a bound number that is not in its claim
+    * text is dropped and counted, not a rejection; retries carry fixed hints.
+    */
+  val V3: AnswerClaimsSpec = AnswerClaimsSpec(
+    "answer-claims-v3",
+    15,
+    300,
+    10,
+    numbersInText = true,
+    dropUnmatchedNumbers = true,
+    retryHints = true
+  )
+
+  val all: List[AnswerClaimsSpec] = List(V1, V2, V3)
 }
 
-/** Schemas `answer-claims-v1` and `answer-claims-v2` (files
-  * `prompts/schemas/answer-claims-v{1,2}.schema.json`; same fields, different limits, see
-  * [[AnswerClaimsSpec]]). The constants and the one-argument methods are v1.
+/** The validation of one answer-claims output with its bound-number accounting (never model text):
+  * `droppedNumbers` are the failure classes of the bound numbers v3 dropped; `numberErrors` are the
+  * failure classes of the bound numbers that made v2 reject the output.
+  */
+final case class AnswerCheck(
+    result: Either[String, AnswerDraft],
+    droppedNumbers: List[String],
+    numberErrors: List[String]
+)
+
+/** Schemas `answer-claims-v1`, `-v2` and `-v3` (files
+  * `prompts/schemas/answer-claims-v{1,2,3}.schema.json`; same fields, different limits and
+  * bound-number rules, see [[AnswerClaimsSpec]]). The constants and the one-argument methods are
+  * v1.
   */
 object AnswerClaimsSchema {
   val SchemaId: String = AnswerClaimsSpec.V1.schemaId
@@ -314,9 +346,6 @@ object AnswerClaimsSchema {
   val MaxUncertaintyChars = 300
   val MaxMissing = 10
 
-  // number literals of a claim text (the v2 numbers-in-text rule)
-  private val NumberLiteral = "[0-9]+(?:\\.[0-9]+)?".r
-
   def shapeOf(spec: AnswerClaimsSpec): SchemaShape = SchemaShape(
     spec.schemaId,
     Map(
@@ -329,27 +358,37 @@ object AnswerClaimsSchema {
 
   val shape: SchemaShape = shapeOf(AnswerClaimsSpec.V1)
 
-  /** True when `value` appears in `text` as a number literal (integers exactly; decimals rounded to
-    * the literal's precision, as [[ClaimVerification.literalMatches]]).
+  /** True when `value` appears in `text` as an accepted number literal (the formats of
+    * [[NumberFormats]], shared with the verifier; digits inside identifiers do not count, L-4).
     */
   def appearsInText(value: Double, text: String): Boolean =
-    NumberLiteral
-      .findAllIn(text)
-      .exists(lit => ClaimVerification.literalMatches(lit, value))
+    NumberFormats.appearsInText(value, text)
 
   def validate(text: String): Either[String, AnswerDraft] = validate(text, AnswerClaimsSpec.V1)
 
   def validate(text: String, spec: AnswerClaimsSpec): Either[String, AnswerDraft] =
-    JsonSupport.parseObject(text).flatMap(validateJson(_, spec))
+    check(text, spec).result
+
+  /** [[validate]] with the bound-number accounting of [[AnswerCheck]]. */
+  def check(text: String, spec: AnswerClaimsSpec): AnswerCheck =
+    JsonSupport.parseObject(text) match {
+      case Left(e)  => AnswerCheck(Left(e), Nil, Nil)
+      case Right(o) => checkJson(o, spec)
+    }
 
   def validateJson(root: ujson.Value): Either[String, AnswerDraft] =
     validateJson(root, AnswerClaimsSpec.V1)
 
-  def validateJson(root: ujson.Value, spec: AnswerClaimsSpec): Either[String, AnswerDraft] = {
+  def validateJson(root: ujson.Value, spec: AnswerClaimsSpec): Either[String, AnswerDraft] =
+    checkJson(root, spec).result
+
+  def checkJson(root: ujson.Value, spec: AnswerClaimsSpec): AnswerCheck = {
     val MaxClaims = spec.maxClaims
     val MaxTextChars = spec.maxTextChars
     val MaxNumbersPerClaim = spec.maxNumbersPerClaim
     import JsonSupport._
+    val dropped = collection.mutable.ListBuffer.empty[String]
+    val numberErrors = collection.mutable.ListBuffer.empty[String]
     val errors = collection.mutable.ListBuffer.empty[String]
     def e(m: String): Unit = errors += m
     def text(k: String, v: ujson.Value, max: Int): Option[String] = str(v) match {
@@ -405,17 +444,25 @@ object AnswerClaimsSchema {
                     }
                   }
               }
-              if (spec.numbersInText && t.nonEmpty)
-                nums.zipWithIndex.foreach { case (n, j) =>
-                  // the value is model output: the error names the position only
-                  if (!appearsInText(n.value, t))
-                    e(s"$p.numbers[$j]: the value does not appear in the claim text")
-                }
+              val kept =
+                if (!spec.numbersInText || t.isEmpty) nums
+                else
+                  nums.zipWithIndex.flatMap { case (n, j) =>
+                    if (appearsInText(n.value, t)) List(n)
+                    else if (spec.dropUnmatchedNumbers) {
+                      // v3: dropped and counted by a fixed class; the text is never kept
+                      dropped += NumberFormats.failureClass(n.value, t); Nil
+                    } else {
+                      // the value is model output: the error names the position only
+                      numberErrors += NumberFormats.failureClass(n.value, t)
+                      e(s"$p.numbers[$j]: the value does not appear in the claim text"); List(n)
+                    }
+                  }
               val unc = c("uncertainty") match {
                 case ujson.Null => None
                 case v          => text(s"$p.uncertainty", v, MaxUncertaintyChars)
               }
-              DraftClaim(id, t, ids, nums, unc)
+              DraftClaim(id, t, ids, kept, unc)
             }
           }
       }
@@ -431,7 +478,11 @@ object AnswerClaimsSchema {
       }
       AnswerDraft(summary, claims, missing)
     }
-    if (errors.isEmpty && draft.isDefined) Right(draft.get) else Left(errors.mkString("; "))
+    AnswerCheck(
+      if (errors.isEmpty && draft.isDefined) Right(draft.get) else Left(errors.mkString("; ")),
+      dropped.toList,
+      numberErrors.toList
+    )
   }
 }
 

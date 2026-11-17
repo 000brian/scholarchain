@@ -66,7 +66,8 @@ object ConditionalResult {
   *     (optimistic locking).
   *
   * There is no unconditional put, no batch write without conditions and no removal operation.
-  * Throttling and 5xx errors surface as transient `StoreException`s after the SDK's own retries.
+  * Throttling, 5xx, client timeouts and I/O errors surface as transient `StoreException`s; the SDK
+  * makes one attempt and storage's bounded `Retry` is the only retry layer.
   */
 trait KeyValueStore {
   def putIfAbsent(table: String, item: Item): ConditionalResult

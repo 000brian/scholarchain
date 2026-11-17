@@ -104,13 +104,15 @@ object Results {
       "stored result is malformed"
     )
 
-  /** A stored result with its evidence read back (`EvidenceStore.getBundle`) when asked for. */
+  /** A stored result with its evidence read back (`EvidenceStore.getBundle`) when asked for, passed
+    * through [[ResponseGuard.result]].
+    */
   def withEvidence(
       app: AppContext,
       stored: String,
       includeEvidence: Boolean
   ): Either[ApiError, CompletedResult] =
-    for {
+    (for {
       r <- decode(stored).left.map(_ => ApiError.internal)
       out <-
         if (!includeEvidence) Right(r)
@@ -124,7 +126,7 @@ object Results {
                 case None => Left(ApiError.downstream)
               }
           }
-    } yield out
+    } yield out).map(ResponseGuard.result) // C-02, C-03: also results and bundles stored earlier
 }
 
 /** Runs one workflow for a query and finishes its job, if it has one. Shared by the sync path and
@@ -164,19 +166,22 @@ final class WorkflowRunner(app: AppContext) {
             app.log.event(
               "stage-write-ignored",
               Some(traceId),
-              List("jobId" -> ujson.Str(cur.jobId), "stage" -> ujson.Str(stage)),
-              Some(other.fold(identity, _.toString))
+              List(
+                "jobId" -> ujson.Str(cur.jobId),
+                "stage" -> ujson.Str(stage),
+                "cause" -> ujson.Str(LogCause.ofChange(other))
+              )
             )
         }
       }
     }
     app.runtime.workflow.run(query.toQueryRequest, listener) match {
       case Left(e) =>
+        // S-4: a fixed cause code (and rag's exception class name), never rag's text
         app.log.event(
           "workflow-failed",
           Some(traceId),
-          List("queryId" -> ujson.Str(queryId.value)),
-          Some(e)
+          ("queryId" -> ujson.Str(queryId.value)) :: LogCause.ofWorkflow(e)
         )
         Outcome.Failed
       case Right(r) =>
@@ -204,6 +209,12 @@ final class QueryService(app: AppContext, pool: ThreadPoolExecutor) {
 
   def submit(ctx: RequestCtx): Either[ApiError, ApiResponse] =
     for {
+      // S-10: like every GET route, an unknown query parameter is 400 (POST takes none)
+      _ <- Either.cond(
+        ctx.query.isEmpty,
+        (),
+        ApiError.invalid(ctx.query.keys.toList.sorted.map(_ -> "unknown query parameter"))
+      )
       key <- ctx.idempotencyKey match {
         case None                                         => Right(None)
         case Some(k) if RequestIds.validIdempotencyKey(k) => Right(Some(k))
@@ -226,20 +237,26 @@ final class QueryService(app: AppContext, pool: ThreadPoolExecutor) {
   // ---- sync -----------------------------------------------------------------------------------
 
   /** A permit and a workflow-breaker slot, or 503. */
-  private def admit(): Either[ApiError, Unit] =
+  private def admit(): Either[ApiError, CircuitBreaker.Slot] =
     if (!permits.tryAcquire()) Left(ApiError.retryable(ErrorCode.OVERLOADED))
-    else if (!app.breakers.workflow.tryAcquire()) {
-      permits.release(); Left(ApiError.retryable(ErrorCode.CIRCUIT_OPEN))
-    } else Right(())
+    else
+      app.breakers.workflow.acquire() match {
+        case None =>
+          permits.release(); Left(ApiError.retryable(ErrorCode.CIRCUIT_OPEN))
+        case Some(slot) => Right(slot)
+      }
 
-  private def unadmit(): Unit = { app.breakers.workflow.cancel(); permits.release() }
+  /** Gives back this request's permit and breaker slot (S-9: only its own trial slot). */
+  private def unadmit(slot: CircuitBreaker.Slot): Unit = {
+    app.breakers.workflow.cancel(slot); permits.release()
+  }
 
   private def syncWithoutKey(
       ctx: RequestCtx,
       vq: ValidatedQuery,
       queryId: RunId
   ): Either[ApiError, ApiResponse] =
-    admit().flatMap(_ => runSync(ctx, vq, queryId, None))
+    admit().flatMap(slot => runSync(ctx, vq, queryId, None, slot))
 
   private def syncWithKey(
       ctx: RequestCtx,
@@ -251,7 +268,7 @@ final class QueryService(app: AppContext, pool: ThreadPoolExecutor) {
     app.store(app.stores.idempotency.get(scope, key, app.now())).flatMap {
       case Some(rec) => follow(rec, vq)
       case None      =>
-        admit().flatMap { _ =>
+        admit().flatMap { slot =>
           val claimed: Either[ApiError, Either[IdempotencyRecord, JobRecord]] = try {
             val now = app.now()
             val exp = app.expiresAt(now)
@@ -277,13 +294,13 @@ final class QueryService(app: AppContext, pool: ThreadPoolExecutor) {
               }
             } yield c
           } catch {
-            case NonFatal(e) => unadmit(); throw e
+            case NonFatal(e) => unadmit(slot); throw e
           }
           claimed match {
-            case Left(e)           => unadmit(); Left(e)
-            case Right(Left(rec))  => unadmit(); follow(rec, vq)
+            case Left(e)           => unadmit(slot); Left(e)
+            case Right(Left(rec))  => unadmit(slot); follow(rec, vq)
             case Right(Right(job)) =>
-              runSync(ctx, vq, queryId, Some(new AtomicReference(job)))
+              runSync(ctx, vq, queryId, Some(new AtomicReference(job)), slot)
           }
         }
     }
@@ -297,7 +314,8 @@ final class QueryService(app: AppContext, pool: ThreadPoolExecutor) {
       ctx: RequestCtx,
       vq: ValidatedQuery,
       queryId: RunId,
-      job: Option[AtomicReference[JobRecord]]
+      job: Option[AtomicReference[JobRecord]],
+      slot: CircuitBreaker.Slot
   ): Either[ApiError, ApiResponse] = {
     val task: Callable[Either[ApiError, CompletedResult]] = () =>
       try finish(runner.run(vq, queryId, ctx.traceId, job), job)
@@ -306,7 +324,7 @@ final class QueryService(app: AppContext, pool: ThreadPoolExecutor) {
       try pool.submit(task)
       catch {
         case NonFatal(_) =>
-          unadmit()
+          unadmit(slot)
           job.foreach(h => failJob(h.get, JobErrorCodes.WorkflowFailed))
           return Left(ApiError.retryable(ErrorCode.OVERLOADED))
       }
@@ -354,18 +372,47 @@ final class QueryService(app: AppContext, pool: ThreadPoolExecutor) {
               case Right(JobChange.ResultTooLarge(_, _)) =>
                 failJob(h.get, JobErrorCodes.ResultTooLarge)
                 Left(ApiError(ErrorCode.RESULT_TOO_LARGE))
-              case other =>
-                // the lease expired and the job was marked failed: the caller still gets the result
-                app.log.event(
-                  "result-write-lost",
-                  None,
-                  List("jobId" -> ujson.Str(h.get.jobId)),
-                  Some(other.fold(identity, _.toString))
-                )
-                Right(result)
+              case other => succeedAgain(h.get, stored, result, other)
             }
         }
     }
+
+  /** S-3: the final `succeed` of a keyed sync job returned ConditionFailed, Refused or Left. The
+    * job is read again: when it is still `running` under this request's lease (same lease end,
+    * lease live), `succeed` is retried once on the fresh version; when the fresh record already
+    * holds this result as `succeeded` (a write that was applied but answered Left), the result
+    * stands. Anything else is 502 DOWNSTREAM_FAILURE, so the client never gets a 200 whose key
+    * later answers differently.
+    */
+  private def succeedAgain(
+      mine: JobRecord,
+      stored: String,
+      result: CompletedResult,
+      first: Either[String, JobChange]
+  ): Either[ApiError, CompletedResult] = {
+    val now = app.now()
+    def lost(cause: String): Either[ApiError, CompletedResult] = {
+      app.log.event(
+        "result-write-lost",
+        Some(mine.traceId),
+        List("jobId" -> ujson.Str(mine.jobId), "cause" -> ujson.Str(cause))
+      )
+      Left(ApiError.downstream)
+    }
+    app.stores.jobs.get(mine.jobId, now) match {
+      case Right(Some(j))
+          if j.state == JobState.Running && j.leaseUntilMillis == mine.leaseUntilMillis &&
+            j.leaseLive(now) =>
+        app.stores.jobs.succeed(j, now, stored) match {
+          case Right(JobChange.Written(_)) => Right(result)
+          case again                       => lost(LogCause.ofChange(again))
+        }
+      case Right(Some(j)) if j.state == JobState.Succeeded && j.result.contains(stored) =>
+        Right(result)
+      case Left(_) => lost(LogCause.StoreFailure)
+      case _       => lost(LogCause.ofChange(first))
+    }
+  }
 
   // ---- async ----------------------------------------------------------------------------------
 
@@ -489,8 +536,11 @@ final class QueryService(app: AppContext, pool: ThreadPoolExecutor) {
         app.log.event(
           "job-fail-ignored",
           Some(job.traceId),
-          List("jobId" -> ujson.Str(job.jobId), "jobError" -> ujson.Str(code)),
-          Some(other.fold(identity, _.toString))
+          List(
+            "jobId" -> ujson.Str(job.jobId),
+            "jobError" -> ujson.Str(code),
+            "cause" -> ujson.Str(LogCause.ofChange(other))
+          )
         )
     }
 }

@@ -36,6 +36,7 @@ class CannotLinkAdversarialSuite extends munit.FunSuite {
   private val GuardConflict = "cluster.guard.conflict-pair"
   private val RefusedRejected = "merge-refused:rejected-pair"
   private val RefusedConflict = "merge-refused:conflict-pair"
+  private val RefusedGivenName = "merge-refused:given-name-conflict"
 
   // ---------------------------------------------------------------------------------------------
   // Scenarios
@@ -477,17 +478,23 @@ class CannotLinkAdversarialSuite extends munit.FunSuite {
     assertNotEquals(rejected.rootOf(nJane), rejected.rootOf(nJohn))
   }
 
-  test("Clustering: without cannot-links the chain merges (the guard is what separates)") {
+  // Inverted in Phase 11 step 4 (finding A-01, repaired by entity-resolution-engineer in step 3b):
+  // this test used to assert that without cannot-links the chain Jane ~ J. ~ John merges into one
+  // cluster. The implied given-name guard now keeps Jane and John apart with no cannot-link.
+  test("Clustering: without cannot-links the given-name guard still separates Jane and John") {
     val free = Clustering.run(aCorpus, chainEdges((nJane, nJ), (nJ, nJohn)))
-    assertEquals(free.mergesApplied, 2)
-    assertEquals(free.rootOf(nJane), free.rootOf(nJohn))
-    // a cannot-link of a dblp-prior cluster with itself is ignored, not an error
+    assertEquals(free.mergesApplied, 1)
+    assertEquals(free.rootOf(nJane), free.rootOf(nJ))
+    assertNotEquals(free.rootOf(nJane), free.rootOf(nJohn))
+    assertEquals(free.refused, Map(EdgeCollector.key(nJ, nJohn) -> RefusedGivenName))
+    // a cannot-link of a dblp-prior cluster with itself is ignored, not an error: the run is the
+    // same as the run without cannot-links
     val bl = new CannotLinks.Builder(aCorpus.names.size)
     bl.add(nJane, nJane, CannotLinks.Conflict)
     assertEquals(bl.size, 0)
     val self = Clustering.run(aCorpus, chainEdges((nJane, nJ), (nJ, nJohn)), bl.build())
-    assertEquals(self.mergesApplied, 2)
-    assertEquals(self.refused, Map.empty[Long, String])
+    assertEquals(self.mergesApplied, free.mergesApplied)
+    assertEquals(self.refused, free.refused)
   }
 
   /** Five single-mention dblp names on a path A-B-C-D-E, cannot-link A ~ E. */

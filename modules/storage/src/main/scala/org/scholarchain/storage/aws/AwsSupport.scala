@@ -1,11 +1,19 @@
 package org.scholarchain.storage.aws
 
+import java.io.IOException
 import java.time.Duration
 
 import org.scholarchain.storage.StoreException
 import software.amazon.awssdk.awscore.retry.AwsRetryStrategy
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration
-import software.amazon.awssdk.core.exception.{SdkClientException, SdkException, SdkServiceException}
+import software.amazon.awssdk.core.exception.{
+  AbortedException,
+  ApiCallAttemptTimeoutException,
+  ApiCallTimeoutException,
+  SdkClientException,
+  SdkException,
+  SdkServiceException
+}
 import software.amazon.awssdk.http.SdkHttpClient
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient
 import software.amazon.awssdk.regions.Region
@@ -76,12 +84,39 @@ object AwsErrors {
         s
       )
     case c: SdkClientException =>
-      new StoreException(s"SdkClientException: ${c.getMessage}", c.retryable(), c)
+      new StoreException(s"SdkClientException: ${c.getMessage}", clientErrorIsTransient(c), c)
     case s: SdkException =>
       new StoreException(s"${s.getClass.getSimpleName}: ${s.getMessage}", s.retryable(), s)
     case other =>
       new StoreException(s"${other.getClass.getSimpleName}: ${other.getMessage}", false, other)
   }
+
+  /** How many causes [[clientErrorIsTransient]] inspects. */
+  private val MaxCauseDepth = 8
+
+  /** A client-side failure is transient when the SDK marks it retryable, when it is an API call or
+    * attempt timeout, or when an `IOException` (connection reset, refused or timed out, socket
+    * timeout) is in its cause chain (Phase 11 B-01). With SDK `maxAttempts = 1`, `retryable()`
+    * alone is false for all of these, so without this rule no layer would ever retry them. An
+    * `AbortedException` (the calling thread was interrupted) and every other client error
+    * (credentials, marshalling, configuration) stay permanent.
+    */
+  def clientErrorIsTransient(c: SdkClientException): Boolean =
+    c match {
+      case _: AbortedException => false
+      case _                   =>
+        c.retryable() ||
+        Iterator
+          .iterate[Throwable](c)(_.getCause)
+          .takeWhile(_ != null)
+          .take(MaxCauseDepth)
+          .exists {
+            case _: ApiCallTimeoutException        => true
+            case _: ApiCallAttemptTimeoutException => true
+            case _: IOException                    => true
+            case _                                 => false
+          }
+    }
 
   /** Runs `f`, turning every SDK exception into a [[StoreException]]. Use [[recover]] instead when
     * some service exceptions are expected outcomes: a `catch` around `guard` never sees them,

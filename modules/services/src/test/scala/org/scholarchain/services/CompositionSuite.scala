@@ -112,6 +112,46 @@ class CompositionSuite extends munit.FunSuite {
     assert(rt.isClosed)
   }
 
+  test("S-7 Main.start refuses missing or shared API keys before building any runtime") {
+    val path =
+      Paths.get(getClass.getResource("/config/services-local-v1.json").toURI).toString
+    // the export folders do not exist: building the runtime would fail with another message
+    val args = List(
+      "--config",
+      path,
+      "--role",
+      "all",
+      "--stores",
+      "local",
+      "--export",
+      "/nonexistent/export",
+      "--neptune-csv",
+      "/nonexistent/csv"
+    )
+    val missing = Main.start(args, Map.empty)
+    assert(
+      missing.left.exists(_.contains("SCHOLARCHAIN_EXAMPLE_API_KEY is not set")),
+      missing.toString
+    )
+    val shared = Main.start(
+      args,
+      Map(
+        "SCHOLARCHAIN_EXAMPLE_API_KEY" -> "placeholder-same",
+        "SCHOLARCHAIN_EXAMPLE_READONLY_API_KEY" -> "placeholder-same"
+      )
+    )
+    assert(shared.left.exists(_.contains("hold the same value")), shared.toString)
+    assert(!shared.left.exists(_.contains("placeholder-same")))
+    // with valid keys the same arguments get past the key check and fail on the missing export
+    // (RuntimeService.local throws for a missing export file; recorded for rag-engineer)
+    val keyed = scala.util.Try(Main.start(args, env))
+    assert(
+      keyed.fold(_ => true, r => r.isLeft && !r.left.exists(_.contains("environment variable"))),
+      keyed.toString
+    )
+    assert(keyed.isFailure || keyed.get.isLeft, keyed.toString)
+  }
+
   // ---- AWS -----------------------------------------------------------------------------------
 
   /** The anthropic v2 config with the voyage embedder and the services section plus a placeholder

@@ -12,9 +12,8 @@ import org.scholarchain.hadoop.dblp.DblpExtractJob
   *
   * Reuse is keyed on the run ID `RunId.of(jobName, scholarchain.code.version, inputFingerprint,
   * configFingerprint)`. The code version is a caller-supplied configuration string, not derived
-  * from the built code, and a completed directory is reused without checking its contents. The last
-  * two tests document that observable behaviour (see the test-engineer report, finding on
-  * code-version reuse).
+  * from the built code. Since Phase 11 (Phase 4 finding 2) a completed directory is reused only
+  * after its `_job.json` identity and recorded outputs are checked; a changed output is refused.
   */
 class JobLevelRerunSuite extends munit.FunSuite {
 
@@ -92,9 +91,11 @@ class JobLevelRerunSuite extends munit.FunSuite {
     assert(!Files.exists(out.resolve("dblp")), "output written without a code version")
   }
 
-  test("documented gap: same code.version string reuses a completed output without validation") {
+  // Inverted in Phase 11 step 4 (Phase 4 finding 2 / advisory 13, repaired by hadoop-engineer in
+  // step 3a): this test used to document that a completed output was reused without validation.
+  test("same code.version string: a completed output whose files changed is refused, not reused") {
     // Simulates output left by a different build that was run with the same code.version string:
-    // the completed J01 works file is replaced, then the identical rerun reuses it as is.
+    // the completed J01 works file is replaced, then the identical rerun must refuse to reuse it.
     val out = work.resolve("out-stale")
     val first = chain(conf(work), input, out, Snapshot)
     val works = local(first.extract.dir(DblpExtractJob.Works))
@@ -109,11 +110,13 @@ class JobLevelRerunSuite extends munit.FunSuite {
       "STALE OUTPUT FROM ANOTHER BUILD\n".getBytes(StandardCharsets.UTF_8),
       StandardOpenOption.TRUNCATE_EXISTING
     )
-    val again = chain(conf(work), input, out, Snapshot)
-    assert(again.extract.reused, "J01 was rerun")
-    assertEquals(again.extract.runId, first.extract.runId)
+    val e = intercept[JobFailed](chain(conf(work), input, out, Snapshot))
+    val m = e.getMessage
+    assert(m.contains(DblpExtractJob.JobName), m)
+    assert(m.contains("refusing to reuse"), m)
+    assert(m.contains(part.getFileName.toString), m)
+    // nothing is removed or rewritten: the operator chooses a new output root or code version
     assertEquals(Files.readString(part), "STALE OUTPUT FROM ANOTHER BUILD\n")
-    assert(again.all.forall(_.reused), "downstream jobs keyed on the reused run ID are reused too")
   }
 
   /** An incomplete J01 directory for the run ID that `c` gives; returns (spec, run ID, dir). */

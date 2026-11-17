@@ -488,8 +488,9 @@ private final class Execution(
       val outcome = if (info.flags.nonEmpty) MatchOutcome.Conflict else MatchOutcome.Accepted
       val rules = (List(Rules.PriorCluster) ++ (if (merged) List(Rules.ClusterMerged) else Nil) ++
         info.flags.map {
-          case Reasons.ClusterMultipleOrcids => Rules.FlagMultipleOrcids
-          case _                             => Rules.FlagSameWork
+          case Reasons.ClusterMultipleOrcids    => Rules.FlagMultipleOrcids
+          case Reasons.ClusterGivenNameConflict => Rules.FlagGivenNameConflict
+          case _                                => Rules.FlagSameWork
         }).distinct.sorted(CodePointOrder.ordering)
       val conf = math.min(policy.ruleConfidence(Rules.PriorCluster), info.mergeMinConfidence)
       val d = MatchDecision(
@@ -779,6 +780,8 @@ private final class Execution(
         case Reasons.MergeDisambiguation  => (Rules.GuardDisambiguation, MatchOutcome.Unresolved)
         case Reasons.MergeConflictPair    => (Rules.GuardConflictPair, MatchOutcome.Conflict)
         case Reasons.MergeRejectedPair    => (Rules.GuardRejectedPair, MatchOutcome.Unresolved)
+        // implied cannot-link (finding A-01), recorded under the rejected-pair guard rule
+        case Reasons.MergeGivenNameConflict => (Rules.GuardRejectedPair, MatchOutcome.Unresolved)
         case other => throw new ErError(s"internal: unknown merge refusal '$other'")
       }
       // Cluster guards declare path "inherited" in the policy: the refused decision keeps the path,

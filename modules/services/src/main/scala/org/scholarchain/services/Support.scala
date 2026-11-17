@@ -17,6 +17,8 @@ import scala.jdk.CollectionConverters._
 
 import org.slf4j.LoggerFactory
 
+import org.scholarchain.rag.runtime.QueryWorkflow
+
 /** Source of operational IDs: job IDs (`job-` + UUID), request IDs and trace IDs. Tests pass a
   * fixed generator so every ID in a response is predictable. Must be thread-safe.
   */
@@ -70,18 +72,28 @@ final class CircuitBreaker(val name: String, threshold: Int, openMillis: Long, c
   private var openUntil: Option[Long] = None
   private var trialInFlight = false
 
-  /** True when a call may proceed (closed, or the one trial after the open period). */
-  def tryAcquire(): Boolean = synchronized {
+  /** A slot when a call may proceed (closed, or the one trial after the open period); `trial` tells
+    * whether this slot is the half-open trial.
+    */
+  def acquire(): Option[CircuitBreaker.Slot] = synchronized {
     openUntil match {
-      case None                          => true
-      case Some(t) if clock.millis() < t => false
-      case Some(_) if trialInFlight      => false
-      case Some(_)                       => trialInFlight = true; true
+      case None                          => Some(CircuitBreaker.Slot(trial = false))
+      case Some(t) if clock.millis() < t => None
+      case Some(_) if trialInFlight      => None
+      case Some(_)                       => trialInFlight = true; Some(CircuitBreaker.Slot(true))
     }
   }
 
-  /** Gives back a slot taken by [[tryAcquire]] without an outcome (the call was never made). */
-  def cancel(): Unit = synchronized { trialInFlight = false }
+  /** True when a call may proceed (see [[acquire]]). */
+  def tryAcquire(): Boolean = acquire().nonEmpty
+
+  /** Gives back a slot taken by [[acquire]] without an outcome (the call was never made). Only the
+    * holder of the trial slot frees the trial (S-9): a slot taken while the breaker was closed
+    * never frees another request's trial.
+    */
+  def cancel(slot: CircuitBreaker.Slot): Unit = synchronized {
+    if (slot.trial) trialInFlight = false
+  }
 
   def recordSuccess(): Unit = synchronized {
     failures = 0; openUntil = None; trialInFlight = false
@@ -123,6 +135,12 @@ final class CircuitBreaker(val name: String, threshold: Int, openMillis: Long, c
     }
 }
 
+object CircuitBreaker {
+
+  /** A call slot of [[CircuitBreaker.acquire]]; `trial` is true for the half-open trial. */
+  final case class Slot(trial: Boolean)
+}
+
 /** One token bucket per process for authenticated routes (`service.requestsPerMinute`). The bucket
   * holds at most `perMinute` tokens and refills continuously. Time from the injected clock.
   * Thread-safe.
@@ -146,8 +164,9 @@ final class TokenBucket(perMinute: Int, clock: Clock) {
   }
 }
 
-/** Removes secrets and account details from text that is logged (exception messages): the
-  * configured API key values, `arn:` strings, 12-digit numbers (account IDs) and `s3://` URIs.
+/** Removes secrets and account details from text: the configured API key values, `arn:` strings,
+  * 12-digit numbers (account IDs) and `s3://` URIs. Since Phase 11 (S-4) log lines carry no
+  * downstream text at all; the redactor stays as a last guard on the fields that are logged.
   */
 final class Redactor(keyValues: List[String]) {
   private val values = keyValues.filter(_.nonEmpty).sortBy(-_.length)
@@ -232,30 +251,97 @@ final class ServiceLog(sink: LogSink, role: String, clock: Clock, redactor: Reda
     emit(o)
   }
 
-  /** An operational event with fixed fields (no free text from downstream except `detail`, which
-    * passes the redactor).
+  /** An operational event with fixed fields only (Phase 11 S-4): never free text from downstream
+    * (no store, SDK or provider message). A failure is described by a [[LogCause]] code and, for an
+    * exception, its class name.
     */
   def event(
       name: String,
       traceId: Option[String],
-      fields: List[(String, ujson.Value)],
-      detail: Option[String] = None
+      fields: List[(String, ujson.Value)]
   ): Unit = {
     val o = base(name)
     traceId.foreach(t => o("traceId") = t)
     fields.foreach { case (k, v) => o(k) = v }
-    detail.foreach(d => o("detail") = redactor(d).take(500))
     emit(o)
   }
 
-  /** An unexpected exception: its class and redacted message. */
+  /** An unexpected exception: the fixed cause `unexpected-exception` and the exception's class name
+    * only (never its message, which may hold downstream text). The class name passes the redactor
+    * as a last guard.
+    */
   def failure(traceId: Option[String], where: String, e: Throwable): Unit =
     event(
       "error",
       traceId,
-      List("where" -> ujson.Str(where), "exception" -> ujson.Str(e.getClass.getName)),
-      Some(Option(e.getMessage).getOrElse(""))
+      List(
+        "where" -> ujson.Str(where),
+        "cause" -> ujson.Str(LogCause.UnexpectedException),
+        "exception" -> ujson.Str(redactor(LogCause.className(e)))
+      )
     )
+}
+
+/** Fixed cause codes of operational log lines (Phase 11 S-4). Log lines carry these codes and, for
+  * an exception, its class name; never the text of a store, SDK, provider or workflow failure.
+  */
+object LogCause {
+  val UnexpectedException = "unexpected-exception"
+  val StoreFailure = "store-failure"
+  val ConditionFailed = "condition-failed"
+  val Refused = "refused"
+  val ResultTooLarge = "result-too-large"
+  val Written = "written"
+
+  /** Causes of a rag workflow `Left` (classified by rag's fixed prefixes only). */
+  val WorkflowException = "workflow-exception"
+  val BundleWriteFailed = "evidence-bundle-write-failed"
+  val AuditWriteFailed = "query-audit-write-failed"
+  val ResponseContractFailed = "answer-response-contract-failed"
+  val AuditContractFailed = "query-audit-contract-failed"
+  val WorkflowFailed = "workflow-failed"
+
+  private val JavaIdentifier = "[A-Za-z_$][A-Za-z0-9_$]{0,100}"
+  private val ClassName = s"$JavaIdentifier(\\.$JavaIdentifier){0,30}".r
+  private val WorkflowExceptionShape = s"workflow failed: ($JavaIdentifier): .*".r
+
+  /** The class name of `e` when it is a well-formed Java class name, else `unknown`. */
+  def className(e: Throwable): String = {
+    val n = Option(e).map(_.getClass.getName).getOrElse("")
+    if (ClassName.matches(n)) n else "unknown"
+  }
+
+  /** The cause code of a job or idempotency store result that was not the expected write. */
+  def ofChange(r: Either[String, org.scholarchain.storage.jobs.JobChange]): String = {
+    import org.scholarchain.storage.jobs.JobChange
+    r match {
+      case Left(_)                               => StoreFailure
+      case Right(JobChange.ConditionFailed)      => ConditionFailed
+      case Right(JobChange.Refused(_))           => Refused
+      case Right(JobChange.ResultTooLarge(_, _)) => ResultTooLarge
+      case Right(JobChange.Written(_))           => Written
+    }
+  }
+
+  /** The log fields of a rag workflow `Left`: a fixed `cause` and, when rag's text names the
+    * exception (`workflow failed: <SimpleName>: ...`), that simple class name (a Java identifier:
+    * no dots, dashes or spaces, so never a host or table name). The rest of the text is dropped.
+    */
+  def ofWorkflow(e: String): List[(String, ujson.Value)] = {
+    val text = Option(e).getOrElse("")
+    val cause =
+      if (text.startsWith(QueryWorkflow.BundleWriteFailedPrefix)) BundleWriteFailed
+      else if (text.startsWith(QueryWorkflow.AuditWriteFailedPrefix)) AuditWriteFailed
+      else if (text.startsWith("answer response failed its contract")) ResponseContractFailed
+      else if (text.startsWith("query audit failed its contract")) AuditContractFailed
+      else if (text.startsWith("workflow failed:")) WorkflowException
+      else WorkflowFailed
+    val exception = text match {
+      case WorkflowExceptionShape(name) => List("exception" -> ujson.Str(name))
+      case _                            => Nil
+    }
+    ("cause" -> ujson.Str(cause)) :: exception
+  }
 }
 
 /** Names threads `scholarchain-<server>-<pool>-<n>` and remembers them, so `close()` can wait for

@@ -3,24 +3,24 @@
     "abstained": false,
     "abstentionReason": null,
     "answerText": "Overview (not verified; only the claims below are checked against evidence): Stored collaboration metrics for the requested researchers.\n\nClaims:\n- [claim-1] Carol King (researcher:v1:61ad71f7aee0afa1185ca185ab9e3042) is the researcher matched for this question (identity outcome accepted, confidence 0.9900).\n- [claim-2] In 2015-2025, Carol King has 2 publications (P), 3 distinct coauthors (C), 1.5000 average coauthors per paper (A), 2 coauthors at most on one paper (M).\n- [claim-3] In 2015-2025, Carol King's collaboration intensity is 3: weighted degree W equals total coauthor occurrences T in this data, so they are one finding.\n\nNotes:\n- 'Carol King' was resolved to Carol King (researcher:v1:61ad71f7aee0afa1185ca185ab9e3042).",
-    "bundleId": "evidence:v1:3397ff44763060bf4efc5beb3908e4e1",
+    "bundleId": "evidence:v1:d8dbecf52119e5fe5c3a1d9ea95aee47",
     "claims": [
       {
         "claimId": "claim-1",
         "claimText": "Carol King (researcher:v1:61ad71f7aee0afa1185ca185ab9e3042) is the researcher matched for this question (identity outcome accepted, confidence 0.9900).",
         "evidenceIds": [
-          "evidence:v1:702bd817d5a23c9ef611578d607fc969"
+          "evidence:v1:6e76559743e8a71d9d45426e567dc7a2"
         ],
         "provenance": {
           "contentHash": "sha256:2cd4b1ea03e09c46507247b0406f7b70c0deb0c1f4e1a2562b9092300533eb0a",
           "datasetId": "scholarchain-graph",
           "jobName": "rag.answer",
-          "policyVersion": "answer-synthesis-v2",
-          "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:7205abfc3b8877d990eecc9e8f7705d0",
           "schemaVersion": 1,
           "snapshotId": "run:v1:ce890bd70723da010b9dffac391c0f97",
           "sourceRecordIds": [
-            "evidence:v1:702bd817d5a23c9ef611578d607fc969"
+            "evidence:v1:6e76559743e8a71d9d45426e567dc7a2"
           ],
           "sourceType": "runtime"
         },
@@ -33,24 +33,24 @@
         "claimId": "claim-2",
         "claimText": "In 2015-2025, Carol King has 2 publications (P), 3 distinct coauthors (C), 1.5000 average coauthors per paper (A), 2 coauthors at most on one paper (M).",
         "evidenceIds": [
-          "evidence:v1:8f4fe5726bc36e957b0fc22cddc502ae",
-          "evidence:v1:dbfe2a26c56632cace25f4e14a86d4c4",
-          "evidence:v1:c86d15bceed5fc4cabfabd06b9476d25",
-          "evidence:v1:b6a1f64fe5c9feafac2ce71dad172c34"
+          "evidence:v1:00a00c5cd63c26e90f1b5ef0fcbf8b29",
+          "evidence:v1:70ddd05b5469cad81ebea9f2141a2425",
+          "evidence:v1:9feea552af5a6b7511a0266297c61cde",
+          "evidence:v1:999ef25bcfdeab62414aec4e94745719"
         ],
         "provenance": {
           "contentHash": "sha256:cd1236c01efbb0de5acf1d569e4b36bd47190fcef4943e1b5f8d7af42c04b7c6",
           "datasetId": "scholarchain-graph",
           "jobName": "rag.answer",
-          "policyVersion": "answer-synthesis-v2",
-          "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:7205abfc3b8877d990eecc9e8f7705d0",
           "schemaVersion": 1,
           "snapshotId": "run:v1:ce890bd70723da010b9dffac391c0f97",
           "sourceRecordIds": [
-            "evidence:v1:8f4fe5726bc36e957b0fc22cddc502ae",
-            "evidence:v1:dbfe2a26c56632cace25f4e14a86d4c4",
-            "evidence:v1:c86d15bceed5fc4cabfabd06b9476d25",
-            "evidence:v1:b6a1f64fe5c9feafac2ce71dad172c34"
+            "evidence:v1:00a00c5cd63c26e90f1b5ef0fcbf8b29",
+            "evidence:v1:70ddd05b5469cad81ebea9f2141a2425",
+            "evidence:v1:9feea552af5a6b7511a0266297c61cde",
+            "evidence:v1:999ef25bcfdeab62414aec4e94745719"
           ],
           "sourceType": "runtime"
         },
@@ -66,20 +66,20 @@
         "claimId": "claim-3",
         "claimText": "In 2015-2025, Carol King's collaboration intensity is 3: weighted degree W equals total coauthor occurrences T in this data, so they are one finding.",
         "evidenceIds": [
-          "evidence:v1:96531da7c5d9a6d1bdd82065da19d0ad",
-          "evidence:v1:ec922f44e85a4abf2f7cdac49c7b0d5d"
+          "evidence:v1:393d939182788e72f3c94c2a262cc3b4",
+          "evidence:v1:7229adde7d21f0d0071a63350e5361fb"
         ],
         "provenance": {
           "contentHash": "sha256:2b46ad8a8ee1e200918e74db07a2fa5138f4d8f1e23e40e95af476492aefe98d",
           "datasetId": "scholarchain-graph",
           "jobName": "rag.answer",
-          "policyVersion": "answer-synthesis-v2",
-          "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:7205abfc3b8877d990eecc9e8f7705d0",
           "schemaVersion": 1,
           "snapshotId": "run:v1:ce890bd70723da010b9dffac391c0f97",
           "sourceRecordIds": [
-            "evidence:v1:96531da7c5d9a6d1bdd82065da19d0ad",
-            "evidence:v1:ec922f44e85a4abf2f7cdac49c7b0d5d"
+            "evidence:v1:393d939182788e72f3c94c2a262cc3b4",
+            "evidence:v1:7229adde7d21f0d0071a63350e5361fb"
           ],
           "sourceType": "runtime"
         },
@@ -94,7 +94,7 @@
     ],
     "evidence": [
       {
-        "evidenceId": "evidence:v1:702bd817d5a23c9ef611578d607fc969",
+        "evidenceId": "evidence:v1:6e76559743e8a71d9d45426e567dc7a2",
         "evidenceType": "match_decision",
         "metric": null,
         "provenance": {
@@ -102,7 +102,7 @@
           "datasetId": "scholarchain-graph",
           "jobName": "rag.query",
           "policyVersion": "graph-v1",
-          "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+          "runId": "run:v1:7205abfc3b8877d990eecc9e8f7705d0",
           "schemaVersion": 1,
           "snapshotId": "run:v1:ce890bd70723da010b9dffac391c0f97",
           "sourceRecordIds": [
@@ -120,7 +120,7 @@
         "window": null
       },
       {
-        "evidenceId": "evidence:v1:8f4fe5726bc36e957b0fc22cddc502ae",
+        "evidenceId": "evidence:v1:00a00c5cd63c26e90f1b5ef0fcbf8b29",
         "evidenceType": "metric",
         "metric": {
           "metric": "publication_count",
@@ -131,7 +131,7 @@
           "datasetId": "scholarchain-graph",
           "jobName": "rag.query",
           "policyVersion": "metric-policy/1",
-          "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+          "runId": "run:v1:7205abfc3b8877d990eecc9e8f7705d0",
           "schemaVersion": 1,
           "snapshotId": "dblp-2026-11-01",
           "sourceRecordIds": [
@@ -153,7 +153,7 @@
         }
       },
       {
-        "evidenceId": "evidence:v1:dbfe2a26c56632cace25f4e14a86d4c4",
+        "evidenceId": "evidence:v1:70ddd05b5469cad81ebea9f2141a2425",
         "evidenceType": "metric",
         "metric": {
           "metric": "distinct_coauthors",
@@ -164,7 +164,7 @@
           "datasetId": "scholarchain-graph",
           "jobName": "rag.query",
           "policyVersion": "metric-policy/1",
-          "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+          "runId": "run:v1:7205abfc3b8877d990eecc9e8f7705d0",
           "schemaVersion": 1,
           "snapshotId": "dblp-2026-11-01",
           "sourceRecordIds": [
@@ -186,7 +186,7 @@
         }
       },
       {
-        "evidenceId": "evidence:v1:ec922f44e85a4abf2f7cdac49c7b0d5d",
+        "evidenceId": "evidence:v1:7229adde7d21f0d0071a63350e5361fb",
         "evidenceType": "metric",
         "metric": {
           "metric": "total_coauthor_occurrences",
@@ -197,7 +197,7 @@
           "datasetId": "scholarchain-graph",
           "jobName": "rag.query",
           "policyVersion": "metric-policy/1",
-          "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+          "runId": "run:v1:7205abfc3b8877d990eecc9e8f7705d0",
           "schemaVersion": 1,
           "snapshotId": "dblp-2026-11-01",
           "sourceRecordIds": [
@@ -219,7 +219,7 @@
         }
       },
       {
-        "evidenceId": "evidence:v1:c86d15bceed5fc4cabfabd06b9476d25",
+        "evidenceId": "evidence:v1:9feea552af5a6b7511a0266297c61cde",
         "evidenceType": "metric",
         "metric": {
           "metric": "average_coauthors_per_paper",
@@ -230,7 +230,7 @@
           "datasetId": "scholarchain-graph",
           "jobName": "rag.query",
           "policyVersion": "metric-policy/1",
-          "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+          "runId": "run:v1:7205abfc3b8877d990eecc9e8f7705d0",
           "schemaVersion": 1,
           "snapshotId": "dblp-2026-11-01",
           "sourceRecordIds": [
@@ -252,7 +252,7 @@
         }
       },
       {
-        "evidenceId": "evidence:v1:b6a1f64fe5c9feafac2ce71dad172c34",
+        "evidenceId": "evidence:v1:999ef25bcfdeab62414aec4e94745719",
         "evidenceType": "metric",
         "metric": {
           "metric": "max_coauthors_on_one_paper",
@@ -263,7 +263,7 @@
           "datasetId": "scholarchain-graph",
           "jobName": "rag.query",
           "policyVersion": "metric-policy/1",
-          "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+          "runId": "run:v1:7205abfc3b8877d990eecc9e8f7705d0",
           "schemaVersion": 1,
           "snapshotId": "dblp-2026-11-01",
           "sourceRecordIds": [
@@ -285,7 +285,7 @@
         }
       },
       {
-        "evidenceId": "evidence:v1:96531da7c5d9a6d1bdd82065da19d0ad",
+        "evidenceId": "evidence:v1:393d939182788e72f3c94c2a262cc3b4",
         "evidenceType": "metric",
         "metric": {
           "metric": "weighted_degree",
@@ -296,7 +296,7 @@
           "datasetId": "scholarchain-graph",
           "jobName": "rag.query",
           "policyVersion": "metric-policy/1",
-          "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+          "runId": "run:v1:7205abfc3b8877d990eecc9e8f7705d0",
           "schemaVersion": 1,
           "snapshotId": "dblp-2026-11-01",
           "sourceRecordIds": [
@@ -329,7 +329,7 @@
         "datasetId": "scholarchain-graph",
         "jobName": "rag.query",
         "policyVersion": "rule-planner/1",
-        "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+        "runId": "run:v1:7205abfc3b8877d990eecc9e8f7705d0",
         "schemaVersion": 1,
         "snapshotId": "run:v1:ce890bd70723da010b9dffac391c0f97",
         "sourceRecordIds": [
@@ -360,12 +360,12 @@
       "contentHash": "sha256:3c4e5a20bbd5220c0d7e8fdba1f27a1fd4e20b8de28b3113db0965d8342a6c19",
       "datasetId": "scholarchain-graph",
       "jobName": "rag.answer",
-      "policyVersion": "answer-synthesis-v2",
-      "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+      "policyVersion": "answer-synthesis-v3",
+      "runId": "run:v1:7205abfc3b8877d990eecc9e8f7705d0",
       "schemaVersion": 1,
       "snapshotId": "run:v1:ce890bd70723da010b9dffac391c0f97",
       "sourceRecordIds": [
-        "evidence:v1:3397ff44763060bf4efc5beb3908e4e1"
+        "evidence:v1:d8dbecf52119e5fe5c3a1d9ea95aee47"
       ],
       "sourceType": "runtime"
     },
@@ -374,16 +374,16 @@
   },
   "links": {
     "evidence": [
-      "/v1/evidence/evidence:v1:702bd817d5a23c9ef611578d607fc969",
-      "/v1/evidence/evidence:v1:8f4fe5726bc36e957b0fc22cddc502ae?window=2015-2025",
-      "/v1/evidence/evidence:v1:dbfe2a26c56632cace25f4e14a86d4c4?window=2015-2025",
-      "/v1/evidence/evidence:v1:c86d15bceed5fc4cabfabd06b9476d25?window=2015-2025",
-      "/v1/evidence/evidence:v1:b6a1f64fe5c9feafac2ce71dad172c34?window=2015-2025",
-      "/v1/evidence/evidence:v1:96531da7c5d9a6d1bdd82065da19d0ad?window=2015-2025",
-      "/v1/evidence/evidence:v1:ec922f44e85a4abf2f7cdac49c7b0d5d?window=2015-2025"
+      "/v1/evidence/evidence:v1:6e76559743e8a71d9d45426e567dc7a2",
+      "/v1/evidence/evidence:v1:00a00c5cd63c26e90f1b5ef0fcbf8b29?window=2015-2025",
+      "/v1/evidence/evidence:v1:70ddd05b5469cad81ebea9f2141a2425?window=2015-2025",
+      "/v1/evidence/evidence:v1:9feea552af5a6b7511a0266297c61cde?window=2015-2025",
+      "/v1/evidence/evidence:v1:999ef25bcfdeab62414aec4e94745719?window=2015-2025",
+      "/v1/evidence/evidence:v1:393d939182788e72f3c94c2a262cc3b4?window=2015-2025",
+      "/v1/evidence/evidence:v1:7229adde7d21f0d0071a63350e5361fb?window=2015-2025"
     ],
-    "explain": "/v1/explain/run:v1:bbee9fc0b28acc2fcc708857f332798e"
+    "explain": "/v1/explain/run:v1:7205abfc3b8877d990eecc9e8f7705d0"
   },
   "notes": [],
-  "queryId": "run:v1:bbee9fc0b28acc2fcc708857f332798e"
+  "queryId": "run:v1:7205abfc3b8877d990eecc9e8f7705d0"
 }

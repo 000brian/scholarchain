@@ -113,9 +113,64 @@ class ReadRoutesSuite extends munit.FunSuite {
     val ex = get(h, s"/v1/explain/${res.queryId}").json
     assertEquals(ex("attemptCount").num.toInt, 2)
     assert(Set("llm", "rule").contains(ex("planSource").str))
-    assert(ex("promptVersions").arr.exists(_.str.startsWith("answer-synthesis-v2@sha256:")))
+    // Phase 11: the v3 prompt set is the default (rag 3f)
+    assert(ex("promptVersions").arr.exists(_.str.startsWith("answer-synthesis-v3@sha256:")))
     assert(ex("stageMillis").obj.keySet.contains("synthesis"))
     assertEquals(ex("scoreComponents"), ujson.Arr())
+  }
+
+  h.test("explain shows the QueryAudit v2 fields; scoreComponents stays empty with its note") { h =>
+    val res = answer(h)
+    val ex = get(h, s"/v1/explain/${res.queryId}").json
+    val stored = h.runtime.stores.audits.read(RunId(res.queryId), 10).toOption.get.last
+    assertEquals(stored.schemaVersion, 2)
+    assertEquals(ex("auditSchemaVersion").num.toInt, 2)
+    assertEquals(ex("queryTemplateIds").arr.map(_.str).toList, stored.queryTemplateIds)
+    assert(stored.queryTemplateIds.nonEmpty, "the fixture query runs graph templates")
+    assertEquals(ex("indexesQueried").arr.map(_.str).toList, stored.indexesQueried)
+    assertEquals(ex("metadataFilterKeys").arr.map(_.str).toList, stored.metadataFilterKeys)
+    assertEquals(ex("modelCalls").obj.keySet.toSet, stored.modelCalls.keySet)
+    assert(stored.modelCalls.keySet == Set("planner", "synthesis"), stored.modelCalls.toString)
+    assertEquals(
+      ex("modelCalls")("synthesis")("logicalCalls").num.toLong,
+      stored.modelCalls("synthesis").logicalCalls
+    )
+    assertEquals(
+      ex("modelCalls")("planner").obj.keySet.toSet,
+      Set("logicalCalls", "invalidOutputs", "truncatedOutputs", "droppedBoundNumbers", "fallbacks")
+    )
+    assertEquals(
+      ex("cacheHits").obj.map { case (k, v) => k -> v.num.toLong }.toMap,
+      stored.cacheHits
+    )
+    assertEquals(ex("scoreComponents"), ujson.Arr())
+    assertEquals(
+      ex("notes").arr.map(_.str).toList,
+      List(ExplainView.ScoreNote, ExplainView.AttemptsNote)
+    )
+    // never hashes, prompt text or model output
+    assert(!ex.obj.contains("questionHash") && !ex.obj.contains("answerHash"))
+  }
+
+  h.test("explain of a schema version 1 audit: v2 fields empty and a note says so") { h =>
+    val res = answer(h)
+    val v2 = h.runtime.stores.audits.read(RunId(res.queryId), 10).toOption.get.last
+    val v1 = v2.copy(
+      schemaVersion = 1,
+      queryTemplateIds = Nil,
+      indexesQueried = Nil,
+      metadataFilterKeys = Nil,
+      modelCalls = Map.empty,
+      cacheHits = Map.empty
+    )
+    assert(h.runtime.stores.audits.append(v1).isRight)
+    val ex = get(h, s"/v1/explain/${res.queryId}").json
+    assertEquals(ex("attemptCount").num.toInt, 2)
+    assertEquals(ex("auditSchemaVersion").num.toInt, 1)
+    assertEquals(ex("queryTemplateIds"), ujson.Arr())
+    assertEquals(ex("modelCalls"), ujson.Obj())
+    assertEquals(ex("cacheHits"), ujson.Obj())
+    assertEquals(ex("notes").arr.map(_.str).toList, List(ExplainView.ScoreNote, ExplainView.V1Note))
   }
 
   // ---- graph ---------------------------------------------------------------------------------

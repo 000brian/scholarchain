@@ -103,7 +103,8 @@ class QueryApiSuite extends munit.FunSuite {
     assertEquals(explain.evidenceIds, res.answer.evidence.get.map(_.evidenceId))
     assert(res.answer.claims.flatMap(_.evidenceIds).forall(explain.evidenceIds.contains))
     assertEquals(explain.scoreComponents, Nil)
-    assertEquals(explain.notes, List(ExplainView.ScoreNote))
+    // Phase 11 explain v2: the score note, then the note on what modelCalls holds
+    assertEquals(explain.notes, List(ExplainView.ScoreNote, ExplainView.AttemptsNote))
     assertEquals(explain.attemptCount, 1)
     assert(explain.stageMillis.keySet.contains("planner"))
     // no prompt text, model output or reasoning in explain
@@ -292,5 +293,14 @@ class QueryApiSuite extends munit.FunSuite {
       h.log.all.filter(l => l("event").str == "stage" && l("traceId").str == f"${78}%032x")
     assertEquals(syncStages.size, org.scholarchain.rag.runtime.QueryWorkflow.StageNames.size)
     assert(syncStages.forall(_("jobId") == ujson.Null))
+  }
+
+  h.test("S-10 POST /v1/query with a query-string parameter is 400 and runs nothing") { h =>
+    val r = post(h, queryBody(), path = "/v1/query?debug=1")
+    assertEquals(r.status, 400, r.body)
+    assertEquals(r.error, "INVALID_REQUEST")
+    assert(r.body.contains("debug"), r.body)
+    assert(!h.log.all.exists(_("event").str == "stage"), "the workflow ran")
+    assertEquals(post(h, queryBody()).status, 200)
   }
 }

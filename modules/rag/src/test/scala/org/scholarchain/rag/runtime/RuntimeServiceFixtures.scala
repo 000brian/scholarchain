@@ -25,7 +25,7 @@ import org.scholarchain.storage.runtime.RuntimeStores
   * fake LLM and the fake embedder. No network.
   *
   * {{{
-  * val fx = RuntimeServiceFixtures.fixture()            // fake LLM, v2 prompts
+  * val fx = RuntimeServiceFixtures.fixture()            // fake LLM, current (v3) prompts
   * val r = fx.service.workflow.run(RuntimeServiceFixtures.answeredRequest)
   * // r: non-abstained, >= 1 verified claim, >= 1 cited evidence item (see the suite)
   * fx.flaky.failGraph.set(true)                         // the next query fails: Left (502 path)

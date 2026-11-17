@@ -78,6 +78,11 @@ final case class LoadedConfig(config: ScholarChainConfig, origins: ListMap[Strin
   * `configVersion` comes only from the file. Unknown file keys, unknown `SCHOLARCHAIN_CFG_*`
   * variables, empty values, wrong types, and semantically invalid values are all rejected, and
   * every problem is reported at once.
+  *
+  * Messages (Phase 11, T-08/T-09/U-6/D-03): a refusal names the key (or variable) and the rule,
+  * never a refused string value or a raw environment value, because start-up errors reach logs and
+  * a refused value may be a bucket name, a host, or a key pasted where a variable NAME belongs.
+  * Only refused numbers (ports, limits, thresholds) are quoted.
   */
 object ConfigLoader {
 
@@ -290,7 +295,7 @@ object ConfigLoader {
         Nil
       case Some(other) =>
         List(
-          s"$fileName: $VersionKey: unsupported value ${other.render()} (supported: " +
+          s"$fileName: $VersionKey: unsupported value ${numberOrType(other)} (supported: " +
             s"${SchemaVersions.supported(SchemaName).toList.sorted.mkString(", ")})"
         )
     }
@@ -358,7 +363,7 @@ object ConfigLoader {
       case Text => Right(ujson.Str(raw))
       case _    =>
         try Right(ujson.read(raw))
-        catch { case NonFatal(_) => Left(s"${key.envVar}: '$raw' is not a JSON literal") }
+        catch { case NonFatal(_) => Left(s"${key.envVar}: is not a JSON literal") }
     }
 
   private def decode(key: ConfigKey, v: ujson.Value, where: String): Either[String, Any] =
@@ -377,8 +382,23 @@ object ConfigLoader {
             Left(s"$where: expected [{label, startYear, endYear}, ...]: ${e.getMessage}")
         }
       case (kind, other) =>
-        Left(s"$where: expected ${kindName(kind)}, found ${other.render()}")
+        Left(s"$where: expected ${kindName(kind)}, found ${jsonTypeName(other)}")
     }
+
+  private def numberOrType(v: ujson.Value): String = v match {
+    case n: ujson.Num => n.render()
+    case other        => jsonTypeName(other)
+  }
+
+  /** The JSON type of a refused value; the value itself never appears in a message. */
+  private def jsonTypeName(v: ujson.Value): String = v match {
+    case _: ujson.Str  => "a string"
+    case _: ujson.Num  => "a number"
+    case _: ujson.Bool => "a boolean"
+    case _: ujson.Arr  => "an array"
+    case _: ujson.Obj  => "an object"
+    case _             => "null"
+  }
 
   private def kindName(kind: ValueKind): String = kind match {
     case Text        => "a string"
@@ -543,11 +563,11 @@ object ConfigValidator {
     val labels = c.graph.windows.map(_.label)
     check(
       c.environment.matches("[a-z0-9][a-z0-9-]*"),
-      s"environment: '${c.environment}' must match [a-z0-9][a-z0-9-]*"
+      "environment: must match [a-z0-9][a-z0-9-]*"
     ) ++
       check(
         c.aws.region.matches("[a-z]{2}(-[a-z]+)+-[0-9]+"),
-        s"aws.region: '${c.aws.region}' is not an AWS Region name"
+        "aws.region: is not an AWS Region name"
       ) ++
       check(c.aws.accountId.matches("[0-9]{12}"), "aws.accountId: must be 12 digits") ++
       List(
@@ -556,16 +576,16 @@ object ConfigValidator {
         "storage.graphBucket" -> st.graphBucket,
         "storage.vectorBucket" -> st.vectorBucket
       ).flatMap { case (k, b) =>
-        check(b.matches(Bucket), s"$k: '$b' is not a valid bucket name")
+        check(b.matches(Bucket), s"$k: is not a valid bucket name")
       } ++
       check(st.vectorIndex.matches(Token), "storage.vectorIndex: must not contain whitespace") ++
       check(
         st.neptuneEndpoint.matches("[A-Za-z0-9.-]+"),
-        s"storage.neptuneEndpoint: '${st.neptuneEndpoint}' must be a host name (no scheme or port)"
+        "storage.neptuneEndpoint: must be a host name (no scheme or port)"
       ) ++
       check(
         st.dynamoDbTable.matches("[A-Za-z0-9_.-]{3,255}"),
-        s"storage.dynamoDbTable: '${st.dynamoDbTable}' is not a valid table name"
+        "storage.dynamoDbTable: is not a valid table name"
       ) ++
       Validator.confidence("entityResolution.matchThreshold", er.matchThreshold) ++
       Validator.confidence("entityResolution.reviewThreshold", er.reviewThreshold) ++
@@ -580,13 +600,13 @@ object ConfigValidator {
       c.graph.windows.zipWithIndex.flatMap { case (w, i) =>
         check(
           w.label.matches("[a-z0-9][a-z0-9-]*"),
-          s"graph.windows[$i].label: '${w.label}' must match [a-z0-9][a-z0-9-]*"
+          s"graph.windows[$i].label: must match [a-z0-9][a-z0-9-]*"
         ) ++ Validator.window(s"graph.windows[$i]", w.window)
       } ++
       Validator.finiteNonNegative("graph.minEdgeWeight", c.graph.minEdgeWeight) ++
       check(
         c.bridge.algorithm.matches("[a-z0-9][a-z0-9_-]*"),
-        s"bridge.algorithm: '${c.bridge.algorithm}' must match [a-z0-9][a-z0-9_-]*"
+        "bridge.algorithm: must match [a-z0-9][a-z0-9_-]*"
       ) ++
       check(c.bridge.sampleSize > 0, s"bridge.sampleSize: ${c.bridge.sampleSize} must be > 0") ++
       check(c.bridge.topK > 0, s"bridge.topK: ${c.bridge.topK} must be > 0") ++
@@ -597,7 +617,8 @@ object ConfigValidator {
       c.embedding.toList.flatMap(embedding) ++
       c.llm.toList.flatMap(llm) ++
       c.runtime.toList.flatMap(runtime(_, labels)) ++
-      c.service.toList.flatMap(service)
+      c.service.toList.flatMap(service) ++
+      serviceKeysDistinct(c)
   }
 
   // ---- Phase 7 optional sections -------------------------------------------------------------
@@ -629,13 +650,13 @@ object ConfigValidator {
       "objectStore.semanticContextPrefix" -> o.semanticContextPrefix,
       "objectStore.reportsPrefix" -> o.reportsPrefix,
       "objectStore.logsPrefix" -> o.logsPrefix
-    ).flatMap { case (k, p) => check(p.matches(Prefix), s"$k: '$p' must match $Prefix") } ++
+    ).flatMap { case (k, p) => check(p.matches(Prefix), s"$k: must match $Prefix") } ++
       List(
         "objectStore.semanticContextBucket" -> o.semanticContextBucket,
         "objectStore.reportsBucket" -> o.reportsBucket,
         "objectStore.logsBucket" -> o.logsBucket
       ).flatMap { case (k, b) =>
-        check(b.matches(Bucket), s"$k: '$b' is not a valid bucket name")
+        check(b.matches(Bucket), s"$k: is not a valid bucket name")
       } ++
       check(
         locations.distinct.size == locations.size,
@@ -653,7 +674,7 @@ object ConfigValidator {
       "dynamoDb.researcherMetricCacheTable" -> d.researcherMetricCacheTable
     )
     tables.flatMap { case (k, t) =>
-      check(t.matches(TableName), s"$k: '$t' is not a valid table name")
+      check(t.matches(TableName), s"$k: is not a valid table name")
     } ++
       check(
         tables.map(_._2).distinct.size == tables.size,
@@ -675,7 +696,7 @@ object ConfigValidator {
       "vectors.topicInstitutionSummaryIndex" -> v.topicInstitutionSummaryIndex
     )
     names.flatMap { case (k, n) =>
-      check(VectorIndexName.isValid(n), s"$k: '$n' must match ${VectorIndexName.Pattern}")
+      check(VectorIndexName.isValid(n), s"$k: must match ${VectorIndexName.Pattern}")
     } ++
       check(names.map(_._2).distinct.size == names.size, "vectors: index names must be distinct") ++
       check(
@@ -691,7 +712,10 @@ object ConfigValidator {
 
   private def embedding(e: EmbeddingSettings): List[String] = {
     val providerRule = e.providerKind match {
-      case Left(msg)                       => List(s"embedding.provider: $msg")
+      case Left(_) =>
+        List(
+          s"embedding.provider: must be one of: ${EmbeddingProvider.values.map(_.wire).mkString(", ")}"
+        )
       case Right(EmbeddingProvider.Voyage) =>
         check(e.apiKeyEnvVar.nonEmpty, "embedding.apiKeyEnvVar: required for provider voyage")
       case Right(_) => Nil
@@ -710,12 +734,47 @@ object ConfigValidator {
       positive("embedding.tokensPerMinute", e.tokensPerMinute)
   }
 
-  /** The NAME of an API-key environment variable (never its value). */
+  /** Well-known environment variables that never name an API key (Phase 11, D-08): their values are
+    * set by the operating system, the container runtime, the AWS SDK or ScholarChain itself, so a
+    * key read from one of them would be guessable.
+    */
+  val ReservedEnvVarNames: Set[String] = Set(
+    "HOME",
+    "HOSTNAME",
+    "LANG",
+    "LOGNAME",
+    "PATH",
+    "PWD",
+    "SHELL",
+    "TERM",
+    "TMPDIR",
+    "TZ",
+    "USER",
+    "JAVA_HOME",
+    "JAVA_TOOL_OPTIONS",
+    "AWS_REGION",
+    "AWS_DEFAULT_REGION",
+    "AWS_PROFILE",
+    "AWS_EXECUTION_ENV",
+    "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
+    "ECS_CONTAINER_METADATA_URI",
+    "ECS_CONTAINER_METADATA_URI_V4",
+    ConfigLoader.ConfigFileEnvVar
+  )
+
+  /** The NAME of an API-key environment variable (never its value). Messages name the field and the
+    * rule only: a refused value may be a key pasted where its variable NAME belongs (T-08).
+    */
   private def apiKeyEnvVarName(field: String, n: String): List[String] =
-    check(n.matches(EnvVarName), s"$field: '$n' must match $EnvVarName") ++
+    check(n.matches(EnvVarName), s"$field: must match $EnvVarName") ++
       check(
         !n.startsWith(ConfigLoader.EnvPrefix),
-        s"$field: '$n' must not start with ${ConfigLoader.EnvPrefix}"
+        s"$field: must not start with ${ConfigLoader.EnvPrefix}"
+      ) ++
+      check(
+        !ReservedEnvVarNames.contains(n),
+        s"$field: must not name a well-known environment variable " +
+          "(see ConfigValidator.ReservedEnvVarNames)"
       )
 
   private def inRange(field: String, n: Int, min: Int, max: Int): List[String] =
@@ -725,7 +784,8 @@ object ConfigValidator {
 
   private def llm(l: LlmSettings): List[String] = {
     val providerRule = l.providerKind match {
-      case Left(msg)                    => List(s"llm.provider: $msg")
+      case Left(_) =>
+        List(s"llm.provider: must be one of: ${LlmProvider.values.map(_.wire).mkString(", ")}")
       case Right(LlmProvider.Anthropic) =>
         check(l.apiKeyEnvVar.nonEmpty, "llm.apiKeyEnvVar: required for provider anthropic")
       case Right(_) => Nil
@@ -748,8 +808,7 @@ object ConfigValidator {
   private def runtime(r: RuntimeSettings, windowLabels: List[String]): List[String] =
     check(
       windowLabels.contains(r.defaultWindowLabel),
-      s"runtime.defaultWindowLabel: '${r.defaultWindowLabel}' is not a graph.windows label " +
-        s"(expected one of: ${windowLabels.mkString(", ")})"
+      "runtime.defaultWindowLabel: must be one of the graph.windows labels"
     ) ++
       inRange(
         "runtime.rankingCacheTopK",
@@ -787,8 +846,7 @@ object ConfigValidator {
       apiKeyEnvVarName("service.readOnlyApiKeyEnvVar", s.readOnlyApiKeyEnvVar) ++
       check(
         s.readOnlyApiKeyEnvVar != s.apiKeyEnvVar,
-        s"service.readOnlyApiKeyEnvVar: '${s.readOnlyApiKeyEnvVar}' must differ from " +
-          "service.apiKeyEnvVar"
+        "service.readOnlyApiKeyEnvVar: must differ from service.apiKeyEnvVar"
       ) ++
       inRange(
         "service.maxRequestBytes",
@@ -826,9 +884,28 @@ object ConfigValidator {
       ) ++
       positive("service.requestsPerMinute", s.requestsPerMinute) ++
       s.jobQueueUrl.toList.flatMap(u =>
-        check(isHttpsUrl(u), s"service.jobQueueUrl: '$u' must be an https:// URL with a host")
+        check(isHttpsUrl(u), "service.jobQueueUrl: must be an https:// URL with a host")
       )
   }
+
+  /** U-8 (Phase 11): each service key variable differs from the model-provider key variables, so a
+    * REST credential is never the LLM or embedding provider key.
+    */
+  private def serviceKeysDistinct(c: ScholarChainConfig): List[String] =
+    c.service.toList.flatMap { s =>
+      val providerKeys = List(
+        "llm.apiKeyEnvVar" -> c.llm.flatMap(_.apiKeyEnvVar),
+        "embedding.apiKeyEnvVar" -> c.embedding.flatMap(_.apiKeyEnvVar)
+      ).collect { case (k, Some(n)) => k -> n }
+      for {
+        (field, name) <- List(
+          "service.apiKeyEnvVar" -> s.apiKeyEnvVar,
+          "service.readOnlyApiKeyEnvVar" -> s.readOnlyApiKeyEnvVar
+        )
+        (other, otherName) <- providerKeys
+        if name == otherName
+      } yield s"$field: must differ from $other"
+    }
 
   /** An absolute `https://` URL with a host, no whitespace and no user information. */
   private def isHttpsUrl(u: String): Boolean =

@@ -196,24 +196,23 @@ class ServiceConfigSuite extends munit.FunSuite {
   test("API-key variable names follow the llm.apiKeyEnvVar rules and differ from each other") {
     assertError(
       load(editService("apiKeyEnvVar", "service_key")),
-      "service.apiKeyEnvVar: 'service_key' must match [A-Z][A-Z0-9_]*"
+      "service.apiKeyEnvVar: must match [A-Z][A-Z0-9_]*"
     )
     assertError(
       load(editService("apiKeyEnvVar", "SCHOLARCHAIN_CFG_SERVICE_KEY")),
-      "service.apiKeyEnvVar: 'SCHOLARCHAIN_CFG_SERVICE_KEY' must not start with SCHOLARCHAIN_CFG_"
+      "service.apiKeyEnvVar: must not start with SCHOLARCHAIN_CFG_"
     )
     assertError(
       load(editService("readOnlyApiKeyEnvVar", "1READ_ONLY")),
-      "service.readOnlyApiKeyEnvVar: '1READ_ONLY' must match [A-Z][A-Z0-9_]*"
+      "service.readOnlyApiKeyEnvVar: must match [A-Z][A-Z0-9_]*"
     )
     assertError(
       load(editService("readOnlyApiKeyEnvVar", "SCHOLARCHAIN_CFG_RO")),
-      "service.readOnlyApiKeyEnvVar: 'SCHOLARCHAIN_CFG_RO' must not start with SCHOLARCHAIN_CFG_"
+      "service.readOnlyApiKeyEnvVar: must not start with SCHOLARCHAIN_CFG_"
     )
     assertError(
       load(editService("readOnlyApiKeyEnvVar", "SCHOLARCHAIN_EXAMPLE_API_KEY")),
-      "service.readOnlyApiKeyEnvVar: 'SCHOLARCHAIN_EXAMPLE_API_KEY' must differ from " +
-        "service.apiKeyEnvVar"
+      "service.readOnlyApiKeyEnvVar: must differ from service.apiKeyEnvVar"
     )
     assertError(load(editService("apiKeyEnvVar", " ")), "service.apiKeyEnvVar: must not be blank")
   }
@@ -353,7 +352,7 @@ class ServiceConfigSuite extends munit.FunSuite {
     ).foreach { u =>
       assertError(
         load(editService("jobQueueUrl", u)),
-        s"service.jobQueueUrl: '$u' must be an https:// URL with a host"
+        "service.jobQueueUrl: must be an https:// URL with a host"
       )
     }
     List(

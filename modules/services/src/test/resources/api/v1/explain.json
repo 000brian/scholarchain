@@ -1,25 +1,46 @@
 {
   "abstained": false,
   "attemptCount": 2,
-  "bundleId": "evidence:v1:3397ff44763060bf4efc5beb3908e4e1",
+  "auditSchemaVersion": 2,
+  "bundleId": "evidence:v1:d8dbecf52119e5fe5c3a1d9ea95aee47",
+  "cacheHits": {},
   "evidenceIds": [
-    "evidence:v1:702bd817d5a23c9ef611578d607fc969",
-    "evidence:v1:8f4fe5726bc36e957b0fc22cddc502ae",
-    "evidence:v1:dbfe2a26c56632cace25f4e14a86d4c4",
-    "evidence:v1:ec922f44e85a4abf2f7cdac49c7b0d5d",
-    "evidence:v1:c86d15bceed5fc4cabfabd06b9476d25",
-    "evidence:v1:b6a1f64fe5c9feafac2ce71dad172c34",
-    "evidence:v1:96531da7c5d9a6d1bdd82065da19d0ad"
+    "evidence:v1:6e76559743e8a71d9d45426e567dc7a2",
+    "evidence:v1:00a00c5cd63c26e90f1b5ef0fcbf8b29",
+    "evidence:v1:70ddd05b5469cad81ebea9f2141a2425",
+    "evidence:v1:7229adde7d21f0d0071a63350e5361fb",
+    "evidence:v1:9feea552af5a6b7511a0266297c61cde",
+    "evidence:v1:999ef25bcfdeab62414aec4e94745719",
+    "evidence:v1:393d939182788e72f3c94c2a262cc3b4"
   ],
   "graphRunId": "run:v1:ce890bd70723da010b9dffac391c0f97",
+  "indexesQueried": [],
   "inputTokens": null,
   "latencyMillis": 0,
+  "metadataFilterKeys": [],
   "metricPolicyVersions": [
     "metric-policy/1"
   ],
+  "modelCalls": {
+    "planner": {
+      "droppedBoundNumbers": 0,
+      "fallbacks": 0,
+      "invalidOutputs": 0,
+      "logicalCalls": 1,
+      "truncatedOutputs": 0
+    },
+    "synthesis": {
+      "droppedBoundNumbers": 0,
+      "fallbacks": 0,
+      "invalidOutputs": 0,
+      "logicalCalls": 1,
+      "truncatedOutputs": 0
+    }
+  },
   "modelId": "fake-rule-template-v1",
   "notes": [
-    "rankings use one stored metric; no composite score is computed"
+    "rankings use one stored metric; no composite score is computed",
+    "modelCalls counts logical model calls per task; HTTP attempts and retries are counted per process, not per query"
   ],
   "outputTokens": null,
   "plan": {
@@ -29,7 +50,7 @@
       "datasetId": "scholarchain-graph",
       "jobName": "rag.query",
       "policyVersion": "rule-planner/1",
-      "runId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+      "runId": "run:v1:7205abfc3b8877d990eecc9e8f7705d0",
       "schemaVersion": 1,
       "snapshotId": "run:v1:ce890bd70723da010b9dffac391c0f97",
       "sourceRecordIds": [
@@ -59,9 +80,13 @@
   "planSource": "rule",
   "promptVersions": [
     "query-planner-v2@sha256:60b5260e9c2eeabff46150fb09cf41a89fe39fbd23701b7023cdf0663e5684a1",
-    "answer-synthesis-v2@sha256:f1f23c569b8a6504e658459eb425a122fa6e9bc54ba5ddedc1141675c8903537"
+    "answer-synthesis-v3@sha256:becccf473e825a63b1a7f3d644f9ffafd15e80fbdfe5c111180315bb7bcb32b8"
   ],
-  "queryId": "run:v1:bbee9fc0b28acc2fcc708857f332798e",
+  "queryId": "run:v1:7205abfc3b8877d990eecc9e8f7705d0",
+  "queryTemplateIds": [
+    "researcher_by_id",
+    "coauthor_neighbors"
+  ],
   "resolvedResearcherIds": [
     "researcher:v1:61ad71f7aee0afa1185ca185ab9e3042"
   ],

@@ -6,7 +6,17 @@ import org.scholarchain.core._
 import org.scholarchain.rag.retrieval.{SemanticContextEntry, SemanticRetriever}
 import org.scholarchain.storage.dynamo.RankingOrder
 import org.scholarchain.storage.dynamo.RankedEntry
-import org.scholarchain.storage.ports.{GraphQuery, MetaValue, MetadataFilter}
+import org.scholarchain.storage.ports.{
+  GraphQuery,
+  GraphReadPort,
+  GraphReadSettings,
+  GraphResult,
+  MetaValue,
+  MetadataFilter,
+  VectorHit,
+  VectorIndexPort,
+  VectorRecord
+}
 import org.scholarchain.storage.runtime.{MetricCacheEntry, RuntimeStores}
 import org.scholarchain.storage.vectors.{VectorKeys, VectorMetadataCodec}
 
@@ -30,6 +40,107 @@ final case class StageOutput(facts: List[Fact], notes: List[String], abstentions
     StageOutput(facts ++ o.facts, notes ++ o.notes, abstentions ++ o.abstentions)
 }
 object StageOutput { val empty: StageOutput = StageOutput(Nil, Nil, Nil) }
+
+/** Fixed texts of store and retrieval failures (C-02): a stage never puts a store, SDK or provider
+  * message into a note or an abstention, because both reach the answer. Names and window labels
+  * come from evidence and configuration only.
+  */
+object StageFailures {
+  val StoreFailure = "store failure"
+  def metrics(name: String, window: String): String =
+    s"the stored metrics of $name in window $window could not be read ($StoreFailure)"
+  def allWindows(name: String): String =
+    s"the stored metrics of $name could not be read ($StoreFailure)"
+  def ranking(what: String, window: String): String =
+    s"the stored ranking by $what in $window could not be read ($StoreFailure)"
+  val TopicCandidates = "topic candidates could not be retrieved (semantic retrieval failure)"
+  def topicMetrics(n: Int): String =
+    s"the metrics of $n topic candidate(s) could not be read ($StoreFailure), so no topic ranking is given"
+  val PathSearch = s"the path search failed (graph $StoreFailure)"
+  val EdgeLookup = s"the edge lookup failed (graph $StoreFailure)"
+  val NeighborLookup = s"the neighbor lookup failed (graph $StoreFailure)"
+  val SemanticUnavailable = "Semantic context unavailable (semantic retrieval failure)."
+  def neighborEdges(n: Int, name: String): String =
+    s"$n direct collaborator edge(s) of $name could not be read ($StoreFailure); the list is incomplete."
+  def bridgeCcd(n: Int): String =
+    s"The coauthors in other communities of $n ranked researcher(s) could not be read ($StoreFailure); those claims leave them out."
+  def neighborCommunities(n: Int, name: String): String =
+    s"$n read(s) for the communities of ${name}'s top coauthors failed ($StoreFailure); the list may be incomplete."
+}
+
+/** Per-query record of what the retrieval stages touched, for QueryAudit v2: graph query-template
+  * IDs, vector indexes queried (similarity queries and key lookups), metadata filter keys (never
+  * values) and in-process cache hits by fixed cache name ([[QueryTrace.CacheNames]]). Safe to
+  * update from several threads; one instance per query.
+  */
+final class QueryTrace {
+  private val templates = mutable.LinkedHashSet.empty[String]
+  private val indexes = mutable.LinkedHashSet.empty[String]
+  private val filters = mutable.LinkedHashSet.empty[String]
+  private val hits = mutable.LinkedHashMap.empty[String, Long]
+
+  def template(id: String): Unit = synchronized { templates += id; () }
+  def index(name: String): Unit = synchronized { indexes += name; () }
+  def filterKeys(keys: List[String]): Unit = synchronized { filters ++= keys; () }
+  def cacheHit(name: String): Unit = synchronized {
+    hits(name) = hits.getOrElse(name, 0L) + 1L
+  }
+
+  def templateIds: List[String] = synchronized(templates.toList)
+  def indexesQueried: List[String] = synchronized(indexes.toList)
+  def metadataFilterKeys: List[String] = synchronized(filters.toList)
+  def cacheHits: Map[String, Long] = synchronized(hits.toMap)
+
+  /** `stores` with its graph and vector ports recording into this trace. */
+  def wrap(stores: RuntimeStores): RuntimeStores = {
+    val trace = this
+    val graphPort = new GraphReadPort {
+      def settings: GraphReadSettings = stores.graph.settings
+      def run(q: GraphQuery): Either[String, GraphResult] = {
+        trace.template(q.templateId)
+        stores.graph.run(q)
+      }
+    }
+    val vectorPort = new VectorIndexPort {
+      private val base = stores.vectors
+      def describeIndex(index: String) = base.describeIndex(index)
+      def putVectors(index: String, vectors: Seq[VectorRecord]): Unit =
+        base.putVectors(index, vectors)
+      def getVectors(index: String, keys: Seq[String], returnData: Boolean) = {
+        trace.index(index)
+        base.getVectors(index, keys, returnData)
+      }
+      def query(
+          index: String,
+          vector: Array[Float],
+          topK: Int,
+          filter: Option[MetadataFilter],
+          returnMetadata: Boolean
+      ): List[VectorHit] = {
+        trace.index(index)
+        filter.foreach(f => trace.filterKeys(MetadataFilter.keys(f).toList.sorted))
+        base.query(index, vector, topK, filter, returnMetadata)
+      }
+    }
+    new RuntimeStores {
+      def settings = stores.settings
+      def windowLabels: List[String] = stores.windowLabels
+      def graph: GraphReadPort = graphPort
+      def metrics = stores.metrics
+      def entityLinks = stores.entityLinks
+      def evidence = stores.evidence
+      def audits = stores.audits
+      def vectors: VectorIndexPort = vectorPort
+      def textStore = stores.textStore
+    }
+  }
+}
+
+object QueryTrace {
+  val SemanticContextCache = "semantic-context"
+  val ResearcherNameCache = "researcher-name"
+  val CacheNames: List[String] = List(SemanticContextCache, ResearcherNameCache)
+}
 
 private[runtime] object StageSupport {
   def source(e: MetricCacheEntry): SourceRef =
@@ -84,6 +195,8 @@ final class CollaborationMetrics(
   private def entry(r: ResearcherRef, w: String): Either[String, MetricCacheEntry] =
     stores.metrics
       .get(r.id, w)
+      .left
+      .map(_ => StageFailures.metrics(r.displayName, w))
       .flatMap(_.toRight(s"${r.displayName} has no stored metrics in window $w"))
 
   private def step(s: PlannedStep): StageOutput = s.operation match {
@@ -159,7 +272,7 @@ final class CollaborationMetrics(
       s.researchers.zipWithIndex
         .map { case (r, i) =>
           stores.metrics.allWindows(r.id) match {
-            case Left(e)        => StageOutput(Nil, Nil, List(e))
+            case Left(_) => StageOutput(Nil, Nil, List(StageFailures.allWindows(r.displayName)))
             case Right(entries) =>
               val wanted =
                 if (s.comparisonWindows.nonEmpty) s.comparisonWindows
@@ -185,7 +298,8 @@ final class CollaborationMetrics(
       s.topic match {
         case None =>
           stores.metrics.ranking(s.windowLabel, metric, s.limit) match {
-            case Left(e)     => StageOutput(Nil, Nil, List(e))
+            case Left(_) =>
+              StageOutput(Nil, Nil, List(StageFailures.ranking(metric.wire, s.windowLabel)))
             case Right(rows) =>
               StageOutput(
                 rows.map(x =>
@@ -223,10 +337,14 @@ final class CollaborationMetrics(
       topic: String
   ): StageOutput =
     semantic.profileCandidates(topic, s.windowLabel) match {
-      case Left(e) => StageOutput(Nil, Nil, List(s"topic candidates could not be retrieved: $e"))
+      case Left(_)      => StageOutput(Nil, Nil, List(StageFailures.TopicCandidates))
       case Right(cands) =>
         val ids = cands.flatMap(_.researcherId).distinct
-        val entries = ids.flatMap(id => stores.metrics.get(id, s.windowLabel).toOption.flatten)
+        val reads = ids.map(id => stores.metrics.get(id, s.windowLabel))
+        // C-05: a candidate whose metrics could not be read would shift every rank below it, so
+        // a failed read gives no topic ranking at all, and the answer says why
+        val failed = reads.count(_.isLeft)
+        val entries = reads.flatMap(_.toOption.flatten)
         val names = cands.flatMap(c => c.researcherId.map(_ -> c)).toMap
         val ranked = entries
           .flatMap(e => e.value(metric).map(v => (e, v)))
@@ -263,14 +381,16 @@ final class CollaborationMetrics(
           )
         }
         val _ = names
-        StageOutput(
-          facts,
-          List(
-            s"Topic filter: researchers were matched to the topic by researcher-profile similarity within ${s.windowLabel} (top ${ctx.vectorTopK} profiles), not by topic labels; ranks are positions among those candidates."
-          ),
-          if (facts.isEmpty) List(s"no researcher profile in ${s.windowLabel} matched the topic")
-          else Nil
-        )
+        if (failed > 0) StageOutput(Nil, Nil, List(StageFailures.topicMetrics(failed)))
+        else
+          StageOutput(
+            facts,
+            List(
+              s"Topic filter: researchers were matched to the topic by researcher-profile similarity within ${s.windowLabel} (top ${ctx.vectorTopK} profiles), not by topic labels; ranks are positions among those candidates."
+            ),
+            if (facts.isEmpty) List(s"no researcher profile in ${s.windowLabel} matched the topic")
+            else Nil
+          )
     }
 
   private def displayName(id: ResearcherId): String =
@@ -291,7 +411,12 @@ final class CollaborationMetrics(
   * `CoauthorEdgeBetween`. coauthor_neighborhood uses `CoauthorNeighbors` (with its truncated flag)
   * for one researcher, or `CoauthorEdgeBetween` for two.
   */
-final class PathFinder(stores: RuntimeStores, ctx: RuntimeContext, pathIndex: String) {
+final class PathFinder(
+    stores: RuntimeStores,
+    ctx: RuntimeContext,
+    pathIndex: String,
+    trace: QueryTrace = new QueryTrace
+) {
   val MaxHopEdges = 6
   val MaxSupportingWorks = 5
 
@@ -318,6 +443,7 @@ final class PathFinder(stores: RuntimeStores, ctx: RuntimeContext, pathIndex: St
   private val nameCache = mutable.HashMap.empty[ResearcherId, String]
   private def ref(id: ResearcherId, known: List[ResearcherRef]): ResearcherRef =
     known.find(_.id == id).getOrElse {
+      if (nameCache.contains(id)) trace.cacheHit(QueryTrace.ResearcherNameCache)
       val n = nameCache.getOrElseUpdate(
         id,
         stores.graph
@@ -474,7 +600,7 @@ final class PathFinder(stores: RuntimeStores, ctx: RuntimeContext, pathIndex: St
             }
         }
       pathIds match {
-        case Left(e)             => StageOutput(Nil, Nil, List(s"path search failed: $e"))
+        case Left(_)             => StageOutput(Nil, Nil, List(StageFailures.PathSearch))
         case Right(Left(absent)) =>
           val note =
             if (absent.complete)
@@ -507,7 +633,7 @@ final class PathFinder(stores: RuntimeStores, ctx: RuntimeContext, pathIndex: St
   private def neighbors(s: PlannedStep): StageOutput = s.researchers match {
     case List(a, b) =>
       edge(a, b, s.windowLabel, 20) match {
-        case Left(e)        => StageOutput(Nil, Nil, List(s"edge lookup failed: $e"))
+        case Left(_)        => StageOutput(Nil, Nil, List(StageFailures.EdgeLookup))
         case Right(Some(e)) => StageOutput(List(e), Nil, Nil)
         case Right(None)    =>
           StageOutput(
@@ -535,7 +661,7 @@ final class PathFinder(stores: RuntimeStores, ctx: RuntimeContext, pathIndex: St
     case a :: Nil =>
       val limit = math.min(s.limit, ctx.runtime.graphResultLimit)
       stores.graph.run(GraphQuery.CoauthorNeighbors(a.id, s.windowLabel, limit)) match {
-        case Left(e)  => StageOutput(Nil, Nil, List(s"neighbor lookup failed: $e"))
+        case Left(_)  => StageOutput(Nil, Nil, List(StageFailures.NeighborLookup))
         case Right(r) =>
           val refs = r.rows.flatMap { row =>
             GraphRows
@@ -544,16 +670,18 @@ final class PathFinder(stores: RuntimeStores, ctx: RuntimeContext, pathIndex: St
               .filter(_.isWellFormed)
               .map(id => ResearcherRef(id, GraphRows.str(row, "displayName").getOrElse(id.value)))
           }
-          val edges = refs.zipWithIndex.flatMap { case (b, i) =>
-            edge(a, b, s.windowLabel, 50 + i).toOption.flatten
-          }
+          val reads = refs.zipWithIndex.map { case (b, i) => edge(a, b, s.windowLabel, 50 + i) }
+          val edges = reads.flatMap(_.toOption.flatten)
+          // C-05: a failed edge read shrinks the list; the answer says so
+          val failed = reads.count(_.isLeft)
           StageOutput(
             edges,
-            (if (r.truncated)
-               List(
-                 s"${a.displayName} has more direct collaborators in ${s.windowLabel} than the $limit listed (by edge weight)."
-               )
-             else Nil) ++
+            (if (failed > 0) List(StageFailures.neighborEdges(failed, a.displayName)) else Nil) ++
+              (if (r.truncated)
+                 List(
+                   s"${a.displayName} has more direct collaborators in ${s.windowLabel} than the $limit listed (by edge weight)."
+                 )
+               else Nil) ++
               (if (refs.isEmpty)
                  List(s"${a.displayName} has no coauthor edges in ${s.windowLabel}.")
                else Nil),
@@ -595,7 +723,8 @@ final class CommunityAnalyst(stores: RuntimeStores, ctx: RuntimeContext, paths: 
                 Nil,
                 List(s"${r.displayName} has no stored metrics in window ${s.windowLabel}")
               )
-            case Left(err) => StageOutput(Nil, Nil, List(err))
+            case Left(_) =>
+              StageOutput(Nil, Nil, List(StageFailures.metrics(r.displayName, s.windowLabel)))
           }
         }
         .foldLeft(StageOutput.empty)(_ ++ _)
@@ -614,22 +743,37 @@ final class CommunityAnalyst(stores: RuntimeStores, ctx: RuntimeContext, paths: 
                 ComponentSize
               )
                 .flatMap(m => metricFact(r, e, m, 30 + i))
-              StageOutput(own ++ neighborCommunities(r, e, s.windowLabel), List(Caveat), Nil)
+              val (nbFacts, nbFailed) = neighborCommunities(r, e, s.windowLabel)
+              StageOutput(
+                own ++ nbFacts,
+                List(Caveat) ++
+                  (if (nbFailed > 0)
+                     List(StageFailures.neighborCommunities(nbFailed, r.displayName))
+                   else Nil),
+                Nil
+              )
             case Right(None) =>
               StageOutput(
                 Nil,
                 Nil,
                 List(s"${r.displayName} has no stored metrics in window ${s.windowLabel}")
               )
-            case Left(err) => StageOutput(Nil, Nil, List(err))
+            case Left(_) =>
+              StageOutput(Nil, Nil, List(StageFailures.metrics(r.displayName, s.windowLabel)))
           }
         }
         .foldLeft(StageOutput.empty)(_ ++ _)
 
     case QueryOperation.BridgeResearchers =>
       stores.metrics.ranking(s.windowLabel, CommunitiesConnected, s.limit) match {
-        case Left(e)     => StageOutput(Nil, Nil, List(e))
+        case Left(_) =>
+          StageOutput(
+            Nil,
+            Nil,
+            List(StageFailures.ranking(CommunitiesConnected.wire, s.windowLabel))
+          )
         case Right(rows) =>
+          var ccdFailed = 0
           val facts = rows.flatMap { x =>
             val r = ResearcherRef(x.researcherId, x.displayName)
             val main = MetricFact(
@@ -643,43 +787,65 @@ final class CommunityAnalyst(stores: RuntimeStores, ctx: RuntimeContext, paths: 
               SourceRef(x.recordRef, x.runId, x.policyVersion, x.runId.value),
               40 + x.rank
             )
-            val ccd = stores.metrics
-              .get(x.researcherId, x.windowLabel)
-              .toOption
-              .flatten
+            val read = stores.metrics.get(x.researcherId, x.windowLabel)
+            // C-05: a failed read is counted and stated, never silently dropped
+            if (read.isLeft) ccdFailed += 1
+            val ccd = read.toOption.flatten
               .flatMap(e => metricFact(r, e, CrossCommunityDegree, 70 + x.rank))
             main :: ccd.toList
           }
           StageOutput(
             facts,
-            List(Caveat),
+            List(Caveat) ++
+              (if (ccdFailed > 0) List(StageFailures.bridgeCcd(ccdFailed)) else Nil),
             if (rows.isEmpty) List(s"no bridge ranking is stored for ${s.windowLabel}") else Nil
           )
       }
     case _ => StageOutput.empty
   }
 
-  /** Community of up to five top coauthors (by edge weight) that sit in another community. */
-  private def neighborCommunities(r: ResearcherRef, e: MetricCacheEntry, w: String): List[Fact] =
-    if (!ctx.graphWindowLabels.contains(w)) Nil
+  /** Community of up to five top coauthors (by edge weight) that sit in another community, and the
+    * number of reads that failed (C-05: stated in a note, never silently dropped).
+    */
+  private def neighborCommunities(
+      r: ResearcherRef,
+      e: MetricCacheEntry,
+      w: String
+  ): (List[Fact], Int) =
+    if (!ctx.graphWindowLabels.contains(w)) (Nil, 0)
     else
-      stores.graph
-        .run(
-          GraphQuery
-            .CoauthorNeighbors(r.id, w, math.min(NeighborCommunities, ctx.runtime.graphResultLimit))
-        )
-        .toOption
-        .toList
-        .flatMap(_.rows)
-        .flatMap { row =>
-          (for {
-            id <- GraphRows.str(row, "coauthorId").map(ResearcherId(_)).filter(_.isWellFormed)
-            ne <- stores.metrics.get(id, w).toOption.flatten if ne.communityId != e.communityId
-            nb = ResearcherRef(id, GraphRows.str(row, "displayName").getOrElse(id.value))
-            f <- metricFact(nb, ne, CommunitySize, 80)
-            edge <- paths.edge(r, nb, w, 80).toOption.flatten
-          } yield List(edge, f)).getOrElse(Nil)
-        }
+      stores.graph.run(
+        GraphQuery
+          .CoauthorNeighbors(r.id, w, math.min(NeighborCommunities, ctx.runtime.graphResultLimit))
+      ) match {
+        case Left(_)    => (Nil, 1)
+        case Right(res) =>
+          var failed = 0
+          val facts = res.rows.flatMap { row =>
+            GraphRows.str(row, "coauthorId").map(ResearcherId(_)).filter(_.isWellFormed) match {
+              case None     => Nil
+              case Some(id) =>
+                stores.metrics.get(id, w) match {
+                  case Left(_)                                            => failed += 1; Nil
+                  case Right(None)                                        => Nil
+                  case Right(Some(ne)) if ne.communityId == e.communityId => Nil
+                  case Right(Some(ne))                                    =>
+                    val nb =
+                      ResearcherRef(id, GraphRows.str(row, "displayName").getOrElse(id.value))
+                    metricFact(nb, ne, CommunitySize, 80) match {
+                      case None    => Nil
+                      case Some(f) =>
+                        paths.edge(r, nb, w, 80) match {
+                          case Left(_)        => failed += 1; Nil
+                          case Right(None)    => Nil
+                          case Right(Some(x)) => List(x, f)
+                        }
+                    }
+                }
+            }
+          }
+          (facts, failed)
+      }
 }
 
 /** A semantic hit with the researcher it describes (profiles only). */
@@ -694,18 +860,21 @@ final case class SemanticHit(entry: SemanticContextEntry, researcherId: Option[R
 final class SemanticContextStage(
     retriever: Option[SemanticRetriever],
     stores: RuntimeStores,
-    ctx: RuntimeContext
+    ctx: RuntimeContext,
+    trace: QueryTrace = new QueryTrace
 ) {
   val MaxFacts = 5
   val ExcerptChars = 400
   private val cache = mutable.HashMap.empty[(String, String), Either[String, List[SemanticHit]]]
 
   /** Profiles most similar to `topic` within the window (at most `vectors.queryTopK`). */
-  def profileCandidates(topic: String, windowLabel: String): Either[String, List[SemanticHit]] =
+  def profileCandidates(topic: String, windowLabel: String): Either[String, List[SemanticHit]] = {
+    if (cache.contains((topic, windowLabel))) trace.cacheHit(QueryTrace.SemanticContextCache)
     cache.getOrElseUpdate(
       (topic, windowLabel),
       query(SemanticDocumentType.ResearcherProfile, topic, windowLabel)
     )
+  }
 
   private def query(
       t: SemanticDocumentType,
@@ -721,6 +890,10 @@ final class SemanticContextStage(
         ctx.vectorTopK,
         Some(SemanticRetriever.windowFilter(w.startYear, w.endYear))
       )
+      _ = {
+        trace.index(res.context.query.indexName)
+        trace.filterKeys(res.context.query.filterKeys)
+      }
       _ <- SemanticContextSchema
         .validate(res.context.toJson)
         .left
@@ -742,7 +915,7 @@ final class SemanticContextStage(
               StageOutput(Nil, Nil, List("semantic context needs a topic or a researcher name"))
             case Some(q) =>
               profileCandidates(q.take(SemanticRetriever.MaxQueryChars), s.windowLabel) match {
-                case Left(e)     => StageOutput(Nil, List(s"Semantic context unavailable: $e"), Nil)
+                case Left(_)     => StageOutput(Nil, List(StageFailures.SemanticUnavailable), Nil)
                 case Right(hits) =>
                   val facts = hits.take(MaxFacts).zipWithIndex.map { case (h, i) =>
                     val excerpt = stores.textStore

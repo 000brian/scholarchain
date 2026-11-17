@@ -134,6 +134,66 @@ class CapacityAndFailureSuite extends munit.FunSuite {
     } finally h.close()
   }
 
+  test("S-4 a store failure naming a host and a table never shows them in any log line") {
+    val host = "db-prod-7.cluster-ro-q1w2e3.us-east-1.neptune.amazonaws.com"
+    val table = "scholarchain-prod-run-ledger"
+    val message = s"connect timed out to $host while reading $table"
+    var scripted: ScriptedJobStores = null
+    val h = harness(wrapStores = s => { scripted = new ScriptedJobStores(s, message); scripted })
+    try {
+      h.slow.graphThrows.set(Some(message))
+      scripted.stageFails.set(true)
+      // sync without a key: workflow-failed
+      assertEquals(post(h, queryBody()).status, 502)
+      // sync with a key: stage writes fail too (stage-write-ignored)
+      assertEquals(post(h, queryBody(), headers = List("Idempotency-Key" -> "s4")).status, 502)
+      // async: the worker's workflow fails, then a job read fails (worker-store-failure)
+      assertEquals(post(h, queryBody(mode = "async")).status, 202)
+      assertEquals(h.server.worker.processOne(), WorkerOutcome.Released)
+      assertEquals(post(h, queryBody(mode = "async")).status, 202)
+      scripted.getFails.set(true)
+      assertEquals(h.server.worker.processOne(), WorkerOutcome.LeftAlone("job read failed"))
+      val events = h.log.all.map(_("event").str).toSet
+      assert(
+        Set("workflow-failed", "stage-write-ignored", "worker-store-failure").subsetOf(events),
+        events
+      )
+      val wf = h.log.all.find(_("event").str == "workflow-failed").get
+      assertEquals(wf("cause").str, LogCause.WorkflowException)
+      assertEquals(wf("exception").str, "StoreException")
+      val bad = h.log.rendered.filter(l => l.contains(host) || l.contains(table))
+      assertEquals(bad, Nil)
+      assert(h.log.all.forall(l => !l.obj.contains("detail")))
+    } finally h.close()
+  }
+
+  test("S-3 a keyed sync result whose final write fails once is written again; twice gives 502") {
+    var scripted: ScriptedJobStores = null
+    val h =
+      harness(wrapStores = s => {
+        scripted = new ScriptedJobStores(s, "store unavailable"); scripted
+      })
+    try {
+      scripted.succeedFailures.set(1)
+      val k = List("Idempotency-Key" -> "s3-once")
+      val r = post(h, queryBody(), headers = k)
+      assertEquals(r.status, 200, r.body)
+      assertEquals(scripted.succeedCalls.get, 2)
+      // the key now replays the same result instead of 409 IN_PROGRESS or a later JOB_FAILED
+      val replay = post(h, queryBody(), headers = k)
+      assertEquals(replay.status, 200, replay.body)
+      assertEquals(replay.header("Idempotent-Replayed"), Some("true"))
+      assertEquals(replay.json("queryId"), r.json("queryId"))
+      // the write fails again on the fresh version: 502, never a 200 the key later contradicts
+      scripted.succeedFailures.set(2)
+      val lost = post(h, queryBody(), headers = List("Idempotency-Key" -> "s3-twice"))
+      assertEquals(lost.status, 502, lost.body)
+      assertEquals(lost.error, "DOWNSTREAM_FAILURE")
+      val line = h.log.all.find(_("event").str == "result-write-lost").get
+      assertEquals(line("cause").str, LogCause.StoreFailure)
+    } finally h.close()
+  }
+
   test("an unexpected internal failure gives 500 INTERNAL with the trace ID and no internal text") {
     val h = harness()
     try {

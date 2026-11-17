@@ -135,8 +135,11 @@ final class ResearcherResolver(stores: RuntimeStores, ctx: RuntimeContext) {
         )
       case Resolution.Unknown(a) =>
         List(s"'$a' matches no researcher in the ScholarChain graph, so no answer is given for it.")
-      case Resolution.Failed(a, e) =>
-        List(s"'$a' could not be looked up ($e), so no answer is given for it.")
+      case Resolution.Failed(a, _) =>
+        // C-02: the store's message never reaches the answer
+        List(
+          s"'$a' could not be looked up (${StageFailures.StoreFailure}), so no answer is given for it."
+        )
     }
     ResolverOutput(resolutions, facts, notes)
   }

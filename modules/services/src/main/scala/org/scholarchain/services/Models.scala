@@ -47,21 +47,78 @@ final case class AnswerView(
 object AnswerView {
   implicit val rw: ReadWriter[AnswerView] = macroRW
 
+  /** The view of `r`, passed through [[ResponseGuard.answer]] (C-02, C-03). */
   def of(r: AnswerResponse, evidence: Option[List[EvidenceItem]]): AnswerView =
-    AnswerView(
-      r.schemaVersion,
-      r.question,
-      r.answerText,
-      r.modelId,
-      r.plan,
-      r.bundle.map(_.bundleId),
-      r.claims,
-      r.identityNotes,
-      r.abstained,
-      r.abstentionReason,
-      r.provenance,
-      evidence
+    ResponseGuard.answer(
+      AnswerView(
+        r.schemaVersion,
+        r.question,
+        r.answerText,
+        r.modelId,
+        r.plan,
+        r.bundle.map(_.bundleId),
+        r.claims,
+        r.identityNotes,
+        r.abstained,
+        r.abstentionReason,
+        r.provenance,
+        evidence
+      )
     )
+}
+
+/** The last guard on what answer and evidence responses show (Phase 11 C-02, C-03). rag builds the
+  * texts and provenance; services adds no downstream text and checks what it passes through:
+  *   - C-03: a source record reference that is a URI (`s3://…`, `https://…`: any `<scheme>://`) is
+  *     withheld from `provenance.sourceRecordIds` of the answer, its claims and every evidence item
+  *     (and so from `sourceUris`). rag stopped emitting the text's S3 URI in Phase 11; this also
+  *     covers bundles and results stored before that change. Stable IDs, dblp keys and
+  *     `Table:pk/sk` record references are not URIs and pass unchanged.
+  *   - C-02: an `answerText`, identity note, abstention reason or claim uncertainty note that holds
+  *     a store or provider reference (an `arn:aws` string, an `s3://` URI, an `amazonaws.com` host,
+  *     or a stand-alone 12-digit number such as an account ID) is replaced by a fixed text. rag
+  *     produces only fixed texts there since Phase 11, so this never changes a normal answer.
+  */
+object ResponseGuard {
+  private val UriScheme = "^[A-Za-z][A-Za-z0-9+.-]*://".r
+  private val Downstream =
+    "(?i)(arn:aws|s3://|amazonaws\\.com|(?<![0-9A-Za-z])[0-9]{12}(?![0-9A-Za-z]))".r
+
+  /** Replaces an answer text that held a store or provider reference. */
+  val WithheldAnswerText: String =
+    "The answer text was withheld because it held a store or provider reference."
+
+  /** Replaces a note (identity note, abstention reason, uncertainty) that held one. */
+  val WithheldNote: String = "A note was withheld because it held a store or provider reference."
+
+  /** True for a source record reference that is a URI (it may name a bucket or a host). */
+  def isUri(ref: String): Boolean = UriScheme.findPrefixOf(ref).nonEmpty
+
+  /** True when `text` holds a store or provider reference. */
+  def hasDownstreamText(text: String): Boolean = Downstream.findFirstIn(text).nonEmpty
+
+  def provenance(p: Provenance): Provenance =
+    if (p.sourceRecordIds.exists(isUri))
+      p.copy(sourceRecordIds = p.sourceRecordIds.filterNot(isUri))
+    else p
+
+  def item(i: EvidenceItem): EvidenceItem = i.copy(provenance = provenance(i.provenance))
+
+  private def note(s: String): String = if (hasDownstreamText(s)) WithheldNote else s
+
+  def answer(v: AnswerView): AnswerView =
+    v.copy(
+      answerText = if (hasDownstreamText(v.answerText)) WithheldAnswerText else v.answerText,
+      claims = v.claims.map(c =>
+        c.copy(uncertainty = c.uncertainty.map(note), provenance = provenance(c.provenance))
+      ),
+      identityNotes = v.identityNotes.map(note),
+      abstentionReason = v.abstentionReason.map(note),
+      provenance = provenance(v.provenance),
+      evidence = v.evidence.map(_.map(item))
+    )
+
+  def result(r: CompletedResult): CompletedResult = r.copy(answer = answer(r.answer))
 }
 
 /** `explain`: `/v1/explain/{queryId}`; `evidence`: one `/v1/evidence/{id}?window=<start>-<end>` per
@@ -127,7 +184,11 @@ final case class EvidenceView(
 object EvidenceView {
   implicit val rw: ReadWriter[EvidenceView] = macroRW
 
-  def of(i: EvidenceItem, sourceUris: List[String]): EvidenceView =
+  /** The view of a stored item; URI source references are withheld first (C-03), so neither
+    * `provenance.sourceRecordIds` nor `sourceUris` can name a bucket.
+    */
+  def of(stored: EvidenceItem): EvidenceView = {
+    val i = ResponseGuard.item(stored)
     EvidenceView(
       i.schemaVersion,
       i.evidenceId,
@@ -137,8 +198,9 @@ object EvidenceView {
       i.metric,
       i.snippet,
       i.provenance,
-      sourceUris
+      EvidenceService.sourceUris(i)
     )
+  }
 }
 
 /** `GET /v1/graph/nodes/{nodeId}`: `kind` is `researcher` or `work`; `properties` are the stored
@@ -161,10 +223,17 @@ object NeighborsPage { implicit val rw: ReadWriter[NeighborsPage] = macroRW }
   * question text hashes and answer hashes, plus `attemptCount` (audit records of the run).
   * `stageMillis` holds the stages executed and the `plannerFallback` / `synthesisFallback` markers.
   * Never prompt text, model output or reasoning.
+  *
+  * QueryAudit v2 (Phase 11): `auditSchemaVersion` is the stored record's schema version;
+  * `queryTemplateIds`, `indexesQueried`, `metadataFilterKeys` (keys only), `modelCalls` (per model
+  * task: logical calls, invalid and truncated outputs, dropped bound numbers, fallbacks) and
+  * `cacheHits` (per cache) come from the record. A version 1 record did not record them: they are
+  * empty and a note says so.
   */
 final case class ExplainView(
     queryId: String,
     attemptCount: Int,
+    auditSchemaVersion: Int,
     plan: QueryPlan,
     planSource: PlanSource,
     graphRunId: RunId,
@@ -181,6 +250,11 @@ final case class ExplainView(
     outputTokens: Option[Long],
     verificationCounts: Map[String, Int],
     abstained: Boolean,
+    queryTemplateIds: List[String],
+    indexesQueried: List[String],
+    metadataFilterKeys: List[String],
+    modelCalls: Map[String, ModelCallCounts],
+    cacheHits: Map[String, Long],
     scoreComponents: List[String],
     notes: List[String]
 )
@@ -190,10 +264,19 @@ object ExplainView {
   /** The note sent with the empty `scoreComponents` (decision 7g). */
   val ScoreNote = "rankings use one stored metric; no composite score is computed"
 
+  /** The note sent for a schema version 1 audit record. */
+  val V1Note =
+    "this query's audit record is schema version 1: queryTemplateIds, indexesQueried, metadataFilterKeys, modelCalls and cacheHits were not recorded"
+
+  /** The note on what `modelCalls` does not hold. */
+  val AttemptsNote =
+    "modelCalls counts logical model calls per task; HTTP attempts and retries are counted per process, not per query"
+
   def of(latest: QueryAudit, attempts: Int): ExplainView =
     ExplainView(
       latest.queryRunId.value,
       attempts,
+      latest.schemaVersion,
       latest.plan,
       latest.planSource,
       latest.graphRunId,
@@ -210,7 +293,12 @@ object ExplainView {
       latest.outputTokens,
       latest.verificationCounts,
       latest.abstained,
+      latest.queryTemplateIds,
+      latest.indexesQueried,
+      latest.metadataFilterKeys,
+      latest.modelCalls,
+      latest.cacheHits,
       Nil,
-      List(ScoreNote)
+      List(ScoreNote, if (latest.schemaVersion < 2) V1Note else AttemptsNote)
     )
 }

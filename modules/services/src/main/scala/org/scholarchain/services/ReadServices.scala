@@ -56,7 +56,7 @@ final class EvidenceService(app: AppContext) {
                 )
             }
       }
-    } yield ApiResponse.json(200, EvidenceView.of(item, EvidenceService.sourceUris(item)))
+    } yield ApiResponse.json(200, EvidenceView.of(item))
   }
 }
 
@@ -71,9 +71,11 @@ object EvidenceService {
   def windowText(w: Option[YearWindow]): String =
     w.map(x => s"${x.startYear}-${x.endYear}").getOrElse("none")
 
-  /** `https://dblp.org/rec/<key>` per dblp key, else `scholarchain:<recordRef>`. */
+  /** `https://dblp.org/rec/<key>` per dblp key, else `scholarchain:<recordRef>`; a reference that
+    * is itself a URI is withheld (C-03: it may name a bucket).
+    */
   def sourceUris(item: EvidenceItem): List[String] =
-    item.provenance.sourceRecordIds.map { r =>
+    item.provenance.sourceRecordIds.filterNot(ResponseGuard.isUri).map { r =>
       if (DblpKey.matches(r)) s"https://dblp.org/rec/$r" else s"scholarchain:$r"
     }
 }

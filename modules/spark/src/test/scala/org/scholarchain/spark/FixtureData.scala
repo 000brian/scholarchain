@@ -161,17 +161,6 @@ object FixtureData {
         )
       )
     )
-    Files2.writeString(
-      new File(er, "_manifest.json"),
-      ujson.write(
-        ujson.Obj(
-          "jobName" -> "er.resolve",
-          "runId" -> erRun.value,
-          "codeVersion" -> "fixture",
-          "policyVersion" -> "er-v1"
-        )
-      )
-    )
     val byYear = works.groupBy(_.year)
     for ((year, ws) <- byYear) {
       val workLines = ws.map { wk =>
@@ -235,7 +224,39 @@ object FixtureData {
       Seq(enc(Venue(1, venueKey, "Fixture Conference", dblpProv(venueKey))))
     )
     put(new File(ia, "part-00000.jsonl"), assignmentLines)
+    completeErRun(er)
     (h, ia)
+  }
+
+  /** Writes `_manifest.json` (format `scholarchain.er.run-manifest`, listing every file under
+    * `decisions/identity_assignment` with bytes and sha256) and then `_SUCCESS`, as the
+    * entity-resolution run does last.
+    */
+  def completeErRun(er: File, runId: RunId = erRun, policyVersion: String = "er-v1"): Unit = {
+    val outputs = Files2.entries(er, new File(er, "decisions/identity_assignment"))
+    Files2.writeString(
+      new File(er, "_manifest.json"),
+      ujson.write(
+        ujson.Obj(
+          "format" -> "scholarchain.er.run-manifest",
+          "formatVersion" -> 1,
+          "jobName" -> "er.resolve",
+          "runId" -> runId.value,
+          "codeVersion" -> "fixture",
+          "policyVersion" -> policyVersion,
+          "outputs" -> ujson.Arr(outputs.map { f =>
+            ujson.Obj(
+              "path" -> f.path,
+              "bytes" -> f.bytes.toDouble,
+              "sha256" -> f.sha256,
+              "records" -> 1
+            ): ujson.Value
+          }: _*)
+        ),
+        indent = 2
+      )
+    )
+    Files2.writeString(new File(er, "_SUCCESS"), "")
   }
 
   /** A schema-valid JSON work whose workId is not WorkId.fromDblpKey(dblpKey): rejected. */

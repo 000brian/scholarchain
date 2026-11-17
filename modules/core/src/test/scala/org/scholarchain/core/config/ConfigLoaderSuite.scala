@@ -158,7 +158,7 @@ class ConfigLoaderSuite extends munit.FunSuite {
   test("storage, AWS, and bridge values are checked") {
     assertError(
       load(edit(_("storage")("rawBucket") = "Bad_Bucket")),
-      "storage.rawBucket: 'Bad_Bucket'"
+      "storage.rawBucket: is not a valid bucket name"
     )
     assertError(
       load(edit(_("storage")("neptuneEndpoint") = "https://h:8182")),
@@ -389,7 +389,7 @@ class ConfigLoaderSuite extends munit.FunSuite {
   test("embedding values are checked") {
     assertError(
       loadSections(editSections(_("embedding")("provider") = "openai")),
-      "embedding.provider: unknown embedding provider 'openai'"
+      "embedding.provider: must be one of: voyage, bedrock, fake"
     )
     assertError(
       loadSections(editSections(_("embedding")("dimensions") = 5000)),
@@ -397,7 +397,7 @@ class ConfigLoaderSuite extends munit.FunSuite {
     )
     assertError(
       loadSections(editSections(_("embedding")("apiKeyEnvVar") = "voyage_key")),
-      "embedding.apiKeyEnvVar: 'voyage_key' must match"
+      "embedding.apiKeyEnvVar: must match"
     )
     assertError(
       loadSections(editSections(_("embedding")("apiKeyEnvVar") = "SCHOLARCHAIN_CFG_KEY")),
@@ -428,7 +428,7 @@ class ConfigLoaderSuite extends munit.FunSuite {
   test("vector index names, batch size and retries are checked") {
     assertError(
       loadSections(editSections(_("vectors")("paperAbstractIndex") = "Paper_Abstract")),
-      "vectors.paperAbstractIndex: 'Paper_Abstract' must match"
+      "vectors.paperAbstractIndex: must match"
     )
     assertError(
       loadSections(editSections(_("vectors")("paperAbstractIndex") = "researcher-profile-v1")),
@@ -451,15 +451,15 @@ class ConfigLoaderSuite extends munit.FunSuite {
   test("object-store, DynamoDB and Neptune values are checked") {
     assertError(
       loadSections(editSections(_("objectStore")("rawPrefix") = "/raw")),
-      "objectStore.rawPrefix: '/raw' must match"
+      "objectStore.rawPrefix: must match"
     )
     assertError(
       loadSections(editSections(_("objectStore")("logsPrefix") = "logs/")),
-      "objectStore.logsPrefix: 'logs/' must match"
+      "objectStore.logsPrefix: must match"
     )
     assertError(
       loadSections(editSections(_("objectStore")("reportsBucket") = "Bad_Bucket")),
-      "objectStore.reportsBucket: 'Bad_Bucket' is not a valid bucket name"
+      "objectStore.reportsBucket: is not a valid bucket name"
     )
     assertError(
       loadSections(editSections(_("objectStore")("logsPrefix") = "reports")),
@@ -473,7 +473,7 @@ class ConfigLoaderSuite extends munit.FunSuite {
     )
     assertError(
       loadSections(editSections(_("dynamoDb")("querySessionTable") = "qs")),
-      "dynamoDb.querySessionTable: 'qs' is not a valid table name"
+      "dynamoDb.querySessionTable: is not a valid table name"
     )
     assertError(
       loadSections(editSections(_("dynamoDb")("querySessionTable") = "example-run-ledger")),
@@ -638,11 +638,11 @@ class ConfigLoaderSuite extends munit.FunSuite {
     }
     assertError(
       loadRuntime(editRuntime(_("llm")("apiKeyEnvVar") = "anthropic_key")),
-      "llm.apiKeyEnvVar: 'anthropic_key' must match"
+      "llm.apiKeyEnvVar: must match"
     )
     assertError(
       loadRuntime(editRuntime(_("llm")("apiKeyEnvVar") = "SCHOLARCHAIN_CFG_LLM_KEY")),
-      "llm.apiKeyEnvVar: 'SCHOLARCHAIN_CFG_LLM_KEY' must not start with SCHOLARCHAIN_CFG_"
+      "llm.apiKeyEnvVar: must not start with SCHOLARCHAIN_CFG_"
     )
     val c = loadedRuntime(env = Map("SCHOLARCHAIN_EXAMPLE_LLM_API_KEY" -> "placeholder-not-a-key"))
     assert(!upickle.default.write(c.config).contains("placeholder-not-a-key"))
@@ -653,7 +653,7 @@ class ConfigLoaderSuite extends munit.FunSuite {
         loc: munit.Location
     ): Unit =
       assertError(loadRuntime(editRuntime(_("llm")(key) = value)), fragment)
-    bad("provider", "openai", "llm.provider: unknown llm provider 'openai'")
+    bad("provider", "openai", "llm.provider: must be one of: anthropic, bedrock, fake")
     bad("maxOutputTokens", 0, "llm.maxOutputTokens: 0 is outside 1..8192")
     bad("maxOutputTokens", 8193, "llm.maxOutputTokens: 8193 is outside 1..8192")
     bad("requestTimeoutMillis", 0, "llm.requestTimeoutMillis: 0 must be > 0")
@@ -680,8 +680,7 @@ class ConfigLoaderSuite extends munit.FunSuite {
     bad(
       "defaultWindowLabel",
       "full-2015-2025",
-      "runtime.defaultWindowLabel: 'full-2015-2025' is not a graph.windows label " +
-        "(expected one of: 2015-2019, 2020-2025, 2015-2025)"
+      "runtime.defaultWindowLabel: must be one of the graph.windows labels"
     )
     bad("rankingCacheTopK", 0, "runtime.rankingCacheTopK: 0 is outside 1..500")
     bad("rankingCacheTopK", 501, "runtime.rankingCacheTopK: 501 is outside 1..500")

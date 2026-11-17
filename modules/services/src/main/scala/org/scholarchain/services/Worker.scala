@@ -83,7 +83,11 @@ final class Worker(app: AppContext) {
       case scala.util.Right(jobId) =>
         app.stores.jobs.get(jobId, app.now()) match {
           case scala.util.Left(e) =>
-            app.log.event("worker-store-failure", None, List("jobId" -> ujson.Str(jobId)), Some(e))
+            app.log.event(
+              "worker-store-failure",
+              None,
+              List("jobId" -> ujson.Str(jobId), "cause" -> ujson.Str(LogCause.ofChange(Left(e))))
+            )
             WorkerOutcome.LeftAlone("job read failed")
           case scala.util.Right(None) =>
             ack(w); WorkerOutcome.AckedWithoutRun
@@ -159,8 +163,10 @@ final class Worker(app: AppContext) {
             app.log.event(
               "job-result-discarded",
               Some(running.traceId),
-              List("jobId" -> ujson.Str(running.jobId)),
-              Some(other.fold(identity, _.toString))
+              List(
+                "jobId" -> ujson.Str(running.jobId),
+                "cause" -> ujson.Str(LogCause.ofChange(other))
+              )
             )
             WorkerOutcome.LeftAlone("final write lost; result discarded")
         }

@@ -302,6 +302,7 @@ object Rules {
   val ClusterMerged = "cluster.merged"
   val FlagMultipleOrcids = "cluster.flag.multiple-orcids"
   val FlagSameWork = "cluster.flag.same-work-mentions"
+  val FlagGivenNameConflict = "cluster.flag.given-name-conflict"
 
   lazy val All: Set[String] = Set(
     SameWork,
@@ -327,7 +328,8 @@ object Rules {
     PriorCluster,
     ClusterMerged,
     FlagMultipleOrcids,
-    FlagSameWork
+    FlagSameWork,
+    FlagGivenNameConflict
   ) ++ WorkRules
 
   /** Work-resolution rules (decision 16), implemented in
@@ -360,6 +362,18 @@ object Reasons {
   val MergeDisambiguation = "merge-refused:dblp-disambiguation-profile"
   val MergeConflictPair = "merge-refused:conflict-pair"
   val MergeRejectedPair = "merge-refused:rejected-pair"
+
+  /** Implied cannot-link (Phase 11 finding A-01): same folded surname, conflicting given names, no
+    * direct accepted decision between the two dblp names. Recorded under
+    * [[Rules.GuardRejectedPair]].
+    */
+  val MergeGivenNameConflict = "merge-refused:given-name-conflict"
   val ClusterMultipleOrcids = "cluster-multiple-orcids"
   val ClusterSameWork = "cluster-same-work-mentions"
+
+  /** The final cluster holds two dblp names with the same folded surname and conflicting given
+    * names that no accepted decision joins directly (finding A-01; see
+    * [[Rules.FlagGivenNameConflict]]).
+    */
+  val ClusterGivenNameConflict = "cluster-given-name-conflict"
 }

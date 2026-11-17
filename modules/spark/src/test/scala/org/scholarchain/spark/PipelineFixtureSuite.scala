@@ -1,7 +1,7 @@
 package org.scholarchain.spark
 
 import java.io.File
-import java.nio.file.{Files, StandardOpenOption}
+import java.nio.file.{Files, StandardCopyOption, StandardOpenOption}
 
 import scala.concurrent.duration._
 
@@ -43,7 +43,32 @@ class PipelineFixtureSuite extends munit.FunSuite {
     hadoopDir = h
     identityDir = ia
     r1 = Pipeline.run(spark, args("attempt-01"))
-    r2 = Pipeline.run(spark, args("attempt-02"))
+    // F9 part 2: the second run goes through the EMR argument path with file:// URIs (Hadoop
+    // FileSystem API for the listing, ER checks, output root, manifests and checkpoints).
+    r2 = GraphAnalyticsJob.runWith(spark, uriArgv("attempt-02"))
+  }
+
+  /** EMR-style arguments with `file://` URIs; the config is the fixture's (outputPartitions 1). */
+  private def uriArgv(root: String): Seq[String] =
+    Seq(
+      "--hadoop-export",
+      hadoopDir.getAbsoluteFile.toURI.toString,
+      "--identity-assignments",
+      identityDir.getAbsoluteFile.toURI.toString,
+      "--out-root",
+      new File(tmp, root).getAbsoluteFile.toURI.toString,
+      "--config",
+      fixtureConfigFile.getPath,
+      "--code-version",
+      "fixture-code",
+      "--min-free-disk-gb",
+      "0"
+    )
+
+  private lazy val fixtureConfigFile: File = {
+    val f = new File(tmp, "fixture-config.json")
+    Files2.writeString(f, FixtureData.config.json)
+    f
   }
 
   override def afterAll(): Unit = if (spark != null) spark.stop()
@@ -578,5 +603,178 @@ class PipelineFixtureSuite extends munit.FunSuite {
     // A run directory without a manifest (an interrupted run) is refused too.
     new File(new File(tmp, "attempt-03"), r1.runDir.getName).mkdirs()
     intercept[RunRefusedException](Pipeline.run(spark, args("attempt-03")))
+  }
+
+  // ---- Phase 11 repairs: B-02 (ER provenance), Phase 6 F6 (reuse check), F9 part 1 ----------
+
+  private def copyTree(from: File, to: File): Unit = {
+    val src = from.toPath
+    val stream = Files.walk(src)
+    try
+      stream.forEach { p =>
+        val target = to.toPath.resolve(src.relativize(p).toString)
+        if (Files.isDirectory(p)) Files.createDirectories(target)
+        else Files.copy(p, target, StandardCopyOption.COPY_ATTRIBUTES)
+      }
+    finally stream.close()
+  }
+
+  private def erRunDir: File = identityDir.getAbsoluteFile.getParentFile.getParentFile
+
+  /** A copy of the fixture ER run under `name`; returns its identity assignment directory. */
+  private def erCopy(name: String)(change: File => Unit): File = {
+    val er = new File(new File(tmp, s"er-copies/$name"), "run=fixture")
+    copyTree(erRunDir, er)
+    change(er)
+    new File(er, "decisions/identity_assignment")
+  }
+
+  private def refusedInput(root: String, ia: File, expected: String): Unit = {
+    val e = intercept[InputRefusedException](
+      Pipeline.run(spark, args(root).copy(identityAssignments = RunFs.pathOf(ia)))
+    )
+    assert(e.getMessage.contains(expected), e.getMessage)
+    assert(!new File(tmp, root).exists(), s"no output root is created for a refused input ($root)")
+  }
+
+  test("B-02: identity assignments outside <erRun>/decisions/identity_assignment are refused") {
+    val elsewhere = new File(tmp, "er-copies/loose/assignments")
+    copyTree(identityDir, elsewhere)
+    refusedInput("b02-layout", elsewhere, "decisions/identity_assignment")
+  }
+
+  test("B-02: an ER run without _manifest.json or without _SUCCESS is refused (not defaulted)") {
+    val noManifest =
+      erCopy("no-manifest")(er => Files.delete(new File(er, "_manifest.json").toPath))
+    refusedInput("b02-no-manifest", noManifest, "no _manifest.json")
+    val noSuccess = erCopy("no-success")(er => Files.delete(new File(er, "_SUCCESS").toPath))
+    refusedInput("b02-no-success", noSuccess, "no _SUCCESS")
+  }
+
+  test("B-02: ER manifest fields are required and its output hashes must match the files read") {
+    def editManifest(name: String)(f: ujson.Value => Unit): File = erCopy(name) { er =>
+      val mf = new File(er, "_manifest.json")
+      val m = ujson.read(Files2.readString(mf))
+      f(m)
+      Files2.writeString(mf, ujson.write(m))
+    }
+    refusedInput(
+      "b02-no-policy",
+      editManifest("no-policy")(_.obj.remove("policyVersion")),
+      "'policyVersion'"
+    )
+    refusedInput(
+      "b02-bad-format",
+      editManifest("bad-format")(_("format") = "something-else"),
+      "format"
+    )
+    refusedInput(
+      "b02-no-outputs",
+      editManifest("no-outputs")(_("outputs") = ujson.Arr()),
+      "lists no output"
+    )
+    // A partial or changed assignment file: its size and hash no longer match the manifest.
+    val changed = erCopy("changed") { er =>
+      val part = new File(er, "decisions/identity_assignment/part-00000.jsonl").toPath
+      Files.write(part, "\n".getBytes("UTF-8"), StandardOpenOption.APPEND)
+    }
+    refusedInput("b02-changed", changed, "size differs")
+    // A file the ER run did not write.
+    val extra = erCopy("extra") { er =>
+      Files2.writeString(new File(er, "decisions/identity_assignment/part-00001.jsonl"), "")
+    }
+    refusedInput("b02-extra", extra, "unlisted file")
+  }
+
+  test("B-02: the ER run and policy version are recorded in the run manifest, report and loads") {
+    val m = ujson.read(Files2.readString(new File(r1.runDir, Manifests.RunManifestName)))
+    val ia = m("inputs")("identityAssignments")
+    assertEquals(ia("runId").str, FixtureData.erRun.value)
+    assertEquals(ia("jobName").str, "er.resolve")
+    assertEquals(ia("codeVersion").str, "fixture")
+    assertEquals(ia("policyVersion").str, "er-v1")
+    val pv = ujson.Obj("graph" -> FixtureData.config.policyVersion, "entityResolution" -> "er-v1")
+    assertEquals(m("policyVersions"), pv: ujson.Value)
+    assertEquals(r1.report("policyVersions"), pv: ujson.Value)
+    Manifests.LoadTargets.foreach { t =>
+      val lm = ujson.read(Files2.readString(new File(r1.runDir, s"${Manifests.LoadDir}/$t.json")))
+      assertEquals(lm("policyVersions"), pv: ujson.Value, t)
+    }
+  }
+
+  /** A copy of the first run's directory under a new attempt root, changed by `change`. */
+  private def runCopy(root: String)(change: File => Unit): Unit = {
+    val dir = new File(new File(tmp, root), r1.runDir.getName)
+    copyTree(r1.runDir, dir)
+    change(dir)
+  }
+
+  private def refusedReuse(root: String, expected: String): Unit = {
+    val e = intercept[RunRefusedException](Pipeline.run(spark, args(root)))
+    assert(e.getMessage.contains(expected), e.getMessage)
+  }
+
+  test("F6: the run manifest hashes _run_report.json and every load manifest") {
+    val m = ujson.read(Files2.readString(new File(r1.runDir, Manifests.RunManifestName)))
+    val control = m("controlFiles").arr.map(f => f("path").str -> f("sha256").str).toMap
+    assertEquals(control.keySet, Manifests.ControlFiles.toSet)
+    control.foreach { case (p, sha) =>
+      assertEquals(Files2.sha256(new File(r1.runDir, p)), sha, p)
+    }
+    // An unchanged copy is reused.
+    runCopy("f6-clean")(_ => ())
+    assert(Pipeline.run(spark, args("f6-clean")).reused)
+  }
+
+  test("F6: reuse is refused when the run report or a load manifest changed") {
+    runCopy("f6-report") { d =>
+      Files.write(
+        new File(d, Manifests.RunReportName).toPath,
+        " ".getBytes("UTF-8"),
+        StandardOpenOption.APPEND
+      )
+    }
+    refusedReuse("f6-report", Manifests.RunReportName)
+    runCopy("f6-load") { d =>
+      val f = new File(d, s"${Manifests.LoadDir}/s3.json")
+      val lm = ujson.read(Files2.readString(f))
+      lm("runId") = "run:v1:0000"
+      Files2.writeString(f, ujson.write(lm, indent = 2))
+    }
+    refusedReuse("f6-load", s"${Manifests.LoadDir}/s3.json")
+    runCopy("f6-load-extra") { d =>
+      Files2.writeString(new File(d, s"${Manifests.LoadDir}/opensearch.json"), "{}")
+    }
+    refusedReuse("f6-load-extra", "unlisted control file")
+  }
+
+  test("F6: reuse is refused when the recorded code version differs or control hashes are absent") {
+    def editManifest(root: String)(f: ujson.Value => Unit): Unit = runCopy(root) { d =>
+      val mf = new File(d, Manifests.RunManifestName)
+      val m = ujson.read(Files2.readString(mf))
+      f(m)
+      Files2.writeString(mf, ujson.write(m, indent = 2))
+    }
+    editManifest("f6-code")(_("codeVersion") = "other-code")
+    refusedReuse("f6-code", "codeVersion other-code != current fixture-code")
+    editManifest("f6-old")(_.obj.remove("controlFiles"))
+    refusedReuse("f6-old", "no controlFiles")
+  }
+
+  test("F9 part 1: the EMR entry point turns automatic broadcast joins off") {
+    val keys = Seq(
+      "spark.sql.autoBroadcastJoinThreshold",
+      "spark.sql.adaptive.autoBroadcastJoinThreshold"
+    )
+    keys.foreach(k => spark.conf.set(k, "10485760"))
+    try {
+      // runWith is main's path; it applies the settings before it parses the arguments.
+      intercept[IllegalArgumentException](GraphAnalyticsJob.runWith(spark, Nil))
+      keys.foreach(k => assertEquals(spark.conf.get(k), "-1", k))
+      assertEquals(
+        GraphAnalyticsJob.RequiredSqlConf.toMap,
+        keys.map(_ -> "-1").toMap
+      )
+    } finally keys.foreach(k => spark.conf.set(k, "-1"))
   }
 }

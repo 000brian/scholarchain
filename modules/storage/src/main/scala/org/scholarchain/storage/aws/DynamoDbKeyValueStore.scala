@@ -9,8 +9,9 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue => Av, _}
 
 /** DynamoDB tables through the synchronous client. Every write is a conditional PutItem; reads are
-  * strongly consistent. Throttling is retried by the SDK's standard retry strategy and then
-  * surfaces as a transient `StoreException`.
+  * strongly consistent. The SDK makes exactly one attempt (`maxAttempts = 1`); throttling, 5xx,
+  * client timeouts and I/O errors surface as transient `StoreException`s, which
+  * [[org.scholarchain.storage.RetryingKeyValueStore]] retries with storage's bounded policy.
   */
 final class DynamoDbKeyValueStore(client: DynamoDbClient) extends KeyValueStore {
 

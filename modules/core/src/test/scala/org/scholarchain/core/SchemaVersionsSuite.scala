@@ -36,9 +36,19 @@ class SchemaVersionsSuite extends munit.FunSuite {
         "ScholarChainConfig" -> 1,
         "SemanticDocument" -> 1, // new in Phase 7
         "VectorMetadata" -> 1, // new in Phase 7
-        "QueryAudit" -> 1 // new in Phase 9
+        "QueryAudit" -> 2 // v2 in Phase 11 (additive): explain fields; v1 still readable
       )
     )
+  }
+
+  test("QueryAudit readers accept versions 1 and 2 only; other schemas only the current one") {
+    assertEquals(SchemaVersions.supported("QueryAudit"), Set(1, 2))
+    assert(!SchemaVersions.isSupported("QueryAudit", 3))
+    assert(!SchemaVersions.isSupported("QueryAudit", 0))
+    assertEquals(SchemaVersions.stillReadable.keySet, Set("QueryAudit"))
+    SchemaVersions.current.foreach { case (k, v) =>
+      if (k != "QueryAudit") assertEquals(SchemaVersions.supported(k), Set(v), k)
+    }
   }
 
   test("only the current version is supported; unknown schemas are unsupported") {

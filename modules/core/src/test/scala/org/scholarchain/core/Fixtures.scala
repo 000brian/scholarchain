@@ -791,4 +791,19 @@ object Fixtures {
     abstained = false,
     provenance = runtimeProvenance(List(sousa.value, evidenceBundle.bundleId.value), None)
   )
+
+  /** QueryAudit v2 (Phase 11): the v1 fixture plus the explain fields. `cacheHits` keys and the
+    * task names are examples of the producer's vocabulary, not part of the contract.
+    */
+  val queryAuditV2: QueryAudit = queryAudit.copy(
+    schemaVersion = 2,
+    queryTemplateIds = List("researcher_by_id", "coauthor_neighbors"),
+    indexesQueried = List("researcher-profile-v1"),
+    metadataFilterKeys = List("windowStartYear", "windowEndYear"),
+    modelCalls = Map(
+      "planner" -> ModelCallCounts(1L, 0L, 0L, 0L, 0L),
+      "synthesis" -> ModelCallCounts(2L, 1L, 1L, 1L, 0L)
+    ),
+    cacheHits = Map("researcher-metric-cache" -> 2L)
+  )
 }

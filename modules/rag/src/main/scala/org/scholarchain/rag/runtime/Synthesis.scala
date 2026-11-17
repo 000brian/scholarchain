@@ -64,7 +64,8 @@ final class QueryPlanner(
           ) match {
             case Left(f) =>
               attempts += ModelAttempt.callFailed(task.wire, n, f)
-              lastError = s"model call failed: ${f.message.take(200)}"
+              // C-02: the cause code only, never the provider's message
+              lastError = ModelAttempt.callFailedReason(f)
               lastKind = TaskCallCounters.CallFailed
               n = Int.MaxValue - 1 // a failed call is not retried here (the client already retried)
             case Right(reply) =>
@@ -227,22 +228,38 @@ final class AnswerSynthesis(
           ) match {
             case Left(f) =>
               attempts += ModelAttempt.callFailed(task.wire, n, f)
-              lastError = s"model call failed: ${f.message.take(200)}"
+              // C-02: the cause code only, never the provider's message
+              lastError = ModelAttempt.callFailedReason(f)
               lastKind = TaskCallCounters.CallFailed
               n = Int.MaxValue - 1
             case Right(reply) =>
-              AnswerClaimsSchema.validate(reply.text, claims) match {
+              val checkedReply = AnswerClaimsSchema.check(reply.text, claims)
+              val dropped = NumberFormats.tally(checkedReply.droppedNumbers)
+              val numberErrors = NumberFormats.tally(checkedReply.numberErrors)
+              model.usage.recordNumbers(
+                task,
+                checkedReply.droppedNumbers,
+                checkedReply.numberErrors
+              )
+              checkedReply.result match {
                 case Right(d) =>
-                  attempts += ModelAttempt.valid(task.wire, n, reply)
+                  attempts += ModelAttempt
+                    .valid(task.wire, n, reply)
+                    .copy(droppedNumbers = dropped, numberErrors = numberErrors)
                   result = Some(d)
                 case Left(err0) =>
                   val err = ModelAttempt.invalidError(reply, err0)
                   model.usage.recordInvalidOutput(task)
-                  attempts += ModelAttempt.invalid(task.wire, n, reply, err0)
+                  attempts += ModelAttempt
+                    .invalid(task.wire, n, reply, err0)
+                    .copy(droppedNumbers = dropped, numberErrors = numberErrors)
                   lastError = s"answer claims failed validation: ${err.take(200)}"
                   lastKind = TaskCallCounters.OutputInvalid
-                  user =
-                    user0 + s"\n\nYour previous output was rejected (${err.take(300)}). Return only a JSON object that matches ${claims.schemaId}."
+                  user = user0 + AnswerSynthesis.retryMessage(
+                    err,
+                    claims,
+                    truncated = reply.stopReason.contains(StopReasons.MaxTokens)
+                  )
               }
           }
         }
@@ -301,6 +318,48 @@ object AnswerSynthesis {
 
   /** Label of the model-written missing-evidence notes. */
   val MissingEvidenceLabel = "Missing evidence (model-written, not verified):"
+
+  /** Claims a retry asks for after an output cut off at the output token limit (U-10). */
+  val TruncatedMaxClaims = 8
+
+  /** Fixed hint of a v3 structured retry about the number format (L-1); never model text. */
+  val NumberFormatHint: String =
+    "Write every number exactly as its digits appear in FACTS (for example 4.5714 or 1234): no number words, no percent signs, no rounding, and list in \"numbers\" only numbers written that way in the claim text."
+
+  /** Fixed hint of a v3 retry after an output cut off at the output token limit (U-10). */
+  val TruncatedRetryHint: String =
+    s"Your previous output was cut off at the output token limit: return at most $TruncatedMaxClaims claims, each short."
+
+  /** The text added to the user message of a structured retry: the validator's error (never model
+    * text), then, when the claims schema has retry hints (v3), the fixed truncation hint (U-10) and
+    * the fixed number-format hint (L-1).
+    */
+  def retryMessage(error: String, claims: AnswerClaimsSpec, truncated: Boolean): String = {
+    val base =
+      s"\n\nYour previous output was rejected (${error.take(300)}). Return only a JSON object that matches ${claims.schemaId}."
+    if (!claims.retryHints) base
+    else base + (if (truncated) s" $TruncatedRetryHint" else "") + s" $NumberFormatHint"
+  }
+
+  /** The model's uncertainty note of a claim, shown only when it holds no digit, no identifier and
+    * no researcher name outside `names` (the claim's cited graph items); otherwise None (C-01: the
+    * note is never verified, so it may not carry facts).
+    */
+  def cleanUncertainty(note: String, names: Set[String]): Option[String] =
+    Option(note).map(_.trim).filter(_.nonEmpty).filter { s =>
+      Digit.findFirstIn(s).isEmpty && StableIdRe.findFirstIn(s).isEmpty &&
+      !RulePlanner
+        .nameRuns(s.replaceAll("[\\r\\n\\t]+", ". "))
+        .exists(n => !names.contains(normName(n)))
+    }
+
+  /** Normalized display names of evidence items (for [[cleanUncertainty]]). */
+  def namesOf(items: List[EvidenceItem]): Set[String] =
+    items
+      .filter(_.evidenceType != EvidenceType.SemanticContext)
+      .flatMap(i => EvidenceValues.names(i) ++ EvidenceValues.pairs(i).get("askedName"))
+      .map(normName)
+      .toSet
 
   /** Researcher display names of the bundle's graph items (never semantic context). */
   def graphNames(evidence: BuiltEvidence): Set[String] =

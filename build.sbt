@@ -382,7 +382,14 @@ lazy val services = (project in file("modules/services"))
 // Tests that need live AWS carry the MUnit tag "RequiresAws" and are excluded by check.
 lazy val contractTests = (project in file("tests/contracts"))
   .configs(AwsTest)
-  .dependsOn(coreScala3, hadoop, entityResolution, storage, rag, services)
+  .dependsOn(
+    coreScala3,
+    hadoop,
+    entityResolution,
+    storage % "compile->compile;test->test",
+    rag % "compile->compile;test->test",
+    services % "compile->compile;test->test"
+  )
   .settings(
     name := "scholarchain-contract-tests",
     commonSettings,

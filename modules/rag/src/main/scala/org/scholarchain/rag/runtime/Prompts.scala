@@ -95,9 +95,15 @@ object Prompts {
   val V2: PromptSetSpec =
     PromptSetSpec("v2", "query-planner-v2", "answer-synthesis-v2", AnswerClaimsSpec.V2)
 
+  /** Phase 11 prompts (L-1): the v2 planner; synthesis v3 states the number format, and its claims
+    * schema `answer-claims-v3` drops (and counts) a bound number that is not in its claim text.
+    */
+  val V3: PromptSetSpec =
+    PromptSetSpec("v3", "query-planner-v2", "answer-synthesis-v3", AnswerClaimsSpec.V3)
+
   /** The prompt set used unless a caller names another. */
-  val Current: PromptSetSpec = V2
-  val Sets: List[PromptSetSpec] = List(V1, V2)
+  val Current: PromptSetSpec = V3
+  val Sets: List[PromptSetSpec] = List(V1, V2, V3)
 
   def setNamed(name: String): Either[String, PromptSetSpec] =
     Sets
@@ -109,7 +115,55 @@ object Prompts {
 
   /** Every schema file under `prompts/schemas/`. */
   val SchemaIds: List[String] =
-    List("query-plan-draft-v1", "answer-claims-v1", "answer-claims-v2", "semantic-context-v1")
+    List(
+      "query-plan-draft-v1",
+      "answer-claims-v1",
+      "answer-claims-v2",
+      "answer-claims-v3",
+      "semantic-context-v1"
+    )
+
+  /** Every runtime prompt file under `prompts/runtime/`; each is also packaged on the classpath
+    * under [[ResourceRoot]] (D-02), byte for byte (a test checks it).
+    */
+  val PromptIds: List[String] = Sets.flatMap(s => List(s.plannerId, s.synthesisId)).distinct
+
+  /** Classpath folder of the packaged copies of the `prompts/runtime` files. */
+  val ResourceRoot = "/org/scholarchain/rag/prompts/runtime"
+
+  /** Loads the packaged copy of `prompts/runtime/<promptId>.md` from the classpath. */
+  def loadResource(promptId: String): Either[String, PromptTemplate] =
+    if (!promptId.matches("[a-z0-9][a-z0-9._-]*")) Left(s"bad prompt ID '$promptId'")
+    else
+      try {
+        val in = getClass.getResourceAsStream(s"$ResourceRoot/$promptId.md")
+        if (in == null) Left(s"prompt $promptId is not packaged on the classpath")
+        else
+          try Right(PromptTemplate(promptId, new String(in.readAllBytes(), StandardCharsets.UTF_8)))
+          finally in.close()
+      } catch { case NonFatal(e) => Left(s"cannot load prompt $promptId: ${e.getMessage}") }
+
+  /** The prompt set `spec` from the classpath copies. */
+  def loadPackagedSet(spec: PromptSetSpec): Either[String, PromptSet] =
+    for {
+      p <- loadResource(spec.plannerId)
+      s <- loadResource(spec.synthesisId)
+    } yield PromptSet(p, s, spec.claims)
+
+  /** The prompt set `spec` for a runtime (D-02): from `root` when given; else from the `prompts`
+    * folder [[locate]] finds at or above the working directory (the repository tree); else, as in
+    * the services container, which holds only the application jar, from the classpath copies. The
+    * files are byte-for-byte equal, so the prompt versions are the same on every path.
+    */
+  def loadForRuntime(root: Option[Path], spec: PromptSetSpec): Either[String, PromptSet] =
+    root match {
+      case Some(r) => loadSet(r, spec)
+      case None    =>
+        locate() match {
+          case Right(r) => loadSet(r, spec)
+          case Left(_)  => loadPackagedSet(spec)
+        }
+    }
 
   /** Loads `<root>/runtime/<promptId>.md`. */
   def load(root: Path, promptId: String): Either[String, PromptTemplate] = {

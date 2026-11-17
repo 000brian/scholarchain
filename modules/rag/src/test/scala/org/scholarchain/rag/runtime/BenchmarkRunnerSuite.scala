@@ -82,6 +82,19 @@ class BenchmarkRunnerSuite extends munit.FunSuite {
       1.0,
       res("answers")("plantedErrors").render()
     )
+    // L-2: one record per planted case
+    val cases = res("answers")("plantedErrors")("cases").arr
+    assertEquals(cases.size, res("answers")("plantedErrors")("planted").num.toInt)
+    val fields =
+      Set("question", "claimId", "kind", "originalLiteral", "plantedLiteral", "status")
+    assert(cases.forall(c => c.obj.keySet == fields), cases.take(2).toString)
+    val years = cases.filter(_("kind").str == "wrong-window-year")
+    assert(years.nonEmpty)
+    assert(
+      years.forall(c =>
+        c("status").str != "verified" && c("originalLiteral") != c("plantedLiteral")
+      )
+    )
     assertEquals(
       res("deterministicGraphRetrieval")("exactMatchRate").num,
       1.0,
@@ -210,8 +223,11 @@ class BenchmarkRunnerSuite extends munit.FunSuite {
     assert(mc("total")("logicalCalls").num >= key("questions").arr.size * 2.0)
     assertEquals(mc("earlyStopArmed").bool, false)
     assertEquals(r("versions")("prompts")(0).str.takeWhile(_ != '@'), "query-planner-v2")
-    assertEquals(r("versions")("schemas")(1).str, "answer-claims-v2")
-    assertEquals(r("input")("promptSet").str, "v2")
+    // Phase 11: the default prompt set is v3 (planner v2, synthesis and claims v3)
+    assertEquals(r("versions")("schemas")(1).str, "answer-claims-v3")
+    assertEquals(r("input")("promptSet").str, "v3")
+    assertEquals(r("versions")("codeVersion").str, "rag-runtime/3")
+    assertEquals(mc("total")("droppedBoundNumbers").num, 0.0)
   }
 
   test("argument parsing") {
@@ -230,10 +246,14 @@ class BenchmarkRunnerSuite extends munit.FunSuite {
       "--llm",
       "fake"
     )
-    assertEquals(BenchmarkRunner.parse(base).map(_.prompts), Right(Prompts.V2))
+    assertEquals(BenchmarkRunner.parse(base).map(_.prompts), Right(Prompts.V3))
     assertEquals(
       BenchmarkRunner.parse(base ++ Array("--prompts", "v1")).map(_.prompts),
       Right(Prompts.V1)
+    )
+    assertEquals(
+      BenchmarkRunner.parse(base ++ Array("--prompts", "v2")).map(_.prompts),
+      Right(Prompts.V2)
     )
     assert(BenchmarkRunner.parse(base ++ Array("--prompts", "v9")).isLeft)
     assert(

@@ -73,8 +73,10 @@ final class JobFailed(msg: String) extends RuntimeException(msg)
   * always map to the same directory (byte-identical content only under the conditions stated at
   * [[Settings.OperationalKeys]]); operational keys ([[Settings.OperationalKeys]], such as
   * `scholarchain.output.replaceIncomplete`) do not change the run ID. A directory holding
-  * `_SUCCESS` and `_job.json` is reused without rerunning; a directory without them is replaced
-  * only when `scholarchain.output.replaceIncomplete` is true, otherwise the run fails.
+  * `_SUCCESS` and `_job.json` is reused without rerunning once its record and files pass the reuse
+  * check (see `load`: identity fields including the code version and inputs, and the per-file
+  * `outputs` list), otherwise the run fails; a directory without them is replaced only when
+  * `scholarchain.output.replaceIncomplete` is true, otherwise the run fails.
   */
 object JobRunner {
 
@@ -101,7 +103,7 @@ object JobRunner {
     val out = outputDir(spec.outputRoot, spec.scope, spec.jobName, rid)
     val fs = out.getFileSystem(conf)
     if (fs.exists(new Path(out, "_SUCCESS")) && fs.exists(new Path(out, JobRecord)))
-      return load(fs, out, spec.jobName, rid)
+      return load(fs, out, expectedIdentity(conf, spec, rid), rid)
     if (fs.exists(out)) {
       if (!settings.boolean(Settings.Keys.ReplaceIncomplete))
         throw new JobFailed(
@@ -171,21 +173,16 @@ object JobRunner {
       else g.asScala.toList.map(c => s"${g.getName}:${c.getName}" -> c.getValue)
     }.toMap
     val stats = readStats(fs, out)
-    val record = ujson.Obj(
-      "jobName" -> spec.jobName,
-      "runId" -> rid.value,
-      "datasetId" -> spec.datasetId,
-      "snapshotId" -> spec.snapshotId,
-      "codeVersion" -> settings.string(Settings.Keys.CodeVersion),
-      "inputFingerprint" -> spec.inputFingerprint,
-      "inputRuns" -> ujson.Arr.from(spec.inputRuns.map(_.value).distinct.sorted.map(ujson.Str(_))),
-      "configFingerprint" -> Settings.fingerprint(conf),
-      "counters" -> ujson.Obj.from(counters.toList.sortBy(_._1).map { case (k, v) =>
-        k -> ujson.Num(v.toDouble)
-      }),
-      "stats" -> ujson.Obj.from(stats.toList.sortBy(_._1).map { case (k, s) =>
-        k -> ujson.Obj("value" -> ujson.Num(s.value.toDouble), "subject" -> s.subject)
-      })
+    val record = ujson.Obj.from(
+      expectedIdentity(conf, spec, rid).value.toList ++ List(
+        "counters" -> ujson.Obj.from(counters.toList.sortBy(_._1).map { case (k, v) =>
+          k -> ujson.Num(v.toDouble)
+        }),
+        "stats" -> ujson.Obj.from(stats.toList.sortBy(_._1).map { case (k, s) =>
+          k -> ujson.Obj("value" -> ujson.Num(s.value.toDouble), "subject" -> s.subject)
+        }),
+        OutputsField -> outputsJson(outputManifest(fs, out))
+      )
     )
     val os = fs.create(new Path(out, JobRecord), false)
     try os.write(record.render(indent = 2).getBytes(StandardCharsets.UTF_8))
@@ -208,16 +205,134 @@ object JobRunner {
     (Option(job.getStatus.getFailureInfo).toList ++ failed).mkString("\n")
   }
 
-  private def load(fs: FileSystem, out: Path, jobName: String, rid: RunId): JobResult = {
-    val in = fs.open(new Path(out, JobRecord))
-    val json =
-      try ujson.read(new String(in.readAllBytes(), StandardCharsets.UTF_8))
-      finally in.close()
-    val counters = json("counters").obj.map { case (k, v) => k -> v.num.toLong }.toMap
-    val stats = json("stats").obj.map { case (k, v) =>
-      k -> Stat(k, v("value").num.toLong, v("subject").str)
-    }.toMap
-    JobResult(jobName, rid, out, counters, stats, reused = true)
+  /** `_job.json` field listing every output file of the run (see [[outputManifest]]). */
+  val OutputsField = "outputs"
+
+  /** Identity fields of `_job.json`, in written order: what a completed directory must record to be
+    * reused by the current run (job, run ID, dataset, snapshot, code version, inputs, config).
+    */
+  private def expectedIdentity(conf: Configuration, spec: JobSpec, rid: RunId): ujson.Obj =
+    ujson.Obj(
+      "jobName" -> spec.jobName,
+      "runId" -> rid.value,
+      "datasetId" -> spec.datasetId,
+      "snapshotId" -> spec.snapshotId,
+      "codeVersion" -> new Settings(conf).string(Settings.Keys.CodeVersion),
+      "inputFingerprint" -> spec.inputFingerprint,
+      "inputRuns" -> ujson.Arr.from(spec.inputRuns.map(_.value).distinct.sorted.map(ujson.Str(_))),
+      "configFingerprint" -> Settings.fingerprint(conf)
+    )
+
+  /** One output file of a run: path relative to the run directory, length and sha256 (hex). */
+  final case class OutputFile(path: String, length: Long, sha256: String)
+
+  /** Every file under the run directory `out` except hidden ones (a path segment starting with `_`
+    * or `.`, such as `_SUCCESS`, `_job.json` and checksum files), sorted by relative path (code
+    * point order). Relative paths keep the record independent of the output root.
+    */
+  def outputManifest(fs: FileSystem, out: Path): List[OutputFile] =
+    outputListing(fs, out).map { case (rel, p, len) => OutputFile(rel, len, sha256Of(fs, p)) }
+
+  /** (relative path, path, length) of the non-hidden files under `out`, sorted by relative path. */
+  private def outputListing(fs: FileSystem, out: Path): List[(String, Path, Long)] = {
+    val base = fs.makeQualified(out).toUri.getPath.stripSuffix("/") + "/"
+    val it = fs.listFiles(out, true)
+    val b = List.newBuilder[(String, Path, Long)]
+    while (it.hasNext) {
+      val st = it.next()
+      val abs = st.getPath.toUri.getPath
+      if (!abs.startsWith(base))
+        throw new JobFailed(s"$out: listed file ${st.getPath} is outside the run directory")
+      val rel = abs.substring(base.length)
+      if (!rel.split('/').exists(s => s.startsWith("_") || s.startsWith(".")))
+        b += ((rel, st.getPath, st.getLen))
+    }
+    b.result().sortWith((x, y) => CodePointOrder.lessThan(x._1, y._1))
+  }
+
+  private def sha256Of(fs: FileSystem, p: Path): String = {
+    val in = fs.open(p)
+    val digest = java.security.MessageDigest.getInstance("SHA-256")
+    try {
+      val buf = new Array[Byte](65536)
+      var n = in.read(buf)
+      while (n > 0) { digest.update(buf, 0, n); n = in.read(buf) }
+    } finally in.close()
+    digest.digest().map(b => f"${b & 0xff}%02x").mkString
+  }
+
+  private def outputsJson(files: List[OutputFile]): ujson.Arr =
+    ujson.Arr.from(files.map { f =>
+      ujson.Obj("path" -> f.path, "length" -> ujson.Num(f.length.toDouble), "sha256" -> f.sha256)
+    })
+
+  /** Reuses a completed run directory only after checking it (Phase 4 finding 2): every identity
+    * field of its `_job.json` (code version and inputs included) must equal the current run's, and
+    * its non-hidden files must be exactly the recorded `outputs` (same paths, lengths and sha256).
+    * Otherwise the run fails with [[JobFailed]] naming the first difference; nothing is removed or
+    * rewritten, so the operator chooses a new output root or code version. A record without
+    * `outputs` (written before Phase 11) is refused the same way.
+    */
+  private def load(fs: FileSystem, out: Path, expected: ujson.Obj, rid: RunId): JobResult = {
+    val jobName = expected("jobName").str
+    def refuse(why: String): Nothing =
+      throw new JobFailed(s"$jobName: refusing to reuse $out: $why")
+    val text = scala.util
+      .Try {
+        val in = fs.open(new Path(out, JobRecord))
+        try new String(in.readAllBytes(), StandardCharsets.UTF_8)
+        finally in.close()
+      }
+      .getOrElse(refuse(s"$JobRecord cannot be read"))
+    val json = scala.util.Try(ujson.read(text)).getOrElse(refuse(s"$JobRecord is not valid JSON"))
+    if (!json.objOpt.isDefined) refuse(s"$JobRecord is not a JSON object")
+    val rec = json.obj
+    expected.value.foreach { case (k, v) =>
+      rec.get(k) match {
+        case None                  => refuse(s"$JobRecord has no $k")
+        case Some(got) if got != v =>
+          refuse(s"$JobRecord $k ${got.render()} differs from the current run's ${v.render()}")
+        case _ => ()
+      }
+    }
+    val recorded = rec.get(OutputsField) match {
+      case Some(ujson.Arr(items)) =>
+        scala.util
+          .Try(items.toList.map { o =>
+            OutputFile(o("path").str, o("length").num.toLong, o("sha256").str)
+          })
+          .getOrElse(refuse(s"$JobRecord $OutputsField is malformed"))
+      case _ =>
+        refuse(s"$JobRecord has no $OutputsField list (written before output verification)")
+    }
+    val listing = outputListing(fs, out)
+    val byPath = recorded.map(f => f.path -> f).toMap
+    if (byPath.size != recorded.size) refuse(s"$JobRecord $OutputsField repeats a path")
+    val present = listing.map(_._1).toSet
+    byPath.keys.toList.sorted.find(!present.contains(_)).foreach { p =>
+      refuse(s"recorded output $p is missing")
+    }
+    listing.foreach { case (rel, p, len) =>
+      byPath.get(rel) match {
+        case None                       => refuse(s"output $rel is not recorded in $JobRecord")
+        case Some(f) if f.length != len =>
+          refuse(s"output $rel has length $len, recorded ${f.length}")
+        case Some(f) =>
+          val sha = scala.util
+            .Try(sha256Of(fs, p))
+            .getOrElse(refuse(s"output $rel cannot be read back"))
+          if (sha != f.sha256) refuse(s"output $rel sha256 differs from the recorded one")
+      }
+    }
+    scala.util
+      .Try {
+        val counters = rec("counters").obj.map { case (k, v) => k -> v.num.toLong }.toMap
+        val stats = rec("stats").obj.map { case (k, v) =>
+          k -> Stat(k, v("value").num.toLong, v("subject").str)
+        }.toMap
+        JobResult(jobName, rid, out, counters, stats, reused = true)
+      }
+      .getOrElse(refuse(s"$JobRecord counters or stats are malformed"))
   }
 
   /** Largest value per stat name across `stats/part-*` (ties: smallest subject by code point). */

@@ -635,8 +635,34 @@ final case class AnswerResponse(
 )
 object AnswerResponse { implicit val readWriter: ReadWriter[AnswerResponse] = macroRW }
 
-/** The audit record of one runtime query (the audit stage's output). Schema version 1 (Phase 9,
-  * new).
+/** Model-call counters of one task (for example `planner`, `synthesis`) within one query
+  * (QueryAudit v2, Phase 11). Counts only: never model text.
+  *
+  * @param logicalCalls
+  *   model invocations of the task in this query (each structured attempt is one; a client's own
+  *   HTTP retries are inside one logical call)
+  * @param invalidOutputs
+  *   outputs that failed structured validation, <= logicalCalls
+  * @param truncatedOutputs
+  *   replies whose provider stop reason was the output token limit, <= logicalCalls
+  * @param droppedBoundNumbers
+  *   bound numbers dropped from a claim because their value did not appear in the claim text
+  * @param fallbacks
+  *   times the task fell back to its deterministic path (rule planner or template synthesis)
+  */
+final case class ModelCallCounts(
+    logicalCalls: Long,
+    invalidOutputs: Long,
+    truncatedOutputs: Long,
+    droppedBoundNumbers: Long,
+    fallbacks: Long
+)
+object ModelCallCounts {
+  implicit val readWriter: ReadWriter[ModelCallCounts] = macroRW
+}
+
+/** The audit record of one runtime query (the audit stage's output). Schema version 2 (Phase 11,
+  * additive); version 1 (Phase 9) records still decode and re-encode unchanged.
   *
   * Fields:
   *   - `queryRunId`: the query run (`RunId.of("rag.query", ...)`); equals `provenance.runId`.
@@ -656,6 +682,22 @@ object AnswerResponse { implicit val readWriter: ReadWriter[AnswerResponse] = ma
   *   - `verificationCounts`: claims per [[VerificationStatus]] wire name.
   *   - `answerHash`: `sha256:<hex>` of the answer text ([[ContentHash.of]]).
   *   - `abstained`: whether the answer abstained.
+  *
+  * Version 2 fields (Phase 11, for the explain API; all optional in the constructor, required on
+  * the v2 wire, absent from the v1 wire; see [[QueryAudit.readWriter]]):
+  *   - `queryTemplateIds`: graph query-template IDs run for this query (for example
+  *     `coauthor_neighbors`, `path_between_depth_3`), distinct, [[QueryAudit.NamePattern]].
+  *   - `indexesQueried`: S3 Vectors index names queried, distinct, [[VectorIndexName.Pattern]].
+  *   - `metadataFilterKeys`: metadata keys of the vector-query filters (keys only, never values),
+  *     distinct, no whitespace.
+  *   - `modelCalls`: per model task (key: [[QueryAudit.NamePattern]]), the [[ModelCallCounts]] of
+  *     this query; counters are >= 0 and `invalidOutputs`, `truncatedOutputs` <= `logicalCalls`.
+  *   - `cacheHits`: reads served from a cache, by cache name (key: [[QueryAudit.NamePattern]]),
+  *     values >= 0; names are the producer's fixed vocabulary.
+  *
+  * A version 1 record carries every v2 field at its default (empty). Not recorded (no per-query
+  * source in the runtime today): HTTP attempts and retried HTTP attempts per task; they are counted
+  * only per process, in the run report.
   *
   * Latency and token counts are measurements: they are never inputs of any stable ID.
   *
@@ -688,10 +730,68 @@ final case class QueryAudit(
     verificationCounts: Map[String, Int],
     answerHash: String,
     abstained: Boolean,
-    provenance: Provenance
+    provenance: Provenance,
+    // ---- schema version 2 (Phase 11, additive): defaults are the v1 meaning ("not recorded") ----
+    queryTemplateIds: List[String] = Nil,
+    indexesQueried: List[String] = Nil,
+    metadataFilterKeys: List[String] = Nil,
+    modelCalls: Map[String, ModelCallCounts] = Map.empty,
+    cacheHits: Map[String, Long] = Map.empty
 )
 object QueryAudit {
-  implicit val readWriter: ReadWriter[QueryAudit] = macroRW
+
+  /** The fields added by schema version 2, in wire order. */
+  val V2Fields: List[String] =
+    List("queryTemplateIds", "indexesQueried", "metadataFilterKeys", "modelCalls", "cacheHits")
+
+  /** Pattern of a graph query-template ID and of a `modelCalls` / `cacheHits` key. */
+  val NamePattern: String = "[a-z0-9][a-z0-9_.-]*"
+  private val compiledName = NamePattern.r.pattern
+  def isValidName(s: String): Boolean = s != null && compiledName.matcher(s).matches()
+
+  private val base: ReadWriter[QueryAudit] = macroRW
+
+  /** The JSON of a v2 field at its default: `[]` for the lists, `{}` for the maps. */
+  private def emptyJson(field: String): ujson.Value =
+    if (field == "modelCalls" || field == "cacheHits") ujson.Obj() else ujson.Arr()
+
+  /** Version-aware wire form (Phase 11, reviewer advisory D-06).
+    *
+    *   - Writing: every field is written, including v2 fields at their defaults (uPickle would
+    *     otherwise omit a field equal to its default). A record with `schemaVersion` 1 is written
+    *     without the v2 fields, so a v1 record round-trips byte-for-byte to its v1 form.
+    *   - Reading: a v1 record must not carry a v2 field; a record of version 2 or later must carry
+    *     every v2 field (it is required on the wire, like every other field). An unsupported
+    *     version still fails in `Validator`.
+    */
+  implicit val readWriter: ReadWriter[QueryAudit] =
+    upickle.default
+      .readwriter[ujson.Value]
+      .bimap[QueryAudit](
+        a => {
+          val obj = upickle.default.writeJs(a)(base).obj
+          val head = obj.toList.filterNot { case (k, _) => V2Fields.contains(k) }
+          // v2 fields in declared order; a field uPickle left out is at its default
+          val tail =
+            if (a.schemaVersion == 1) Nil
+            else V2Fields.map(k => k -> obj.getOrElse(k, emptyJson(k)))
+          ujson.Obj.from(head ++ tail)
+        },
+        js => {
+          val obj = js.obj
+          val version = obj.get("schemaVersion").collect { case ujson.Num(n) => n }
+          if (version.contains(1.0)) {
+            V2Fields.filter(obj.contains).foreach { k =>
+              throw new upickle.core.Abort(s"$k: not a field of QueryAudit schema version 1")
+            }
+          } else if (version.exists(_ >= 2.0)) {
+            V2Fields.filterNot(obj.contains).foreach { k =>
+              throw new upickle.core.Abort(s"$k: required in QueryAudit schema version 2")
+            }
+          }
+          upickle.default.read[QueryAudit](js)(base)
+        }
+      )
 
   /** Pattern of one `promptVersions` entry: `<promptId>@sha256:<64 lowercase hex>`. */
   val PromptVersionPattern: String = "[a-z0-9][a-z0-9._-]*@sha256:[0-9a-f]{64}"

@@ -15,7 +15,7 @@ import org.scholarchain.storage.source.ExportManifest
 /** Runs the frozen benchmark questions through [[QueryWorkflow]] on the local runtime stores.
   *
   * {{{
-  * sbt -batch -J-Xmx12g "rag/runMain org.scholarchain.rag.runtime.BenchmarkRunner --config FILE --export DIR --neptune-csv DIR --questions FILE --out DIR --llm fake|anthropic [--prompts v1|v2]"
+  * sbt -batch -J-Xmx12g "rag/runMain org.scholarchain.rag.runtime.BenchmarkRunner --config FILE --export DIR --neptune-csv DIR --questions FILE --out DIR --llm fake|anthropic [--prompts v1|v2|v3]"
   * }}}
   *
   * It builds the runtime with [[RuntimeService.local]] (storage's `LocalRuntimeEnvironment`, the
@@ -24,9 +24,11 @@ import org.scholarchain.storage.source.ExportManifest
   * `q-NN.json` per question. Rules: `--out` must not exist; `--llm` must equal the configuration's
   * `llm.provider`; `--llm anthropic` refuses to start unless the environment variable named by
   * `llm.apiKeyEnvVar` is set (its value is never read here beyond that check, and never written);
-  * `--prompts` names the prompt set (default [[Prompts.Current]], `v2`; `v1` replays Phase 9); a
-  * step over 30 minutes or an out-of-memory error stops the run. Every report is labelled "local
-  * stores, fake embeddings".
+  * `--prompts` names the prompt set (default [[Prompts.Current]], `v3`; `v2` replays Phase 10, `v1`
+  * Phase 9); a step over 30 minutes or an out-of-memory error stops the run. Every report is
+  * labelled "local stores, fake embeddings". The configuration is the file plus the process's
+  * `SCHOLARCHAIN_CFG_*` overrides (D-01). Planted errors are listed one by one under
+  * `results.answers.plantedErrors.cases` (L-2).
   *
   * Model calls (R-5): `run-report.json` has a `modelCalls` section (per task: logical calls
   * attempted, succeeded and failed by cause, HTTP attempts, retried attempts, invalid and truncated
@@ -87,9 +89,23 @@ object BenchmarkRunner {
       )
     }
 
-  def loadConfig(path: Path): Either[String, ScholarChainConfig] = {
+  /** The configuration file plus the `SCHOLARCHAIN_CFG_*` overrides of `env` (D-01: environment
+    * over file, as core's loader and services do; default the process environment).
+    */
+  def loadConfig(
+      path: Path,
+      env: Map[String, String] = sys.env
+  ): Either[String, ScholarChainConfig] = {
     val text = new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
-    ConfigLoader.load(text, path.getFileName.toString, Map.empty).left.map(_.message).map(_.config)
+    ConfigLoader
+      .load(
+        text,
+        path.getFileName.toString,
+        env.filter(_._1.startsWith(ConfigLoader.EnvPrefix))
+      )
+      .left
+      .map(_.message)
+      .map(_.config)
   }
 
   /** Startup checks that need no store: provider agreement and, for anthropic, the key variable. */
@@ -240,7 +256,12 @@ object BenchmarkRunner {
         )
       }
       val planted =
-        step("planted-errors")(BenchmarkEvaluation.plantedErrors(results.flatMap(_._2.toOption)))
+        step("planted-errors")(
+          BenchmarkEvaluation.plantedErrors(
+            results.collect { case (q, Right(r), _) => (q("id").str, r) },
+            ctx.windows.map(w => w.label -> YearWindow(w.startYear, w.endYear)).toMap
+          )
+        )
       report("results") = BenchmarkEvaluation.summarize(results, semantic, planted)
       report("status") = model.usage.failureStatus.getOrElse("completed")
     } catch {
@@ -547,11 +568,55 @@ object BenchmarkEvaluation {
     })
   }
 
-  /** Plants errors into verified claims and checks that the verifier catches each one. */
-  def plantedErrors(results: List[WorkflowResult]): ujson.Obj = {
-    val cases = results.flatMap { r =>
+  /** One planted error: the question and claim it was planted in, its kind, the literal it replaced
+    * and the one it planted (when the kind replaces one), and the verifier's status.
+    */
+  final case class PlantedCase(
+      question: String,
+      claimId: String,
+      kind: String,
+      original: Option[String],
+      planted: Option[String],
+      status: VerificationStatus
+  ) {
+    def toJson: ujson.Obj = ujson.Obj(
+      "question" -> question,
+      "claimId" -> claimId,
+      "kind" -> kind,
+      "originalLiteral" -> original.map(ujson.Str(_)).getOrElse(ujson.Null),
+      "plantedLiteral" -> planted.map(ujson.Str(_)).getOrElse(ujson.Null),
+      "status" -> status.wire
+    )
+  }
+
+  private val YearRe = "\\b((?:19|20)[0-9]{2})\\b".r
+
+  /** The year planted in place of `year` (L-2): year - 9, stepped down until it is no year of the
+    * cited items (window, edge, work, or match-decision context window years).
+    */
+  def plantedYear(year: Int, citedYears: Set[Int]): Int = {
+    var p = year - 9
+    while (citedYears.contains(p)) p -= 1
+    p
+  }
+
+  /** `text` with the year literal of `m` itself replaced (L-2: the matched year at its word
+    * boundaries, never the first occurrence of its digits elsewhere).
+    */
+  def replaceYear(text: String, m: scala.util.matching.Regex.Match, planted: Int): String =
+    text.substring(0, m.start(1)) + planted.toString + text.substring(m.end(1))
+
+  /** Plants errors into verified claims and checks that the verifier catches each one; every case
+    * is listed (`cases`) with its question ID, claim ID, kind, literals and status.
+    */
+  def plantedErrors(
+      results: List[(String, WorkflowResult)],
+      windows: Map[String, YearWindow]
+  ): ujson.Obj = {
+    val cases = results.flatMap { case (qid, r) =>
       val bundle = r.response.bundle
       val items = bundle.map(_.items).getOrElse(Nil)
+      val byId = items.map(i => i.evidenceId -> i).toMap
       val verified = r.verified.filter(_.status == VerificationStatus.Verified)
       val semantic = items.find(_.evidenceType == EvidenceType.SemanticContext)
       val withNumber = verified.find(
@@ -559,11 +624,22 @@ object BenchmarkEvaluation {
           !EvidenceValues.YearFields.contains(n.field) && n.field != "rank"
         )
       )
-      val withYear =
-        verified.find(v => "\\b(19|20)[0-9]{2}\\b".r.findFirstIn(v.claim.text).isDefined)
+      val withYear = verified.find(v => YearRe.findFirstIn(v.claim.text).isDefined)
       val withHops = verified.find(v => "\\b[0-9]+ hops\\b".r.findFirstIn(v.claim.text).isDefined)
-      def check(kind: String, c: DraftClaim): (String, VerificationStatus) =
-        kind -> ClaimVerification.verify(AnswerDraft("s", List(c), Nil), bundle).head.status
+      def check(
+          kind: String,
+          c: DraftClaim,
+          original: Option[String] = None,
+          planted: Option[String] = None
+      ): PlantedCase =
+        PlantedCase(
+          qid,
+          c.claimId,
+          kind,
+          original,
+          planted,
+          ClaimVerification.verify(AnswerDraft("s", List(c), Nil), bundle, windows).head.status
+        )
       withNumber.toList.flatMap { v =>
         val n = v.claim.numbers
           .find(n => !EvidenceValues.YearFields.contains(n.field) && n.field != "rank")
@@ -580,7 +656,9 @@ object BenchmarkEvaluation {
               v.claim.copy(
                 text = wrongText,
                 numbers = v.claim.numbers.map(x => if (x == n) x.copy(value = n.value + 7) else x)
-              )
+              ),
+              Some(lit),
+              Some(wrong)
             )
           ) ++
             semantic.toList.map(s =>
@@ -590,11 +668,27 @@ object BenchmarkEvaluation {
               )
             )
       } ++ withYear.toList.flatMap { v =>
-        val y = "\\b((19|20)[0-9]{2})\\b".r.findFirstMatchIn(v.claim.text).get.group(1)
+        val m = YearRe.findFirstMatchIn(v.claim.text).get
+        val y = m.group(1).toInt
+        val citedItems = v.validEvidence.flatMap(byId.get)
+        val cited: Set[Int] = citedItems.flatMap { i =>
+          EvidenceValues.numbers(i).collect {
+            case (f, x) if EvidenceValues.YearFields.contains(f) => x.toInt
+          } ++
+            EvidenceValues
+              .pairs(i)
+              .get("contextWindowLabel")
+              .flatMap(windows.get)
+              .toList
+              .flatMap(w => List(w.startYear, w.endYear))
+        }.toSet
+        val p = plantedYear(y, cited)
         List(
           check(
             "wrong-window-year",
-            v.claim.copy(text = v.claim.text.replaceFirst(y, (y.toInt - 9).toString))
+            v.claim.copy(text = replaceYear(v.claim.text, m, p)),
+            Some(y.toString),
+            Some(p.toString)
           )
         )
       } ++ withHops.toList.flatMap { v =>
@@ -605,7 +699,9 @@ object BenchmarkEvaluation {
             v.claim.copy(
               text = v.claim.text.replaceFirst(s"\\b$h hops\\b", s"${h.toInt + 1} hops"),
               numbers = Nil
-            )
+            ),
+            Some(h),
+            Some((h.toInt + 1).toString)
           )
         )
       } ++ List(
@@ -621,21 +717,22 @@ object BenchmarkEvaluation {
         )
       )
     }
-    val byKind = cases.groupBy(_._1).toList.sortBy(_._1)
+    val caught = cases.count(_.status != VerificationStatus.Verified)
+    val byKind = cases.groupBy(_.kind).toList.sortBy(_._1)
     ujson.Obj(
       "planted" -> cases.size,
-      "caught" -> cases.count(_._2 != VerificationStatus.Verified),
-      "catchRate" -> (if (cases.isEmpty) 0.0
-                      else cases.count(_._2 != VerificationStatus.Verified).toDouble / cases.size),
+      "caught" -> caught,
+      "catchRate" -> (if (cases.isEmpty) 0.0 else caught.toDouble / cases.size),
       "byKind" -> ujson.Obj.from(byKind.map { case (k, xs) =>
         k -> ujson.Obj(
           "planted" -> xs.size,
-          "caught" -> xs.count(_._2 != VerificationStatus.Verified),
-          "statuses" -> ujson.Obj.from(xs.groupBy(_._2.wire).toList.sortBy(_._1).map {
+          "caught" -> xs.count(_.status != VerificationStatus.Verified),
+          "statuses" -> ujson.Obj.from(xs.groupBy(_.status.wire).toList.sortBy(_._1).map {
             case (s, ys) => s -> ujson.Num(ys.size.toDouble)
           })
         )
-      })
+      }),
+      "cases" -> ujson.Arr.from(cases.map(_.toJson))
     )
   }
 

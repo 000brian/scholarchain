@@ -18,7 +18,7 @@
     "componentsMaxIterations": 30,
     "labelPropagationMaxIterations": 10,
     "labelPropagationSelfWeight": 1.0,
-    "kcoreMaxIterations": 30,
+    "kcoreMaxIterations": 50,
     "pathMaxDepth": 6,
     "pathTopK": 10,
     "pathRandomPairs": 20,

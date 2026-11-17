@@ -33,9 +33,10 @@ import org.scholarchain.storage.source.{ExportManifest, LocalDirectorySource, Re
   *     them), and a caller-supplied model or store in [[RuntimeService.fromStores]] (as safe as the
   *     caller made it).
   *
-  * [[close]] closes only what the factory opened: the local or AWS environment (and its SDK
-  * clients) and an owned model or embedder that is closeable. A handle from
-  * [[RuntimeService.fromStores]] owns only the closeables passed to it.
+  * [[close]] closes what the factory opened or took over: the local or AWS environment (and its SDK
+  * clients, including caller-supplied `AwsOptions.clients`, whose ownership passes to the handle)
+  * and an owned model or embedder that is closeable. A handle from [[RuntimeService.fromStores]]
+  * owns only the closeables passed to it.
   */
 final class RuntimeService private (
     val config: ScholarChainConfig,
@@ -172,11 +173,13 @@ object RuntimeService {
   def defaultAwsClientSettings(config: ScholarChainConfig): AwsClientSettings =
     AwsClientSettings(config.aws.region, 10000, 60000, 60000, AwsClientSettings.SdkMaxAttempts)
 
+  // D-02: an explicit root, else the repository's prompts folder, else the classpath copies (the
+  // services image holds only the jar)
   private def promptSet(
       root: Option[Path],
       spec: PromptSetSpec
   ): Either[String, PromptSet] =
-    root.map(Right(_)).getOrElse(Prompts.locate()).flatMap(Prompts.loadSet(_, spec))
+    Prompts.loadForRuntime(root, spec)
 
   private def closeable(x: Any): List[AutoCloseable] = x match {
     case c: AutoCloseable => List(c)
@@ -200,7 +203,16 @@ object RuntimeService {
       options: LocalOptions = LocalOptions()
   ): Either[String, RuntimeService] = {
     var env: LocalRuntimeEnvironment = null
-    def cleanup(): Unit = if (env != null) { env.close(); env = null }
+    // U-5: the model and the embedders built before a later Left are closed too
+    var opened: List[AutoCloseable] = Nil
+    def cleanup(): Unit = {
+      opened.foreach(c =>
+        try c.close()
+        catch { case NonFatal(_) => () }
+      )
+      opened = Nil
+      if (env != null) { env.close(); env = null }
+    }
     try {
       val out = for {
         emb <- config.embedding.toRight("embedding section is not configured")
@@ -225,8 +237,11 @@ object RuntimeService {
           new RulePlanner(ctx0.windows, ctx0.bounds),
           options.llmWiring
         )
+        _ = { opened = closeable(model) }
         doc <- EmbeddingProviders.create(config, InputType.Document)
+        _ = { opened = closeable(doc.port) ++ opened }
         query <- EmbeddingProviders.create(config, InputType.Query)
+        _ = { opened = closeable(query.port) ++ opened }
         loaded <- options.steps("load-runtime-environment") {
           LocalRuntimeEnvironment.load(
             cfg,
@@ -304,6 +319,10 @@ object RuntimeService {
     * served (Neptune holds all of them). Building it makes no network call: SDK clients connect and
     * resolve credentials on their first request, and the model and embedder clients send nothing
     * until used.
+    *
+    * Ownership (U-13): SDK clients passed in [[AwsOptions.clients]] are taken over. The handle's
+    * [[RuntimeService.close]] closes them (through the AWS environment), and a Left or an exception
+    * of this factory closes them too; the caller must not use or close them afterwards.
     *
     * @param graphRunId
     *   the Spark graph run loaded into these stores (part of every query run ID); the stores cannot

@@ -57,8 +57,12 @@ final class AuditStage(stores: RuntimeStores) {
   * storage's [[RuntimeStores]].
   *
   * The query run ID is `RunId.of("rag.query", CodeVersion, QueryRequest.fingerprint(request,
-  * graphRunId), config fingerprint)`: the same question, constraints, graph run and configuration
-  * give the same run ID.
+  * graphRunId, prompt versions), config fingerprint)`: the same question, constraints, graph run,
+  * prompt set and configuration give the same run ID.
+  *
+  * The audit is QueryAudit schema version 2: it also records the graph query-template IDs, the
+  * vector indexes and metadata filter keys, per-task model-call counters and cache hits of the
+  * query ([[QueryTrace]], [[QueryWorkflow.callCounts]]).
   *
   * Thread safety: one instance may run queries on several threads at once when its stores, model
   * and retriever are thread-safe (storage's runtime stores, the model clients and the retriever of
@@ -77,19 +81,24 @@ final class QueryWorkflow(
 
   private val rule = new RulePlanner(ctx.windows, ctx.bounds)
   private val planner = new QueryPlanner(model, prompts.planner, rule, ctx)
-  private val resolver = new ResearcherResolver(stores, ctx)
   private val evidenceBuilder = new EvidenceBuilder(ctx)
   private val synthesis = new AnswerSynthesis(model, prompts.synthesis, ctx, prompts.claims)
   private val auditStage = new AuditStage(stores)
+  private val windowYears: Map[String, YearWindow] =
+    ctx.windows.map(w => w.label -> YearWindow(w.startYear, w.endYear)).toMap
 
   /** The graph run this workflow queries. */
   def graphRunId: RunId = ctx.graphRunId
 
+  /** `RunId.of("rag.query", CodeVersion, fingerprint, config fingerprint)`; the fingerprint holds
+    * the canonical request, the graph run and the prompt versions of this workflow's prompt set
+    * (U-3), so another prompt set gives another query run ID.
+    */
   def queryRunId(r: QueryRequest): Either[String, RunId] =
     RunId.of(
       JobName,
       CodeVersion,
-      QueryRequest.fingerprint(r, ctx.graphRunId),
+      QueryRequest.fingerprint(r, ctx.graphRunId, prompts.versions),
       ctx.configFingerprint
     )
 
@@ -156,6 +165,10 @@ final class QueryWorkflow(
       notifyStage(name)
       val s = clock(); val a = f; stages += name -> math.max(0L, (clock() - s) / 1000000L); a
     }
+    // QueryAudit v2: what this query's stages touched (templates, indexes, filter keys, caches)
+    val trace = new QueryTrace
+    val traced = trace.wrap(stores)
+    val resolver = new ResearcherResolver(traced, ctx)
     for {
       canonical <- validate(request)
       question = canonical.question
@@ -169,14 +182,14 @@ final class QueryWorkflow(
       draft = plannerOut.draft
       resolution = timed("resolver")(resolver.resolve(draft.researcherNames, draft.orcids))
       assembled = assemble(question, canonical, draft, resolution)
-      semanticStage = new SemanticContextStage(retriever, stores, ctx)
+      semanticStage = new SemanticContextStage(retriever, traced, ctx, trace)
       metricsOut = timed("metrics")(
-        new CollaborationMetrics(stores, ctx, semanticStage).run(assembled.executable)
+        new CollaborationMetrics(traced, ctx, semanticStage).run(assembled.executable)
       )
-      pathFinder = new PathFinder(stores, ctx, pathIndex)
+      pathFinder = new PathFinder(traced, ctx, pathIndex, trace)
       pathsOut = timed("paths")(pathFinder.run(assembled.executable))
       communityOut = timed("community")(
-        new CommunityAnalyst(stores, ctx, pathFinder).run(assembled.executable)
+        new CommunityAnalyst(traced, ctx, pathFinder).run(assembled.executable)
       )
       semanticOut = timed("semantic")(semanticStage.run(assembled.executable))
       retrieved = metricsOut ++ pathsOut ++ communityOut ++ semanticOut
@@ -185,7 +198,7 @@ final class QueryWorkflow(
       // every researcher in the bundle's facts, however it entered (ranking, bridge ranking,
       // path hop, neighbour, edge), not only name-resolved ones
       bundled = facts.filter(built.idOf.contains)
-      identity = timed("identity")(new IdentityCheck(stores).run(bundled, resolution))
+      identity = timed("identity")(new IdentityCheck(traced).run(bundled, resolution))
       uncertain = identity.uncertain
       peopleOf = bundled
         .flatMap(f => built.idOf.get(f).map(_ -> Fact.researchers(f)))
@@ -212,7 +225,9 @@ final class QueryWorkflow(
         )
       )
       _ = synthOut.millisInFallback.foreach(ms => stages += "synthesisFallback" -> ms)
-      verified = timed("verification")(ClaimVerification.verify(synthOut.draft, built.bundle))
+      verified = timed("verification")(
+        ClaimVerification.verify(synthOut.draft, built.bundle, windowYears)
+      )
       result <- timed("audit")(
         finish(
           runId,
@@ -229,7 +244,8 @@ final class QueryWorkflow(
           identity,
           peopleOf,
           t0,
-          stages
+          stages,
+          trace
         )
       )
     } yield result
@@ -250,10 +266,12 @@ final class QueryWorkflow(
       identity: IdentityOutcomes,
       peopleOf: Map[EvidenceId, List[ResearcherId]],
       t0: Long,
-      stages: collection.mutable.Builder[(String, Long), ListMap[String, Long]]
+      stages: collection.mutable.Builder[(String, Long), ListMap[String, Long]],
+      trace: QueryTrace
   ): Either[String, WorkflowResult] = {
     val uncertain = identity.uncertain
     val itemsById = built.items.map(i => i.evidenceId -> i).toMap
+    var droppedUncertainty = 0
     val claims = verified.map { v =>
       val window = v.validEvidence.flatMap(itemsById.get).flatMap(_.window).headOption
       // every uncertain researcher of every cited fact, plus any researcher ID the text names
@@ -283,8 +301,18 @@ final class QueryWorkflow(
             s"Partially supported: ${v.reasons.headOption.getOrElse("some parts are not covered by cited evidence")}."
           )
         else None
+      // C-01: the model's uncertainty note is never verified, so it is shown only when it holds
+      // no digit, identifier or name outside the claim's cited graph items
+      val modelNote = v.claim.uncertainty.flatMap { u =>
+        val clean = AnswerSynthesis.cleanUncertainty(
+          u,
+          AnswerSynthesis.namesOf(v.validEvidence.flatMap(itemsById.get))
+        )
+        if (clean.isEmpty && v.kept) droppedUncertainty += 1
+        clean
+      }
       val uncertainty =
-        List(v.claim.uncertainty, partialNote, identityNote).flatten.distinct match {
+        List(modelNote, partialNote, identityNote).flatten.distinct match {
           case Nil => None
           case xs  => Some(xs.mkString(" ").take(600))
         }
@@ -324,6 +352,11 @@ final class QueryWorkflow(
     val storeConflicts = QueryWorkflow.conflictsOf(bundleWrite)
     val notes = (baseNotes ++ QueryWorkflow.conflictNote(storeConflicts).toList ++
       synthOut.budgetNotes ++ synthOut.sanitizeNotes ++
+      (if (droppedUncertainty > 0)
+         List(
+           s"$droppedUncertainty model uncertainty note(s) contained numbers, identifiers or names not in the claim's cited evidence and were left out."
+         )
+       else Nil) ++
       synthOut.fallbackReason
         .map(r =>
           s"The synthesis model output could not be used ($r); claims were written by the deterministic template fallback."
@@ -430,7 +463,7 @@ final class QueryWorkflow(
       plannerOut.attempts.flatMap(_.outputTokens) ++ synthOut.attempts.flatMap(_.outputTokens)
     )
     val audit = QueryAudit(
-      1,
+      2,
       runId,
       ContentHash.of(question),
       plan,
@@ -460,7 +493,18 @@ final class QueryWorkflow(
         JobName,
         "query-audit/1",
         None
-      )
+      ),
+      // QueryAudit v2 (Phase 11): fixed vocabularies and counts only, never text
+      queryTemplateIds = trace.templateIds,
+      indexesQueried = trace.indexesQueried,
+      metadataFilterKeys = trace.metadataFilterKeys,
+      modelCalls = Map(
+        ModelTask.Planner.wire -> QueryWorkflow
+          .callCounts(plannerOut.attempts, plannerOut.fallbackReason.isDefined),
+        ModelTask.Synthesis.wire -> QueryWorkflow
+          .callCounts(synthOut.attempts, synthOut.fallbackReason.isDefined)
+      ),
+      cacheHits = trace.cacheHits
     )
     for {
       // a failed bundle write is a workflow failure (Phase 10 U-1): the answer's evidence links
@@ -678,8 +722,23 @@ private[runtime] final case class Assembled(
 object QueryWorkflow {
   val JobName = "rag.query"
 
-  /** Part of every query run ID; `rag-runtime/2` since Phase 10 (graph run in the fingerprint). */
-  val CodeVersion = "rag-runtime/2"
+  /** Part of every query run ID: `rag-runtime/2` since Phase 10 (graph run in the fingerprint),
+    * `rag-runtime/3` since Phase 11 (prompt versions in the fingerprint, U-3).
+    */
+  val CodeVersion = "rag-runtime/3"
+
+  /** The QueryAudit v2 counters of one model task in one query, from its attempt records: logical
+    * calls (attempts), invalid and truncated outputs, bound numbers dropped (answer-claims v3,
+    * summed over the attempts) and fallbacks (0 or 1).
+    */
+  def callCounts(attempts: List[ModelAttempt], fellBack: Boolean): ModelCallCounts =
+    ModelCallCounts(
+      logicalCalls = attempts.size.toLong,
+      invalidOutputs = attempts.count(_.outcome == ModelAttempt.Invalid).toLong,
+      truncatedOutputs = attempts.count(_.stopReason == StopReasons.MaxTokens).toLong,
+      droppedBoundNumbers = attempts.map(_.droppedNumbers.values.sum).sum,
+      fallbacks = if (fellBack) 1L else 0L
+    )
   val DefaultLimit = 10
   val Label = "local stores, fake embeddings"
 

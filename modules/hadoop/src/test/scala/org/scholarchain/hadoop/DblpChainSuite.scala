@@ -212,7 +212,9 @@ class DblpChainSuite extends munit.FunSuite {
     val conf = TestSupport.localConf(
       work,
       "scholarchain.pairs.pairsPerShard" -> "500",
-      "scholarchain.blocking.maxBlockSize" -> "2"
+      "scholarchain.blocking.maxBlockSize" -> "2",
+      // the block counts below are of one family; the default runs two since Phase 11 (m5)
+      "scholarchain.blocking.keyFamilies" -> "dblp-base-name"
     )
     val r = DblpChain.run(conf, in, new Path(work.resolve("out").toUri), "g")
     assertEquals(r.teams.main(Counters.OversizeTeam), 1L)

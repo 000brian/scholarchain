@@ -27,6 +27,7 @@ class PlannerAndSchemaSuite extends munit.FunSuite {
       PlanDraftSchema.shape,
       AnswerClaimsSchema.shape,
       AnswerClaimsSchema.shapeOf(AnswerClaimsSpec.V2),
+      AnswerClaimsSchema.shapeOf(AnswerClaimsSpec.V3),
       SemanticContextSchema.shape
     ).foreach { s =>
       assertEquals(SchemaFiles.differences(schemaJson(s.schemaId), s), Nil, s.schemaId)
@@ -37,6 +38,7 @@ class PlannerAndSchemaSuite extends munit.FunSuite {
         PlanDraftSchema.SchemaId,
         AnswerClaimsSchema.SchemaId,
         AnswerClaimsSpec.V2.schemaId,
+        AnswerClaimsSpec.V3.schemaId,
         SemanticContextSchema.SchemaId
       )
     )
@@ -99,17 +101,70 @@ class PlannerAndSchemaSuite extends munit.FunSuite {
     assert(a.requestsPerMinute.toLong * a.maxOutputTokens <= 80000L)
   }
 
-  test("the v2 prompt set: v2 prompts with the v2 claims schema; v1 still loads") {
-    assertEquals(Prompts.Current, Prompts.V2)
-    assertEquals(prompts.claims, AnswerClaimsSpec.V2)
+  test("the v3 prompt set (Phase 11): planner v2, synthesis v3, claims v3; v1 and v2 still load") {
+    assertEquals(Prompts.Current, Prompts.V3)
+    assertEquals(Prompts.V3.plannerId, "query-planner-v2")
+    assertEquals(prompts.claims, AnswerClaimsSpec.V3)
     val v1 = Prompts.loadSet(root, Prompts.V1).fold(e => fail(e), identity)
     assert(v1.planner.version.startsWith("query-planner-v1@sha256:"))
     assertEquals(v1.claims, AnswerClaimsSpec.V1)
-    assert(prompts.synthesis.fileText.contains("answer-claims-v2"))
+    val v2 = Prompts.loadSet(root, Prompts.V2).fold(e => fail(e), identity)
+    assertEquals(v2.claims, AnswerClaimsSpec.V2)
+    assert(v2.synthesis.fileText.contains("answer-claims-v2"))
+    assert(prompts.synthesis.fileText.contains("answer-claims-v3"))
     assert(prompts.synthesis.fileText.contains("at most 15 claims"))
-    assertEquals(prompts.schemaIds(1), "answer-claims-v2")
+    // the v3 prompt states the number format with one short example
+    assert(prompts.synthesis.fileText.contains("No number words, no percent signs"))
+    assert(prompts.synthesis.fileText.contains("\"4.5714 average coauthors per paper\""))
+    assertEquals(prompts.schemaIds(1), "answer-claims-v3")
     assertEquals(Prompts.setNamed("v1"), Right(Prompts.V1))
-    assert(Prompts.setNamed("v3").isLeft)
+    assertEquals(Prompts.setNamed("v2"), Right(Prompts.V2))
+    assertEquals(Prompts.setNamed("v3"), Right(Prompts.V3))
+    assert(Prompts.setNamed("v4").isLeft)
+  }
+
+  test("v2 prompts and schema are unchanged and pinned (Phase 10 record)") {
+    def sha(p: java.nio.file.Path) = Hashing.sha256Hex(Files.readAllBytes(p))
+    assertEquals(
+      sha(root.resolve("runtime/answer-synthesis-v2.md")),
+      "f1f23c569b8a6504e658459eb425a122fa6e9bc54ba5ddedc1141675c8903537"
+    )
+    assertEquals(
+      sha(root.resolve("runtime/query-planner-v2.md")),
+      "60b5260e9c2eeabff46150fb09cf41a89fe39fbd23701b7023cdf0663e5684a1"
+    )
+    assertEquals(
+      sha(Prompts.schemaFile(root, "answer-claims-v2")),
+      "bb9ed550640900c34866a7de10bbf3cc69752268b1bd3e620eadde355996f9de"
+    )
+  }
+
+  test("D-02: every runtime prompt is packaged on the classpath byte for byte") {
+    val files =
+      Files.list(root.resolve("runtime")).toArray.toList.map(_.asInstanceOf[java.nio.file.Path])
+    val ids = files.map(_.getFileName.toString).filter(_.endsWith(".md")).map(_.stripSuffix(".md"))
+    assertEquals(ids.toSet, Prompts.PromptIds.toSet)
+    ids.foreach { id =>
+      val onDisk = Prompts.load(root, id).fold(e => fail(e), identity)
+      val packaged = Prompts.loadResource(id).fold(e => fail(e), identity)
+      assertEquals(packaged.fileText, onDisk.fileText, id)
+      assertEquals(packaged.version, onDisk.version, id)
+    }
+    Prompts.Sets.foreach { spec =>
+      val p = Prompts.loadPackagedSet(spec).fold(e => fail(e), identity)
+      val d = Prompts.loadSet(root, spec).fold(e => fail(e), identity)
+      assertEquals(p.versions, d.versions, spec.name)
+      assertEquals(p.claims, spec.claims)
+    }
+    assert(Prompts.loadResource("no-such-prompt").isLeft)
+    assert(Prompts.loadResource("../escape").isLeft)
+    // an explicit root wins; a root without the files is a Left, never a silent fallback
+    assertEquals(
+      Prompts.loadForRuntime(Some(root), Prompts.V3).map(_.versions),
+      Right(prompts.versions)
+    )
+    val empty = Files.createTempDirectory("no-prompts")
+    assert(Prompts.loadForRuntime(Some(empty), Prompts.V3).isLeft)
   }
 
   test("q26: planner v2 reads a venue name researchers work on as a topic, not a venue filter") {
@@ -209,7 +264,7 @@ class PlannerAndSchemaSuite extends munit.FunSuite {
   test("prompts are loaded by path, hashed into versioned IDs, and every placeholder is filled") {
     assert(QueryAudit.isValidPromptVersion(prompts.planner.version))
     assert(prompts.planner.version.startsWith("query-planner-v2@sha256:"))
-    assert(prompts.synthesis.version.startsWith("answer-synthesis-v2@sha256:"))
+    assert(prompts.synthesis.version.startsWith("answer-synthesis-v3@sha256:"))
     val text = new String(
       Files.readAllBytes(root.resolve("runtime/query-planner-v2.md")),
       StandardCharsets.UTF_8

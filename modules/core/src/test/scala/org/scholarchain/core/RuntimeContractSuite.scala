@@ -128,6 +128,23 @@ class RuntimeContractSuite extends munit.FunSuite {
     assertEquals(SchemaVersions.currentOf("EvidenceBundle"), 1)
   }
 
+  test("Phase 11: a semantic_context item carries no metric (on encode and on decode)") {
+    val withMetric = semanticEvidence.copy(metric = metricEvidence.metric)
+    assertRejected(withMetric, "metric: must be null for semantic_context evidence")
+    assert(Contract.encode(withMetric).isLeft)
+    val json = mutate(frozen("EvidenceItem.semantic-context", 1))(
+      _("metric") = ujson.Obj("metric" -> "distinct_coauthors", "value" -> 2.0)
+    )
+    val decoded = Contract.decode[EvidenceItem](json)
+    assert(
+      decoded.left.exists(_.messages.exists(_.startsWith("metric: must be null"))),
+      decoded
+    )
+    // metric evidence keeps its metric; the frozen semantic example stays valid
+    assertValid(metricEvidence)
+    assertValid(semanticEvidence)
+  }
+
   test("3b: a bundle can carry graph evidence and semantic context together") {
     val ids = List(metricEvidence.evidenceId, semanticEvidence.evidenceId)
     val bundle = evidenceBundle.copy(

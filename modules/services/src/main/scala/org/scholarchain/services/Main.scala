@@ -177,11 +177,16 @@ object Main {
       _ <- cfg.service.toRight("the configuration has no service section")
     } yield cfg
 
-  /** Parses, builds and starts a server (no shutdown hook; [[main]] adds it). */
+  /** Parses, checks the API keys (before any runtime is built), builds and starts a server (no
+    * shutdown hook; [[main]] adds it).
+    */
   def start(args: List[String], env: Map[String, String]): Either[String, ServiceServer] =
     for {
       a <- parseArgs(args)
       cfg <- loadConfig(a.config, env)
+      // S-7: refuse a missing, blank or shared API key before the runtime is built (fail fast)
+      settings <- cfg.service.toRight("the configuration has no service section")
+      _ <- ApiKeys.load(settings, env.get)
       clock = Clock.systemUTC()
       built <- a.stores match {
         case "local" => Composition.local(cfg, a.exportDir.get, a.neptuneCsv.get, clock)

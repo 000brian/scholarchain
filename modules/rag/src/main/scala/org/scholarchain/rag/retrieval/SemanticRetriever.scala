@@ -63,16 +63,20 @@ final class SemanticRetriever(
         (),
         s"topK $topK must be in 1..${settings.queryTopK}"
       )
+      // C-02: provider and store messages never leave this method (they can hold hosts, ARNs,
+      // account IDs or provider error bodies); the fixed text names the step and the retries
       batch <- queryEmbedder
         .embed(Vector(queryText))
         .left
-        .map(f => s"query embedding failed: ${f.message}")
+        .map(f => s"query embedding failed (after ${f.retries} retries)")
       vector <- batch.vectors.headOption
         .filter(_.length == querySpec.dimensions)
         .toRight("query embedding has the wrong shape")
       hits <-
         try Right(vectors.query(index, vector, topK, filter, returnMetadata = true))
-        catch { case NonFatal(e) => Left(s"vector query failed: ${e.getMessage}") }
+        catch {
+          case NonFatal(e) => Left(s"vector query failed (${e.getClass.getSimpleName})")
+        }
     } yield {
       val decoded = hits.map { h =>
         h.metadata

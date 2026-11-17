@@ -158,8 +158,8 @@ class QueryWorkflowSuite extends munit.FunSuite {
     )
   }
 
-  test("m-4: the query run ID hashes the graph run; code version rag-runtime/2") {
-    assertEquals(QueryWorkflow.CodeVersion, "rag-runtime/2")
+  test("m-4: the query run ID hashes the graph run; code version rag-runtime/3 (U-3)") {
+    assertEquals(QueryWorkflow.CodeVersion, "rag-runtime/3")
     val req = QueryRequest("How many distinct coauthors does Carol King have in 2015-2025?")
     val other = RunId.of("spark.test", "code", "other-input", "config").toOption.get
     val a = wf.queryRunId(req).toOption.get

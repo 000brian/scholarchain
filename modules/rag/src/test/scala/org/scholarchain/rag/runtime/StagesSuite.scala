@@ -346,7 +346,9 @@ class StagesSuite extends munit.FunSuite {
   test(
     "context budget: semantic excerpts are dropped first, then the lowest-ranked rows, and the answer says so"
   ) {
-    val tight = w.ctx.copy(contextTokenBudget = 900)
+    // 1000 tokens (Phase 11): the v3 synthesis prompt is 297 characters longer than v2's, so the
+    // Phase 10 budget of 900 no longer fits the prompt with every row dropped
+    val tight = w.ctx.copy(contextTokenBudget = 1000)
     val model = new SplitModel(w.rule, in => Right(FakeSynthesis.render(in).toJson.render()))
     val r = w
       .workflow(model, tight)
@@ -363,6 +365,6 @@ class StagesSuite extends munit.FunSuite {
     assert(r.synthesis.budgetNotes.exists(_.contains("fact row")), r.synthesis.budgetNotes.toString)
     assert(r.response.answerText.contains("context budget"))
     val sent = model.requests.filter(_.task == ModelTask.Synthesis).head
-    assert((sent.system.length + sent.user.length) <= 900 * 4)
+    assert((sent.system.length + sent.user.length) <= 1000 * 4)
   }
 }

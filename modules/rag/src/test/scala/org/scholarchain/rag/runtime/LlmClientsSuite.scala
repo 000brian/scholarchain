@@ -150,8 +150,23 @@ class LlmClientsSuite extends munit.FunSuite {
     val t = new StubTransport(List(Right(HttpResult(401, s"{\"error\":\"bad key $Key\"}", None))))
     val e = client(t).complete(req).left.toOption.get
     assert(!e.message.contains(Key), e.message)
-    assert(e.message.contains("<redacted>"))
+    // C-02 (Phase 11): no part of the provider's body is kept, so neither the key nor the text
+    assert(!e.message.contains("bad key"), e.message)
+    assertEquals(e.message, "anthropic HTTP 401")
     assert(!client(new StubTransport(Nil)).toString.contains(Key))
+  }
+
+  test("C-02: a provider error body is reduced to its status and short error type") {
+    val body =
+      """{"type":"error","error":{"type":"rate_limit_error","message":"org example-org-123 over limit; account 123456789012"}}"""
+    val t = new StubTransport(List.fill(10)(Right(HttpResult(429, body, None))))
+    val e = client(t).complete(req).left.toOption.get
+    assertEquals(e.message, "anthropic HTTP 429 (rate_limit_error)")
+    assertEquals(e.cause, ModelFailure.http(429))
+    assertEquals(ModelAttempt.callFailedReason(e), "model call failed (http-429)")
+    // an error type that is not a short token is dropped too
+    assertEquals(AnthropicClient.errorType("""{"error":{"type":"Bad Type 1"}}"""), None)
+    assertEquals(AnthropicClient.errorType("not json"), None)
   }
 
   test("anthropic: the key comes only from the variable named by llm.apiKeyEnvVar") {
@@ -203,6 +218,31 @@ class LlmClientsSuite extends munit.FunSuite {
       val a = answers(math.min(i, answers.size - 1)); i += 1
       a.fold(e => throw e, identity)
     }
+  }
+
+  test("C-02 and U-5: a bedrock failure keeps only its cause; close() closes the SDK invoker") {
+    val sdkText =
+      "store failure (permanent): AccessDeniedException (HTTP 403): User: arn:aws:sts::123456789012:assumed-role/r is not authorized"
+    final class ClosingInvoker extends BedrockInvoker with AutoCloseable {
+      var closed = 0
+      def invoke(modelId: String, jsonBody: String): String =
+        throw new StoreException(sdkText, false)
+      def close(): Unit = closed += 1
+    }
+    val inv = new ClosingInvoker
+    val c = new BedrockClaudeClient(
+      "anthropic.claude-haiku-5-5",
+      settings.copy(provider = "bedrock"),
+      inv,
+      Sleeper.none,
+      () => 0L
+    )
+    val e = c.complete(req).left.toOption.get
+    assertEquals(e.cause, ModelFailure.http(403))
+    assert(!e.message.contains("arn:") && !e.message.contains("123456789012"), e.message)
+    assertEquals(e.message, "bedrock call failed (http-403, StoreException)")
+    c.close()
+    assertEquals(inv.closed, 1)
   }
 
   test("bedrock: InvokeModel body, throttling retried, permanent errors not") {

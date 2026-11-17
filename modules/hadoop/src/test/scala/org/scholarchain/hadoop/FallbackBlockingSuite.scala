@@ -109,12 +109,11 @@ class FallbackBlockingSuite extends munit.FunSuite {
       kv.foreach { case (k, v) => c.set(k, v) }
       new Settings(c)
     }
-    assertEquals(BlockingKeys.configured(s()), List("dblp-base-name"))
+    // Phase 11 (Phase 5 m5): both families are the default, not only the Phase 4 one
+    assertEquals(BlockingKeys.configured(s()), List("dblp-base-name", "initials-surname"))
     assertEquals(
-      BlockingKeys.configured(
-        s(Settings.Keys.BlockingFamilies -> "dblp-base-name,initials-surname")
-      ),
-      List("dblp-base-name", "initials-surname")
+      BlockingKeys.configured(s(Settings.Keys.BlockingFamilies -> "dblp-base-name")),
+      List("dblp-base-name")
     )
     intercept[SettingsError](BlockingKeys.configured(s(Settings.Keys.BlockingFamilies -> "")))
     intercept[SettingsError](BlockingKeys.configured(s(Settings.Keys.BlockingFamilies -> "title")))

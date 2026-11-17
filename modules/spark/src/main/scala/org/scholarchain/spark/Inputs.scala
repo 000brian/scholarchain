@@ -4,6 +4,7 @@ import java.io.File
 
 import scala.reflect.runtime.universe.TypeTag
 
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{Dataset, Encoders, SparkSession}
 import org.apache.spark.sql.functions.{col, explode}
 import org.scholarchain.core._
@@ -179,15 +180,16 @@ object Inputs {
     */
   def decodeDir[R <: Product: TypeTag](
       spark: SparkSession,
-      dir: File,
+      io: RunFs,
+      dir: Path,
       decode: String => Decoded[R]
   ): Dataset[Decoded[R]] = {
     import spark.implicits._
-    if (dataFiles(dir).isEmpty) spark.emptyDataset[Decoded[R]]
+    if (io.listData(dir).isEmpty) spark.emptyDataset[Decoded[R]]
     else
       spark.read
         .option("recursiveFileLookup", "true")
-        .text(dir.getPath)
+        .text(dir.toString)
         .as[String](Encoders.STRING)
         .map(decode)
   }

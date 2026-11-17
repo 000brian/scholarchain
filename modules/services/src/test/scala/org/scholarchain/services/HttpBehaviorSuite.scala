@@ -270,23 +270,59 @@ class HttpBehaviorSuite extends munit.FunSuite {
   }
 
   test("log redaction: key values, arn: strings, 12-digit numbers and s3:// URIs are removed") {
-    val sink = new MemoryLogSink
-    val clock = new org.scholarchain.storage.jobs.ManualClock()
-    val log = new ServiceLog(sink, "all", clock, new Redactor(List(FullKey, ReadOnlyKey)))
-    log.failure(
-      Some("0" * 32),
-      "test",
-      new RuntimeException(
-        s"failed with $FullKey and $ReadOnlyKey at arn:aws:iam::123456789012:role/example for s3://example-bucket/key/x account 210987654321 keep 4444444444444"
-      )
-    )
-    val line = sink.rendered.head
+    val text =
+      s"failed with $FullKey and $ReadOnlyKey at arn:aws:iam::123456789012:role/example for s3://example-bucket/key/x account 210987654321 keep 4444444444444"
+    val line = new Redactor(List(FullKey, ReadOnlyKey))(text)
     List(FullKey, ReadOnlyKey, "arn:aws", "123456789012", "210987654321", "s3://", "example-bucket")
       .foreach { s =>
         assert(!line.contains(s), s"$s in $line")
       }
     assert(line.contains("4444444444444"), line) // a 13-digit number is not an account ID
     assert(line.contains("[redacted]"))
+  }
+
+  test("S-4 an exception is logged as a fixed cause and its class name only, never its message") {
+    val sink = new MemoryLogSink
+    val clock = new org.scholarchain.storage.jobs.ManualClock()
+    val log = new ServiceLog(sink, "all", clock, new Redactor(List(FullKey, ReadOnlyKey)))
+    val host = "db-prod-7.cluster-ro-q1w2e3.us-east-1.neptune.amazonaws.com"
+    val table = "scholarchain-prod-run-ledger"
+    log.failure(
+      Some("0" * 32),
+      "test",
+      new org.scholarchain.storage.StoreException(s"connect to $host for $table failed", true)
+    )
+    val line = sink.all.head
+    assertEquals(line("cause").str, LogCause.UnexpectedException)
+    assertEquals(line("exception").str, "org.scholarchain.storage.StoreException")
+    assert(!line.obj.contains("detail"), line.render())
+    assert(!line.render().contains(host) && !line.render().contains(table), line.render())
+  }
+
+  test("S-4 workflow failures become fixed cause codes; only an identifier-shaped class is kept") {
+    val sensitive = "connect timed out to db.example.amazonaws.com reading scholarchain-prod-table"
+    def fields(e: String) = ujson.Obj.from(LogCause.ofWorkflow(e)).render()
+    assertEquals(
+      ujson.read(fields(s"workflow failed: StoreException: $sensitive")),
+      ujson.Obj("cause" -> "workflow-exception", "exception" -> "StoreException")
+    )
+    assertEquals(
+      ujson.read(fields(s"evidence bundle write failed: $sensitive")),
+      ujson.Obj("cause" -> "evidence-bundle-write-failed")
+    )
+    assertEquals(
+      ujson.read(fields(s"query audit write failed: $sensitive")),
+      ujson.Obj("cause" -> "query-audit-write-failed")
+    )
+    assertEquals(
+      ujson.read(fields(s"workflow failed: db.example.amazonaws.com: $sensitive")),
+      ujson.Obj("cause" -> "workflow-exception")
+    )
+    assertEquals(ujson.read(fields(sensitive)), ujson.Obj("cause" -> "workflow-failed"))
+    import org.scholarchain.storage.jobs.JobChange
+    assertEquals(LogCause.ofChange(Left(sensitive)), "store-failure")
+    assertEquals(LogCause.ofChange(Right(JobChange.ConditionFailed)), "condition-failed")
+    assertEquals(LogCause.ofChange(Right(JobChange.Refused(sensitive))), "refused")
   }
 
   test("auth startup: unset, blank or equal key values refuse start; the message holds no value") {

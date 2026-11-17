@@ -22,7 +22,7 @@ class JobConfigSuite extends munit.FunSuite {
     val a = c.algorithms
     assertEquals(
       (a.componentsMaxIterations, a.labelPropagationMaxIterations, a.kcoreMaxIterations),
-      (30, 10, 30)
+      (30, 10, 50) // k-core cap 50: Phase 11 decision 8 (3c)
     )
     assertEquals(
       (a.pathMaxDepth, a.pathTopK, a.pathRandomPairs, a.diameterSources, a.diameterMaxDepth),

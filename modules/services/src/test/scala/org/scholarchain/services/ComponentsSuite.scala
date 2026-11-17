@@ -94,12 +94,26 @@ class ComponentsSuite extends munit.FunSuite {
     assertEquals(b.state, "open")
     assertEquals(b.call(Right(1)), Left(None))
     clock.advance(1000L)
-    assert(b.tryAcquire())
+    val trial = b.acquire()
+    assertEquals(trial, Some(CircuitBreaker.Slot(trial = true)))
     assert(!b.tryAcquire(), "only one trial at a time")
-    b.cancel()
+    b.cancel(trial.get)
     assert(b.tryAcquire())
     b.recordSuccess()
     assertEquals(b.state, "closed")
+  }
+
+  test("S-9 circuit breaker: a slot taken while closed never frees another request's trial") {
+    val clock = new ManualClock()
+    val b = new CircuitBreaker("x", 1, 1000L, clock)
+    val early = b.acquire() // admitted while closed
+    assertEquals(early, Some(CircuitBreaker.Slot(trial = false)))
+    b.recordFailure() // another call fails: open
+    clock.advance(1000L) // half-open
+    assert(b.acquire().exists(_.trial), "the trial slot")
+    b.cancel(early.get) // the early request gives its slot back (for example a lost claim)
+    // the trial is still in flight: no second trial may start
+    assertEquals(b.acquire(), None)
   }
 
   test("token bucket: capacity per minute, continuous refill, Retry-After in whole seconds") {
@@ -169,8 +183,11 @@ class ComponentsSuite extends munit.FunSuite {
   }
 
   test("thin routes: route and adapter files import no storage adapter package and no rag stage") {
-    val dir = Paths.get("modules/services/src/main/scala/org/scholarchain/services")
-    assume(Files.isDirectory(dir), "run from the repository root")
+    // S-6: found from the repository root or from the module folder; never skipped silently
+    val rel = "src/main/scala/org/scholarchain/services"
+    val dir = List(Paths.get("modules/services").resolve(rel), Paths.get(rel))
+      .find(p => Files.isDirectory(p))
+      .getOrElse(fail(s"services sources not found from ${Paths.get("").toAbsolutePath}"))
     List("Routes.scala", "HttpAdapter.scala").foreach { f =>
       val text = new String(Files.readAllBytes(dir.resolve(f)), StandardCharsets.UTF_8)
       val imports = text.linesIterator.filter(_.trim.startsWith("import ")).toList

@@ -152,9 +152,11 @@ class ClusteringSuite extends munit.FunSuite {
     assert(!same(c, r, "Jane Smith", "John Smith"))
     assertEquals(r.mergesApplied, 1)
     assertEquals(r.refused.values.toList, List(Reasons.MergeRejectedPair))
-    // without the cannot-link all three end in one cluster (the reviewer's finding)
-    val unguarded = runWith(c, CannotLinks.empty(c.names.size), edges*)
-    assert(same(c, unguarded, "Jane Smith", "John Smith"))
+    // without the cannot-link the given-name guard (Phase 11 A-01) still keeps Jane and John
+    // apart: same surname, conflicting given names, no direct accepted decision
+    val implied = runWith(c, CannotLinks.empty(c.names.size), edges*)
+    assert(!same(c, implied, "Jane Smith", "John Smith"))
+    assertEquals(implied.refused.values.toList, List(Reasons.MergeGivenNameConflict))
     // deterministic: input order of edges and constraints does not change the result
     val r2 = runWith(c, cl, edges.reverse*)
     assertEquals(r2.rootOf.toList, r.rootOf.toList)
