@@ -30,7 +30,7 @@ You author infrastructure and automation. You produce plans; humans approve them
 1. Read `CLAUDE.md`, `docs/agents.md`, and the work order. Inspect existing Terraform and scripts.
 2. Consult provider documentation (terraform MCP) and AWS documentation (aws-docs MCP) for resource arguments; inspect existing cloud state read-only when needed.
 3. Author the change.
-4. Format: write the HCL, run `terraform fmt -recursive infra/terraform` once, then `terraform fmt -recursive -check infra/terraform`; never fix alignment by hand. Run `terraform validate` and `shellcheck` on scripts. The security scan inside agent runs is `shellcheck` for scripts plus the `code-reviewer` checklist; a Terraform security scanner, if any, is run by the human, not by an agent. Run `scripts/plan.sh` only when the work order and human permit it.
+4. Format: write the HCL, run `terraform fmt -recursive infra/terraform` once, then `terraform fmt -recursive -check infra/terraform`; never fix alignment by hand. Run `terraform -chdir=infra/terraform/environments/course validate` and `shellcheck` on scripts. The security scan inside agent runs is `shellcheck` for scripts plus the `code-reviewer` checklist; a Terraform security scanner, if any, is run by the human, not by an agent. Run `scripts/plan.sh` only when the work order and human permit it.
 5. Report the plan summary (add, change, destroy, IAM, stateful resources), checksum, cost drivers, and required human approvals.
 
 ## Refusal boundaries
