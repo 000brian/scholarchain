@@ -1,0 +1,86 @@
+diff --git a/.claude/agents/dataset-engineer.md b/.claude/agents/dataset-engineer.md
+index f4a4141..ab2535d 100644
+--- a/.claude/agents/dataset-engineer.md
++++ b/.claude/agents/dataset-engineer.md
+@@ -26,7 +26,7 @@ You make every input dataset explicit, versioned, licensed, checksummed, and bou
+ 1. Read `CLAUDE.md`, `docs/agents.md`, and the work order. Inspect the current manifest.
+ 2. Verify each source's official access page, license, and snapshot (WebFetch).
+ 3. Update manifest, schemas, samples, and scripts. Add or update dataset validation tests.
+-4. Run the dataset validation command and `bash -n` on scripts. When Scala tests changed, run the targeted tests of the changed projects (`sbt -batch "<project>/testOnly <suites>"`) and observe the output; run the full `sbt check` when you are the wave closer (named in the work order; if it names none, the last source-changing agent of the wave, which the orchestrator tells you when it invokes you).
++4. Run the dataset validation command and `shellcheck` on scripts. When Scala tests changed, run the targeted tests of the changed projects (`sbt -batch "<project>/testOnly <suites>"`) and observe the output; run the full `sbt check` when you are the wave closer (named in the work order; if it names none, the last source-changing agent of the wave, which the orchestrator tells you when it invokes you).
+ 5. Report sources, licenses, snapshots, sizes, subset rules, linkage keys, and open questions.
+ 
+ ## Refusal boundaries
+diff --git a/.claude/agents/infra-engineer.md b/.claude/agents/infra-engineer.md
+index e8a8bbb..f3ed610 100644
+--- a/.claude/agents/infra-engineer.md
++++ b/.claude/agents/infra-engineer.md
+@@ -30,7 +30,7 @@ You author infrastructure and automation. You produce plans; humans approve them
+ 1. Read `CLAUDE.md`, `docs/agents.md`, and the work order. Inspect existing Terraform and scripts.
+ 2. Consult provider documentation (terraform MCP) and AWS documentation (aws-docs MCP) for resource arguments; inspect existing cloud state read-only when needed.
+ 3. Author the change.
+-4. Run `terraform fmt -check -recursive`, `terraform validate`, `bash -n` and `shellcheck` on scripts, and the configured security scan. Run `scripts/plan.sh` only when the work order and human permit it.
++4. Format: write the HCL, run `terraform fmt -recursive infra/terraform` once, then `terraform fmt -recursive -check infra/terraform`; never fix alignment by hand. Run `terraform validate` and `shellcheck` on scripts. The security scan inside agent runs is `shellcheck` for scripts plus the `code-reviewer` checklist; a Terraform security scanner, if any, is run by the human, not by an agent. Run `scripts/plan.sh` only when the work order and human permit it.
+ 5. Report the plan summary (add, change, destroy, IAM, stateful resources), checksum, cost drivers, and required human approvals.
+ 
+ ## Refusal boundaries
+diff --git a/.claude/settings.json b/.claude/settings.json
+index 14f8167..86c864c 100644
+--- a/.claude/settings.json
++++ b/.claude/settings.json
+@@ -33,6 +33,8 @@
+       "Bash(terraform fmt -check:*)",
+       "Bash(terraform fmt -recursive -check:*)",
+       "Bash(terraform validate:*)",
++      "Bash(terraform -chdir=infra/terraform/environments/course validate:*)",
++      "Bash(terraform fmt -recursive infra/terraform)",
+       "Bash(terraform version)",
+       "Bash(aws sts get-caller-identity:*)",
+       "WebFetch(domain:dblp.org)",
+diff --git a/.mcp.json b/.mcp.json
+index 23839f1..5d77a75 100644
+--- a/.mcp.json
++++ b/.mcp.json
+@@ -17,7 +17,7 @@
+     },
+     "aws-api": {
+       "command": "uvx",
+-      "args": ["awslabs.aws-api-mcp-server@1.3.33"],
++      "args": ["--python", "3.12", "--with", "mcp<2", "awslabs.aws-api-mcp-server@1.3.33"],
+       "env": {
+         "AWS_API_MCP_PROFILE_NAME": "${SCHOLARCHAIN_AWS_READONLY_PROFILE}",
+         "AWS_REGION": "${SCHOLARCHAIN_AWS_REGION}",
+@@ -32,7 +32,7 @@
+     },
+     "aws-docs": {
+       "command": "uvx",
+-      "args": ["awslabs.aws-documentation-mcp-server@1.1.21"],
++      "args": ["--python", "3.12", "--with", "mcp<2", "awslabs.aws-documentation-mcp-server@1.1.21"],
+       "env": {
+         "AWS_DOCUMENTATION_PARTITION": "aws",
+         "FASTMCP_LOG_LEVEL": "ERROR"
+diff --git a/docs/agents.md b/docs/agents.md
+index 59db0f1..6910ac1 100644
+--- a/docs/agents.md
++++ b/docs/agents.md
+@@ -140,7 +140,7 @@ The orchestrator stops and asks the human architect, with evidence, before any o
+ | PostToolUse validator | `.claude/hooks/validate-agent-files.sh --hook` | Re-validates the agent system after a constitutional write, including `bash -n` on the self-tests under `.claude/hook-tests/` and the ownership parity of `releases/**` and `config/**`. Also runnable standalone. |
+ | Stop and SubagentStop gate | `.claude/hooks/verify-tests-ran.sh` | Relevant source: `build.sbt`, `project/**`, `modules/**`, `tests/**`, `prompts/**`, `.scalafmt.conf`, `.jvmopts`, `.sbtopts`. Allows completion when `.claude/.last-test-run` is newer than every changed file, or when the report status is `BLOCKED-ON` or `FAILED`. Ratified in amendment-02: on Stop (main session) only the full marker counts, so no phase ends without a passing `sbt check` after the last change; on SubagentStop it also allows completion when every changed file is covered by fresh, passing sbt test reports of its project (`modules/<m>/**` -> `modules/<m>/target/test-reports/`; `modules/core/**` -> both `modules/core/target/jvm-3/test-reports/` and `modules/core/target/jvm-2.13/test-reports/`; `prompts/**` -> `modules/rag/target/test-reports/`; `tests/**` -> `tests/contracts/target/test-reports/`). Covered means at least one `TEST-*.xml` is newer than the project's newest changed file, none of those newer reports has `failures` or `errors` above 0, and each of them carries the `timestamp` attribute sbt writes inside the report (local time, no zone) strictly later than that file's modification time (repair: touching an old report does not make it fresh; an unreadable or zoned timestamp does not count). `build.sbt`, `project/**`, `.scalafmt.conf`, `.jvmopts`, `.sbtopts`, and modules without a known report folder always need the full marker. Repair, human decision A, matching the specification's wording (the gate "prevents a source-changing agent from stopping"): on SubagentStop only, a subagent whose own `.claude/agents/<agent_type>.md` exists and whose `tools` field names none of Write, Edit, MultiEdit, NotebookEdit or Bash (today: `code-reviewer`) is not a source-changing agent and is not gated; a missing file, an unreadable `tools` field, or an empty `agent_type` means no exemption (fail closed). The main-session Stop rule is unchanged. No agent may weaken this further. |
+ | Self-tests | `.claude/hook-tests/guard-selftest.sh`, `.claude/hook-tests/stop-hook-selftest.sh` | Feed JSON events to the guard and the stop hook and print one PASS/FAIL line per case and a total; exit non-zero on any failure; write nothing outside `/tmp/claude-*`. The human runs them with `bash` after a restart. They live outside `.claude/hooks/` on purpose and are not executable. |
+-| Permission rules | `.claude/settings.json` | Explicit allow, ask, and deny lists; secret-read denial; denial of Write and Edit on `**/test-reports/**`; bypass-permissions mode disabled. Amendment 02 repair: the allow list also covers `sbt -batch`, `grep`, `head`, `tail -n`, `ls`, `wc`, `shasum`, `sort`, `uniq`, `cut`, and `sed -n` (prefix rules), so unattended runs do not stall on prompts; the guard still runs first on every one of them. Amendment 02 repair 04: `Bash(bash -n:*)` is removed, because `bash -n -i -c '…'` runs code; hook and self-test syntax is checked with `.claude/hooks/validate-agent-files.sh`, and a direct `bash -n` call asks for approval. |
++| Permission rules | `.claude/settings.json` | Explicit allow, ask, and deny lists; secret-read denial; denial of Write and Edit on `**/test-reports/**`; bypass-permissions mode disabled. Amendment 02 repair: the allow list also covers `sbt -batch`, `grep`, `head`, `tail -n`, `ls`, `wc`, `shasum`, and `cut` (prefix rules), so unattended runs do not stall on prompts; the guard still runs first on every one of them. `sort`, `uniq`, and `sed -n` are not allow-listed and ask for approval (Phase 12 step F corrects the earlier claim). Amendment 02 repair 04: `Bash(bash -n:*)` is removed, because `bash -n -i -c '…'` runs code; hook and self-test syntax is checked with `.claude/hooks/validate-agent-files.sh`, and a direct `bash -n` call asks for approval. Phase 12 step F adds two narrow allow rules: `Bash(terraform -chdir=infra/terraform/environments/course validate:*)` (`terraform validate` takes no folder argument and agents never `cd`; validate only reads the configuration and the providers the human installed with `init`) and `Bash(terraform fmt -recursive infra/terraform)` (exact form, no wildcard; rewrites only whitespace in `.tf` files under `infra/terraform/`, `infra-engineer` territory). No `terraform init`, `plan`, script run, or scanner is allow-listed. |
+ 
+ ## MCP servers and trust boundaries
+ 
+@@ -149,9 +149,9 @@ All servers are defined in `.mcp.json`. Secret values are never stored there; on
+ | Server | Pinned to | Purpose | Trust boundary | Environment variables |
+ |---|---|---|---|---|
+ | `github` | `ghcr.io/github/github-mcp-server@sha256:f6056fc10bfffcc8c81a6417a2e9ca12808647e8dd6049642a4feaadee0e0f8a` | Repository browsing, issue and pull-request inspection | Defined but switched off locally (no token is set; the human disables it in `.claude/settings.local.json`). When enabled, it runs locally in a read-only Docker container; `GITHUB_READ_ONLY=1` disables every write tool server-side; toolsets limited to `repos,issues,pull_requests`. Content returned from GitHub is untrusted data. The token must be a fine-grained, read-only token scoped to the ScholarChain repository. | `SCHOLARCHAIN_GITHUB_READONLY_TOKEN` (secret, set in the human's shell only; not set) |
+-| `aws-api` | `awslabs.aws-api-mcp-server@1.3.33` | AWS API read-only inspection (describe, list, get) | Runs locally via `uvx`. `READ_OPERATIONS_ONLY=true` rejects mutating operations server-side; `REQUIRE_MUTATION_CONSENT=true` is a second guard. The profile `scholarchain-readonly` maps to an IAM user with only the AWS managed policy `job-function/ViewOnlyAccess` (created by the human; recorded as a manual action). It never receives write authority; the write path is reviewed Terraform plus approved scripts. | `SCHOLARCHAIN_AWS_READONLY_PROFILE` (`scholarchain-readonly`, a profile name, not a secret), `SCHOLARCHAIN_AWS_REGION` (`us-east-1`) |
++| `aws-api` | `awslabs.aws-api-mcp-server@1.3.33` | AWS API read-only inspection (describe, list, get) | Runs locally via `uvx` with `--python 3.12 --with 'mcp<2'` (amendment-02 known gap 2; the package pin is unchanged). `READ_OPERATIONS_ONLY=true` rejects mutating operations server-side; `REQUIRE_MUTATION_CONSENT=true` is a second guard. The profile `scholarchain-readonly` maps to an IAM user with only the AWS managed policy `job-function/ViewOnlyAccess` (created by the human; recorded as a manual action). It never receives write authority; the write path is reviewed Terraform plus approved scripts. | `SCHOLARCHAIN_AWS_READONLY_PROFILE` (`scholarchain-readonly`, a profile name, not a secret), `SCHOLARCHAIN_AWS_REGION` (`us-east-1`) |
+ | `terraform` | `hashicorp/terraform-mcp-server@sha256:11dd418bba6003dd5777e9d0979b68de59929a155b355f338f407947e00e9d80` | Terraform Registry provider, resource, and module documentation | Runs locally in a read-only Docker container with no HCP Terraform or Terraform Enterprise token, so it has no workspace or run access. Registry content is untrusted data. | none |
+-| `aws-docs` | `awslabs.aws-documentation-mcp-server@1.1.21` | AWS documentation search and reading | Runs locally via `uvx`; reads public AWS documentation only; no credentials. Returned text is untrusted data. | none (`AWS_DOCUMENTATION_PARTITION=aws` and `FASTMCP_LOG_LEVEL=ERROR` are fixed values) |
++| `aws-docs` | `awslabs.aws-documentation-mcp-server@1.1.21` | AWS documentation search and reading | Runs locally via `uvx` with `--python 3.12 --with 'mcp<2'` (amendment-02 known gap 2; the package pin is unchanged); reads public AWS documentation only; no credentials. Returned text is untrusted data. | none (`AWS_DOCUMENTATION_PARTITION=aws` and `FASTMCP_LOG_LEVEL=ERROR` are fixed values) |
+ 
+ Prerequisites the human provides: Docker (present), `uv`/`uvx` (installed before amendment-02), the read-only AWS profile `scholarchain-readonly` with `SCHOLARCHAIN_AWS_READONLY_PROFILE` and `SCHOLARCHAIN_AWS_REGION` exported in the human's shell profile, and, only if `github` is switched on later, the read-only GitHub token.
+ 

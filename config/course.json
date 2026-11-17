@@ -1,0 +1,107 @@
+{
+  "configVersion": 1,
+  "environment": "course",
+  "aws": {
+    "region": "us-east-1"
+  },
+  "storage": {
+    "vectorIndex": "researcher-profile-v1"
+  },
+  "entityResolution": {
+    "policyVersion": "er-v2",
+    "matchThreshold": 0.9,
+    "reviewThreshold": 0.3
+  },
+  "models": {
+    "embeddingModelId": "voyage-4",
+    "answerModelId": "claude-haiku-5-5"
+  },
+  "graph": {
+    "windows": [
+      { "label": "full-2015-2025", "startYear": 2015, "endYear": 2025 },
+      { "label": "w2015-2017", "startYear": 2015, "endYear": 2017 },
+      { "label": "w2018-2020", "startYear": 2018, "endYear": 2020 },
+      { "label": "w2021-2023", "startYear": 2021, "endYear": 2023 },
+      { "label": "w2024-2025", "startYear": 2024, "endYear": 2025 }
+    ],
+    "minEdgeWeight": 1.0
+  },
+  "bridge": {
+    "algorithm": "bridge-edges",
+    "sampleSize": 100,
+    "randomSeed": 7,
+    "topK": 10
+  },
+  "objectStore": {
+    "rawPrefix": "raw",
+    "curatedPrefix": "curated",
+    "graphPrefix": "graph",
+    "semanticContextPrefix": "rag",
+    "reportsPrefix": "reports",
+    "logsPrefix": "logs"
+  },
+  "neptune": {
+    "port": 8182,
+    "queryTimeoutMillis": 20000,
+    "mergeRowCap": 1000
+  },
+  "vectors": {
+    "researcherProfileIndex": "researcher-profile-v1",
+    "collaborationCommunityIndex": "collaboration-community-v1",
+    "paperAbstractIndex": "paper-abstract-v1",
+    "collaborationPathIndex": "collaboration-path-v1",
+    "topicInstitutionSummaryIndex": "topic-institution-summary-v1",
+    "putBatchSize": 500,
+    "maxRetries": 5,
+    "retryBaseDelayMillis": 200,
+    "retryMaxDelayMillis": 10000,
+    "queryTopK": 30
+  },
+  "embedding": {
+    "provider": "voyage",
+    "apiKeyEnvVar": "SCHOLARCHAIN_VOYAGE_API_KEY",
+    "dimensions": 1024,
+    "batchSize": 64,
+    "maxRetries": 5,
+    "retryBaseDelayMillis": 1000,
+    "retryMaxDelayMillis": 30000,
+    "requestsPerMinute": 300,
+    "tokensPerMinute": 1000000
+  },
+  "llm": {
+    "provider": "anthropic",
+    "apiKeyEnvVar": "SCHOLARCHAIN_ANTHROPIC_API_KEY",
+    "maxOutputTokens": 4096,
+    "requestTimeoutMillis": 60000,
+    "maxRetries": 3,
+    "retryBaseDelayMillis": 1000,
+    "retryMaxDelayMillis": 20000,
+    "requestsPerMinute": 19,
+    "maxStructuredRetries": 1,
+    "contextTokenBudget": 12000
+  },
+  "runtime": {
+    "defaultWindowLabel": "full-2015-2025",
+    "rankingCacheTopK": 100,
+    "maxBundleItems": 200,
+    "maxPathDepth": 6,
+    "graphResultLimit": 50,
+    "graphTimeoutMillis": 20000,
+    "maxResearcherNames": 5
+  },
+  "service": {
+    "port": 8080,
+    "apiKeyEnvVar": "SCHOLARCHAIN_SERVICE_API_KEY",
+    "readOnlyApiKeyEnvVar": "SCHOLARCHAIN_SERVICE_READONLY_API_KEY",
+    "maxRequestBytes": 65536,
+    "syncDeadlineMillis": 25000,
+    "maxConcurrentQueries": 4,
+    "workerConcurrency": 2,
+    "jobMaxAttempts": 3,
+    "jobLeaseMillis": 120000,
+    "jobTtlSeconds": 86400,
+    "circuitFailureThreshold": 3,
+    "circuitOpenMillis": 30000,
+    "requestsPerMinute": 600
+  }
+}

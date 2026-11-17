@@ -66,3 +66,5 @@ override.tf.json
 *_override.tf.json
 crash.log
 crash.*.log
+!infra/terraform/environments/course/course.tfvars
+infra/terraform/environments/course/plans/

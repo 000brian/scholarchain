@@ -1,0 +1,5 @@
+# Copy to local.auto.tfvars in this folder (gitignored by *.tfvars) and replace
+# the placeholder. Terraform loads local.auto.tfvars automatically from this
+# root folder. Personal values only; never commit the real file.
+
+owner = "REPLACE_WITH_OWNER_TAG_VALUE"
