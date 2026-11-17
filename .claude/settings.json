@@ -33,6 +33,8 @@
       "Bash(terraform fmt -check:*)",
       "Bash(terraform fmt -recursive -check:*)",
       "Bash(terraform validate:*)",
+      "Bash(terraform -chdir=infra/terraform/environments/course validate:*)",
+      "Bash(terraform fmt -recursive infra/terraform)",
       "Bash(terraform version)",
       "Bash(aws sts get-caller-identity:*)",
       "WebFetch(domain:dblp.org)",
