@@ -1,0 +1,189 @@
+{
+  "policyVersion": "er-v2",
+  "status": "final",
+  "description": "ScholarChain researcher entity-resolution policy er-v2 (Phase 11). Successor of er-v1 (Phase 5, kept unchanged in er-v1.json): the weights, thresholds, scoring and pair rules are those of er-v1; the cluster merge behaviour changed (finding A-01): cluster.guard.rejected-pair also refuses a merge that would join two dblp names with the same folded surname and conflicting given names that no accepted decision joins directly (reason merge-refused:given-name-conflict), and the assignment rule cluster.flag.given-name-conflict flags a final cluster that still holds such a pair. Outputs produced under er-v1 keep the label er-v1. Additive log-odds scoring over mention-pair features with deterministic exact-identifier and dblp-prior rules, a bounded LLM band, and cluster merge guards. Every weight and threshold below was set from the meaning of its feature (what the evidence implies about two dblp mentions being the same person); none was fitted to or estimated from labels, and no labels existed when er-v1 was frozen.",
+  "nameKeyVersion": "author-name-key/1",
+  "candidateFeatureSet": "candidate-features/1-provisional",
+  "titleTokensVersion": "title-tokens/1",
+  "priorLogOdds": -1.0,
+  "priorRationale": "A pair reaches scoring only when no exact or dblp-prior rule fired, i.e. two different dblp name strings that share a blocking key. Blocking on initials plus surname gathers many different people, so the starting point leans to different (prior probability 0.27).",
+  "thresholds": {
+    "accept": 0.9,
+    "reject": 0.3,
+    "llmBandLower": 0.6,
+    "llmMinConfidence": 0.8,
+    "nearThresholdLogit": 0.5,
+    "rationale": "accept: merge when the summed log-odds (prior -1.0 plus the feature weights) reach logit(0.90) = 2.20, about nine to one. What the weights actually do: (1) equal folded given names (+3.0) always co-fire with name_similarity (+0.3), because the folded full names are then identical (Jaro-Winkler 1.0), so two different dblp strings with equal folded names reach 2.3 (p 0.909) and are accepted on the name alone, without any independent evidence, whenever coauthor_shared_count is omitted and no other feature subtracts (different venue area -0.3, six or more years apart -0.4, different OpenAlex author IDs, disjoint institutions). (2) With zero shared coauthors (-0.5) equal folded names stand at 1.8 (p 0.858, LLM band), and the same venue alone (+0.4) lifts them to 2.2 (p 0.900, accepted): the same venue outweighs the absence of shared coauthors (a mapped same venue also adds venue_area_match +0.3). (3) Compatible given names (initial vs full name, +1.0) with one shared coauthor (+2.0) reach 2.0 (p 0.881) and stay unresolved unless one more signal agrees (when the two folded spellings are near-identical, name_similarity >= 0.95 adds +0.3 and 2.3 is already accepted; a missing middle name or middle initial is not such a case, because blocking never pairs it: John A. Smith and John Smith have different initials-surname keys (j a smith, j smith) and different dblp base names, so no blocking family makes them a candidate pair and they stay in their own dblp-prior clusters, a known blind spot of the blocking (pairs it can never offer), not of these weights), e.g. coauthor_overlap_ratio >= 0.5 (+0.5), the same venue (+0.4), or title similarity >= 0.3 (+1.0); with two shared coauthors (+3.5) they reach 3.5 (p 0.97) and are accepted. reject: below 0.30 (log-odds -0.85) the evidence leans clearly to different; any given-name conflict (-4.0) without shared coauthors (-0.5) is rejected even when every other feature agrees. Between them the pair is unresolved; its upper part [0.60, 0.90) is the LLM band, where one more piece of evidence would decide. llmMinConfidence: an LLM accept or reject below 0.8 stays unresolved. nearThresholdLogit: pairs within 0.5 log-odds of the accept or reject threshold are near-threshold for the review queue. These weights and thresholds were set from feature meaning, not from labels; this text describes them and does not change them."
+  },
+  "weights": [
+    {
+      "feature": "given_name_relation",
+      "bins": [
+        { "min": 0, "max": 1, "weight": -4.0 },
+        { "min": 1, "max": 2, "weight": 1.0 },
+        { "min": 2, "max": null, "weight": 3.0 }
+      ],
+      "scaledBySourceReliability": false,
+      "rationale": "2 = folded given names equal (accent, case, hyphen or punctuation variants of one name): strong agreement. 1 = compatible (initial vs full name, missing middle name): weak agreement, many people share an initial. 0 = conflicting given names (Jane vs John, Wei vs Wen): strong disagreement."
+    },
+    {
+      "feature": "surname_equal",
+      "bins": [
+        { "min": 0, "max": 1, "weight": -3.0 },
+        { "min": 1, "max": null, "weight": 0.0 }
+      ],
+      "scaledBySourceReliability": false,
+      "rationale": "Blocking keys share the surname, so 0 only occurs through folding edge cases; a different folded surname is strong disagreement."
+    },
+    {
+      "feature": "name_similarity",
+      "bins": [
+        { "min": 0.95, "max": null, "weight": 0.3 }
+      ],
+      "scaledBySourceReliability": false,
+      "rationale": "Jaro-Winkler of the folded names. Near-identical spellings add a little; lower values add nothing because given_name_relation already carries the disagreement."
+    },
+    {
+      "feature": "coauthor_shared_count",
+      "bins": [
+        { "min": 0, "max": 1, "weight": -0.5 },
+        { "min": 1, "max": 2, "weight": 2.0 },
+        { "min": 2, "max": 3, "weight": 3.5 },
+        { "min": 3, "max": null, "weight": 5.0 }
+      ],
+      "scaledBySourceReliability": false,
+      "rationale": "Sharing an exact coauthor name is the strongest bibliographic evidence for a same-name pair; each further shared coauthor adds less. No shared coauthor is weak disagreement (people change collaborators)."
+    },
+    {
+      "feature": "coauthor_overlap_ratio",
+      "bins": [
+        { "min": 0.5, "max": null, "weight": 0.5 }
+      ],
+      "scaledBySourceReliability": false,
+      "rationale": "Shared coauthors divided by the smaller coauthor list: at least half of the smaller team shared adds a little on top of the count."
+    },
+    {
+      "feature": "same_venue",
+      "bins": [
+        { "min": 1, "max": null, "weight": 0.4 }
+      ],
+      "scaledBySourceReliability": false,
+      "rationale": "Same dblp venue: mild agreement (researchers return to their venues)."
+    },
+    {
+      "feature": "venue_area_match",
+      "bins": [
+        { "min": 0, "max": 1, "weight": -0.3 },
+        { "min": 1, "max": null, "weight": 0.3 }
+      ],
+      "scaledBySourceReliability": false,
+      "rationale": "Venue compatibility through the fixed research-area map below: same area mild agreement, different area mild disagreement."
+    },
+    {
+      "feature": "year_abs_diff",
+      "bins": [
+        { "min": 0, "max": 3, "weight": 0.2 },
+        { "min": 6, "max": null, "weight": -0.4 }
+      ],
+      "scaledBySourceReliability": false,
+      "rationale": "Publications close in time are slightly more likely from one active career phase; six or more years apart slightly less."
+    },
+    {
+      "feature": "title_similarity",
+      "bins": [
+        { "min": 0.15, "max": 0.3, "weight": 0.5 },
+        { "min": 0.3, "max": null, "weight": 1.0 }
+      ],
+      "scaledBySourceReliability": false,
+      "rationale": "Jaccard of the content words of the two titles: a shared topic vocabulary is moderate agreement; low overlap is not disagreement (people work on several topics)."
+    },
+    {
+      "feature": "author_role_match",
+      "bins": [
+        { "min": 1, "max": null, "weight": 0.2 }
+      ],
+      "scaledBySourceReliability": false,
+      "rationale": "Author order and position: both first authors or both last (senior) authors is slight agreement."
+    },
+    {
+      "feature": "affiliation_overlap",
+      "bins": [
+        { "min": 0, "max": 1, "weight": -0.5 },
+        { "min": 1, "max": null, "weight": 1.5 }
+      ],
+      "scaledBySourceReliability": true,
+      "rationale": "Shared OpenAlex institution at publication time (J04 mention links only): moderate agreement; disjoint institutions weak disagreement (people move). Scaled by the reliability of the asserting source."
+    },
+    {
+      "feature": "openalex_author_match",
+      "bins": [
+        { "min": 0, "max": 1, "weight": -1.0 }
+      ],
+      "scaledBySourceReliability": true,
+      "rationale": "Different OpenAlex author IDs: moderate disagreement only (OpenAlex author IDs are unstable and often split one person). Equal IDs are handled by the exact rule openalex-author.exact."
+    }
+  ],
+  "rules": [
+    { "id": "structural.same-work", "kind": "pair", "path": "deterministic", "outcome": "conflict", "confidence": 1.0, "description": "The two mentions are on the same work: one work cannot list the same person twice; never merged." },
+    { "id": "orcid.disagree", "kind": "pair", "path": "exact_id", "outcome": "conflict", "confidence": 1.0, "description": "Both mentions carry ORCID iDs (dblp attribute or J04 mention link) and they are not one single iD: authoritative identifiers disagree; never merged." },
+    { "id": "orcid.agree-dblp-homonym-differs", "kind": "pair", "path": "exact_id", "outcome": "conflict", "confidence": 1.0, "description": "Same ORCID iD, but dblp gives the same base name two different homonym numbers: two authorities disagree." },
+    { "id": "orcid.exact", "kind": "pair", "path": "exact_id", "outcome": "accepted", "confidence": 0.99, "description": "Both mentions carry the same single ORCID iD." },
+    { "id": "openalex-author.agree-dblp-homonym-differs", "kind": "pair", "path": "exact_id", "outcome": "conflict", "confidence": 1.0, "description": "Same OpenAlex author ID, but dblp gives the same base name two different homonym numbers." },
+    { "id": "openalex-author.exact", "kind": "pair", "path": "exact_id", "outcome": "accepted", "confidence": 0.95, "description": "Both mentions carry the same single OpenAlex author ID (J04 mention links)." },
+    { "id": "dblp-prior.same-name", "kind": "pair", "path": "deterministic", "outcome": "accepted", "confidence": 0.95, "description": "Identical exact dblp name strings (as the mention records hold them, homonym suffix included, no normalization): one dblp profile, already one dblp-prior cluster." },
+    { "id": "name.canonical-equivalent", "kind": "pair", "path": "deterministic", "outcome": "accepted", "confidence": 0.95, "description": "Different exact dblp name strings with equal author-name-key/1 full-name keys (fullNameKey = NFD of the name after Unicode whitespace runs are collapsed to one space and trimmed; so canonically equivalent Unicode spellings, e.g. precomposed and decomposed accents, and whitespace variants, which J01 already normalises, with the same homonym suffix; case and punctuation are kept): the same text written two ways. They are two dblp-prior clusters; this accepted decision may join them, subject to the cluster merge guards." },
+    { "id": "dblp-prior.distinct-homonym", "kind": "pair", "path": "deterministic", "outcome": "rejected", "confidence": 0.95, "description": "Same base name with two different dblp homonym numbers (Wei Wang 0001 vs Wei Wang 0002): dblp has disambiguated them as different people." },
+    { "id": "score.accept", "kind": "pair", "path": "probabilistic", "outcome": "accepted", "confidence": null, "description": "Weighted log-odds score at or above the accept threshold." },
+    { "id": "score.reject", "kind": "pair", "path": "probabilistic", "outcome": "rejected", "confidence": null, "description": "Weighted log-odds score below the reject threshold." },
+    { "id": "score.unresolved", "kind": "pair", "path": "probabilistic", "outcome": "unresolved", "confidence": null, "description": "Score between the reject and accept thresholds." },
+    { "id": "score.llm-band", "kind": "pair", "path": "probabilistic", "outcome": "unresolved", "confidence": null, "description": "Score in the LLM band [llmBandLower, accept): sent to the adjudicator if within the per-run cap." },
+    { "id": "llm.adjudicated", "kind": "pair", "path": "llm", "outcome": "any", "confidence": null, "description": "LLM band pair adjudicated: accept (with confidence >= llmMinConfidence) gives accepted, reject (same bound) gives rejected; abstain, low confidence or rejected model output give unresolved." },
+    { "id": "cluster.guard.orcid", "kind": "cluster-guard", "path": "inherited", "outcome": "conflict", "confidence": null, "description": "An accepted pair would merge clusters whose ORCID iDs differ: the merge is refused and the pair becomes conflict. The decision keeps the match path, confidence and rules of the accepted pair decision whose evidence was refused, plus this rule." },
+    { "id": "cluster.guard.same-work", "kind": "cluster-guard", "path": "inherited", "outcome": "conflict", "confidence": null, "description": "An accepted pair would merge clusters that hold mentions of the same work: refused, the pair becomes conflict. The decision keeps the match path, confidence and rules of the refused pair decision, plus this rule." },
+    { "id": "cluster.guard.dblp-distinct-homonym", "kind": "cluster-guard", "path": "inherited", "outcome": "conflict", "confidence": null, "description": "An accepted pair would merge clusters holding two different homonym numbers of one base name (dblp says different people): refused, the pair becomes conflict. The decision keeps the match path, confidence and rules of the refused pair decision, plus this rule." },
+    { "id": "cluster.guard.dblp-disambiguation-profile", "kind": "cluster-guard", "path": "inherited", "outcome": "unresolved", "confidence": null, "description": "An accepted pair would merge a cluster holding an unnumbered dblp name whose base name also occurs with homonym numbers (a dblp disambiguation profile that mixes people) with a cluster holding one of those numbered names: whole clusters cannot be split, so the merge is refused and the pair becomes unresolved. The decision keeps the match path, confidence and rules of the refused pair decision (e.g. exact_id with orcid.exact), plus this rule." },
+    { "id": "cluster.guard.conflict-pair", "kind": "cluster-guard", "path": "inherited", "outcome": "conflict", "confidence": null, "description": "An accepted pair would merge clusters that hold the two mentions of a CONFLICT pair decision (cannot-link): refused, the pair becomes conflict, so a transitive chain never places a conflict pair inside one cluster. Checked after the four guards above and before cluster.guard.rejected-pair. The decision keeps the match path, confidence and rules of the refused pair decision, plus this rule." },
+    { "id": "cluster.guard.rejected-pair", "kind": "cluster-guard", "path": "inherited", "outcome": "unresolved", "confidence": null, "description": "An accepted pair would merge clusters that hold the two mentions of a REJECTED pair decision, from any path including LLM rejections (cannot-link): the evidence for and against one identity disagrees, so the merge is refused and the pair becomes unresolved (e.g. Jane Smith ~ J. Smith ~ John Smith with Jane Smith / John Smith rejected: only the first merge in merge order is applied). Checked last, the same guard covers the implied cannot-link (reason merge-refused:given-name-conflict): the merged cluster would hold two dblp names with the same folded surname and conflicting given names (given_name_relation 0) that no accepted decision joins directly, which covers the chain above when Jane Smith and John Smith were never compared (e.g. two coauthor-keyed fallback blocks of an oversize initials-surname block; under these weights such a pair without shared coauthors is always rejected). A direct accepted decision between the two names is not overridden, and when the refused pair's own two names are such a conflict the merge is applied and the cluster is flagged instead (cluster.flag.given-name-conflict). The decision keeps the match path, confidence and rules of the refused pair decision, plus this rule." },
+    { "id": "dblp-prior.cluster", "kind": "assignment", "path": "deterministic", "outcome": "accepted", "confidence": 0.95, "description": "Identity assignment: the mention starts in the cluster of its exact dblp name string as the mention record holds it (the dblp prior: homonym suffix included, no normalization, so canonically equivalent spellings start in different clusters)." },
+    { "id": "cluster.merged", "kind": "assignment", "path": "any", "outcome": "accepted", "confidence": null, "description": "Identity assignment: the mention's dblp-prior cluster was merged with others through accepted decisions; path is the weakest merge path, confidence the lowest merge confidence." },
+    { "id": "cluster.flag.multiple-orcids", "kind": "assignment", "path": "any", "outcome": "conflict", "confidence": null, "description": "The final cluster holds two different ORCID iDs (possible only inside one dblp-prior cluster): kept as is, flagged conflict." },
+    { "id": "cluster.flag.same-work-mentions", "kind": "assignment", "path": "any", "outcome": "conflict", "confidence": null, "description": "The final cluster holds two mentions of the same work (possible only inside one dblp-prior cluster): kept as is, flagged conflict." },
+    { "id": "cluster.flag.given-name-conflict", "kind": "assignment", "path": "any", "outcome": "conflict", "confidence": null, "description": "The final cluster holds two dblp names with the same folded surname and conflicting given names (given_name_relation 0) that no accepted decision joins directly. Possible only when an accepted decision between two such names (the policy accepting a given-name conflict on direct evidence) brought the other name in; a merge through a compatible link (e.g. an initial) is refused instead (cluster.guard.rejected-pair, reason merge-refused:given-name-conflict). Kept as is, flagged conflict, so the identity uncertainty is reported." },
+    { "id": "work.doi.exact-link", "kind": "work", "path": "exact_id", "outcome": "accepted", "confidence": null, "description": "A J04 exact DOI link of a subset work (ExternalIdLink subject work, idType doi)." },
+    { "id": "work.openalex-work.exact-link", "kind": "work", "path": "exact_id", "outcome": "accepted", "confidence": null, "description": "A J04 exact OpenAlex work link of a subset work." },
+    { "id": "work.j04-conflict", "kind": "work", "path": "exact_id", "outcome": "conflict", "confidence": null, "description": "A work-level J04 conflict (DOI on several dblp works or several OpenAlex works, oversize identifier group)." },
+    { "id": "work.doi.shared-by-dblp-works", "kind": "work", "path": "exact_id", "outcome": "conflict", "confidence": null, "description": "One DOI on two or more subset dblp works: dblp lists separate records, the DOI names one work; never merged." },
+    { "id": "work.arxiv.shared-by-dblp-works", "kind": "work", "path": "exact_id", "outcome": "conflict", "confidence": null, "description": "One arXiv ID (from 10.48550/arXiv DOIs and arxiv.org links) on two or more subset dblp works; never merged." },
+    { "id": "work.landing-url.shared-by-dblp-works", "kind": "work", "path": "exact_id", "outcome": "conflict", "confidence": null, "description": "One normalized repository or landing URL on two or more subset dblp works; never merged." }
+  ],
+  "sourceReliability": {
+    "dblp": 1.0,
+    "orcid": 1.0,
+    "crossref": 0.9,
+    "openalex": 0.85,
+    "rationale": "Fixed per-source weights: dblp and ORCID records are curated by the authority for the fact; Crossref metadata is publisher-deposited; OpenAlex author and institution assignments are machine-inferred."
+  },
+  "venueAreas": {
+    "conf/sigir": "ir-web-mining",
+    "conf/www": "ir-web-mining",
+    "conf/cikm": "ir-web-mining",
+    "conf/wsdm": "ir-web-mining",
+    "conf/kdd": "ir-web-mining",
+    "conf/icde": "databases",
+    "conf/sigmod": "databases",
+    "journals/pvldb": "databases",
+    "conf/cvpr": "vision-multimedia",
+    "conf/iccv": "vision-multimedia",
+    "conf/mm": "vision-multimedia",
+    "conf/aaai": "ai-ml",
+    "conf/ijcai": "ai-ml",
+    "conf/nips": "ai-ml",
+    "conf/acl": "nlp",
+    "conf/emnlp": "nlp"
+  },
+  "notApplicable": {
+    "semanticScholarId": "Semantic Scholar is not a ScholarChain dataset; no Semantic Scholar identifier rule exists.",
+    "citationNeighborhood": "No citation data is ingested; citation-neighborhood evidence is not computed.",
+    "probabilisticWorkMatching": "Work resolution uses exact identifiers only; there is no shared contract for non-dblp works yet (finding 11)."
+  }
+}

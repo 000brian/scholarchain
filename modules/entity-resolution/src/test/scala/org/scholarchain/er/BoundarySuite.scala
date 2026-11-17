@@ -105,13 +105,15 @@ class BoundarySuite extends munit.FunSuite {
     }
   }
 
-  test("the policy file contains no label-derived fields") {
-    val text = new String(
-      Files.readAllBytes(moduleDir.resolve("src/main/resources/er/policy/er-v1.json")),
-      StandardCharsets.UTF_8
-    )
-    List("gold", "MATCH", "NON_MATCH", "precision", "recall").foreach(w =>
-      assert(!text.contains(w), s"policy mentions '$w'")
-    )
+  test("the policy files contain no label-derived fields") {
+    List("er-v1.json", "er-v2.json").foreach { f =>
+      val text = new String(
+        Files.readAllBytes(moduleDir.resolve("src/main/resources/er/policy").resolve(f)),
+        StandardCharsets.UTF_8
+      )
+      List("gold", "MATCH", "NON_MATCH", "precision", "recall").foreach(w =>
+        assert(!text.contains(w), s"policy $f mentions '$w'")
+      )
+    }
   }
 }

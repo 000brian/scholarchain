@@ -270,7 +270,7 @@
       AuthorNameKey (author-name-key/1): dblp-base-name (AuthorNameKey.baseNameKey: the dblp name
       without its homonym suffix, NFD) and initials-surname (AuthorNameKey.initialsSurnameKey:
       "J. Smith", "John Smith" and "Jane Smith" share "j smith"). The default runs both families,
-      the ones the er-v1 match policy reasons about (Phase 11, Phase 5 m5); set dblp-base-name to
+      the ones the ER match policy (er-v2) reasons about (Phase 11, Phase 5 m5); set dblp-base-name to
       keep only the Phase 4 family. Large initials-surname blocks are usually oversize and go
       through the J05b fallback.</description>
   </property>

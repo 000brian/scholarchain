@@ -370,6 +370,47 @@ class ClaimVerificationSuite extends munit.FunSuite {
     )
   }
 
+  // R3-01: weighted degrees in the 1900-2100 range (Alice 2034, Bob 1999.5000)
+  private def wd(r: ResearcherRef, v: Double) =
+    MetricFact(r, Full, FullW, CollaborationMetric.WeightedDegree, v, None, None, src, 30)
+  private val w2034 = wd(alice, 2034)
+  private val w1999 = wd(bob, 1999.5)
+  private val r301 = new EvidenceBuilder(ctx)
+    .build(queryRun, List(w2034, w1999, edge))
+    .fold(e => fail(e), identity)
+  private val r301Items = r301.items.map(i => i.evidenceId -> i).toMap
+  private def r301Verify(text: String, f: Fact*) =
+    ClaimVerification.verifyClaim(
+      DraftClaim("claim-1", text, f.toList.map(x => r301.idOf(x).value), Nil, None),
+      r301Items
+    )
+
+  test("R3-01: a whole metric value of 2034 that the cited metric holds is supported") {
+    val whole = r301Verify("In 2015-2025, Alice Smith has weighted degree 2034 (W).", w2034)
+    assertEquals(whole.status, Verified, whole.reasons.toString)
+  }
+
+  test("R3-01: a decimal metric value in the year range (1999.5000 as 1999.5) is supported") {
+    val dec = r301Verify("In 2015-2025, Bob Jones has weighted degree 1999.5 (W).", w1999)
+    assertEquals(dec.status, Verified, dec.reasons.toString)
+  }
+
+  test("R3-01: year-shaped numbers no cited non-year value holds are still years (L-2)") {
+    // a year-shaped number no cited non-year value holds is still checked as a year (L-2)
+    val wrongYear = r301Verify("Alice Smith has weighted degree 2034 (W) since 2033.", w2034)
+    assertEquals(wrongYear.status, Conflicting, wrongYear.reasons.toString)
+    assertEquals(wrongYear.reasons, List(ClaimVerification.Reasons.YearConflict))
+    // a window year is not a non-year value: a lone window year still conflicts
+    val windowYear = r301Verify("Alice Smith has weighted degree 2034 (W) in 2015.", w2034)
+    assertEquals(windowYear.reasons, List(ClaimVerification.Reasons.YearConflict))
+    // edge years stay years
+    val edgeYears = r301Verify(
+      "In 2015-2025, Alice Smith and Bob Jones share 3 joint publications from 2016 to 2022.",
+      edge
+    )
+    assertEquals(edgeYears.status, Verified, edgeYears.reasons.toString)
+  }
+
   test("verifier is deterministic") {
     val c = claim("In 2018-2020, Alice Smith has 38 distinct coauthors.", List(cAlice))
     assertEquals(status(c), status(c))

@@ -107,7 +107,9 @@ class EvalReportSuite extends munit.FunSuite {
     "probabilisticWorkMatching" -> "not implemented: SYNTHETIC (finding 11)"
   )
   private def policy: ujson.Value = {
-    val p = Paths.get(getClass.getClassLoader.getResource("er/policy/er-v1.json").toURI)
+    val p = Paths.get(
+      getClass.getClassLoader.getResource(org.scholarchain.er.policy.Policy.DefaultResource).toURI
+    )
     ujson.read(DataFiles.readUtf8(p))
   }
 
@@ -199,7 +201,7 @@ class EvalReportSuite extends munit.FunSuite {
   test("repair-10: policy, thresholds, features, rules, model and prompt versions, work coverage") {
     val m = run(full(), work = Some(workSummary))
     val c = m("runContext")
-    assertEquals(c("policyVersion").str, "er-v1")
+    assertEquals(c("policyVersion").str, "er-v2")
     assertEquals(c("thresholds")("accept").num, 0.9)
     assertEquals(c("promptVersion").str, "SYNTHETIC-PROMPT/1")
     assertEquals(c("llmModelId").str, "none/always-abstain")
@@ -209,7 +211,7 @@ class EvalReportSuite extends munit.FunSuite {
     assert(c("recordedFeaturesWithoutWeight").arr.map(_.str).contains("name_exact_match"))
     assert(c("rules").arr.exists(_("id").str == "orcid.disagree"))
     val md = Harness.markdown(m)
-    assert(md.contains("- Policy: er-v1 (status final)"), md)
+    assert(md.contains("- Policy: er-v2 (status final)"), md)
     assert(md.contains("prompt SYNTHETIC-PROMPT/1 (sha256 SYNTHETIC-prompt-sha)"), md)
     assert(md.contains("| given_name_relation | 0 to 1: -4; 1 to 2: 1; 2 to open: 3 |"), md)
     assert(md.contains("| orcid.disagree | pair | exact_id | conflict |"), md)

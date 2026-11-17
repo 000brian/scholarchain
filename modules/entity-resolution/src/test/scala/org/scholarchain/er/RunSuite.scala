@@ -122,7 +122,7 @@ class RunSuite extends munit.FunSuite {
     assertEquals(ds.flatMap(_.candidateId).map(_.value).toSet, cands.map(_.candidateId.value).toSet)
     assertEquals(ds.flatMap(_.candidateId).distinct.size, ds.size)
     ds.foreach { d =>
-      assertEquals(d.policyVersion, "er-v1")
+      assertEquals(d.policyVersion, "er-v2")
       assertEquals(d.decisionTime, "2026-11-14T00:00:00Z")
       assertEquals(d.provenance.runId.value, first.runId)
       assert(d.provenance.sourceRecordIds.nonEmpty)
@@ -240,7 +240,8 @@ class RunSuite extends munit.FunSuite {
     assert(m("inputRuns").arr.map(_.str).contains(Fixture.Run.value))
     assert(m("inputFiles").arr.exists(_("path").str.startsWith("match_candidate/")))
     assert(m("outputs").arr.exists(_("path").str == "review-queue/review-queue.csv"))
-    assertEquals(m("config")("policyVersion").str, "er-v1")
+    assertEquals(m("config")("policyVersion").str, "er-v2")
+    assertEquals(m("config")("policySha256").str, Policy.current.sha256)
     assert(Files.isRegularFile(file("_SUCCESS")))
   }
 

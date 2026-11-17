@@ -104,7 +104,19 @@ final case class Policy(
 }
 
 object Policy {
-  val DefaultResource = "er/policy/er-v1.json"
+
+  /** The policy every run uses: er-v2 (Phase 11, finding R2-03: the cluster merge behaviour of
+    * finding A-01 changed, so the label changed too).
+    */
+  val DefaultResource = "er/policy/er-v2.json"
+
+  /** The er-v1 policy file as frozen in Phase 5 (sha256 [[ErV1Sha256]], recorded by every er-v1 run
+    * manifest). Kept only as the record of what er-v1 outputs were produced under; the code no
+    * longer implements it (er-v2 added the rule `cluster.flag.given-name-conflict`), so it does not
+    * load, and no run uses it.
+    */
+  val ErV1Resource = "er/policy/er-v1.json"
+  val ErV1Sha256 = "4946b3504759d5f9a61f60646e6ca9d6cd27b0dd6ef26e57a1729c2fb32807ac"
   val VersionPattern = "[A-Za-z0-9][A-Za-z0-9._:/-]*"
 
   /** Path declared by cluster-guard rules: the refused decision keeps the match path (and
@@ -122,8 +134,13 @@ object Policy {
   def logistic(x: Double): Double = 1.0 / (1.0 + math.exp(-x))
   def logit(p: Double): Double = math.log(p / (1.0 - p))
 
-  /** The frozen policy er-v1. */
-  lazy val erV1: Policy = fromResource(DefaultResource)
+  /** The current frozen policy, er-v2 ([[DefaultResource]]). */
+  lazy val current: Policy = fromResource(DefaultResource)
+
+  /** Legacy accessor name, kept so `tests/contracts` compiles unchanged: it is the CURRENT policy
+    * ([[current]], er-v2), not er-v1. Prefer [[current]].
+    */
+  def erV1: Policy = current
 
   def fromResource(name: String): Policy =
     parse(DataFiles.readResource(name)).fold(e => throw new ErError(s"$name: $e"), identity)

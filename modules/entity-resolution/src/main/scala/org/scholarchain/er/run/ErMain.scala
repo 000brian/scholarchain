@@ -80,7 +80,7 @@ object ErMain {
       a.get(k).fold(d)(v => Try(v.toInt).getOrElse(throw new ErError(s"--$k must be an integer")))
     def dbl(k: String) =
       a.get(k).map(v => Try(v.toDouble).getOrElse(throw new ErError(s"--$k must be a number")))
-    val base = Policy.erV1
+    val base = Policy.current
     val overrides =
       List("accept-threshold", "reject-threshold", "llm-band-lower", "llm-min-confidence").filter(
         a.contains

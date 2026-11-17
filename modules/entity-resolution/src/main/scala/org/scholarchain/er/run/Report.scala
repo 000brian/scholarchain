@@ -132,7 +132,7 @@ object Report {
         )
       ),
       "calibration" -> ujson.Obj(
-        "description" -> "Label-free distribution of the scored match probability (probabilistic and LLM-band pairs), 20 bins of width 0.05, by final outcome. Reporting only; never used to set er-v1.",
+        "description" -> "Label-free distribution of the scored match probability (probabilistic and LLM-band pairs), 20 bins of width 0.05, by final outcome. Reporting only; never used to set the match policy.",
         "histogram" -> obj(histogram.map { case ((o, b), v) => f"$o/${b * 0.05}%.2f" -> v })
       ),
       "workResolution" -> workSummary,
@@ -153,7 +153,7 @@ object Report {
     ujson.Arr(
       ujson.Obj(
         "id" -> "blocking.middle-name-variants",
-        "description" -> "Middle-name and middle-initial variants are never compared: the initials-surname key keeps every given-name initial (John A. Smith -> j a smith, John Smith -> j smith) and the dblp-base-name key keeps the full base name, so two spellings that differ only by a middle name or middle initial share no block, get no MatchCandidate and stay in their own dblp-prior clusters. This is a recall gap of the blocking (author-name-key/1 and the configured families), not of the er-v1 weights; adding a blocking family (for example first initial plus surname) is a human decision.",
+        "description" -> "Middle-name and middle-initial variants are never compared: the initials-surname key keeps every given-name initial (John A. Smith -> j a smith, John Smith -> j smith) and the dblp-base-name key keeps the full base name, so two spellings that differ only by a middle name or middle initial share no block, get no MatchCandidate and stay in their own dblp-prior clusters. This is a recall gap of the blocking (author-name-key/1 and the configured families), not of the match-policy weights; adding a blocking family (for example first initial plus surname) is a human decision.",
         "measurement" -> "dblp names of this input grouped by first given-name initial plus surname (author-name-key/1 initials-surname key without its middle initials); a group holding two or more different initials-surname keys contains middle-name variants that no block pairs",
         "firstInitialSurnameGroupsSplitByMiddleInitials" -> groups,
         "dblpNamesInThoseGroups" -> names

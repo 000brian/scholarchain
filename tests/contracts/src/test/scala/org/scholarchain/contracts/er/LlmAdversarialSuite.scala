@@ -67,7 +67,7 @@ class LlmAdversarialSuite extends munit.FunSuite {
     Set(mid(l.key, 1), mid(r.key, 1))
   }
 
-  test("precondition: every synthetic pair is in the LLM band of er-v1") {
+  test("precondition: every synthetic pair is in the LLM band of the current policy") {
     val corpus = ErSynth.corpus(five)
     (0 until 5).foreach { i =>
       val c = bandCandidates(i).head

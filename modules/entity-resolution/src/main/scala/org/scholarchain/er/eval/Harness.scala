@@ -197,7 +197,7 @@ final case class Metrics(units: List[EvalUnit]) {
 
 /** The gold-set evaluation harness (decision 15). Reads only: the gold labels, the review queue,
   * the review key (all paths from the command line), and optionally the work-resolution summary.
-  * Never changes policy er-v1: the threshold sweep is reporting only.
+  * Never changes the match policy: the threshold sweep is reporting only.
   */
 object Harness {
   val Outcomes: List[String] = List("accepted", "rejected", "unresolved", "conflict")
@@ -605,7 +605,7 @@ object Harness {
           "falseNegativesTotal" -> fns.size
         ),
         "thresholdSensitivity" -> ujson.Obj(
-          "description" -> "Reporting only; never changes er-v1. Scored rows re-thresholded on their match probability; other rows keep their outcome.",
+          "description" -> "Reporting only; never changes the match policy. Scored rows re-thresholded on their match probability; other rows keep their outcome.",
           "grid" -> ujson.Arr.from(sweep)
         )
       ),

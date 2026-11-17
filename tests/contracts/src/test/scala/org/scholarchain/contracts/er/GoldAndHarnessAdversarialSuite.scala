@@ -257,7 +257,7 @@ class GoldAndHarnessAdversarialSuite extends munit.FunSuite {
     assertEquals(rr("errorAnalysis")("falseNegatives").arr.size, 2)
   }
 
-  test("threshold sweep re-thresholds scored rows only and never changes er-v1") {
+  test("threshold sweep re-thresholds scored rows only and never changes the policy") {
     val grid = rr("thresholdSensitivity")("grid").arr
     assertEquals(grid.size, 110)
     val strict = grid.find(g => g("accept").num == 0.99 && g("reject").num == 0.05).get

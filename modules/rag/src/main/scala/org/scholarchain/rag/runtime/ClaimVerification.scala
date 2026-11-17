@@ -30,11 +30,12 @@ final case class VerifiedClaim(
   *     else the whole claim, a cited item whose researcher is named there, and, for metric items, a
   *     metric the words there name (`distinct coauthors`, `publications`, ...). A value that only
   *     another researcher's or another metric's item holds is a conflict;
-  *   - years by their role (L-2, L-3): a year range (`2015-2025`, `2015–2025`, `between 2015 and
-  *     2025`) must equal the window of a cited item, the first-to-last years of a cited edge, or
-  *     the context window of a cited match-decision item; any other year (`from X to Y`, `since X`,
-  *     `in X`, ...) must equal a first or last year of a cited edge or the year of a cited work. A
-  *     window year alone never supports a single year;
+  *   - years by their role (L-2, L-3; a plain 1900-2100 number that equals a non-year value of a
+  *     cited graph item is checked as that number, R3-01): a year range (`2015-2025`, `2015–2025`,
+  *     `between 2015 and 2025`) must equal the window of a cited item, the first-to-last years of a
+  *     cited edge, or the context window of a cited match-decision item; any other year (`from X to
+  *     Y`, `since X`, `in X`, ...) must equal a first or last year of a cited edge or the year of a
+  *     cited work. A window year alone never supports a single year;
   *   - every number the claim binds (`numbers[]`) equals the named field of the named cited item;
   *   - "N hops" equals the hop count of a cited path item;
   *   - every quoted title equals the title of a cited work item;
@@ -346,7 +347,11 @@ object ClaimVerification {
       val lit = m.group(1)
       val plain = NumberFormats.plain(lit)
       val n = plain.toDouble
-      val isYear = lit == plain && !plain.contains('.') && n >= 1900 && n <= 2100
+      // R3-01: a year-shaped number is a year only when no cited non-year value matches it
+      val isYear = lit == plain && !plain.contains('.') && n >= 1900 && n <= 2100 &&
+        !values.exists { case (f, v) =>
+          !EvidenceValues.YearFields.contains(f) && literalMatches(lit, v)
+        }
       if (isYear) {
         if (eventYears.contains(n.toInt)) checked += 1
         else if (graph.nonEmpty) conflicts += Reasons.YearConflict

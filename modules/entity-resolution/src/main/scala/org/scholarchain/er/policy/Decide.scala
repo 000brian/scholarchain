@@ -108,8 +108,8 @@ final case class Assessment(
     nearThreshold: Boolean
 )
 
-/** Pair decision rules and scoring of policy er-v1. Rules are tried in order; the first that fires
-  * decides; otherwise the weighted score decides:
+/** Pair decision rules and scoring of the current policy (er-v2). Rules are tried in order; the
+  * first that fires decides; otherwise the weighted score decides:
   *
   *   1. structural.same-work: same work, conflict (deterministic).
   *   1. orcid.disagree: both have ORCID iDs that are not one single iD, conflict (exact_id).

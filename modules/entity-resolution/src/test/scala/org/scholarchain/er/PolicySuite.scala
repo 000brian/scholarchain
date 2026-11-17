@@ -9,10 +9,10 @@ import org.scholarchain.er.run.ErMain
 import org.scholarchain.er.work.WorkResolution
 
 class PolicySuite extends munit.FunSuite {
-  private val p = Policy.erV1
+  private val p = Policy.current
 
-  test("er-v1 is final, versioned and names the shared name-key rule and J06 feature set") {
-    assertEquals(p.policyVersion, "er-v1")
+  test("er-v2 is final, versioned and names the shared name-key rule and J06 feature set") {
+    assertEquals(p.policyVersion, "er-v2")
     assertEquals(p.status, "final")
     assertEquals(p.nameKeyVersion, "author-name-key/1")
     assertEquals(p.candidateFeatureSet, "candidate-features/1-provisional")
@@ -52,11 +52,11 @@ class PolicySuite extends munit.FunSuite {
   test("threshold overrides need a new policy version") {
     val t = p.thresholds.copy(accept = 0.95)
     assert(p.withThresholds("", t).isLeft)
-    assert(p.withThresholds("er-v1", t).isLeft)
-    val o = p.withThresholds("er-v1-acc95", t)
-    assertEquals(o.map(_.policyVersion), Right("er-v1-acc95"))
-    assertEquals(o.map(_.overriddenFrom), Right(Some("er-v1")))
-    assert(p.withThresholds("er-v1b", t.copy(reject = 0.97)).isLeft)
+    assert(p.withThresholds("er-v2", t).isLeft)
+    val o = p.withThresholds("er-v2-acc95", t)
+    assertEquals(o.map(_.policyVersion), Right("er-v2-acc95"))
+    assertEquals(o.map(_.overriddenFrom), Right(Some("er-v2")))
+    assert(p.withThresholds("er-v2b", t.copy(reject = 0.97)).isLeft)
   }
 
   test("the command line refuses threshold overrides without a policy version change") {
@@ -71,10 +71,13 @@ class PolicySuite extends munit.FunSuite {
       "adjudicator" -> "always-abstain"
     )
     intercept[org.scholarchain.er.io.ErError](ErMain.config(base + ("accept-threshold" -> "0.95")))
-    intercept[org.scholarchain.er.io.ErError](ErMain.config(base + ("policy-version" -> "er-v2")))
+    intercept[org.scholarchain.er.io.ErError](ErMain.config(base + ("policy-version" -> "er-v3")))
+    val (plain, _) = ErMain.config(base)
+    assertEquals(plain.policy.policyVersion, "er-v2")
     val (cfg, _) =
-      ErMain.config(base ++ Map("accept-threshold" -> "0.95", "policy-version" -> "er-v1-acc95"))
-    assertEquals(cfg.policy.policyVersion, "er-v1-acc95")
+      ErMain.config(base ++ Map("accept-threshold" -> "0.95", "policy-version" -> "er-v2-acc95"))
+    assertEquals(cfg.policy.policyVersion, "er-v2-acc95")
+    assertEquals(cfg.policy.overriddenFrom, Some("er-v2"))
     intercept[org.scholarchain.er.io.ErError](ErMain.config(base + ("adjudicator" -> "live")))
     intercept[org.scholarchain.er.io.ErError](ErMain.parseArgs(Seq("--bogus", "1")))
   }
@@ -90,8 +93,8 @@ class PolicySuite extends munit.FunSuite {
     assert(Policy.parse(text.getBytes(StandardCharsets.UTF_8)).isRight)
   }
 
-  test("m7: the thresholds rationale states what the er-v1 weights actually do") {
-    val p0 = Policy.erV1
+  test("m7: the thresholds rationale states what the policy weights actually do") {
+    val p0 = Policy.current
     def p(fs: (String, Double)*): Double =
       Policy.logistic(p0.logOdds(fs.toList.map { case (n, v) => MatchFeature(n, v) }, 1.0))
     val accept = p0.thresholds.accept
@@ -156,7 +159,30 @@ class PolicySuite extends munit.FunSuite {
       "a known blind spot of the blocking (pairs it can never offer), not of these weights"
     ).foreach(s => assert(text.contains(s), s))
     // the text change leaves every weight, rule and threshold as it was
-    assertEquals(p.policyVersion, "er-v1")
+    assertEquals(p.policyVersion, "er-v2")
     assertEquals(p.thresholds, Thresholds(0.9, 0.3, 0.6, 0.8, 0.5))
+  }
+
+  test("R2-03: the A-01 merge behaviour runs under er-v2; er-v1 stays the frozen Phase 5 file") {
+    // the current policy is er-v2 and declares the A-01 rules (implied cannot-link, given-name flag)
+    assertEquals(Policy.DefaultResource, "er/policy/er-v2.json")
+    assertEquals(Policy.current.policyVersion, "er-v2")
+    assert(Rules.All.contains(Rules.FlagGivenNameConflict))
+    assertEquals(Policy.current.rule(Rules.FlagGivenNameConflict).outcome, "conflict")
+    val v2 = new String(DataFiles.readResource(Policy.DefaultResource), StandardCharsets.UTF_8)
+    assert(v2.contains(Reasons.MergeGivenNameConflict), "er-v2 names the implied cannot-link")
+    // the legacy accessor is the current policy, never a second er-v1 policy
+    assert(Policy.erV1 eq Policy.current)
+    // er-v1.json is byte-identical to the Phase 5 file whose sha256 every er-v1 manifest records
+    val v1 = DataFiles.readResource(Policy.ErV1Resource)
+    assertEquals(DataFiles.sha256OfBytes(v1), Policy.ErV1Sha256)
+    val v1Text = new String(v1, StandardCharsets.UTF_8)
+    assert(v1Text.contains("\"policyVersion\": \"er-v1\""))
+    assert(!v1Text.contains(Rules.FlagGivenNameConflict))
+    assert(!v1Text.contains(Reasons.MergeGivenNameConflict))
+    // ... and the code, which implements the A-01 rules, refuses to run it under the label er-v1
+    val refused = Policy.parse(v1)
+    assert(refused.isLeft, refused)
+    assert(refused.left.exists(_.contains("do not match the implemented rules")), refused)
   }
 }
