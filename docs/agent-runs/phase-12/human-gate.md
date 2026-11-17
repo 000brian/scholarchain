@@ -59,7 +59,6 @@
 > I approve this plan to be applied in Phase 14 with my own admin profile.
 > Plan file `plans/80a3606ce513a6c782b87cffbc2c9d361bc0fc3f.tfplan`, sha256 `5f249df56c344b47dd17e4e88974c0175f07a2ad912f1020ee1e5dfaa68d26af`, commit `80a3606ce513a6c782b87cffbc2c9d361bc0fc3f`: 174 create, 0 change, 0 delete, 0 replace.
 > If the code, the lock file or the variables change before then, I sign a new plan.
->
 > Signed: Brian, Nov 17, 2026
 
 ## What I reviewed
@@ -90,7 +89,7 @@ The prompt, the session 1 factory report, review and diff, the build report, the
 6. **Not built, for cost or because not needed:** VPC flow logs, private endpoints for ECR and other services, a monitoring agent on EMR, a shared script helper file, tag rules on the state machine's EMR permissions.
 7. **`expires = "2026-12-31"`:** confirmed. My `owner` value is in my untracked `local.auto.tfvars`.
 8. **Phase 11 A-04** (the dataset script reads the OpenAlex key from a fixed variable name): doesn't touch Phase 12; that script runs only on my laptop. Stays for the Phase 17 review.
-9. **Cost:** this phase $0 on all three providers. Total so far: AWS a few cents (the Nov 16 test load balancer), Anthropic about $0.12, Voyage $0; together about $0.13–0.19. I check the real AWS figure on the bill.
+9. **Cost:** this phase $0 on all three providers. Total so far: AWS $0 (the bill shows $0.00 on Nov 17, including the Nov 16 test load balancer), Anthropic about $0.12, Voyage $0; together about $0.12.
 
 **Minor findings:**
 
@@ -149,6 +148,6 @@ No code changes. All code is agent-written: step F and the `.gitignore` change a
 
 ## Acceptance
 
-I ratify the step F changes to `.mcp.json`, `.claude/settings.json`, `docs/agents.md` and the dataset-engineer and infra-engineer files (commit 4ad139e).
+I ratify the step F changes to `.mcp.json`, `.claude/settings.json`, `docs/agents.md` and the dataset-engineer and infra-engineer files (commit 4ad139e63ec05be4cebf38bf46655f00ae5ff9f2).
 
 I accept Phase 12 as of commits 4ad139e63ec05be4cebf38bf46655f00ae5ff9f2 and 80a3606ce513a6c782b87cffbc2c9d361bc0fc3f, and I sign the plan above.
