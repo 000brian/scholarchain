@@ -1,0 +1,2 @@
+4ad139e63ec05be4cebf38bf46655f00ae5ff9f2  phase-12 step F (factory-engineer): MCP python 3.12 pin, terraform validate -chdir and fmt allow rules, shellcheck wording
+80a3606ce513a6c782b87cffbc2c9d361bc0fc3f  phase-12 work: Terraform for the course environment, six scripts, config/course.json (infra-engineer, build-engineer), repair round 1
