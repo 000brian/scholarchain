@@ -56,38 +56,74 @@ Exit codes everywhere: 0 ok, 2 usage, 3 missing prerequisite, 4 refused by a saf
 
 ## Full reproduction, in order (zsh, one line each, from the repository root)
 
-Set these once per shell (they are plain values, no secret):
+This is the order Phase 14 session 3 runs (Phase 14 work order, decision 12; step IDs D0a to D20). Pipeline before the runtime-on plan: the plan needs the Spark graph run ID. A full reproduction from nothing starts with check.sh in a fresh clone and the first runtime-off apply (see "First apply" below); experiments (Phase 15) and cleanup come after D20.
+
+Set these once per shell (plain values, no secret):
 
 1. `BUILD=$(git log -1 --format=%H -- build.sbt project modules prompts docker config .scalafmt.conf .jvmopts .sbtopts); echo "$BUILD"`
-2. `export AWS_PROFILE=YOUR-ADMIN-PROFILE` (the human's own profile; use the deploy profile where the Phase 14 prompt says so)
+2. `export AWS_PROFILE=YOUR-ADMIN-PROFILE` (Phase 14: the human's admin profile for every script, planned deviation 2)
 
-Then:
+Run each line as `COMMAND 2>&1 | tee /tmp/p14-DNN.log; echo "exit=${pipestatus[1]}"` to keep the log.
 
-| # | Step | Command |
+| Step | What | Command |
 |---|---|---|
-| 1 | check (in a fresh clone; keep the record in the main checkout) | `REPO="$(git rev-parse --show-toplevel)"; SHA="$(git rev-parse HEAD)"; CLEAN="/tmp/sc-clean-${SHA:0:12}"; git clone --no-local "$REPO" "$CLEAN" && cd "$CLEAN" && bash scripts/check.sh --record-dir "$REPO/evidence/checks"; echo "exit=$?"; cd "$REPO"` |
-| 2 | package | `bash scripts/package.sh; echo "exit=$?"` |
-| 3 | plan (runtime off) | `bash scripts/plan.sh; echo "exit=$?"` |
-| 4 | sign | add the whole line `APPROVED-PLAN-SHA256: HEX64` (the printed `PLAN-SHA256`) to `docs/agent-runs/phase-NN/human-gate.md` or `approvals.md` and commit it (only `docs/agent-runs/**`, so the plan stays usable) |
-| 5 | deploy (runtime off) | `bash scripts/deploy.sh --plan-sha256 HEX64; echo "exit=$?"`, then commit `releases/course/ATTEMPT_ID.json` |
-| 6 | publish | `bash scripts/package.sh --publish; echo "exit=$?"` |
-| 7 | upload input | `bash scripts/run-bounded-pipeline.sh --stage upload-input --source dblp --snapshot SNAPSHOT --file PATH-TO-SUBSET; echo "exit=$?"` |
-| 8 | Hadoop | `bash scripts/run-bounded-pipeline.sh --stage hadoop --snapshot SNAPSHOT --dblp 's3://{data-bucket}/raw/dblp/SNAPSHOT/FILE'; echo "exit=$?"` |
-| 9 | entity resolution (this machine) | `bash scripts/run-bounded-pipeline.sh --stage er --snapshot SNAPSHOT --hadoop-export 's3://{data-bucket}/curated/hadoop/SCOPE/j09-graph-export/run=HEX' --decision-time 2026-11-14T00:00:00Z --seed 20261114; echo "exit=$?"` (the J09 run is in the hadoop record, `run_ids.hadoop_j09_export_runs`) |
-| 10 | Spark (graph) | `bash scripts/run-bounded-pipeline.sh --stage spark --snapshot SNAPSHOT --hadoop-export 's3://{data-bucket}/curated/hadoop/SCOPE/j09-graph-export/run=HEX' --identity-assignments 's3://{data-bucket}/curated/er/ATTEMPT_ID/run=HEX/decisions/identity_assignment' --out-root 's3://{data-bucket}/graph/runs'; echo "exit=$?"` |
-| 11 | Spark (export of that graph run) | the same command plus `--export-source-run 's3://{data-bucket}/graph/runs/run=HEX32' --export-root 's3://{data-bucket}/graph/exports'` (the graph run is in the spark record, `run_ids.graph_runs_under_out_root`) |
-| 12 | plan (runtime on, with the graph run) and sign | `bash scripts/plan.sh --runtime-enabled true --image-tag "$BUILD" --graph-run-id run:v1:HEX32; echo "exit=$?"`, then commit its `APPROVED-PLAN-SHA256:` line in `docs/agent-runs/phase-14/approvals.md` |
-| 13 | deploy (runtime on) | `bash scripts/deploy.sh --plan-sha256 HEX64; echo "exit=$?"`, then commit the release record |
-| 14 | load DynamoDB | `bash scripts/run-bounded-pipeline.sh --stage load --snapshot SNAPSHOT --loader dynamodb-load --export 's3://{data-bucket}/graph/exports/ATTEMPT_ID/run=HEX32'; echo "exit=$?"` |
-| 15 | build the Neptune CSVs | `bash scripts/run-bounded-pipeline.sh --stage load --snapshot SNAPSHOT --loader neptune-csv-build --dataset-id scholarchain-graph --export 's3://{data-bucket}/graph/exports/ATTEMPT_ID/run=HEX32'; echo "exit=$?"` |
-| 16 | start the Neptune bulk load | `bash scripts/run-bounded-pipeline.sh --stage load --snapshot SNAPSHOT --loader neptune-bulk-start --graph-run 's3://{data-bucket}/graph/dataset=scholarchain-graph/snapshot=SNAPSHOT/run=HEX'; echo "exit=$?"` (the graph run is in the csv-build record, `outputs.program_lines`) |
-| 17 | wait for the bulk load | `bash scripts/run-bounded-pipeline.sh --stage load --snapshot SNAPSHOT --loader neptune-bulk-status --load-id LOAD-ID --wait-seconds 600; echo "exit=$?"` (once per load ID) |
-| 18 | vector ingest | `bash scripts/run-bounded-pipeline.sh --stage load --snapshot SNAPSHOT --loader rag-ingest --export 's3://{data-bucket}/graph/exports/ATTEMPT_ID/run=HEX32'; echo "exit=$?"` |
-| 19 | smoke test | `export SCHOLARCHAIN_SERVICE_API_KEY` (already set in your shell; never on the command line), then `bash scripts/smoke-test.sh --question 'QUESTION THE LOADED GRAPH ANSWERS'; echo "exit=$?"` |
-| 20 | experiments | `bash scripts/run-experiment.sh --manifest experiments/manifests/ID.json --manifest-sha256 HEX64; echo "exit=$?"` (after `APPROVED-MANIFEST-SHA256: HEX64` is committed) |
-| 21 | archive | `bash scripts/archive-evidence.sh; echo "exit=$?"` (S3 mode; `--local-only` before anything is deployed) |
-| 22 | cleanup list, sign, remove | `bash scripts/cleanup.sh --evidence-archive evidence/archives/NAME.tar --list; echo "exit=$?"`, commit its `APPROVED-PLAN-SHA256:` line, then `bash scripts/cleanup.sh --evidence-archive evidence/archives/NAME.tar --remove --plan-sha256 HEX64; echo "exit=$?"` (first apply a signed `--cleanup-mode true --runtime-enabled false` plan, infra/terraform/README.md "Cleanup mode") |
+| 0 | check (full reproduction only; fresh clone, record kept in the main checkout) | `REPO="$(git rev-parse --show-toplevel)"; SHA="$(git rev-parse HEAD)"; CLEAN="/tmp/sc-clean-${SHA:0:12}"; git clone --no-local "$REPO" "$CLEAN" && cd "$CLEAN" && bash scripts/check.sh --record-dir "$REPO/evidence/checks"; echo "exit=$?"; cd "$REPO"` |
+| D0a | runtime-off plan, sign, deploy | `bash scripts/plan.sh`; read `plans/*.summary.txt` (Phase 14 attempt 3: only `module.observability.aws_cloudwatch_dashboard.this` is created; nothing changed, replaced or deleted); add the whole line `APPROVED-PLAN-SHA256: HEX64` to `docs/agent-runs/phase-NN/approvals.md` and commit only `docs/agent-runs/**`; then `bash scripts/deploy.sh --plan-sha256 HEX64` and commit `releases/course/ATTEMPT_ID.json` (every service desired 0, running 0) |
+| D0b | cost-allocation tags | Billing and Cost Management console, Cost allocation tags, user-defined: activate `project` and `environment` (may take up to 24 hours to be listed) |
+| D1 | commit check | `git status --short` prints nothing; HEAD holds the last reviewed commit |
+| D2 | package | `bash scripts/package.sh` (the build commit is `$BUILD`; four jars with sha256 in `evidence/packages/BUILD/package-record.json`) |
+| D3 | cost bound | add the bound sentence to `approvals.md`, commit only `docs/agent-runs/**` |
+| D4 | publish | `bash scripts/package.sh --publish` (image `BUILD` to ECR, jars to `s3://{data-bucket}/artifacts/BUILD/`) |
+| D5a | check the inputs | `md5 -q 'LOCAL_DIR/dblp-2026-11-01.xml.gz'` must print the manifest's `snapshot_md5` (`datasets/dataset-manifest.yaml`); `shasum -a 256 'LOCAL_DIR/dblp.dtd'` must print the manifest's `dtd_sha256` (`2d864498f9eef9298662df11e3874171ff24cd4a21ab5974f1369c90acdb1ef6`) |
+| D5b | upload the DTD | `bash scripts/run-bounded-pipeline.sh --stage upload-input --source dblp --snapshot dblp-2026-11-01 --file 'LOCAL_DIR/dblp.dtd'` (prints `INPUT-LOCATION: s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp.dtd`) |
+| D5c | upload the release | `bash scripts/run-bounded-pipeline.sh --stage upload-input --source dblp --snapshot dblp-2026-11-01 --max-upload-mb 1100 --file 'LOCAL_DIR/dblp-2026-11-01.xml.gz'` (the file is 1,064.4 MiB, above the 1024 MiB default) |
+| D6 | Hadoop (EMR) | `bash scripts/run-bounded-pipeline.sh --stage hadoop --snapshot dblp-2026-11-01 --dblp 's3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp-2026-11-01.xml.gz' --hadoop-extra-arg '--dblp-dtd' --hadoop-extra-arg 's3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp.dtd'` (see "DBLP DTD" below); then `aws emr list-clusters --active --query 'length(Clusters)' --output text` prints `0` |
+| D7 | entity resolution (this machine) | `bash scripts/run-bounded-pipeline.sh --stage er --snapshot dblp-2026-11-01 --hadoop-export 's3://{data-bucket}/curated/hadoop/SCOPE/j09-graph-export/run=HEX' --decision-time 2026-11-14T00:00:00Z --seed 20261114` (the J09 run is in the hadoop record, `run_ids.hadoop_j09_export_runs`) |
+| D8 | Spark graph (EMR) | `bash scripts/run-bounded-pipeline.sh --stage spark --snapshot dblp-2026-11-01 --hadoop-export 's3://{data-bucket}/curated/hadoop/SCOPE/j09-graph-export/run=HEX' --identity-assignments 's3://{data-bucket}/curated/er/ATTEMPT_ID/run=HEX/decisions/identity_assignment' --out-root 's3://{data-bucket}/graph/runs'` (exactly one graph run in `run_ids.graph_runs_under_out_root`); the EMR check as in D6 |
+| D9 | Spark export (EMR) | the D8 command plus `--export-source-run 's3://{data-bucket}/graph/runs/run=HEX32' --export-root 's3://{data-bucket}/graph/exports'` (the graph job is reused; the export run equals the graph run); the EMR check as in D6 |
+| D10 | runtime-on plan and sign | `bash scripts/plan.sh --runtime-enabled true --image-tag "$BUILD" --graph-run-id run:v1:HEX32` (HEX32 = the SPARK graph run of D8/D9, never the Neptune CSV folder); no stateful delete or replace in the summary; sign in `approvals.md` as in D0a |
+| D11 | runtime-on deploy | `bash scripts/deploy.sh --plan-sha256 HEX64`, then commit the release record. Rollback policy: see "First runtime-on deploy" below |
+| D12 | readiness (information) | `/readyz` answers 200 on empty stores (it proves reachability and IAM, not loaded data) |
+| D13a | load DynamoDB | `bash scripts/run-bounded-pipeline.sh --stage load --snapshot dblp-2026-11-01 --loader dynamodb-load --export 's3://{data-bucket}/graph/exports/ATTEMPT_ID/run=HEX32'` |
+| D13b | build the Neptune CSVs | `bash scripts/run-bounded-pipeline.sh --stage load --snapshot dblp-2026-11-01 --loader neptune-csv-build --dataset-id scholarchain-graph --export 's3://{data-bucket}/graph/exports/ATTEMPT_ID/run=HEX32'` |
+| D13c | start the Neptune bulk load | `bash scripts/run-bounded-pipeline.sh --stage load --snapshot dblp-2026-11-01 --loader neptune-bulk-start --graph-run 's3://{data-bucket}/graph/dataset=scholarchain-graph/snapshot=dblp-2026-11-01/run=HEX'` (the CSV folder from D13b's `outputs.program_lines`, not the Spark ID) |
+| D13d, D13e | wait for each bulk load | `bash scripts/run-bounded-pipeline.sh --stage load --snapshot dblp-2026-11-01 --loader neptune-bulk-status --load-id LOAD-ID --wait-seconds 600`, repeated until `LOAD_COMPLETED` or a failure; nodes load ID first, then the edges load ID |
+| D13f | vector ingest (after the human approves the estimate) | `bash scripts/run-bounded-pipeline.sh --stage load --snapshot dblp-2026-11-01 --loader rag-ingest --export 's3://{data-bucket}/graph/exports/ATTEMPT_ID/run=HEX32'` |
+| D14 | smoke test, question A (spec gate) | `read -rs "SCHOLARCHAIN_SERVICE_API_KEY?Service API key: "; export SCHOLARCHAIN_SERVICE_API_KEY` then `bash scripts/smoke-test.sh --question 'Which paper of Wanli Ouyang had the most coauthors on one paper between 2015 and 2025?'` |
+| D15 | smoke test, question B (Neptune path check) | `bash scripts/smoke-test.sh --question 'Find the shortest path between Tommaso Green and Yiannis Demiris in the coauthorship graph for 2015-2025.'` |
+| D16 | live suites | the sbt commands in the Phase 14 storage and rag reports, each after the human's go |
+| D17 | deployment report | deploy-engineer checks the records and the live state read-only |
+| D18 | archive | `bash scripts/archive-evidence.sh` (S3 mode; it learns the account from the caller and runs the identifier check, I-25) |
+| D19 | runtime stays on | `aws emr list-clusters --active --query 'length(Clusters)' --output text` prints `0`, and no `ops` task runs |
+| D20 | costs | billing console (AWS), Anthropic and Voyage dashboards |
+| later | experiments | `bash scripts/run-experiment.sh --manifest experiments/manifests/ID.json --manifest-sha256 HEX64` (after `APPROVED-MANIFEST-SHA256: HEX64` is committed) |
+| later | cleanup list, sign, remove | `bash scripts/cleanup.sh --evidence-archive evidence/archives/NAME.tar --list`, commit its `APPROVED-PLAN-SHA256:` line, then `bash scripts/cleanup.sh --evidence-archive evidence/archives/NAME.tar --remove --plan-sha256 HEX64` (first apply a signed `--cleanup-mode true --runtime-enabled false` plan, infra/terraform/README.md "Cleanup mode") |
 
-The Phase 14 prompt may change the order of the runtime-on plan (steps 12 and 13) and the pipeline (steps 7 to 18). Uppercase words (`SNAPSHOT`, `HEX`, `HEX32`, `HEX64`, `ATTEMPT_ID`, `SCOPE`, `LOAD-ID`, `PATH-TO-SUBSET`, `NAME`) are values you copy from the previous step's printed lines or run record; replace them before you run the line.
+Uppercase words (`LOCAL_DIR`, `SCOPE`, `HEX`, `HEX32`, `HEX64`, `ATTEMPT_ID`, `BUILD`, `LOAD-ID`, `NAME`) are values you copy from the previous step's printed lines or run record; replace them before you run the line.
 
-Phase 13 (decision 13): only check.sh (fresh clone), package.sh (no `--publish`), plan.sh and `archive-evidence.sh --local-only` are run, by the human.
+## DBLP DTD (Phase 14 decision 7)
+
+The release declares no entities itself and writes non-ASCII characters as DTD named entities (`&eacute;`), so the Hadoop parse needs `dblp.dtd`. Without it the Hadoop stage still SUCCEEDS but rejects every record with a named entity as `undefined_entity`. The driver option `--dblp-dtd PATH` (modules/hadoop, `ScholarChainHadoop`) sets `scholarchain.dblp.dtdPath`; it goes through two `--hadoop-extra-arg` values, in this order: `'--dblp-dtd'`, then `'s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp.dtd'`. Do not pass `-D scholarchain.dblp.dtdPath=...` that way: the state machine appends the extra arguments after the application options, and the driver refuses a trailing `-D`. The D6 check: the J01 counter `scholarchain.reject-reason:undefined_entity` is 0. The run record's `configuration.note` and `configuration.extra_args` name the options passed.
+
+## First apply (new account)
+
+On Nov 17 (Phase 14, attempt 1) the first runtime-off apply stopped at the Neptune cluster with `KMSKeyNotAccessibleFault` for the AWS managed key `aws/rds`: it was the first use of that key in the account. A few minutes later the key was enabled. The fix is to wait a few minutes, then make a NEW runtime-off plan (`bash scripts/plan.sh`; the old plan is stale after a partial apply), sign it and run deploy.sh with it. No release record is written for a failed apply.
+
+## Entering the four key values (after the first apply)
+
+Terraform creates only the four Secrets Manager containers (`infra/terraform/modules/identity/app-keys.tf`); no value is in Terraform, its state or a plan. Enter each value in the AWS console, never on a command line (a command line stays in the shell history and the process list): Secrets Manager, open the container whose tag `env-var` is the variable name (`SCHOLARCHAIN_VOYAGE_API_KEY`, `SCHOLARCHAIN_ANTHROPIC_API_KEY`, `SCHOLARCHAIN_SERVICE_API_KEY`, `SCHOLARCHAIN_SERVICE_READONLY_API_KEY`), "Retrieve secret value", "Set secret value", Plaintext, paste the value, Save. Tasks read the value when they start.
+
+For smoke-test.sh, export the full-access service key in your shell without echoing it: `read -rs "SCHOLARCHAIN_SERVICE_API_KEY?Service API key: "; export SCHOLARCHAIN_SERVICE_API_KEY` (zsh). smoke-test.sh passes it to curl on standard input and never prints it.
+
+## First runtime-on deploy (D11): rollback policy and desired count
+
+- Rollback: the previous task-definition revisions are the runtime-off placeholders (image tag `placeholder-runtime-disabled`, never pushed), so rollback.sh has nothing good to go back to. On a failure of the first runtime-on deploy, fix forward (a script, code or Terraform repair, then a new package, plan or deploy as the repair needs); never roll back to a placeholder. From the second runtime-on deploy on, the normal policy applies: rollback.sh to the release record's previous revision; anything beyond that goes to the human.
+- Desired count (I-28): Terraform ignores `desired_count` after a service exists, so turning the runtime on moves only the scaling targets' minimum of query, evidence and graph from 0 to 1. The Application Auto Scaling API reference (RegisterScalableTarget) says an update of an existing scalable target moves the current capacity into the new bounds, so the count should rise to 1 (untested here). deploy.sh exits 6 and prints every service's desired, running and pending counts when any of the three has desired 0 or running 0 after the wait; no release record is written.
+- Remedy if the count stays at 0 (with the human's go): for each of the three services, `aws ecs update-service --cluster CLUSTER --service ROLE --desired-count 1 --query 'service.[serviceName,desiredCount]' --output text` (CLUSTER from `terraform output -raw ecs_cluster_name`). Drift: none in the next plan, because `desired_count` is in `ignore_changes` and 1 is inside the scaling target's bounds (min 1). Then make a new runtime-on plan from the same values (it should show no change), sign it, and run deploy.sh with it to verify the services and write the release record (deploy.sh refuses to re-run a plan it already applied).
+
+## Smoke questions (Phase 14 rag-engineer report, from benchmark-v1)
+
+- A (researcher, spec gate; benchmark q05): `Which paper of Wanli Ouyang had the most coauthors on one paper between 2015 and 2025?` A correct answer resolves Wanli Ouyang to one researcher, window 2015-2025, metric max_coauthors_on_one_paper = 19, the 2024 work "Lumina-Next : Making Lumina-T2X Stronger and Faster with Next-DiT." (team size 20), and at least one verified claim whose evidence ID `GET /v1/evidence/ID` returns. It needs the DynamoDB and Neptune loads, not the vectors.
+- B (collaboration path, Neptune path template; benchmark q13): `Find the shortest path between Tommaso Green and Yiannis Demiris in the coauthorship graph for 2015-2025.` A correct answer resolves both researchers, has a path of exactly 2 hops through one shared coauthor and no direct edge, with a COAUTHORED_WITH edge fact per hop and at least one verified claim. A failure here is a finding, not a gate failure.
+
+Phase 13 (decision 13): only check.sh (fresh clone), package.sh (no `--publish`), plan.sh and `archive-evidence.sh --local-only` were run, by the human.

@@ -12,9 +12,12 @@ import org.scholarchain.storage.ports._
 import software.amazon.awssdk.core.document.Document
 import software.amazon.awssdk.core.exception.{
   ApiCallAttemptTimeoutException,
-  ApiCallTimeoutException
+  ApiCallTimeoutException,
+  SdkException,
+  SdkServiceException
 }
 import software.amazon.awssdk.services.neptunedata.NeptunedataClient
+import software.amazon.awssdk.services.neptunedata.model
 import software.amazon.awssdk.services.neptunedata.model._
 
 object NeptuneClients {
@@ -55,7 +58,18 @@ final class NeptuneBulkLoader(client: NeptunedataClient) extends GraphBulkLoader
       .queueRequest(job.queueRequest)
       .userProvidedEdgeIds(job.userProvidedEdgeIds)
     if (job.dependencies.nonEmpty) b.dependencies(job.dependencies.asJava)
-    val r = AwsErrors.guard(client.startLoaderJob(b.build()))
+    val r =
+      try client.startLoaderJob(b.build())
+      catch {
+        case e: SdkServiceException if NeptuneBulkLoader.isDefiniteRejection(e) =>
+          val name = e.getClass.getSimpleName
+          throw new BulkLoadStartRejected(
+            name,
+            e.statusCode,
+            s"StartLoaderJob refused: $name (HTTP ${e.statusCode}): ${e.getMessage}"
+          )
+        case e: SdkException => throw AwsErrors.wrap(e)
+      }
     Option(r.payload())
       .flatMap(p => Option(p.get("loadId")))
       .getOrElse(throw new IllegalStateException("no loadId in response"))
@@ -74,6 +88,35 @@ final class NeptuneBulkLoader(client: NeptunedataClient) extends GraphBulkLoader
       num("totalRecords"),
       num("parsingErrors") + num("insertErrors") + num("datatypeMismatchErrors")
     )
+  }
+}
+
+object NeptuneBulkLoader {
+
+  /** A `StartLoaderJob` error is a definite refusal (no load was created) when it is one of the
+    * operation's documented client errors below AND its HTTP status is 4xx other than 408 and 429.
+    * Source: Neptune Data API reference, StartLoaderJob "Errors" and "Common Error Types"
+    * (https://docs.aws.amazon.com/neptune/latest/data-api/API_StartLoaderJob.html,
+    * https://docs.aws.amazon.com/neptune/latest/data-api/CommonErrors.html). Not definite (outcome
+    * unknown, the load may exist): `ClientTimeoutException` (408), `TooManyRequestsException`
+    * (429), `ThrottlingException`, `InternalFailureException` (500), every other service error,
+    * every client-side error (timeouts, I/O, interrupted calls) and a 200 response without a load
+    * ID.
+    */
+  def isDefiniteRejection(e: SdkServiceException): Boolean = {
+    val definiteClass = e match {
+      case _: BadRequestException | _: BulkLoadIdNotFoundException |
+          _: ConstraintViolationException | _: InvalidArgumentException |
+          _: InvalidParameterException | _: LoadUrlAccessDeniedException |
+          _: MissingParameterException | _: PreconditionsFailedException | _: S3Exception |
+          _: AccessDeniedException =>
+        true
+      case _: model.IllegalArgumentException      => true
+      case _: model.UnsupportedOperationException => true
+      case _                                      => false
+    }
+    val s = e.statusCode
+    definiteClass && s >= 400 && s < 500 && s != 408 && s != 429
   }
 }
 

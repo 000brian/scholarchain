@@ -1,0 +1,939 @@
+diff --git a/.gitignore b/.gitignore
+index 1e3eab7..0803d1c 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -10,9 +10,7 @@ metals.sbt
+ .scala-build/
+ *.class
+ *.log
+-# Committed evidence keeps its logs: raw experiment results and release records are never ignored.
+-!experiments/**/*.log
+-!releases/**/*.log
++# Committed evidence (experiments/**, releases/**) is re-included by the final block at the end.
+ 
+ # Evidence records and archives written by scripts/** (never committed)
+ evidence/
+@@ -74,3 +72,37 @@ crash.log
+ crash.*.log
+ !infra/terraform/environments/course/course.tfvars
+ infra/terraform/environments/course/plans/
++
++# FINAL RULE (keep this block last; Git applies the last matching pattern):
++# nothing under experiments/ or releases/ is ignored. Raw experiment results and release
++# records are committed evidence, whatever their names (*.log, crash.log, *.plan, tfplan,
++# target/, and every other rule above). The only exception is secret material: the secret
++# rules below repeat the secrets section above (plus Terraform state) after the negation,
++# so a secret-looking file under experiments/ or releases/ stays ignored. Keep both lists
++# identical, and add any new rule above this block.
++!experiments/**
++!releases/**
++.env
++.env.*
++.envrc
++*.pem
++*.key
++*.p12
++*.pfx
++*.jks
++*.keystore
++id_rsa*
++id_ed25519*
++id_ecdsa*
++id_dsa*
++.netrc
++*credentials*.json
++*.tfstate
++*.tfstate.*
++secrets
++.secrets
++.aws
++.ssh
++.gnupg
++**/.config/gh
++**/.docker/config.json
+diff --git a/modules/hadoop/src/main/resources/scholarchain-hadoop-defaults.xml b/modules/hadoop/src/main/resources/scholarchain-hadoop-defaults.xml
+index 52368f4..3b57c9b 100644
+--- a/modules/hadoop/src/main/resources/scholarchain-hadoop-defaults.xml
++++ b/modules/hadoop/src/main/resources/scholarchain-hadoop-defaults.xml
+@@ -155,7 +155,10 @@
+     <description>Optional path of the dblp DTD (for the real release: dblp.dtd from the raw
+       prefix). Its general entities are added to those of the file's internal DTD subset. Empty
+       means internal subset only. An entity defined by neither rejects the record
+-      (undefined_entity).</description>
++      (undefined_entity), so the real release needs it. Any Hadoop FileSystem path (s3://,
++      hdfs://, file:///). The pipeline driver also sets it from its option --dblp-dtd, which
++      works where -D cannot: after the application options, where the EMR step appends its
++      extra arguments.</description>
+   </property>
+   <property>
+     <name>scholarchain.dblp.maxExpandedRecordChars</name>
+diff --git a/modules/hadoop/src/main/scala/org/scholarchain/hadoop/pipeline/ScholarChainHadoop.scala b/modules/hadoop/src/main/scala/org/scholarchain/hadoop/pipeline/ScholarChainHadoop.scala
+index cdf544c..26237e0 100644
+--- a/modules/hadoop/src/main/scala/org/scholarchain/hadoop/pipeline/ScholarChainHadoop.scala
++++ b/modules/hadoop/src/main/scala/org/scholarchain/hadoop/pipeline/ScholarChainHadoop.scala
+@@ -10,15 +10,31 @@ import org.scholarchain.hadoop.common.JobResult
+   * {{{
+   * pipeline --output <root> --dblp <path> --dblp-snapshot <id>
+   *          [--source <kind>:<datasetId>:<snapshotId>:<path>]... [--dblp-fingerprint <sha256:...>]
++  *          [--dblp-dtd <path>]
+   * }}}
+   *
+   * The driver never creates clusters or submits EMR steps; cloud runs go through the approved
+   * scripts owned by infra-engineer. `scholarchain.code.version` must be set with `-D`.
++  *
++  * `--dblp-dtd` sets `scholarchain.dblp.dtdPath` (any Hadoop FileSystem path, for example
++  * `s3://...`). It exists because generic `-D` options are only read before the first application
++  * option, and the EMR step appends its extra arguments after them. Giving both `--dblp-dtd` and a
++  * different non-empty `-D scholarchain.dblp.dtdPath` is refused. Unknown options are refused, so a
++  * misspelt option never silently changes nothing.
+   */
+ class ScholarChainHadoop extends Configured with Tool {
+ 
+   override def run(args: Array[String]): Int = {
+     val opts = ScholarChainHadoop.parse(args.toList)
++    opts.get("--dblp-dtd").map(_.head).foreach { dtd =>
++      val key = org.scholarchain.hadoop.common.Settings.Keys.DblpDtdPath
++      if (dtd.trim.isEmpty) throw new IllegalArgumentException("--dblp-dtd must not be empty")
++      Option(getConf.getTrimmed(key)).filter(_.nonEmpty).foreach { set =>
++        if (set != dtd.trim)
++          throw new IllegalArgumentException(s"--dblp-dtd conflicts with -D $key=$set")
++      }
++      getConf.set(key, dtd.trim)
++    }
+     val spec = PipelineSpec(
+       new Path(opts("--dblp").head),
+       opts("--dblp-snapshot").head,
+@@ -47,18 +63,22 @@ object ScholarChainHadoop {
+       case _ =>
+         System.err.println(
+           "usage: pipeline --output <root> --dblp <path> --dblp-snapshot <id> " +
+-            "[--source kind:datasetId:snapshotId:path]..."
++            "[--source kind:datasetId:snapshotId:path]... [--dblp-fingerprint sha256:...] " +
++            "[--dblp-dtd path]"
+         )
+         sys.exit(2)
+     }
+ 
+-  private val Single = Set("--output", "--dblp", "--dblp-snapshot", "--dblp-fingerprint")
++  private val Single =
++    Set("--output", "--dblp", "--dblp-snapshot", "--dblp-fingerprint", "--dblp-dtd")
++  private val Repeatable = Set("--source")
+ 
+   def parse(args: List[String]): Map[String, List[String]] = {
+     def go(rest: List[String], acc: Map[String, List[String]]): Map[String, List[String]] =
+       rest match {
+         case Nil                                  => acc
+         case k :: v :: tail if k.startsWith("--") =>
++          if (!Single(k) && !Repeatable(k)) throw new IllegalArgumentException(s"unknown option $k")
+           if (Single(k) && acc.contains(k)) throw new IllegalArgumentException(s"$k given twice")
+           go(tail, acc.updated(k, acc.getOrElse(k, Nil) :+ v))
+         case other =>
+diff --git a/modules/storage/src/main/scala/org/scholarchain/storage/aws/NeptuneAdapters.scala b/modules/storage/src/main/scala/org/scholarchain/storage/aws/NeptuneAdapters.scala
+index 6abf7dd..abecc1d 100644
+--- a/modules/storage/src/main/scala/org/scholarchain/storage/aws/NeptuneAdapters.scala
++++ b/modules/storage/src/main/scala/org/scholarchain/storage/aws/NeptuneAdapters.scala
+@@ -12,9 +12,12 @@ import org.scholarchain.storage.ports._
+ import software.amazon.awssdk.core.document.Document
+ import software.amazon.awssdk.core.exception.{
+   ApiCallAttemptTimeoutException,
+-  ApiCallTimeoutException
++  ApiCallTimeoutException,
++  SdkException,
++  SdkServiceException
+ }
+ import software.amazon.awssdk.services.neptunedata.NeptunedataClient
++import software.amazon.awssdk.services.neptunedata.model
+ import software.amazon.awssdk.services.neptunedata.model._
+ 
+ object NeptuneClients {
+@@ -55,7 +58,18 @@ final class NeptuneBulkLoader(client: NeptunedataClient) extends GraphBulkLoader
+       .queueRequest(job.queueRequest)
+       .userProvidedEdgeIds(job.userProvidedEdgeIds)
+     if (job.dependencies.nonEmpty) b.dependencies(job.dependencies.asJava)
+-    val r = AwsErrors.guard(client.startLoaderJob(b.build()))
++    val r =
++      try client.startLoaderJob(b.build())
++      catch {
++        case e: SdkServiceException if NeptuneBulkLoader.isDefiniteRejection(e) =>
++          val name = e.getClass.getSimpleName
++          throw new BulkLoadStartRejected(
++            name,
++            e.statusCode,
++            s"StartLoaderJob refused: $name (HTTP ${e.statusCode}): ${e.getMessage}"
++          )
++        case e: SdkException => throw AwsErrors.wrap(e)
++      }
+     Option(r.payload())
+       .flatMap(p => Option(p.get("loadId")))
+       .getOrElse(throw new IllegalStateException("no loadId in response"))
+@@ -77,6 +91,35 @@ final class NeptuneBulkLoader(client: NeptunedataClient) extends GraphBulkLoader
+   }
+ }
+ 
++object NeptuneBulkLoader {
++
++  /** A `StartLoaderJob` error is a definite refusal (no load was created) when it is one of the
++    * operation's documented client errors below AND its HTTP status is 4xx other than 408 and 429.
++    * Source: Neptune Data API reference, StartLoaderJob "Errors" and "Common Error Types"
++    * (https://docs.aws.amazon.com/neptune/latest/data-api/API_StartLoaderJob.html,
++    * https://docs.aws.amazon.com/neptune/latest/data-api/CommonErrors.html). Not definite (outcome
++    * unknown, the load may exist): `ClientTimeoutException` (408), `TooManyRequestsException`
++    * (429), `ThrottlingException`, `InternalFailureException` (500), every other service error,
++    * every client-side error (timeouts, I/O, interrupted calls) and a 200 response without a load
++    * ID.
++    */
++  def isDefiniteRejection(e: SdkServiceException): Boolean = {
++    val definiteClass = e match {
++      case _: BadRequestException | _: BulkLoadIdNotFoundException |
++          _: ConstraintViolationException | _: InvalidArgumentException |
++          _: InvalidParameterException | _: LoadUrlAccessDeniedException |
++          _: MissingParameterException | _: PreconditionsFailedException | _: S3Exception |
++          _: AccessDeniedException =>
++        true
++      case _: model.IllegalArgumentException      => true
++      case _: model.UnsupportedOperationException => true
++      case _                                      => false
++    }
++    val s = e.statusCode
++    definiteClass && s >= 400 && s < 500 && s != 408 && s != 429
++  }
++}
++
+ /** Read-only graph queries: only the allowlisted templates (see [[CypherTemplates]]), identifiers
+   * always as parameters, bounded by [[GraphReadSettings]]. Use it with read-only credentials (Phase
+   * 12 IAM). Graph reads are not retried: a failed read is reported to the caller (Left).
+diff --git a/modules/storage/src/main/scala/org/scholarchain/storage/load/StorageLoadMain.scala b/modules/storage/src/main/scala/org/scholarchain/storage/load/StorageLoadMain.scala
+index b87f3c9..5705229 100644
+--- a/modules/storage/src/main/scala/org/scholarchain/storage/load/StorageLoadMain.scala
++++ b/modules/storage/src/main/scala/org/scholarchain/storage/load/StorageLoadMain.scala
+@@ -10,9 +10,15 @@ import scala.util.control.NonFatal
+ import org.scholarchain.core.{Hashing, RunId}
+ import org.scholarchain.core.config.{ConfigLoader, ScholarChainConfig}
+ import org.scholarchain.storage.{Sleeper, StorageConfig, StorageVersion}
+-import org.scholarchain.storage.dynamo.{ArtifactRegistry, Change, DynamoLoader}
++import org.scholarchain.storage.dynamo.{ArtifactRegistry, ArtifactVersion, Change, DynamoLoader}
+ import org.scholarchain.storage.neptune.{BulkLoadRequests, NeptuneBuildSettings, NeptuneCsvBuilder}
+-import org.scholarchain.storage.ports.{AttrValue, ObjectRef, ObjectStore, PutOutcome}
++import org.scholarchain.storage.ports.{
++  AttrValue,
++  BulkLoadStartRejected,
++  ObjectRef,
++  ObjectStore,
++  PutOutcome
++}
+ import org.scholarchain.storage.s3.{ManifestEntry, RunManifest, S3KeyLayout}
+ import org.scholarchain.storage.source.{ExportSource, ExportSources, RejectLog, S3ExportSource}
+ 
+@@ -45,9 +51,10 @@ final class LoadNotFinished(message: String) extends RuntimeException(message)
+   *   - `neptune-bulk-start`: checks the graph run (manifest present, every object present with its
+   *     size), starts the `nodes` load and then the `edges` load (depending on the nodes load), and
+   *     registers each step in the ArtifactRegistry before the next starts (a `starting` claim, the
+-  *     nodes load ID, then both load IDs); a retry after the nodes start starts the edges load
+-  *     only, a graph run already started is refused, and a claim without a nodes load ID is refused
+-  *     (the nodes start may have reached Neptune).
++  *     nodes load ID, an `edges-starting` claim, then both load IDs); a start the loader refused
++  *     for certain is recorded (`nodes-failed`, `edges-failed`) and may be started again; a retry
++  *     after the nodes start starts the edges load only; a graph run already started is refused,
++  *     and so is a claim whose start has an unknown outcome (the load may exist in Neptune).
+   *   - `neptune-bulk-status`: the status of one load ID, optionally waiting up to `--wait-seconds`.
+   *
+   * Common rules: `--config` is the configuration file plus the `SCHOLARCHAIN_CFG_*` overrides (as
+@@ -598,14 +605,20 @@ object StorageLoadMain {
+         case Some(_) => ()
+       }
+     }
+-    // Registry protocol (C-04): every step is registered before the next one starts, as a new
+-    // append-only version written with a conditional put, so a retry never starts a load twice.
+-    //   v1 state=starting       written before the nodes start (claims the graph run)
+-    //   v2 state=nodes-started  written right after the nodes start, with nodesLoadId
+-    //   v3 state=started        written after the edges start, with both load IDs
+-    // A retry after v2 starts only the edges load (depending on the registered nodes load); a
+-    // retry after v1 alone is refused, because the nodes start may have reached Neptune without
+-    // its load ID being registered (the runbook checks Neptune's load list first).
++    // Registry protocol (C-04, C-06, C-07): every step is registered before the next one starts,
++    // as a new append-only version written with a conditional put, so a retry never starts a load
++    // twice. States, in order (each a new version):
++    //   starting        claim written before the nodes start
++    //   nodes-failed    the nodes start was refused for certain (BulkLoadStartRejected), startError
++    //   nodes-started   written right after the nodes start, with nodesLoadId
++    //   edges-starting  claim written before the edges start, with nodesLoadId
++    //   edges-failed    the edges start was refused for certain, with nodesLoadId and startError
++    //   started         written after the edges start, with both load IDs
++    // A retry from nodes-failed starts again from the nodes claim; from nodes-started or
++    // edges-failed it starts only the edges load (depending on the registered nodes load). A retry
++    // from starting or edges-starting is refused: that start's outcome is unknown (timeout,
++    // network error, throttling, 5xx, or the version after it was not written), so the load may
++    // exist in Neptune. A retry from started is refused (already started).
+     val registry = new ArtifactRegistry(stores.kv, cfg.dynamoDb.artifactRegistryTable)
+     val graphRunId = s"${RunId.Prefix}${run.runHex}"
+     def register(previous: Long, state: String, ids: (String, String)*): Long = {
+@@ -625,36 +638,93 @@ object StorageLoadMain {
+         case _ => previous + 1
+       }
+     }
++    // Starts one stage after its claim (version `claim`). A definite refusal appends `failedState`
++    // (masked error class, HTTP status) and fails the run, so a later start may try again; any
++    // other exception propagates and leaves the claim as the latest version (outcome unknown).
++    def startStage(
++        stage: String,
++        deps: List[String],
++        claim: Long,
++        failedState: String,
++        ids: (String, String)*
++    ): String =
++      try loader.start(request(stage, deps))
++      catch {
++        case e: BulkLoadStartRejected =>
++          val errorClass = masking(e.errorClass)
++          val recorded =
++            try {
++              val v = register(
++                claim,
++                failedState,
++                (ids ++ List(
++                  "startError" -> errorClass,
++                  "startHttpStatus" -> e.httpStatus.toString
++                ))*
++              )
++              s"registry version $v records $failedState, so a new start of this graph run is allowed once the cause is fixed"
++            } catch {
++              case NonFatal(r) =>
++                s"recording $failedState failed (${r.getClass.getSimpleName}), so the claim (version $claim) stays and a new start is refused"
++            }
++          report("bulkLoadFailure") = ujson.Obj(
++            "stage" -> stage,
++            "errorClass" -> errorClass,
++            "httpStatus" -> e.httpStatus.toDouble,
++            "registryState" -> failedState
++          )
++          throw new BulkLoadStartRejected(
++            e.errorClass,
++            e.httpStatus,
++            s"the $stage start was refused by the loader ($errorClass, HTTP ${e.httpStatus}); $recorded: ${e.getMessage}"
++          )
++      }
++    def unknownOutcome(v: ArtifactVersion, stage: String, known: String) =
++      new LoadRefused(
++        s"a $stage start of this graph run was begun (registry version ${v.version}, ${v.item.strOpt("loadState").getOrElse("no state")}) and its outcome is unknown: the $stage load may exist in Neptune.$known Check Neptune's loader list for a load of this graph run (with a known load ID: $NeptuneBulkStatus --load-id ID). The registry is append-only and is never edited by hand; the only other way to a new start is a new export or a new configuration (a new graph run)"
++      )
++    def startNodes(previous: Long): (String, Long) = {
++      val claim = register(previous, StateStarting)
++      val id = startStage("nodes", Nil, claim, StateNodesFailed)
++      wiring.print(s"[storage-load] started nodes load $id")
++      (id, register(claim, StateNodesStarted, "nodesLoadId" -> id))
++    }
+     val latest = registry.latest(NeptuneLoadArtifact, run.root.key)
+     val (nodesId, fromVersion, resumed) = latest match {
+       case None =>
+-        val v1 = register(0L, StateStarting)
+-        val id = loader.start(request("nodes", Nil))
+-        wiring.print(s"[storage-load] started nodes load $id")
+-        (id, register(v1, StateNodesStarted, "nodesLoadId" -> id), false)
++        val (id, v) = startNodes(0L)
++        (id, v, false)
+       case Some(v) if v.item.strOpt("edgesLoadId").isDefined =>
+         val ids =
+           List("nodesLoadId", "edgesLoadId").flatMap(k => v.item.strOpt(k).map(x => s"$k=$x"))
+         throw new LoadRefused(
+-          s"this graph run was already started (registry version ${v.version}: ${ids.mkString(", ")}); check it with $NeptuneBulkStatus. Reloading a cluster belongs to the runbook (load into an empty cluster)"
++          s"this graph run was already started (registry version ${v.version}: ${ids.mkString(", ")}); check it with $NeptuneBulkStatus. Reloading a cluster needs an empty cluster and a new graph run"
+         )
+       case Some(v) =>
+-        v.item.strOpt("nodesLoadId") match {
+-          case Some(id) =>
++        (v.item.strOpt("loadState"), v.item.strOpt("nodesLoadId")) match {
++          case (Some(StateNodesFailed), _) =>
++            wiring.print(
++              s"[storage-load] retrying: the nodes start was refused (registry version ${v.version}, ${v.item.strOpt("startError").getOrElse("unknown error")}); starting the nodes load again"
++            )
++            val (id, nv) = startNodes(v.version)
++            (id, nv, true)
++          case (Some(StateNodesStarted | StateEdgesFailed), Some(id)) =>
+             wiring.print(
+               s"[storage-load] resuming: nodes load $id is registered (registry version ${v.version}); starting the edges load only"
+             )
+             (id, v.version, true)
+-          case None =>
+-            throw new LoadRefused(
+-              s"a start of this graph run was begun (registry version ${v.version}, ${v.item.strOpt("loadState").getOrElse("unknown state")}) but its nodes load ID was not registered; the nodes load may have been sent. Check Neptune's load list (runbook) before any new start"
+-            )
++          case (Some(StateEdgesStarting), Some(id)) =>
++            throw unknownOutcome(v, "edges", s" The nodes load is $id.")
++          case _ =>
++            throw unknownOutcome(v, "nodes", "")
+         }
+     }
+-    val edgesId = loader.start(request("edges", List(nodesId)))
++    val edgesClaim = register(fromVersion, StateEdgesStarting, "nodesLoadId" -> nodesId)
++    val edgesId =
++      startStage("edges", List(nodesId), edgesClaim, StateEdgesFailed, "nodesLoadId" -> nodesId)
+     wiring.print(s"[storage-load] started edges load $edgesId (depends on $nodesId)")
+     val finalVersion =
+-      register(fromVersion, StateStarted, "nodesLoadId" -> nodesId, "edgesLoadId" -> edgesId)
++      register(edgesClaim, StateStarted, "nodesLoadId" -> nodesId, "edgesLoadId" -> edgesId)
+     report("bulkLoad") = ujson.Obj(
+       "files" -> ujson.Obj.from(byStage.toList.sortBy(_._1).map { case (k, v) =>
+         k -> ujson.Num(v.size)
+@@ -670,7 +740,10 @@ object StorageLoadMain {
+ 
+   /** `loadState` values of the `neptune-load` registry entries (see [[neptuneBulkStart]]). */
+   val StateStarting = "starting"
++  val StateNodesFailed = "nodes-failed"
+   val StateNodesStarted = "nodes-started"
++  val StateEdgesStarting = "edges-starting"
++  val StateEdgesFailed = "edges-failed"
+   val StateStarted = "started"
+ 
+   // ---- neptune-bulk-status --------------------------------------------------------------------
+diff --git a/modules/storage/src/main/scala/org/scholarchain/storage/ports/GraphPorts.scala b/modules/storage/src/main/scala/org/scholarchain/storage/ports/GraphPorts.scala
+index 635e1d5..905c3d6 100644
+--- a/modules/storage/src/main/scala/org/scholarchain/storage/ports/GraphPorts.scala
++++ b/modules/storage/src/main/scala/org/scholarchain/storage/ports/GraphPorts.scala
+@@ -30,8 +30,20 @@ final case class BulkLoadJob(
+ 
+ final case class BulkLoadStatus(loadId: String, status: String, totalRecords: Long, errors: Long)
+ 
++/** The bulk loader refused a start request for certain (Phase 14 C-07): the service answered with
++  * an error that means the request was not accepted, so no load was created. `errorClass` is the
++  * service's error name (for example `BadRequestException`); it holds no identifier.
++  */
++final class BulkLoadStartRejected(val errorClass: String, val httpStatus: Int, message: String)
++    extends RuntimeException(message)
++
+ /** Neptune bulk loader: the only path for large graph loads. */
+ trait GraphBulkLoader {
++
++  /** Starts one load and returns its load ID. Throws [[BulkLoadStartRejected]] only when the
++    * request was refused for certain; any other exception (timeout, network error, throttling, 5xx,
++    * a response without a load ID) means the outcome is unknown: the load may exist.
++    */
+   def start(job: BulkLoadJob): String
+   def status(loadId: String): BulkLoadStatus
+ }
+diff --git a/modules/storage/src/test/scala/org/scholarchain/storage/load/StorageLoadMainLocalSuite.scala b/modules/storage/src/test/scala/org/scholarchain/storage/load/StorageLoadMainLocalSuite.scala
+index a1a6feb..bc1e243 100644
+--- a/modules/storage/src/test/scala/org/scholarchain/storage/load/StorageLoadMainLocalSuite.scala
++++ b/modules/storage/src/test/scala/org/scholarchain/storage/load/StorageLoadMainLocalSuite.scala
+@@ -5,9 +5,19 @@ import java.nio.file.{Files, Path}
+ import scala.collection.mutable
+ 
+ import org.scholarchain.core.config.{ConfigKey, ValueKind}
+-import org.scholarchain.storage.{Sleeper, StorageConfig, TestFixtures}
++import org.scholarchain.storage.{Sleeper, StorageConfig, StoreException, TestFixtures}
++import org.scholarchain.storage.dynamo.ArtifactRegistry
+ import org.scholarchain.storage.local.LocalFileObjectStore
+-import org.scholarchain.storage.ports.{BulkLoadJob, BulkLoadStatus, GraphBulkLoader}
++import org.scholarchain.storage.ports.{
++  BulkLoadJob,
++  BulkLoadStartRejected,
++  BulkLoadStatus,
++  ConditionalResult,
++  GraphBulkLoader,
++  Item,
++  ItemKey,
++  KeyValueStore
++}
+ 
+ /** `StorageLoadMain` end to end in local mode on the small synthetic export (file-system object
+   * store, in-memory tables, recording bulk loader; no AWS call, no network), plus the AWS-mode
+@@ -151,15 +161,49 @@ class StorageLoadMainLocalSuite extends munit.FunSuite {
+     assertEquals(shared.recorder.jobs.size, 2)
+   }
+ 
+-  /** Local stores whose bulk loader fails the start of the given stages, once each. */
+-  private final class FailingStartStores(local: LoadStores.Local, failOnce: Set[String])
+-      extends LoadStores {
+-    private val pending = mutable.Set.from(failOnce)
++  /** How a simulated start fails: a definite refusal, or an unknown outcome (I/O error). */
++  private def definite(stage: String): Throwable =
++    new BulkLoadStartRejected("BadRequestException", 400, s"simulated $stage refusal")
++  private def unknown(stage: String): Throwable =
++    new java.io.IOException(s"simulated $stage start failure")
++
++  /** A table store that throws (as DynamoDB throttling would) on the first registry write whose
++    * `loadState` is one of `failStates`, once each; every other call goes to `inner`.
++    */
++  private final class FailingRegistryKv(inner: KeyValueStore, failStates: Set[String])
++      extends KeyValueStore {
++    private val pending = mutable.Set.from(failStates)
++    def putIfAbsent(table: String, item: Item): ConditionalResult =
++      item.strOpt("loadState") match {
++        case Some(st) if pending.remove(st) =>
++          throw new StoreException(s"simulated registry failure writing $st", transient = true)
++        case _ => inner.putIfAbsent(table, item)
++      }
++    def putIfVersion(table: String, item: Item, expectedVersion: Long): ConditionalResult =
++      inner.putIfVersion(table, item, expectedVersion)
++    def get(table: String, key: ItemKey): Option[Item] = inner.get(table, key)
++    def query(
++        table: String,
++        pk: String,
++        skPrefix: Option[String],
++        limit: Int,
++        descending: Boolean
++    ): List[Item] = inner.query(table, pk, skPrefix, limit, descending)
++  }
++
++  /** Local stores whose bulk loader fails the start of the given stages once each (with the stage's
++    * throwable), and whose registry writes fail once for `failRegistryStates`.
++    */
++  private final class FailingStartStores(
++      local: LoadStores.Local,
++      failOnce: Map[String, String => Throwable],
++      failRegistryStates: Set[String] = Set.empty
++  ) extends LoadStores {
++    private val pending = mutable.Map.from(failOnce)
+     val loader: GraphBulkLoader = new GraphBulkLoader {
+       def start(job: BulkLoadJob): String = {
+         val stage = job.source.split("/neptune/").last.stripSuffix("/")
+-        if (pending.remove(stage))
+-          throw new java.io.IOException(s"simulated $stage start failure")
++        pending.remove(stage).foreach(f => throw f(stage))
+         local.recorder.start(job)
+       }
+       def status(loadId: String): BulkLoadStatus = local.recorder.status(loadId)
+@@ -167,7 +211,7 @@ class StorageLoadMainLocalSuite extends munit.FunSuite {
+     val kind = "local"
+     val description = "local stores with a failing bulk loader"
+     def objects = local.objects
+-    def kv = local.kv
++    val kv: KeyValueStore = new FailingRegistryKv(local.kv, failRegistryStates)
+     def bulkLoader: Either[String, GraphBulkLoader] = Right(loader)
+     def report(c: StorageConfig): ujson.Obj = local.report(c)
+     def close(): Unit = ()
+@@ -179,60 +223,151 @@ class StorageLoadMainLocalSuite extends munit.FunSuite {
+       .toOption
+       .get
+ 
+-  test("neptune-bulk-start: an edges start failure, then a retry starts edges only (C-04)") {
+-    val w = new Workspace("bulk-retry")
++  /** A built graph run and a `neptune-bulk-start` runner over failing stores. */
++  private final class BulkStartCase(
++      name: String,
++      failOnce: Map[String, String => Throwable],
++      failRegistryStates: Set[String] = Set.empty
++  ) {
++    val w = new Workspace(name)
+     val p = new Printed
+-    val o1 = w.out()
++    private val o1 = w.out()
+     assertEquals(csvBuild(w, p, o1), Exit.Completed)
+-    val graphRun = graphRunUri(readReport(o1)._2)
+-    val local = new LoadStores.Local(w.root, localConfig(w))
+-    val stores = new FailingStartStores(local, Set("edges"))
+-    def start(o: Path) = run(
+-      NeptuneBulkStart :: w
+-        .common(o) ++ List("--graph-run", graphRun, "--loader-role-arn", RoleArn),
+-      wiring(p, Some(stores))
++    val graphRun: String = graphRunUri(readReport(o1)._2)
++    val cfg: StorageConfig = localConfig(w)
++    val local = new LoadStores.Local(w.root, cfg)
++    val stores = new FailingStartStores(local, failOnce, failRegistryStates)
++    def start(): (Int, ujson.Value) = {
++      val o = w.out()
++      val code = run(
++        NeptuneBulkStart :: w
++          .common(o) ++ List("--graph-run", graphRun, "--loader-role-arn", RoleArn),
++        wiring(p, Some(stores))
++      )
++      val (text, r) = readReport(o)
++      assertMasked(text)
++      (code, r)
++    }
++    def stages: List[String] = local.recorder.jobs.map(_.source.split("/neptune/").last).toList
++
++    /** `loadState` of every registry version of this graph run, in order. */
++    def states: List[String] = {
++      val key = GraphRun.parse(graphRun, cfg.zones("graph")).toOption.get.root.key
++      new ArtifactRegistry(local.kv, cfg.dynamoDb.artifactRegistryTable)
++        .history(NeptuneLoadArtifact, key, 100)
++        .map(_.str("loadState"))
++    }
++  }
++
++  test("C-07: a definite nodes start refusal is recorded as nodes-failed; a retry succeeds") {
++    val c = new BulkStartCase("bulk-nodes-definite", Map("nodes" -> definite))
++    val (code1, r1) = c.start()
++    assertEquals(code1, Exit.Failed, c.p.text)
++    assert(r1("status").str.contains("nodes start was refused"), r1("status").str)
++    assert(r1("status").str.contains("records nodes-failed"), r1("status").str)
++    assertEquals(r1("bulkLoadFailure")("errorClass").str, "BadRequestException")
++    assertEquals(r1("bulkLoadFailure")("registryState").str, StateNodesFailed)
++    assertEquals(c.states, List(StateStarting, StateNodesFailed))
++    assertEquals(c.stages, Nil)
++
++    val (code2, r2) = c.start()
++    assertEquals(code2, Exit.Completed, c.p.text)
++    assertEquals(c.stages, List("nodes/", "edges/"))
++    assertEquals(r2("bulkLoad")("nodesLoadId").str, "local-load-0001")
++    assertEquals(r2("bulkLoad")("edgesLoadId").str, "local-load-0002")
++    assertEquals(
++      c.states,
++      List(
++        StateStarting,
++        StateNodesFailed,
++        StateStarting,
++        StateNodesStarted,
++        StateEdgesStarting,
++        StateStarted
++      )
+     )
+-    val o2 = w.out()
+-    assertEquals(start(o2), Exit.Failed, p.text)
+-    assert(readReport(o2)._2("status").str.contains("simulated edges"), p.text)
+-    assertEquals(local.recorder.jobs.map(_.source.split("/neptune/").last).toList, List("nodes/"))
++    assertEquals(c.start()._1, Exit.Refused)
++    assertEquals(c.stages.size, 2)
++  }
+ 
+-    val o3 = w.out()
+-    assertEquals(start(o3), Exit.Completed, p.text)
+-    val r3 = readReport(o3)._2
+-    val stages = local.recorder.jobs.map(_.source.split("/neptune/").last).toList
+-    assertEquals(stages, List("nodes/", "edges/"), "the retry must not start nodes again")
+-    assertEquals(local.recorder.jobs.last.dependencies, List("local-load-0001"))
+-    assertEquals(r3("bulkLoad")("nodesLoadId").str, "local-load-0001")
+-    assertEquals(r3("bulkLoad")("edgesLoadId").str, "local-load-0002")
+-    assertEquals(r3("bulkLoad")("resumed").bool, true)
+-
+-    val o4 = w.out()
+-    assertEquals(start(o4), Exit.Refused)
+-    assert(readReport(o4)._2("status").str.contains("already started"))
+-    assertEquals(local.recorder.jobs.size, 2)
++  test("C-07: an unknown nodes start outcome keeps the claim; a retry is refused, no runbook") {
++    val c = new BulkStartCase("bulk-nodes-unknown", Map("nodes" -> unknown))
++    assertEquals(c.start()._1, Exit.Failed, c.p.text)
++    val (code2, r2) = c.start()
++    assertEquals(code2, Exit.Refused, c.p.text)
++    val status = r2("status").str
++    assert(status.contains("outcome is unknown"), status)
++    assert(status.contains(s"$NeptuneBulkStatus --load-id"), status)
++    assert(status.contains("new export or a new configuration"), status)
++    assert(!status.contains("runbook"), status)
++    assertEquals(c.states, List(StateStarting))
++    assertEquals(c.stages, Nil)
+   }
+ 
+-  test("neptune-bulk-start: a failed nodes start is never retried blindly (C-04)") {
+-    val w = new Workspace("bulk-nodes-fail")
+-    val p = new Printed
+-    val o1 = w.out()
+-    assertEquals(csvBuild(w, p, o1), Exit.Completed)
+-    val graphRun = graphRunUri(readReport(o1)._2)
+-    val local = new LoadStores.Local(w.root, localConfig(w))
+-    val stores = new FailingStartStores(local, Set("nodes"))
+-    def start(o: Path) = run(
+-      NeptuneBulkStart :: w
+-        .common(o) ++ List("--graph-run", graphRun, "--loader-role-arn", RoleArn),
+-      wiring(p, Some(stores))
++  test("C-06: the edges start succeeds but the final registry write fails; a retry is refused") {
++    val c = new BulkStartCase("bulk-edges-v3", Map.empty, failRegistryStates = Set(StateStarted))
++    val (code1, r1) = c.start()
++    assertEquals(code1, Exit.Failed, c.p.text)
++    assert(r1("status").str.contains("simulated registry failure"), r1("status").str)
++    assertEquals(c.stages, List("nodes/", "edges/"))
++    val (code2, r2) = c.start()
++    assertEquals(code2, Exit.Refused, c.p.text)
++    val status = r2("status").str
++    assert(status.contains("edges start of this graph run was begun"), status)
++    assert(status.contains("The nodes load is local-load-0001"), status)
++    assertEquals(c.stages, List("nodes/", "edges/"), "the retry must not start edges again")
++    assertEquals(c.states, List(StateStarting, StateNodesStarted, StateEdgesStarting))
++  }
++
++  test("C-06: a definite edges start refusal is recorded as edges-failed; a retry starts edges") {
++    val c = new BulkStartCase("bulk-edges-definite", Map("edges" -> definite))
++    val (code1, r1) = c.start()
++    assertEquals(code1, Exit.Failed, c.p.text)
++    assert(r1("status").str.contains("records edges-failed"), r1("status").str)
++    assertEquals(c.stages, List("nodes/"))
++    val (code2, r2) = c.start()
++    assertEquals(code2, Exit.Completed, c.p.text)
++    assertEquals(c.stages, List("nodes/", "edges/"), "the retry must not start nodes again")
++    assertEquals(c.local.recorder.jobs.last.dependencies, List("local-load-0001"))
++    assertEquals(r2("bulkLoad")("resumed").bool, true)
++    assertEquals(r2("bulkLoad")("edgesLoadId").str, "local-load-0002")
++    assertEquals(
++      c.states,
++      List(
++        StateStarting,
++        StateNodesStarted,
++        StateEdgesStarting,
++        StateEdgesFailed,
++        StateEdgesStarting,
++        StateStarted
++      )
+     )
+-    val o2 = w.out()
+-    assertEquals(start(o2), Exit.Failed, p.text)
+-    val o3 = w.out()
+-    assertEquals(start(o3), Exit.Refused, p.text)
+-    val r3 = readReport(o3)._2
+-    assert(r3("status").str.contains("load ID was not registered"), r3("status").str)
+-    assertEquals(local.recorder.jobs.size, 0)
++    assertEquals(c.start()._1, Exit.Refused)
++    assertEquals(c.stages.size, 2)
++  }
++
++  test("C-06: an unknown edges start outcome keeps the edges claim; a retry is refused") {
++    val c = new BulkStartCase("bulk-edges-unknown", Map("edges" -> unknown))
++    val (code1, r1) = c.start()
++    assertEquals(code1, Exit.Failed, c.p.text)
++    assert(r1("status").str.contains("simulated edges"), r1("status").str)
++    val (code2, r2) = c.start()
++    assertEquals(code2, Exit.Refused, c.p.text)
++    assert(r2("status").str.contains("outcome is unknown"), r2("status").str)
++    assertEquals(c.stages, List("nodes/"))
++    assertEquals(c.states, List(StateStarting, StateNodesStarted, StateEdgesStarting))
++  }
++
++  test("C-04: a registry failure before the edges claim, then a retry starts edges only") {
++    val c =
++      new BulkStartCase("bulk-resume", Map.empty, failRegistryStates = Set(StateEdgesStarting))
++    assertEquals(c.start()._1, Exit.Failed, c.p.text)
++    assertEquals(c.stages, List("nodes/"))
++    val (code2, r2) = c.start()
++    assertEquals(code2, Exit.Completed, c.p.text)
++    assertEquals(c.stages, List("nodes/", "edges/"))
++    assertEquals(r2("bulkLoad")("resumed").bool, true)
++    assertEquals(c.local.recorder.jobs.last.dependencies, List("local-load-0001"))
+   }
+ 
+   test("neptune-bulk-start refuses a graph run without a manifest and one outside the graph zone") {
+diff --git a/modules/hadoop/src/test/scala/org/scholarchain/hadoop/ScholarChainHadoopSuite.scala b/modules/hadoop/src/test/scala/org/scholarchain/hadoop/ScholarChainHadoopSuite.scala
+new file mode 100644
+index 0000000..041f78d
+--- /dev/null
++++ b/modules/hadoop/src/test/scala/org/scholarchain/hadoop/ScholarChainHadoopSuite.scala
+@@ -0,0 +1,102 @@
++package org.scholarchain.hadoop
++
++import org.apache.hadoop.fs.Path
++import org.apache.hadoop.util.ToolRunner
++import org.scholarchain.hadoop.common.{Counters, Settings}
++import org.scholarchain.hadoop.pipeline.{Pipeline, PipelineSpec, ScholarChainHadoop}
++
++/** The command-line driver as the EMR step calls it (Phase 14 decision 7, DBLP DTD on EMR).
++  *
++  * The state machine (`infra/terraform/modules/workflow/sfn.tf`, HadoopPipelineStep) runs
++  * `pipeline -D scholarchain.code.version=V --output O --dblp D --dblp-snapshot S` and appends its
++  * extra arguments after them. These tests feed that exact order through `ToolRunner`, which is
++  * what `ScholarChainHadoop.main` does after the leading `pipeline` word.
++  */
++class ScholarChainHadoopSuite extends munit.FunSuite {
++
++  override val munitTimeout = scala.concurrent.duration.Duration(900, "s")
++
++  // No internal DTD subset, like the real release: &eacute; is declared only in the DTD file.
++  private val Xml = "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n" +
++    "<!DOCTYPE dblp SYSTEM \"dblp-2023-06-28.dtd\">\n<dblp>\n" +
++    "<article key=\"conf/sigir/Cli20\"><author>J&eacute; One</author><author>B Two</author>" +
++    "<title>T.</title><year>2020</year></article>\n" +
++    "<article key=\"conf/sigir/Cli21\"><author>C Three</author><author>B Two</author>" +
++    "<title>U.</title><year>2021</year></article>\n</dblp>\n"
++
++  private def emrArgs(out: java.nio.file.Path, in: Path): Array[String] =
++    Array(
++      "-D",
++      s"${Settings.Keys.CodeVersion}=test",
++      "--output",
++      out.toString,
++      "--dblp",
++      in.toString,
++      "--dblp-snapshot",
++      "cli"
++    )
++
++  private def setup(prefix: String) = {
++    val work = TestSupport.tempDir(prefix)
++    val in = TestSupport.writeFile(work, "in/dblp.xml", Xml)
++    val dtd = TestSupport.writeFile(work, "raw/dblp.dtd", "<!ENTITY eacute \"&#233;\">\n")
++    (work, in, dtd)
++  }
++
++  test("EMR order: a trailing -D for the DTD is refused before any job runs") {
++    val (work, in, dtd) = setup("cli-trailing-d")
++    val out = work.resolve("out")
++    val e = intercept[IllegalArgumentException](
++      ToolRunner.run(
++        TestSupport.localConf(work),
++        new ScholarChainHadoop,
++        emrArgs(out, in) ++ Array("-D", s"${Settings.Keys.DblpDtdPath}=$dtd")
++      )
++    )
++    assert(e.getMessage.contains("-D"), e.getMessage)
++    assert(!java.nio.file.Files.exists(out))
++  }
++
++  test("EMR order: --dblp-dtd after the application options sets the DTD, same runs as -D") {
++    val (work, in, dtd) = setup("cli-dtd")
++    val out = work.resolve("out")
++    val rc = ToolRunner.run(
++      TestSupport.localConf(work),
++      new ScholarChainHadoop,
++      emrArgs(out, in) ++ Array("--dblp-dtd", dtd.toString)
++    )
++    assertEquals(rc, 0)
++    // The same pipeline with the key set directly reuses every run the driver wrote: identical
++    // run IDs, so the option is exactly equivalent to -D scholarchain.dblp.dtdPath.
++    val conf = TestSupport.localConf(work, Settings.Keys.DblpDtdPath -> dtd.toString)
++    val r = Pipeline.run(conf, PipelineSpec(in, "cli", Nil, new Path(out.toUri)))
++    r.all.foreach(j => assert(j.reused, s"${j.jobName} was not reused"))
++    assertEquals(r.dblp.extract.main(Counters.Accepted), 2L)
++    assertEquals(r.dblp.extract.main(Counters.Rejected), 0L)
++    // Control: without the DTD the record is rejected (undefined_entity), never guessed.
++    val plain = TestSupport.localConf(work)
++    val p = Pipeline.run(plain, PipelineSpec(in, "cli", Nil, new Path(work.resolve("plain").toUri)))
++    assertEquals(p.dblp.extract.main(Counters.Accepted), 1L)
++    assertEquals(p.dblp.extract.counter(Counters.RejectReasonGroup, "undefined_entity"), 1L)
++  }
++
++  test("--dblp-dtd: empty, given twice, or conflicting with -D is refused; unknown options too") {
++    val (work, in, dtd) = setup("cli-dtd-bad")
++    val out = work.resolve("out")
++    def refused(conf: org.apache.hadoop.conf.Configuration, extra: String*): Unit = {
++      intercept[IllegalArgumentException](
++        ToolRunner.run(conf, new ScholarChainHadoop, emrArgs(out, in) ++ extra)
++      )
++      ()
++    }
++    refused(TestSupport.localConf(work), "--dblp-dtd", " ")
++    refused(TestSupport.localConf(work), "--dblp-dtd", dtd.toString, "--dblp-dtd", dtd.toString)
++    refused(
++      TestSupport.localConf(work, Settings.Keys.DblpDtdPath -> "/elsewhere/dblp.dtd"),
++      "--dblp-dtd",
++      dtd.toString
++    )
++    refused(TestSupport.localConf(work), "--dblp-dtdpath", dtd.toString)
++    assert(!java.nio.file.Files.exists(out))
++  }
++}
+diff --git a/modules/storage/src/test/scala/org/scholarchain/storage/NeptuneBulkLoaderStartSuite.scala b/modules/storage/src/test/scala/org/scholarchain/storage/NeptuneBulkLoaderStartSuite.scala
+new file mode 100644
+index 0000000..dfe314f
+--- /dev/null
++++ b/modules/storage/src/test/scala/org/scholarchain/storage/NeptuneBulkLoaderStartSuite.scala
+@@ -0,0 +1,123 @@
++package org.scholarchain.storage
++
++import scala.jdk.CollectionConverters._
++
++import org.scholarchain.storage.aws.NeptuneBulkLoader
++import org.scholarchain.storage.ports.{BulkLoadJob, BulkLoadStartRejected}
++import software.amazon.awssdk.core.exception.{ApiCallTimeoutException, SdkServiceException}
++import software.amazon.awssdk.services.neptunedata.NeptunedataClient
++import software.amazon.awssdk.services.neptunedata.model
++import software.amazon.awssdk.services.neptunedata.model.{
++  AccessDeniedException,
++  BadRequestException,
++  BulkLoadIdNotFoundException,
++  ClientTimeoutException,
++  ConstraintViolationException,
++  InternalFailureException,
++  InvalidArgumentException,
++  InvalidParameterException,
++  LoadUrlAccessDeniedException,
++  MissingParameterException,
++  PreconditionsFailedException,
++  S3Exception,
++  StartLoaderJobRequest,
++  StartLoaderJobResponse,
++  ThrottlingException,
++  TooManyRequestsException
++}
++
++/** Phase 14 C-07: which `StartLoaderJob` errors the Neptune adapter reports as a definite refusal
++  * ([[BulkLoadStartRejected]]) and which stay an unknown outcome. Stub SDK client, no network.
++  */
++class NeptuneBulkLoaderStartSuite extends munit.FunSuite {
++
++  private final class Stub(fail: Option[Throwable]) extends NeptunedataClient {
++    def serviceName(): String = "neptune-db"
++    def close(): Unit = ()
++    override def startLoaderJob(r: StartLoaderJobRequest): StartLoaderJobResponse =
++      fail match {
++        case Some(e) => throw e
++        case None    =>
++          StartLoaderJobResponse
++            .builder()
++            .status("200")
++            .payload(Map("loadId" -> "l-1").asJava)
++            .build()
++      }
++  }
++
++  private val job = BulkLoadJob(
++    "s3://example-graph-bucket/graph/run=x/neptune/nodes/",
++    "opencypher",
++    "arn:aws:iam::123456789012:role/example-neptune-loader",
++    "us-east-1",
++    failOnError = true,
++    parallelism = "MEDIUM",
++    queueRequest = true,
++    userProvidedEdgeIds = true,
++    dependencies = Nil
++  )
++
++  private def start(e: Throwable): Either[Throwable, String] =
++    try Right(new NeptuneBulkLoader(new Stub(Some(e))).start(job))
++    catch { case t: Throwable => Left(t) }
++
++  private val definite: List[(String, SdkServiceException)] = List(
++    "BadRequestException" -> BadRequestException.builder().message("m").statusCode(400).build(),
++    "BulkLoadIdNotFoundException" ->
++      BulkLoadIdNotFoundException.builder().message("m").statusCode(404).build(),
++    "ConstraintViolationException" ->
++      ConstraintViolationException.builder().message("m").statusCode(400).build(),
++    "IllegalArgumentException" ->
++      model.IllegalArgumentException.builder().message("m").statusCode(400).build(),
++    "InvalidArgumentException" ->
++      InvalidArgumentException.builder().message("m").statusCode(400).build(),
++    "InvalidParameterException" ->
++      InvalidParameterException.builder().message("m").statusCode(400).build(),
++    "LoadUrlAccessDeniedException" ->
++      LoadUrlAccessDeniedException.builder().message("m").statusCode(400).build(),
++    "MissingParameterException" ->
++      MissingParameterException.builder().message("m").statusCode(400).build(),
++    "PreconditionsFailedException" ->
++      PreconditionsFailedException.builder().message("m").statusCode(400).build(),
++    "S3Exception" -> S3Exception.builder().message("m").statusCode(400).build(),
++    "UnsupportedOperationException" ->
++      model.UnsupportedOperationException.builder().message("m").statusCode(400).build(),
++    "AccessDeniedException" -> AccessDeniedException.builder().message("m").statusCode(403).build()
++  )
++
++  test("documented 4xx StartLoaderJob errors are definite refusals with their class name") {
++    definite.foreach { case (name, e) =>
++      start(e) match {
++        case Left(r: BulkLoadStartRejected) =>
++          assertEquals(r.errorClass, name)
++          assertEquals(r.httpStatus, e.statusCode)
++        case other => fail(s"$name: expected BulkLoadStartRejected, got $other")
++      }
++    }
++  }
++
++  test("timeouts, throttling, 5xx and client errors are unknown outcomes, never a refusal") {
++    val unknown: List[Throwable] = List(
++      ClientTimeoutException.builder().message("m").statusCode(408).build(),
++      TooManyRequestsException.builder().message("m").statusCode(429).build(),
++      ThrottlingException.builder().message("m").statusCode(400).build(),
++      InternalFailureException.builder().message("m").statusCode(500).build(),
++      // A definite class with a status that is not a client refusal stays unknown.
++      BadRequestException.builder().message("m").statusCode(503).build(),
++      ApiCallTimeoutException.builder().message("m").build()
++    )
++    unknown.foreach { e =>
++      start(e) match {
++        case Left(_: BulkLoadStartRejected) =>
++          fail(s"${e.getClass.getSimpleName} must stay unknown")
++        case Left(_: StoreException) => ()
++        case other                   => fail(s"expected StoreException, got $other")
++      }
++    }
++  }
++
++  test("a successful start returns the load ID") {
++    assertEquals(new NeptuneBulkLoader(new Stub(None)).start(job), "l-1")
++  }
++}

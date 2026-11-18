@@ -98,7 +98,11 @@ Common options:
   --hadoop-jar s3://{data-bucket}/artifacts/...  (default
                         s3://{data-bucket}/artifacts/BUILD_COMMIT/jars/hadoop.jar)
   --hadoop-extra-arg ARG  repeatable, appended as is (an s3:// part must be
-                        in the data-lake bucket; {data-bucket} is resolved)
+                        in the data-lake bucket; {data-bucket} is resolved);
+                        the DBLP DTD is passed as two of them, in order:
+                        '--dblp-dtd' 's3://{data-bucket}/raw/dblp/SNAPSHOT/dblp.dtd'
+                        (scripts/README.md "DBLP DTD"); recorded in
+                        configuration.extra_args
   Recorded: execution name, EMR cluster IDs (execution history), the J09
   export runs (curated/.../j09-graph-export/run=HEX) under the output root.
 
@@ -907,7 +911,13 @@ stage_hadoop() {
     '.hadoop.jar = $jar | .hadoop.output = $out | .hadoop.dblp = $dblp
      | if .hadoop.extraArgs then .hadoop.extraArgs = $extra else . end' "${input}")"
   add_str INPUTS_JSON dblp_sha256 "${dblp_sha}"
-  CONFIG_JSON="$(jq -n '{file: null, sha256: null, note: "the Hadoop jobs use their built-in defaults (-D scholarchain.code.version only)"}')"
+  # Phase 14 (R-1 note): the note names the driver options given with
+  # --hadoop-extra-arg (for example --dblp-dtd), so it stays true.
+  CONFIG_JSON="$(jq -n --argjson extra "${extra_logical}" '{file: null, sha256: null,
+    note: (if ($extra | length) > 0
+           then "the Hadoop jobs use their built-in defaults plus -D scholarchain.code.version and the driver options in extra_args (for example --dblp-dtd, which sets scholarchain.dblp.dtdPath)"
+           else "the Hadoop jobs use their built-in defaults (-D scholarchain.code.version only)" end),
+    extra_args: $extra}')"
   printf 'INPUT: %s\n' "${logical}"
 
   run_execution "${input}" "${logical}"

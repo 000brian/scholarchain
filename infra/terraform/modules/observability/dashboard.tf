@@ -14,14 +14,16 @@ locals {
 
   ecs_cpu = [for r, s in var.ecs_service_names : ["AWS/ECS", "CPUUtilization", "ClusterName", var.ecs_cluster_name, "ServiceName", s, { label = "${r} CPU" }]]
   ecs_mem = [for r, s in var.ecs_service_names : ["AWS/ECS", "MemoryUtilization", "ClusterName", var.ecs_cluster_name, "ServiceName", s, { label = "${r} memory" }]]
-  sqs = flatten([for k, q in var.queue_names : [
-    ["AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", q, { label = "${k} visible" }],
-    ["AWS/SQS", "ApproximateAgeOfOldestMessage", "QueueName", q, { label = "${k} oldest age (s)", yAxis = "right" }],
-  ]])
-  dynamo = flatten([for k, t in var.dynamodb_table_names : [
-    ["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", t, { label = "${k} read", stat = "Sum" }],
-    ["AWS/DynamoDB", "ConsumedWriteCapacityUnits", "TableName", t, { label = "${k} write", stat = "Sum" }],
-  ]])
+  # I-29: each metric row must stay a list. flatten() is recursive and turned
+  # the rows into one list of strings, so the rows are joined with concat().
+  sqs = concat(
+    [for k, q in var.queue_names : ["AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", q, { label = "${k} visible" }]],
+    [for k, q in var.queue_names : ["AWS/SQS", "ApproximateAgeOfOldestMessage", "QueueName", q, { label = "${k} oldest age (s)", yAxis = "right" }]],
+  )
+  dynamo = concat(
+    [for k, t in var.dynamodb_table_names : ["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", t, { label = "${k} read", stat = "Sum" }]],
+    [for k, t in var.dynamodb_table_names : ["AWS/DynamoDB", "ConsumedWriteCapacityUnits", "TableName", t, { label = "${k} write", stat = "Sum" }]],
+  )
 
   widgets = [
     {

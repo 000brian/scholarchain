@@ -10,15 +10,31 @@ import org.scholarchain.hadoop.common.JobResult
   * {{{
   * pipeline --output <root> --dblp <path> --dblp-snapshot <id>
   *          [--source <kind>:<datasetId>:<snapshotId>:<path>]... [--dblp-fingerprint <sha256:...>]
+  *          [--dblp-dtd <path>]
   * }}}
   *
   * The driver never creates clusters or submits EMR steps; cloud runs go through the approved
   * scripts owned by infra-engineer. `scholarchain.code.version` must be set with `-D`.
+  *
+  * `--dblp-dtd` sets `scholarchain.dblp.dtdPath` (any Hadoop FileSystem path, for example
+  * `s3://...`). It exists because generic `-D` options are only read before the first application
+  * option, and the EMR step appends its extra arguments after them. Giving both `--dblp-dtd` and a
+  * different non-empty `-D scholarchain.dblp.dtdPath` is refused. Unknown options are refused, so a
+  * misspelt option never silently changes nothing.
   */
 class ScholarChainHadoop extends Configured with Tool {
 
   override def run(args: Array[String]): Int = {
     val opts = ScholarChainHadoop.parse(args.toList)
+    opts.get("--dblp-dtd").map(_.head).foreach { dtd =>
+      val key = org.scholarchain.hadoop.common.Settings.Keys.DblpDtdPath
+      if (dtd.trim.isEmpty) throw new IllegalArgumentException("--dblp-dtd must not be empty")
+      Option(getConf.getTrimmed(key)).filter(_.nonEmpty).foreach { set =>
+        if (set != dtd.trim)
+          throw new IllegalArgumentException(s"--dblp-dtd conflicts with -D $key=$set")
+      }
+      getConf.set(key, dtd.trim)
+    }
     val spec = PipelineSpec(
       new Path(opts("--dblp").head),
       opts("--dblp-snapshot").head,
@@ -47,18 +63,22 @@ object ScholarChainHadoop {
       case _ =>
         System.err.println(
           "usage: pipeline --output <root> --dblp <path> --dblp-snapshot <id> " +
-            "[--source kind:datasetId:snapshotId:path]..."
+            "[--source kind:datasetId:snapshotId:path]... [--dblp-fingerprint sha256:...] " +
+            "[--dblp-dtd path]"
         )
         sys.exit(2)
     }
 
-  private val Single = Set("--output", "--dblp", "--dblp-snapshot", "--dblp-fingerprint")
+  private val Single =
+    Set("--output", "--dblp", "--dblp-snapshot", "--dblp-fingerprint", "--dblp-dtd")
+  private val Repeatable = Set("--source")
 
   def parse(args: List[String]): Map[String, List[String]] = {
     def go(rest: List[String], acc: Map[String, List[String]]): Map[String, List[String]] =
       rest match {
         case Nil                                  => acc
         case k :: v :: tail if k.startsWith("--") =>
+          if (!Single(k) && !Repeatable(k)) throw new IllegalArgumentException(s"unknown option $k")
           if (Single(k) && acc.contains(k)) throw new IllegalArgumentException(s"$k given twice")
           go(tail, acc.updated(k, acc.getOrElse(k, Nil) :+ v))
         case other =>

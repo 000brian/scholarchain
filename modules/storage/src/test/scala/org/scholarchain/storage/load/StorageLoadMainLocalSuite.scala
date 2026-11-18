@@ -5,9 +5,19 @@ import java.nio.file.{Files, Path}
 import scala.collection.mutable
 
 import org.scholarchain.core.config.{ConfigKey, ValueKind}
-import org.scholarchain.storage.{Sleeper, StorageConfig, TestFixtures}
+import org.scholarchain.storage.{Sleeper, StorageConfig, StoreException, TestFixtures}
+import org.scholarchain.storage.dynamo.ArtifactRegistry
 import org.scholarchain.storage.local.LocalFileObjectStore
-import org.scholarchain.storage.ports.{BulkLoadJob, BulkLoadStatus, GraphBulkLoader}
+import org.scholarchain.storage.ports.{
+  BulkLoadJob,
+  BulkLoadStartRejected,
+  BulkLoadStatus,
+  ConditionalResult,
+  GraphBulkLoader,
+  Item,
+  ItemKey,
+  KeyValueStore
+}
 
 /** `StorageLoadMain` end to end in local mode on the small synthetic export (file-system object
   * store, in-memory tables, recording bulk loader; no AWS call, no network), plus the AWS-mode
@@ -151,15 +161,49 @@ class StorageLoadMainLocalSuite extends munit.FunSuite {
     assertEquals(shared.recorder.jobs.size, 2)
   }
 
-  /** Local stores whose bulk loader fails the start of the given stages, once each. */
-  private final class FailingStartStores(local: LoadStores.Local, failOnce: Set[String])
-      extends LoadStores {
-    private val pending = mutable.Set.from(failOnce)
+  /** How a simulated start fails: a definite refusal, or an unknown outcome (I/O error). */
+  private def definite(stage: String): Throwable =
+    new BulkLoadStartRejected("BadRequestException", 400, s"simulated $stage refusal")
+  private def unknown(stage: String): Throwable =
+    new java.io.IOException(s"simulated $stage start failure")
+
+  /** A table store that throws (as DynamoDB throttling would) on the first registry write whose
+    * `loadState` is one of `failStates`, once each; every other call goes to `inner`.
+    */
+  private final class FailingRegistryKv(inner: KeyValueStore, failStates: Set[String])
+      extends KeyValueStore {
+    private val pending = mutable.Set.from(failStates)
+    def putIfAbsent(table: String, item: Item): ConditionalResult =
+      item.strOpt("loadState") match {
+        case Some(st) if pending.remove(st) =>
+          throw new StoreException(s"simulated registry failure writing $st", transient = true)
+        case _ => inner.putIfAbsent(table, item)
+      }
+    def putIfVersion(table: String, item: Item, expectedVersion: Long): ConditionalResult =
+      inner.putIfVersion(table, item, expectedVersion)
+    def get(table: String, key: ItemKey): Option[Item] = inner.get(table, key)
+    def query(
+        table: String,
+        pk: String,
+        skPrefix: Option[String],
+        limit: Int,
+        descending: Boolean
+    ): List[Item] = inner.query(table, pk, skPrefix, limit, descending)
+  }
+
+  /** Local stores whose bulk loader fails the start of the given stages once each (with the stage's
+    * throwable), and whose registry writes fail once for `failRegistryStates`.
+    */
+  private final class FailingStartStores(
+      local: LoadStores.Local,
+      failOnce: Map[String, String => Throwable],
+      failRegistryStates: Set[String] = Set.empty
+  ) extends LoadStores {
+    private val pending = mutable.Map.from(failOnce)
     val loader: GraphBulkLoader = new GraphBulkLoader {
       def start(job: BulkLoadJob): String = {
         val stage = job.source.split("/neptune/").last.stripSuffix("/")
-        if (pending.remove(stage))
-          throw new java.io.IOException(s"simulated $stage start failure")
+        pending.remove(stage).foreach(f => throw f(stage))
         local.recorder.start(job)
       }
       def status(loadId: String): BulkLoadStatus = local.recorder.status(loadId)
@@ -167,7 +211,7 @@ class StorageLoadMainLocalSuite extends munit.FunSuite {
     val kind = "local"
     val description = "local stores with a failing bulk loader"
     def objects = local.objects
-    def kv = local.kv
+    val kv: KeyValueStore = new FailingRegistryKv(local.kv, failRegistryStates)
     def bulkLoader: Either[String, GraphBulkLoader] = Right(loader)
     def report(c: StorageConfig): ujson.Obj = local.report(c)
     def close(): Unit = ()
@@ -179,60 +223,151 @@ class StorageLoadMainLocalSuite extends munit.FunSuite {
       .toOption
       .get
 
-  test("neptune-bulk-start: an edges start failure, then a retry starts edges only (C-04)") {
-    val w = new Workspace("bulk-retry")
+  /** A built graph run and a `neptune-bulk-start` runner over failing stores. */
+  private final class BulkStartCase(
+      name: String,
+      failOnce: Map[String, String => Throwable],
+      failRegistryStates: Set[String] = Set.empty
+  ) {
+    val w = new Workspace(name)
     val p = new Printed
-    val o1 = w.out()
+    private val o1 = w.out()
     assertEquals(csvBuild(w, p, o1), Exit.Completed)
-    val graphRun = graphRunUri(readReport(o1)._2)
-    val local = new LoadStores.Local(w.root, localConfig(w))
-    val stores = new FailingStartStores(local, Set("edges"))
-    def start(o: Path) = run(
-      NeptuneBulkStart :: w
-        .common(o) ++ List("--graph-run", graphRun, "--loader-role-arn", RoleArn),
-      wiring(p, Some(stores))
-    )
-    val o2 = w.out()
-    assertEquals(start(o2), Exit.Failed, p.text)
-    assert(readReport(o2)._2("status").str.contains("simulated edges"), p.text)
-    assertEquals(local.recorder.jobs.map(_.source.split("/neptune/").last).toList, List("nodes/"))
+    val graphRun: String = graphRunUri(readReport(o1)._2)
+    val cfg: StorageConfig = localConfig(w)
+    val local = new LoadStores.Local(w.root, cfg)
+    val stores = new FailingStartStores(local, failOnce, failRegistryStates)
+    def start(): (Int, ujson.Value) = {
+      val o = w.out()
+      val code = run(
+        NeptuneBulkStart :: w
+          .common(o) ++ List("--graph-run", graphRun, "--loader-role-arn", RoleArn),
+        wiring(p, Some(stores))
+      )
+      val (text, r) = readReport(o)
+      assertMasked(text)
+      (code, r)
+    }
+    def stages: List[String] = local.recorder.jobs.map(_.source.split("/neptune/").last).toList
 
-    val o3 = w.out()
-    assertEquals(start(o3), Exit.Completed, p.text)
-    val r3 = readReport(o3)._2
-    val stages = local.recorder.jobs.map(_.source.split("/neptune/").last).toList
-    assertEquals(stages, List("nodes/", "edges/"), "the retry must not start nodes again")
-    assertEquals(local.recorder.jobs.last.dependencies, List("local-load-0001"))
-    assertEquals(r3("bulkLoad")("nodesLoadId").str, "local-load-0001")
-    assertEquals(r3("bulkLoad")("edgesLoadId").str, "local-load-0002")
-    assertEquals(r3("bulkLoad")("resumed").bool, true)
-
-    val o4 = w.out()
-    assertEquals(start(o4), Exit.Refused)
-    assert(readReport(o4)._2("status").str.contains("already started"))
-    assertEquals(local.recorder.jobs.size, 2)
+    /** `loadState` of every registry version of this graph run, in order. */
+    def states: List[String] = {
+      val key = GraphRun.parse(graphRun, cfg.zones("graph")).toOption.get.root.key
+      new ArtifactRegistry(local.kv, cfg.dynamoDb.artifactRegistryTable)
+        .history(NeptuneLoadArtifact, key, 100)
+        .map(_.str("loadState"))
+    }
   }
 
-  test("neptune-bulk-start: a failed nodes start is never retried blindly (C-04)") {
-    val w = new Workspace("bulk-nodes-fail")
-    val p = new Printed
-    val o1 = w.out()
-    assertEquals(csvBuild(w, p, o1), Exit.Completed)
-    val graphRun = graphRunUri(readReport(o1)._2)
-    val local = new LoadStores.Local(w.root, localConfig(w))
-    val stores = new FailingStartStores(local, Set("nodes"))
-    def start(o: Path) = run(
-      NeptuneBulkStart :: w
-        .common(o) ++ List("--graph-run", graphRun, "--loader-role-arn", RoleArn),
-      wiring(p, Some(stores))
+  test("C-07: a definite nodes start refusal is recorded as nodes-failed; a retry succeeds") {
+    val c = new BulkStartCase("bulk-nodes-definite", Map("nodes" -> definite))
+    val (code1, r1) = c.start()
+    assertEquals(code1, Exit.Failed, c.p.text)
+    assert(r1("status").str.contains("nodes start was refused"), r1("status").str)
+    assert(r1("status").str.contains("records nodes-failed"), r1("status").str)
+    assertEquals(r1("bulkLoadFailure")("errorClass").str, "BadRequestException")
+    assertEquals(r1("bulkLoadFailure")("registryState").str, StateNodesFailed)
+    assertEquals(c.states, List(StateStarting, StateNodesFailed))
+    assertEquals(c.stages, Nil)
+
+    val (code2, r2) = c.start()
+    assertEquals(code2, Exit.Completed, c.p.text)
+    assertEquals(c.stages, List("nodes/", "edges/"))
+    assertEquals(r2("bulkLoad")("nodesLoadId").str, "local-load-0001")
+    assertEquals(r2("bulkLoad")("edgesLoadId").str, "local-load-0002")
+    assertEquals(
+      c.states,
+      List(
+        StateStarting,
+        StateNodesFailed,
+        StateStarting,
+        StateNodesStarted,
+        StateEdgesStarting,
+        StateStarted
+      )
     )
-    val o2 = w.out()
-    assertEquals(start(o2), Exit.Failed, p.text)
-    val o3 = w.out()
-    assertEquals(start(o3), Exit.Refused, p.text)
-    val r3 = readReport(o3)._2
-    assert(r3("status").str.contains("load ID was not registered"), r3("status").str)
-    assertEquals(local.recorder.jobs.size, 0)
+    assertEquals(c.start()._1, Exit.Refused)
+    assertEquals(c.stages.size, 2)
+  }
+
+  test("C-07: an unknown nodes start outcome keeps the claim; a retry is refused, no runbook") {
+    val c = new BulkStartCase("bulk-nodes-unknown", Map("nodes" -> unknown))
+    assertEquals(c.start()._1, Exit.Failed, c.p.text)
+    val (code2, r2) = c.start()
+    assertEquals(code2, Exit.Refused, c.p.text)
+    val status = r2("status").str
+    assert(status.contains("outcome is unknown"), status)
+    assert(status.contains(s"$NeptuneBulkStatus --load-id"), status)
+    assert(status.contains("new export or a new configuration"), status)
+    assert(!status.contains("runbook"), status)
+    assertEquals(c.states, List(StateStarting))
+    assertEquals(c.stages, Nil)
+  }
+
+  test("C-06: the edges start succeeds but the final registry write fails; a retry is refused") {
+    val c = new BulkStartCase("bulk-edges-v3", Map.empty, failRegistryStates = Set(StateStarted))
+    val (code1, r1) = c.start()
+    assertEquals(code1, Exit.Failed, c.p.text)
+    assert(r1("status").str.contains("simulated registry failure"), r1("status").str)
+    assertEquals(c.stages, List("nodes/", "edges/"))
+    val (code2, r2) = c.start()
+    assertEquals(code2, Exit.Refused, c.p.text)
+    val status = r2("status").str
+    assert(status.contains("edges start of this graph run was begun"), status)
+    assert(status.contains("The nodes load is local-load-0001"), status)
+    assertEquals(c.stages, List("nodes/", "edges/"), "the retry must not start edges again")
+    assertEquals(c.states, List(StateStarting, StateNodesStarted, StateEdgesStarting))
+  }
+
+  test("C-06: a definite edges start refusal is recorded as edges-failed; a retry starts edges") {
+    val c = new BulkStartCase("bulk-edges-definite", Map("edges" -> definite))
+    val (code1, r1) = c.start()
+    assertEquals(code1, Exit.Failed, c.p.text)
+    assert(r1("status").str.contains("records edges-failed"), r1("status").str)
+    assertEquals(c.stages, List("nodes/"))
+    val (code2, r2) = c.start()
+    assertEquals(code2, Exit.Completed, c.p.text)
+    assertEquals(c.stages, List("nodes/", "edges/"), "the retry must not start nodes again")
+    assertEquals(c.local.recorder.jobs.last.dependencies, List("local-load-0001"))
+    assertEquals(r2("bulkLoad")("resumed").bool, true)
+    assertEquals(r2("bulkLoad")("edgesLoadId").str, "local-load-0002")
+    assertEquals(
+      c.states,
+      List(
+        StateStarting,
+        StateNodesStarted,
+        StateEdgesStarting,
+        StateEdgesFailed,
+        StateEdgesStarting,
+        StateStarted
+      )
+    )
+    assertEquals(c.start()._1, Exit.Refused)
+    assertEquals(c.stages.size, 2)
+  }
+
+  test("C-06: an unknown edges start outcome keeps the edges claim; a retry is refused") {
+    val c = new BulkStartCase("bulk-edges-unknown", Map("edges" -> unknown))
+    val (code1, r1) = c.start()
+    assertEquals(code1, Exit.Failed, c.p.text)
+    assert(r1("status").str.contains("simulated edges"), r1("status").str)
+    val (code2, r2) = c.start()
+    assertEquals(code2, Exit.Refused, c.p.text)
+    assert(r2("status").str.contains("outcome is unknown"), r2("status").str)
+    assertEquals(c.stages, List("nodes/"))
+    assertEquals(c.states, List(StateStarting, StateNodesStarted, StateEdgesStarting))
+  }
+
+  test("C-04: a registry failure before the edges claim, then a retry starts edges only") {
+    val c =
+      new BulkStartCase("bulk-resume", Map.empty, failRegistryStates = Set(StateEdgesStarting))
+    assertEquals(c.start()._1, Exit.Failed, c.p.text)
+    assertEquals(c.stages, List("nodes/"))
+    val (code2, r2) = c.start()
+    assertEquals(code2, Exit.Completed, c.p.text)
+    assertEquals(c.stages, List("nodes/", "edges/"))
+    assertEquals(r2("bulkLoad")("resumed").bool, true)
+    assertEquals(c.local.recorder.jobs.last.dependencies, List("local-load-0001"))
   }
 
   test("neptune-bulk-start refuses a graph run without a manifest and one outside the graph zone") {

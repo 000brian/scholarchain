@@ -4,7 +4,7 @@
 # order, decision 9.8, RK-E; spec work-order item 8). Owner: infra-engineer
 # (author). Run by the human.
 #
-# Status (Phase 13): static: shellcheck clean; runtime: untested; human
+# Status (Phase 14, I-25): static: shellcheck clean; runtime: untested; human
 # execution required.
 
 set -Eeuo pipefail
@@ -47,7 +47,10 @@ DATA_BUCKET=""
 REPORTS_COUNT=0
 REPORTS_BYTES=0
 FILE_COUNT=0
-IDENTIFIER_WARNINGS="false"
+# JSON text for byte_copies_hold_identifiers (I-25): true or false only after
+# the check ran with the account ID registered; otherwise a "not checked: ..."
+# string, never false.
+IDENTIFIER_WARNINGS='"not checked: the check did not run"'
 
 usage() {
   cat <<'EOF'
@@ -114,7 +117,11 @@ sha256, file count, mode). No record or MANIFEST.json holds an account ID,
 ARN with an account ID or bucket name (checked with grep -F before it is
 final); plans/ is checked the same way. The byte copies under repo/ and
 reports/ are kept exactly; if one holds an identifier, the script warns and
-records it. The archive is gitignored and never committed.
+records it (byte_copies_hold_identifiers: true or false). That check needs
+the account ID: S3 mode learns it from the caller (sts get-caller-identity)
+and keeps it in memory only; --local-only knows it only from a legacy plan
+record, and without it records "not checked: account unknown" (I-25). The
+archive is gitignored and never committed.
 
 Requirements: bash, git, jq, tar, find, shasum or sha256sum, timeout or
 gtimeout (GNU coreutils); S3 mode also terraform (output only) and aws (CLI
@@ -452,17 +459,23 @@ aws_read() {
 
 read_outputs() {
   step "terraform-outputs"
-  local rc=0 outputs vector ident
+  local rc=0 outputs vector ident account
   outputs="$(with_timeout "${OUTPUT_TIMEOUT}" terraform "-chdir=${TF_DIR}" output -json -no-color 2>/dev/null)" || rc=$?
   [ "${rc}" -eq 124 ] && die 7 "terraform output timed out"
   [ "${rc}" -eq 0 ] || die 5 "terraform output failed (status ${rc})"
   DATA_BUCKET="$(jq -r '.data_bucket_name.value // empty' <<<"${outputs}")"
   vector="$(jq -r '.vector_bucket_name.value // empty' <<<"${outputs}")"
   [ -n "${DATA_BUCKET}" ] || die 3 "terraform output lacks data_bucket_name (nothing applied yet? use --local-only)"
+  # I-25: the account comes from the caller at run time and is held only in a
+  # shell variable (SC_ACCOUNT_ID); it is never printed or written.
   ident="$(aws_read sts get-caller-identity)" || die 5 "aws sts get-caller-identity failed"
-  register_identifiers "$(jq -r '.Account // empty' <<<"${ident}")" "${DATA_BUCKET}" "${vector}" ||
-    die 5 "could not read the account"
-  info "account $(mask_account "${SC_ACCOUNT_ID:-}"), bucket <data-bucket>"
+  account="$(jq -r '.Account // empty' <<<"${ident}")"
+  ident=""
+  [[ "${account}" =~ ^[0-9]{12}$ ]] || die 5 "aws sts get-caller-identity returned no 12-digit account"
+  register_identifiers "${account}" "${DATA_BUCKET}" "${vector}" ||
+    die 5 "could not register the account"
+  account=""
+  info "account learned from the caller (not printed), bucket <data-bucket>"
 }
 
 copy_reports() {
@@ -538,13 +551,23 @@ write_manifest() {
   if [ "${LOCAL_ONLY}" = "true" ] && [ -n "${LOCAL_ACCOUNT}" ]; then
     register_identifiers "${LOCAL_ACCOUNT}" "" "" || true
   fi
-  if ! check_no_identifiers "${PARTIAL}/repo"; then
-    IDENTIFIER_WARNINGS="true"
-    warn "byte copies under repo/ hold an identifier (listed above); they are kept unchanged; never commit the archive"
-  fi
-  if [ -d "${PARTIAL}/reports" ] && ! check_no_identifiers "${PARTIAL}/reports"; then
-    IDENTIFIER_WARNINGS="true"
-    warn "byte copies under reports/ hold an identifier (listed above); kept unchanged"
+  # I-25: without a registered account ID the byte-copy check cannot run, so
+  # the record says "not checked: account unknown", never false. --local-only
+  # knows the account only from a legacy plan record (account_id); records
+  # since I-21 hold only a fingerprint. S3 mode always registers it.
+  if [ -z "${SC_ACCOUNT_ID}" ]; then
+    IDENTIFIER_WARNINGS='"not checked: account unknown"'
+    warn "byte copies were not checked for identifiers: account unknown (use S3 mode to check them)"
+  else
+    IDENTIFIER_WARNINGS="false"
+    if ! check_no_identifiers "${PARTIAL}/repo"; then
+      IDENTIFIER_WARNINGS="true"
+      warn "byte copies under repo/ hold an identifier (listed above); they are kept unchanged; never commit the archive"
+    fi
+    if [ -d "${PARTIAL}/reports" ] && ! check_no_identifiers "${PARTIAL}/reports"; then
+      IDENTIFIER_WARNINGS="true"
+      warn "byte copies under reports/ hold an identifier (listed above); kept unchanged"
+    fi
   fi
   check_no_identifiers "${PARTIAL}/plans" || die 6 "plans/ holds an identifier"
   jq -R -s --arg name "${NAME}" --arg head "${HEAD_SHA}" --arg build "${BUILD_SHA}" \

@@ -4,7 +4,7 @@
 # write a release record under releases/. Owner: infra-engineer (author);
 # executed by deploy-engineer after the human commits the approval line.
 #
-# Status (Phase 13): static: shellcheck clean; runtime: untested; human
+# Status (Phase 14, I-28): static: shellcheck clean; runtime: untested; human
 # execution required.
 
 set -Eeuo pipefail
@@ -79,7 +79,10 @@ step 6 happens before any cloud call:
      graph, worker) runs the latest ACTIVE revision of its task-definition
      family and its image tag equals the plan's image tag. Runtime on: waits
      (at most 1200 s) until the services are stable and checks every running
-     task's image digest against the ECR digest of that tag. Runtime off
+     task's image digest against the ECR digest of that tag; query, evidence
+     and graph must each show desired >= 1 and running >= 1 after the wait,
+     else exit 6 with every service's desired, running and pending counts
+     printed (I-28: zero tasks never pass the digest check). Runtime off
      (I-09): waits (at most 1200 s, polling every 20 s) until every
      service's desired AND running counts are 0, because Application Auto
      Scaling lowers them after the apply; on time-out it prints the counts
@@ -492,6 +495,22 @@ wait_runtime_drained() {
   done
 }
 
+# I-28: prints desired, running and pending counts of every service (names,
+# counts and family:revision only; no ARN). Best effort: a failed read prints
+# a note and returns 0 so the caller's own exit code stands.
+print_service_counts() {
+  local out rc=0
+  out="$(with_timeout "${AWS_TIMEOUT}" aws --region "${EXPECTED_REGION}" --cli-connect-timeout 10 \
+    --cli-read-timeout 60 --no-cli-pager --output json ecs describe-services --cluster "${CLUSTER}" \
+    --services "${SERVICE_NAMES[@]}" 2>/dev/null)" || rc=$?
+  if [ "${rc}" -ne 0 ]; then
+    printf 'EVIDENCE: service counts could not be read (status %s)\n' "${rc}" >&2
+    return 0
+  fi
+  jq -r '.services[] | "EVIDENCE: service=\(.serviceName) desired=\(.desiredCount) running=\(.runningCount) pending=\(.pendingCount) revision=\(.taskDefinition | split("/") | last)"' \
+    <<<"${out}" >&2 || true
+}
+
 verify_deployment() {
   step "verify-revision"
   local outputs
@@ -525,8 +544,11 @@ verify_deployment() {
     with_timeout "${STABLE_TIMEOUT}" aws --region "${EXPECTED_REGION}" --cli-connect-timeout 10 \
       --cli-read-timeout 60 --no-cli-pager ecs wait services-stable --cluster "${CLUSTER}" \
       --services "${SERVICE_NAMES[@]}" || rc=$?
-    [ "${rc}" -eq 124 ] && die 7 "services did not become stable within ${STABLE_TIMEOUT}s"
-    [ "${rc}" -eq 0 ] || die 6 "ecs wait services-stable failed (status ${rc})"
+    if [ "${rc}" -ne 0 ]; then
+      print_service_counts
+      [ "${rc}" -eq 124 ] && die 7 "services did not become stable within ${STABLE_TIMEOUT}s (counts above)"
+      die 6 "ecs wait services-stable failed (status ${rc}; counts above)"
+    fi
   else
     wait_runtime_drained
     step "verify-revision"
@@ -565,9 +587,14 @@ verify_deployment() {
       # query, evidence and graph scale from min 1 when the runtime is on
       # (2b RISK R9: if Application Auto Scaling did not lift the count, this
       # fails loudly); the worker scales from 0 on queue depth.
-      if [ "${role}" != "worker" ] && [ "${desired}" -lt 1 ]; then
-        printf 'EVIDENCE: service=%s desired=%s with the runtime on (expected at least 1; 2b RISK R9)\n' \
-          "${name}" "${desired}" >&2
+      # I-28: services-stable passes a service at desired 0 = running 0, and
+      # the digest check below has nothing to check over zero tasks, so an
+      # ALB role must show desired >= 1 AND running >= 1 here, or the
+      # deployment is not verified (exit 6). scripts/README.md "First
+      # runtime-on deploy (D11)" gives the remedy.
+      if [ "${role}" != "worker" ] && { [ "${desired}" -lt 1 ] || [ "${running}" -lt 1 ]; }; then
+        printf 'EVIDENCE: service=%s desired=%s running=%s pending=%s with the runtime on (expected desired and running at least 1; I-28)\n' \
+          "${name}" "${desired}" "${running}" "$(jq -r '.pendingCount' <<<"${svc}")" >&2
         failed=1
       fi
       task_arns=()

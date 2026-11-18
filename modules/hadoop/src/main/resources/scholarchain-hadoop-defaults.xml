@@ -155,7 +155,10 @@
     <description>Optional path of the dblp DTD (for the real release: dblp.dtd from the raw
       prefix). Its general entities are added to those of the file's internal DTD subset. Empty
       means internal subset only. An entity defined by neither rejects the record
-      (undefined_entity).</description>
+      (undefined_entity), so the real release needs it. Any Hadoop FileSystem path (s3://,
+      hdfs://, file:///). The pipeline driver also sets it from its option --dblp-dtd, which
+      works where -D cannot: after the application options, where the EMR step appends its
+      extra arguments.</description>
   </property>
   <property>
     <name>scholarchain.dblp.maxExpandedRecordChars</name>

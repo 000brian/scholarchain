@@ -10,9 +10,15 @@ import scala.util.control.NonFatal
 import org.scholarchain.core.{Hashing, RunId}
 import org.scholarchain.core.config.{ConfigLoader, ScholarChainConfig}
 import org.scholarchain.storage.{Sleeper, StorageConfig, StorageVersion}
-import org.scholarchain.storage.dynamo.{ArtifactRegistry, Change, DynamoLoader}
+import org.scholarchain.storage.dynamo.{ArtifactRegistry, ArtifactVersion, Change, DynamoLoader}
 import org.scholarchain.storage.neptune.{BulkLoadRequests, NeptuneBuildSettings, NeptuneCsvBuilder}
-import org.scholarchain.storage.ports.{AttrValue, ObjectRef, ObjectStore, PutOutcome}
+import org.scholarchain.storage.ports.{
+  AttrValue,
+  BulkLoadStartRejected,
+  ObjectRef,
+  ObjectStore,
+  PutOutcome
+}
 import org.scholarchain.storage.s3.{ManifestEntry, RunManifest, S3KeyLayout}
 import org.scholarchain.storage.source.{ExportSource, ExportSources, RejectLog, S3ExportSource}
 
@@ -45,9 +51,10 @@ final class LoadNotFinished(message: String) extends RuntimeException(message)
   *   - `neptune-bulk-start`: checks the graph run (manifest present, every object present with its
   *     size), starts the `nodes` load and then the `edges` load (depending on the nodes load), and
   *     registers each step in the ArtifactRegistry before the next starts (a `starting` claim, the
-  *     nodes load ID, then both load IDs); a retry after the nodes start starts the edges load
-  *     only, a graph run already started is refused, and a claim without a nodes load ID is refused
-  *     (the nodes start may have reached Neptune).
+  *     nodes load ID, an `edges-starting` claim, then both load IDs); a start the loader refused
+  *     for certain is recorded (`nodes-failed`, `edges-failed`) and may be started again; a retry
+  *     after the nodes start starts the edges load only; a graph run already started is refused,
+  *     and so is a claim whose start has an unknown outcome (the load may exist in Neptune).
   *   - `neptune-bulk-status`: the status of one load ID, optionally waiting up to `--wait-seconds`.
   *
   * Common rules: `--config` is the configuration file plus the `SCHOLARCHAIN_CFG_*` overrides (as
@@ -598,14 +605,20 @@ object StorageLoadMain {
         case Some(_) => ()
       }
     }
-    // Registry protocol (C-04): every step is registered before the next one starts, as a new
-    // append-only version written with a conditional put, so a retry never starts a load twice.
-    //   v1 state=starting       written before the nodes start (claims the graph run)
-    //   v2 state=nodes-started  written right after the nodes start, with nodesLoadId
-    //   v3 state=started        written after the edges start, with both load IDs
-    // A retry after v2 starts only the edges load (depending on the registered nodes load); a
-    // retry after v1 alone is refused, because the nodes start may have reached Neptune without
-    // its load ID being registered (the runbook checks Neptune's load list first).
+    // Registry protocol (C-04, C-06, C-07): every step is registered before the next one starts,
+    // as a new append-only version written with a conditional put, so a retry never starts a load
+    // twice. States, in order (each a new version):
+    //   starting        claim written before the nodes start
+    //   nodes-failed    the nodes start was refused for certain (BulkLoadStartRejected), startError
+    //   nodes-started   written right after the nodes start, with nodesLoadId
+    //   edges-starting  claim written before the edges start, with nodesLoadId
+    //   edges-failed    the edges start was refused for certain, with nodesLoadId and startError
+    //   started         written after the edges start, with both load IDs
+    // A retry from nodes-failed starts again from the nodes claim; from nodes-started or
+    // edges-failed it starts only the edges load (depending on the registered nodes load). A retry
+    // from starting or edges-starting is refused: that start's outcome is unknown (timeout,
+    // network error, throttling, 5xx, or the version after it was not written), so the load may
+    // exist in Neptune. A retry from started is refused (already started).
     val registry = new ArtifactRegistry(stores.kv, cfg.dynamoDb.artifactRegistryTable)
     val graphRunId = s"${RunId.Prefix}${run.runHex}"
     def register(previous: Long, state: String, ids: (String, String)*): Long = {
@@ -625,36 +638,93 @@ object StorageLoadMain {
         case _ => previous + 1
       }
     }
+    // Starts one stage after its claim (version `claim`). A definite refusal appends `failedState`
+    // (masked error class, HTTP status) and fails the run, so a later start may try again; any
+    // other exception propagates and leaves the claim as the latest version (outcome unknown).
+    def startStage(
+        stage: String,
+        deps: List[String],
+        claim: Long,
+        failedState: String,
+        ids: (String, String)*
+    ): String =
+      try loader.start(request(stage, deps))
+      catch {
+        case e: BulkLoadStartRejected =>
+          val errorClass = masking(e.errorClass)
+          val recorded =
+            try {
+              val v = register(
+                claim,
+                failedState,
+                (ids ++ List(
+                  "startError" -> errorClass,
+                  "startHttpStatus" -> e.httpStatus.toString
+                ))*
+              )
+              s"registry version $v records $failedState, so a new start of this graph run is allowed once the cause is fixed"
+            } catch {
+              case NonFatal(r) =>
+                s"recording $failedState failed (${r.getClass.getSimpleName}), so the claim (version $claim) stays and a new start is refused"
+            }
+          report("bulkLoadFailure") = ujson.Obj(
+            "stage" -> stage,
+            "errorClass" -> errorClass,
+            "httpStatus" -> e.httpStatus.toDouble,
+            "registryState" -> failedState
+          )
+          throw new BulkLoadStartRejected(
+            e.errorClass,
+            e.httpStatus,
+            s"the $stage start was refused by the loader ($errorClass, HTTP ${e.httpStatus}); $recorded: ${e.getMessage}"
+          )
+      }
+    def unknownOutcome(v: ArtifactVersion, stage: String, known: String) =
+      new LoadRefused(
+        s"a $stage start of this graph run was begun (registry version ${v.version}, ${v.item.strOpt("loadState").getOrElse("no state")}) and its outcome is unknown: the $stage load may exist in Neptune.$known Check Neptune's loader list for a load of this graph run (with a known load ID: $NeptuneBulkStatus --load-id ID). The registry is append-only and is never edited by hand; the only other way to a new start is a new export or a new configuration (a new graph run)"
+      )
+    def startNodes(previous: Long): (String, Long) = {
+      val claim = register(previous, StateStarting)
+      val id = startStage("nodes", Nil, claim, StateNodesFailed)
+      wiring.print(s"[storage-load] started nodes load $id")
+      (id, register(claim, StateNodesStarted, "nodesLoadId" -> id))
+    }
     val latest = registry.latest(NeptuneLoadArtifact, run.root.key)
     val (nodesId, fromVersion, resumed) = latest match {
       case None =>
-        val v1 = register(0L, StateStarting)
-        val id = loader.start(request("nodes", Nil))
-        wiring.print(s"[storage-load] started nodes load $id")
-        (id, register(v1, StateNodesStarted, "nodesLoadId" -> id), false)
+        val (id, v) = startNodes(0L)
+        (id, v, false)
       case Some(v) if v.item.strOpt("edgesLoadId").isDefined =>
         val ids =
           List("nodesLoadId", "edgesLoadId").flatMap(k => v.item.strOpt(k).map(x => s"$k=$x"))
         throw new LoadRefused(
-          s"this graph run was already started (registry version ${v.version}: ${ids.mkString(", ")}); check it with $NeptuneBulkStatus. Reloading a cluster belongs to the runbook (load into an empty cluster)"
+          s"this graph run was already started (registry version ${v.version}: ${ids.mkString(", ")}); check it with $NeptuneBulkStatus. Reloading a cluster needs an empty cluster and a new graph run"
         )
       case Some(v) =>
-        v.item.strOpt("nodesLoadId") match {
-          case Some(id) =>
+        (v.item.strOpt("loadState"), v.item.strOpt("nodesLoadId")) match {
+          case (Some(StateNodesFailed), _) =>
+            wiring.print(
+              s"[storage-load] retrying: the nodes start was refused (registry version ${v.version}, ${v.item.strOpt("startError").getOrElse("unknown error")}); starting the nodes load again"
+            )
+            val (id, nv) = startNodes(v.version)
+            (id, nv, true)
+          case (Some(StateNodesStarted | StateEdgesFailed), Some(id)) =>
             wiring.print(
               s"[storage-load] resuming: nodes load $id is registered (registry version ${v.version}); starting the edges load only"
             )
             (id, v.version, true)
-          case None =>
-            throw new LoadRefused(
-              s"a start of this graph run was begun (registry version ${v.version}, ${v.item.strOpt("loadState").getOrElse("unknown state")}) but its nodes load ID was not registered; the nodes load may have been sent. Check Neptune's load list (runbook) before any new start"
-            )
+          case (Some(StateEdgesStarting), Some(id)) =>
+            throw unknownOutcome(v, "edges", s" The nodes load is $id.")
+          case _ =>
+            throw unknownOutcome(v, "nodes", "")
         }
     }
-    val edgesId = loader.start(request("edges", List(nodesId)))
+    val edgesClaim = register(fromVersion, StateEdgesStarting, "nodesLoadId" -> nodesId)
+    val edgesId =
+      startStage("edges", List(nodesId), edgesClaim, StateEdgesFailed, "nodesLoadId" -> nodesId)
     wiring.print(s"[storage-load] started edges load $edgesId (depends on $nodesId)")
     val finalVersion =
-      register(fromVersion, StateStarted, "nodesLoadId" -> nodesId, "edgesLoadId" -> edgesId)
+      register(edgesClaim, StateStarted, "nodesLoadId" -> nodesId, "edgesLoadId" -> edgesId)
     report("bulkLoad") = ujson.Obj(
       "files" -> ujson.Obj.from(byStage.toList.sortBy(_._1).map { case (k, v) =>
         k -> ujson.Num(v.size)
@@ -670,7 +740,10 @@ object StorageLoadMain {
 
   /** `loadState` values of the `neptune-load` registry entries (see [[neptuneBulkStart]]). */
   val StateStarting = "starting"
+  val StateNodesFailed = "nodes-failed"
   val StateNodesStarted = "nodes-started"
+  val StateEdgesStarting = "edges-starting"
+  val StateEdgesFailed = "edges-failed"
   val StateStarted = "started"
 
   // ---- neptune-bulk-status --------------------------------------------------------------------

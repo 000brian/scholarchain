@@ -30,8 +30,20 @@ final case class BulkLoadJob(
 
 final case class BulkLoadStatus(loadId: String, status: String, totalRecords: Long, errors: Long)
 
+/** The bulk loader refused a start request for certain (Phase 14 C-07): the service answered with
+  * an error that means the request was not accepted, so no load was created. `errorClass` is the
+  * service's error name (for example `BadRequestException`); it holds no identifier.
+  */
+final class BulkLoadStartRejected(val errorClass: String, val httpStatus: Int, message: String)
+    extends RuntimeException(message)
+
 /** Neptune bulk loader: the only path for large graph loads. */
 trait GraphBulkLoader {
+
+  /** Starts one load and returns its load ID. Throws [[BulkLoadStartRejected]] only when the
+    * request was refused for certain; any other exception (timeout, network error, throttling, 5xx,
+    * a response without a load ID) means the outcome is unknown: the load may exist.
+    */
   def start(job: BulkLoadJob): String
   def status(loadId: String): BulkLoadStatus
 }

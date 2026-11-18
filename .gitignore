@@ -10,9 +10,7 @@ metals.sbt
 .scala-build/
 *.class
 *.log
-# Committed evidence keeps its logs: raw experiment results and release records are never ignored.
-!experiments/**/*.log
-!releases/**/*.log
+# Committed evidence (experiments/**, releases/**) is re-included by the final block at the end.
 
 # Evidence records and archives written by scripts/** (never committed)
 evidence/
@@ -74,3 +72,37 @@ crash.log
 crash.*.log
 !infra/terraform/environments/course/course.tfvars
 infra/terraform/environments/course/plans/
+
+# FINAL RULE (keep this block last; Git applies the last matching pattern):
+# nothing under experiments/ or releases/ is ignored. Raw experiment results and release
+# records are committed evidence, whatever their names (*.log, crash.log, *.plan, tfplan,
+# target/, and every other rule above). The only exception is secret material: the secret
+# rules below repeat the secrets section above (plus Terraform state) after the negation,
+# so a secret-looking file under experiments/ or releases/ stays ignored. Keep both lists
+# identical, and add any new rule above this block.
+!experiments/**
+!releases/**
+.env
+.env.*
+.envrc
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa*
+id_ed25519*
+id_ecdsa*
+id_dsa*
+.netrc
+*credentials*.json
+*.tfstate
+*.tfstate.*
+secrets
+.secrets
+.aws
+.ssh
+.gnupg
+**/.config/gh
+**/.docker/config.json

@@ -2,8 +2,8 @@
 # scripts/plan.sh - make and record a reviewed Terraform plan of the ScholarChain
 # course environment. It NEVER applies. Owner: infra-engineer. Run by the human.
 #
-# Status (Phase 13): static: shellcheck clean; runtime: untested; human
-# execution required.
+# Status (Phase 14, I-26): static: shellcheck clean; runtime: untested (the
+# I-26 change); human execution required.
 
 set -Eeuo pipefail
 umask 077
@@ -58,9 +58,11 @@ What it does (its whole contract):
      `terraform show -json` of the plan file (.summary.txt):
      create/update/delete/replace counts, IAM and resource-policy changes,
      network-access changes, and actions on stateful resources. The summary
-     masks the account ID. The record, summary and .plan.txt are checked for
-     the account ID (grep -F) before the plan is reported (exit 6 if found).
-     Nothing is ever overwritten.
+     masks the account ID. Order (I-26): .plan.txt is checked for the
+     account ID (grep -F) first, then the summary before it is shown, then
+     the record before it gets its final name. A plan that fails any check
+     (exit 6) gets NO .record.json, so deploy.sh cannot find or apply it:
+     plan again after fixing the masking. Nothing is ever overwritten.
 
 Plan validity (Phase 13 "Two identity rules"; scripts/lib/identity.sh
 plan_usable): deploy.sh finds a plan by its sha256 and uses it only if the
@@ -97,9 +99,9 @@ Terraform registry for init.
 
 Exit codes: 0 plan written and recorded; 2 usage error; 3 missing
 prerequisite; 4 refused by a safety check (not at the repository root, plan
-Region, a plan name that exists); 5 terraform or AWS command failed; 6 a
-written plan file (.record.json, .summary.txt, .plan.txt) still holds the
-account ID; 7 timed out.
+Region, a plan name that exists); 5 terraform or AWS command failed; 6 the
+.plan.txt, the summary or the record would hold the account ID (no record
+is written, so the plan is unusable for deploy.sh); 7 timed out.
 
 Status: static: shellcheck clean; runtime: untested; human execution required.
 EOF
@@ -331,6 +333,11 @@ terraform_plan() {
     *) die 5 "terraform plan failed (status ${rc}); see the output above" ;;
   esac
   [ -s "${PLAN_FILE}" ] || die 5 "terraform plan wrote no plan file"
+  # I-26: the identifier check of the masked text runs BEFORE any summary or
+  # record exists, so a plan that fails it has no record and deploy.sh
+  # (find_plan_record) cannot find or apply it.
+  check_no_identifiers "${text}" ||
+    die 6 "${text} still holds the account ID (listed above); no record was written, so deploy.sh cannot use this plan; do not share it"
   PLAN_SHA256="$(sc_sha256 "${PLAN_FILE}")"
 }
 
@@ -404,11 +411,16 @@ summarize_plan() {
       ' "${PLAN_JSON}"
     } >"${summary}"
   ) || die 5 "could not write ${summary}"
+  # I-26: checked before it is shown and before the record exists.
+  check_no_identifiers "${summary}" ||
+    die 6 "${summary} still holds the account ID (listed above); no record was written, so deploy.sh cannot use this plan"
   cat -- "${summary}"
 
-  local record="${TF_DIR}/${PLANS_SUBDIR}/${PLAN_NAME}.record.json"
-  (
-    set -o noclobber
+  # I-26: write_record_atomic checks the record (valid JSON, no identifier)
+  # before it gets its final name; on a failed check only RECORD.partial
+  # stays, which find_plan_record never reads.
+  local record="${TF_DIR}/${PLANS_SUBDIR}/${PLAN_NAME}.record.json" rec_rc=0
+  {
     jq -n \
       --arg kind "scholarchain-plan-record" \
       --arg environment "${ENVIRONMENT}" \
@@ -428,11 +440,11 @@ summarize_plan() {
         plan_id: $plan_id, tree_clean: $tree_clean, plan_file: $plan_file,
         plan_sha256: $plan_sha256, account_sha256: $account_sha256,
         account_masked: $account_masked, region: $region,
-        created_utc: $created_utc, variable_overrides: $overrides}' >"${record}"
-  ) || die 5 "could not write ${record}"
-  # I-21: nothing persisted next to the plan may hold the account ID.
-  check_no_identifiers "${record}" "${summary}" "${TF_DIR}/${PLANS_SUBDIR}/${PLAN_NAME}.plan.txt" ||
-    die 6 "a plan file still holds the account ID (listed above); do not share or archive it"
+        created_utc: $created_utc, variable_overrides: $overrides}'
+  } | write_record_atomic "${record}" || rec_rc=$?
+  [ "${rec_rc}" -eq 6 ] &&
+    die 6 "the plan record failed its check (listed above); no record was written, so deploy.sh cannot use this plan"
+  [ "${rec_rc}" -eq 0 ] || die 5 "could not write ${record} (status ${rec_rc})"
   info "record written: ${record} (gitignored; account kept as a fingerprint for deploy.sh, never the ID)"
 }
 
