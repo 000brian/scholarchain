@@ -1,0 +1,3 @@
+d4b2f98b1f362222ce6d7d9b166276b9dfef8cb9 phase-13 step F (factory-engineer): aws-api env defaults, MCP start-up note, evidence row, F-01 validate -chdir
+98b712af1f5934f63c1c81c4c688f28bea212c80 phase-13 work: packaging, loaders and exports, Terraform fixes, ten scripts, repair rounds 1 and 2
+bc179edb5f726a327478ca4a49e3d180adef2ad1 phase-13 repair round 3: package.sh accepts linux/arm64 variants (I-27)
