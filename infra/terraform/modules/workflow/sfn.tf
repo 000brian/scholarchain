@@ -437,6 +437,39 @@ data "aws_iam_policy_document" "sfn" {
     }
   }
 
+  # Repair G-14: RunJobFlow with Tags also authorizes elasticmapreduce:AddTags
+  # (Service Authorization Reference for Amazon Elastic MapReduce, API
+  # operations table: RunJobFlow -> AddTags, RunJobFlow, iam:PassRole; EMR
+  # Management Guide, "IAM policies for tag-based access to clusters": "To
+  # create a cluster with a tag, you must also have permission for the
+  # AddTags action"). AddTags supports the cluster resource type and the
+  # aws:RequestTag and aws:TagKeys keys, so it is limited to cluster ARNs of
+  # this account and Region, to requests that carry the same two tags as
+  # RunJobFlow, and to the tag keys the state machine sends (cluster_tag_map).
+  statement {
+    sid       = "TagProjectClustersOnCreate"
+    actions   = ["elasticmapreduce:AddTags"]
+    resources = [local.cluster_arns]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestTag/project"
+      values   = ["scholarchain"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestTag/for-use-with-amazon-emr-managed-policies"
+      values   = ["true"]
+    }
+
+    condition {
+      test     = "ForAllValues:StringEquals"
+      variable = "aws:TagKeys"
+      values   = sort(keys(local.cluster_tag_map))
+    }
+  }
+
   # createCluster.sync, addStep.sync, terminateCluster.sync on cluster ARNs
   # (the guide's dynamic-resource templates), plus the policies passed on
   # create: auto-termination (EMR Management Guide, "Permissions to use

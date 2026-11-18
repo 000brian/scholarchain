@@ -187,6 +187,23 @@ data "aws_iam_policy_document" "role_boundary" {
     }
   }
 
+  # Repair G-14: RunJobFlow with Tags also authorizes elasticmapreduce:AddTags
+  # (Service Authorization Reference for Amazon Elastic MapReduce: AddTags on
+  # the cluster resource type, aws:RequestTag supported). Ceiling: cluster
+  # ARNs of this account and Region, only requests that tag project=scholarchain
+  # (the Step Functions role policy narrows it further).
+  statement {
+    sid       = "TagProjectClusters"
+    actions   = ["elasticmapreduce:AddTags"]
+    resources = [format(local.regional_arn, "elasticmapreduce", "cluster/*")]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestTag/project"
+      values   = ["scholarchain"]
+    }
+  }
+
   statement {
     sid = "DriveClusters"
     actions = [
