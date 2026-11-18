@@ -1,0 +1,143 @@
+diff --git a/infra/terraform/modules/observability/dashboard.tf b/infra/terraform/modules/observability/dashboard.tf
+index 397676c..f030268 100644
+--- a/infra/terraform/modules/observability/dashboard.tf
++++ b/infra/terraform/modules/observability/dashboard.tf
+@@ -121,7 +121,7 @@ locals {
+           ["AWS/States", "ExecutionsStarted", "StateMachineArn", var.state_machine_arn],
+           ["AWS/States", "ExecutionsSucceeded", "StateMachineArn", var.state_machine_arn],
+           ["AWS/States", "ExecutionsFailed", "StateMachineArn", var.state_machine_arn],
+-          [{ expression = "SEARCH('{AWS/ElasticMapReduce,JobFlowId} MetricName=\"AppsRunning\"', 'Maximum', 300)", id = "emrapps", label = "EMR apps running", yAxis = "right" }],
++          [{ expression = "SEARCH('{AWS/ElasticMapReduce,JobFlowId} MetricName=\"AppsRunning\"', 'Maximum', 300)", id = "emrapps", label = "EMR apps running" }],
+         ]
+       }
+     },
+diff --git a/scripts/README.md b/scripts/README.md
+index 6e05004..bdf9ea5 100644
+--- a/scripts/README.md
++++ b/scripts/README.md
+@@ -78,7 +78,7 @@ Run each line as `COMMAND 2>&1 | tee /tmp/p14-DNN.log; echo "exit=${pipestatus[1
+ | D5b | upload the DTD | `bash scripts/run-bounded-pipeline.sh --stage upload-input --source dblp --snapshot dblp-2026-11-01 --file 'LOCAL_DIR/dblp.dtd'` (prints `INPUT-LOCATION: s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp.dtd`) |
+ | D5c | upload the release | `bash scripts/run-bounded-pipeline.sh --stage upload-input --source dblp --snapshot dblp-2026-11-01 --max-upload-mb 1100 --file 'LOCAL_DIR/dblp-2026-11-01.xml.gz'` (the file is 1,064.4 MiB, above the 1024 MiB default) |
+ | D6 | Hadoop (EMR) | `bash scripts/run-bounded-pipeline.sh --stage hadoop --snapshot dblp-2026-11-01 --dblp 's3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp-2026-11-01.xml.gz' --hadoop-extra-arg '--dblp-dtd' --hadoop-extra-arg 's3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp.dtd'` (see "DBLP DTD" below); then `aws emr list-clusters --active --query 'length(Clusters)' --output text` prints `0` |
+-| D7 | entity resolution (this machine) | `bash scripts/run-bounded-pipeline.sh --stage er --snapshot dblp-2026-11-01 --hadoop-export 's3://{data-bucket}/curated/hadoop/SCOPE/j09-graph-export/run=HEX' --decision-time 2026-11-14T00:00:00Z --seed 20261114` (the J09 run is in the hadoop record, `run_ids.hadoop_j09_export_runs`) |
++| D7 | entity resolution (this machine) | `bash scripts/run-bounded-pipeline.sh --stage er --snapshot dblp-2026-11-01 --hadoop-export 's3://{data-bucket}/curated/hadoop/SCOPE/j09-graph-export/run=HEX' --decision-time 2026-11-14T00:00:00Z --seed 20261114` (the J09 run is in the hadoop record, `run_ids.hadoop_j09_export_runs`); on a slow uplink add `--upload identity-assignments-only` (see "ER upload size" below) |
+ | D8 | Spark graph (EMR) | `bash scripts/run-bounded-pipeline.sh --stage spark --snapshot dblp-2026-11-01 --hadoop-export 's3://{data-bucket}/curated/hadoop/SCOPE/j09-graph-export/run=HEX' --identity-assignments 's3://{data-bucket}/curated/er/ATTEMPT_ID/run=HEX/decisions/identity_assignment' --out-root 's3://{data-bucket}/graph/runs'` (exactly one graph run in `run_ids.graph_runs_under_out_root`); the EMR check as in D6 |
+ | D9 | Spark export (EMR) | the D8 command plus `--export-source-run 's3://{data-bucket}/graph/runs/run=HEX32' --export-root 's3://{data-bucket}/graph/exports'` (the graph job is reused; the export run equals the graph run); the EMR check as in D6 |
+ | D10 | runtime-on plan and sign | `bash scripts/plan.sh --runtime-enabled true --image-tag "$BUILD" --graph-run-id run:v1:HEX32` (HEX32 = the SPARK graph run of D8/D9, never the Neptune CSV folder); no stateful delete or replace in the summary; sign in `approvals.md` as in D0a |
+@@ -105,6 +105,10 @@ Uppercase words (`LOCAL_DIR`, `SCOPE`, `HEX`, `HEX32`, `HEX64`, `ATTEMPT_ID`, `B
+ 
+ The release declares no entities itself and writes non-ASCII characters as DTD named entities (`&eacute;`), so the Hadoop parse needs `dblp.dtd`. Without it the Hadoop stage still SUCCEEDS but rejects every record with a named entity as `undefined_entity`. The driver option `--dblp-dtd PATH` (modules/hadoop, `ScholarChainHadoop`) sets `scholarchain.dblp.dtdPath`; it goes through two `--hadoop-extra-arg` values, in this order: `'--dblp-dtd'`, then `'s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp.dtd'`. Do not pass `-D scholarchain.dblp.dtdPath=...` that way: the state machine appends the extra arguments after the application options, and the driver refuses a trailing `-D`. The D6 check: the J01 counter `scholarchain.reject-reason:undefined_entity` is 0. The run record's `configuration.note` and `configuration.extra_args` name the options passed.
+ 
++## ER upload size (Phase 14 step D-ER)
++
++The ER output root is large (Phase 5's run wrote about 21 GB, almost all of it `decisions/mention_pair/`); at 30 Mbit/s the full upload takes about 1.6 to 1.7 hours (estimate, untested). Only the Spark stage reads the ER output after D7, and it reads only `run=HEX/_SUCCESS`, `run=HEX/_manifest.json` and the data files of `run=HEX/decisions/identity_assignment/` (`modules/spark/.../Pipeline.scala` `checkErRun` and `inputListing`); storage, rag and the services read only Spark's exports and the stores. `--upload identity-assignments-only` uploads just those parts (data files first, then `_manifest.json`, then `_SUCCESS`); every other file stays in the local folder `${TMPDIR:-/tmp}/scholarchain-er-ATTEMPT_ID/er-out/` and is listed in the run record's `outputs.left_out` (path relative to the output root, bytes, totals), with `outputs.upload_mode`. The step prints `SUMMARY: er-upload mode=... data_files_uploaded=N left_out_files=M left_out_bytes=B`. Keep the local folder: the review queue, the pair decisions and `run-report.json` exist only there (they are ER evaluation evidence). The default (`--upload full`) is unchanged. D8 takes the same `--identity-assignments` value either way.
++
+ ## First apply (new account)
+ 
+ On Nov 17 (Phase 14, attempt 1) the first runtime-off apply stopped at the Neptune cluster with `KMSKeyNotAccessibleFault` for the AWS managed key `aws/rds`: it was the first use of that key in the account. A few minutes later the key was enabled. The fix is to wait a few minutes, then make a NEW runtime-off plan (`bash scripts/plan.sh`; the old plan is stale after a partial apply), sign it and run deploy.sh with it. No release record is written for a failed apply.
+diff --git a/scripts/run-bounded-pipeline.sh b/scripts/run-bounded-pipeline.sh
+index 746bbd8..941fff2 100644
+--- a/scripts/run-bounded-pipeline.sh
++++ b/scripts/run-bounded-pipeline.sh
+@@ -116,13 +116,28 @@ Common options:
+   --er-heap-gb N        java -Xmx (default 6, 1..64)
+   --llm-model-id ID     recorded model ID (default none-always-abstain;
+                         the adjudicator is always-abstain, so no model runs)
++  --upload full|identity-assignments-only
++                        what goes to S3 (default full: the whole output
++                        root). identity-assignments-only uploads only what
++                        the Spark stage reads (GraphAnalyticsJob
++                        --identity-assignments; Pipeline.checkErRun):
++                        run=HEX/decisions/identity_assignment/**, then
++                        run=HEX/_manifest.json, then run=HEX/_SUCCESS. Every
++                        other file (mention_pair decisions, clusters, LLM,
++                        review queue, run-report.json, ...) stays only in
++                        the local folder; the record's outputs.left_out
++                        lists each one (path relative to the output root,
++                        bytes) with the totals. The manifest still lists
++                        them; the Spark check reads only its entries under
++                        decisions/identity_assignment/.
+   Downloads the export to a NEW folder ${TMPDIR:-/tmp}/scholarchain-er-ATTEMPT_ID/
+   (kept until YOU remove it), checks every file against the export's own
+   _job.json "outputs" list (path, length, sha256; falls back to the file
+   count and bytes of the listing when there is no _job.json), runs
+   java -Xmx<N>g -cp ENTITY_RESOLUTION_JAR ErMain with
+   --adjudicator always-abstain, --llm-max-per-run 0 and --code-version
+-  BUILD_COMMIT, then uploads the output root to the NEW prefix
++  BUILD_COMMIT, then uploads the output root (or, with --upload
++  identity-assignments-only, the parts named above) to the NEW prefix
+   s3://{data-bucket}/curated/er/ATTEMPT_ID/ (data files first, then
+   _manifest.json, then _SUCCESS; never overwriting). The jar is the one
+   scripts/package.sh built for the build commit
+@@ -285,6 +300,7 @@ A_SEED=""
+ A_MAX_DOWNLOAD_MB="${DEFAULT_MAX_DOWNLOAD_MB}"
+ A_ER_HEAP_GB="${DEFAULT_ER_HEAP_GB}"
+ A_LLM_MODEL_ID="${ER_LLM_MODEL_ID_DEFAULT}"
++A_ER_UPLOAD="full"
+ A_IDENTITY=""
+ A_OUT_ROOT=""
+ A_SPARK_JAR=""
+@@ -334,6 +350,7 @@ parse_args() {
+       --max-download-mb) need_value "$#" "$1"; mark_given max-download-mb; A_MAX_DOWNLOAD_MB="$2"; shift 2 ;;
+       --er-heap-gb) need_value "$#" "$1"; mark_given er-heap-gb; A_ER_HEAP_GB="$2"; shift 2 ;;
+       --llm-model-id) need_value "$#" "$1"; mark_given llm-model-id; A_LLM_MODEL_ID="$2"; shift 2 ;;
++      --upload) need_value "$#" "$1"; mark_given upload; A_ER_UPLOAD="$2"; shift 2 ;;
+       --identity-assignments) need_value "$#" "$1"; mark_given identity-assignments; A_IDENTITY="$2"; shift 2 ;;
+       --out-root) need_value "$#" "$1"; mark_given out-root; A_OUT_ROOT="$2"; shift 2 ;;
+       --spark-jar) need_value "$#" "$1"; mark_given spark-jar; A_SPARK_JAR="$2"; shift 2 ;;
+@@ -406,8 +423,12 @@ check_args() {
+       require_given dblp
+       ;;
+     er)
+-      allow_only hadoop-export decision-time seed max-download-mb er-heap-gb llm-model-id
++      allow_only hadoop-export decision-time seed max-download-mb er-heap-gb llm-model-id upload
+       require_given hadoop-export decision-time seed
++      case "${A_ER_UPLOAD}" in
++        full | identity-assignments-only) ;;
++        *) die 2 "--upload must be full or identity-assignments-only" ;;
++      esac
+       [[ "${A_DECISION_TIME}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] ||
+         die 2 "--decision-time must look like 2026-11-14T00:00:00Z"
+       [[ "${A_SEED}" =~ ^[0-9]{1,18}$ ]] || die 2 "--seed must be a non-negative integer"
+@@ -1074,14 +1095,40 @@ stage_er() {
+   add_str RUN_IDS_JSON er_run_id "${run_id}"
+ 
+   step "er-upload"
+-  local dest="${P_CURATED}/er/${ATTEMPT_ID}" f relf
++  local dest="${P_CURATED}/er/${ATTEMPT_ID}" f relf ia_rel left="${TMP_DIR}/er-left-out.tsv" n_up=0
++  # The Spark stage reads only run=HEX/_SUCCESS, run=HEX/_manifest.json and
++  # run=HEX/decisions/identity_assignment/** (Pipeline.checkErRun, inputListing).
++  ia_rel="${run_dir#"${out_root}/"}/decisions/identity_assignment/"
++  : >"${left}"
+   while IFS= read -r f; do
+     relf="${f#"${out_root}/"}"
+     case "${relf##*/}" in
+       _SUCCESS | _manifest.json) continue ;;
+     esac
++    if [ "${A_ER_UPLOAD}" = "identity-assignments-only" ]; then
++      case "${relf}" in
++        "${ia_rel}"*) ;;
++        *)
++          printf '%s\t%s\n' "${relf}" "$(sc_bytes "${f}")" >>"${left}"
++          continue
++          ;;
++      esac
++    fi
+     put_once "${f}" "${dest}/${relf}"
++    n_up=$((n_up + 1))
+   done < <(find "${out_root}" -type f | LC_ALL=C sort)
++  if [ "${A_ER_UPLOAD}" = "identity-assignments-only" ] && [ "${n_up}" -eq 0 ]; then
++    die 6 "decisions/identity_assignment holds no data file; _manifest.json and _SUCCESS not uploaded"
++  fi
++  add_str OUTPUTS_JSON upload_mode "${A_ER_UPLOAD}"
++  add_json OUTPUTS_JSON left_out "$(jq -R -s --arg root "${out_root}" --arg mode "${A_ER_UPLOAD}" \
++    '[split("\n")[] | select(length > 0) | split("\t") | {path: .[0], bytes: (.[1] | tonumber)}]
++     | {mode: $mode, files: length, bytes: (map(.bytes) | add // 0), kept_in_local_folder: $root,
++        note: "not in S3; nothing after the ER stage reads these files; _manifest.json still lists them",
++        items: .}' "${left}")"
++  printf 'SUMMARY: er-upload mode=%s data_files_uploaded=%s left_out_files=%s left_out_bytes=%s\n' \
++    "${A_ER_UPLOAD}" "${n_up}" "$(jq -r '.left_out.files' <<<"${OUTPUTS_JSON}")" \
++    "$(jq -r '.left_out.bytes' <<<"${OUTPUTS_JSON}")"
+   put_once "${run_dir}/_manifest.json" "${dest}/${run_dir#"${out_root}/"}/_manifest.json"
+   put_once "${run_dir}/_SUCCESS" "${dest}/${run_dir#"${out_root}/"}/_SUCCESS"
+   add_str OUTPUTS_JSON er_output_root "$(logical_s3 "s3://${DATA_BUCKET}/${dest}")"

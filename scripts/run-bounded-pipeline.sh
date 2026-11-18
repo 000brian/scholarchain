@@ -116,13 +116,28 @@ Common options:
   --er-heap-gb N        java -Xmx (default 6, 1..64)
   --llm-model-id ID     recorded model ID (default none-always-abstain;
                         the adjudicator is always-abstain, so no model runs)
+  --upload full|identity-assignments-only
+                        what goes to S3 (default full: the whole output
+                        root). identity-assignments-only uploads only what
+                        the Spark stage reads (GraphAnalyticsJob
+                        --identity-assignments; Pipeline.checkErRun):
+                        run=HEX/decisions/identity_assignment/**, then
+                        run=HEX/_manifest.json, then run=HEX/_SUCCESS. Every
+                        other file (mention_pair decisions, clusters, LLM,
+                        review queue, run-report.json, ...) stays only in
+                        the local folder; the record's outputs.left_out
+                        lists each one (path relative to the output root,
+                        bytes) with the totals. The manifest still lists
+                        them; the Spark check reads only its entries under
+                        decisions/identity_assignment/.
   Downloads the export to a NEW folder ${TMPDIR:-/tmp}/scholarchain-er-ATTEMPT_ID/
   (kept until YOU remove it), checks every file against the export's own
   _job.json "outputs" list (path, length, sha256; falls back to the file
   count and bytes of the listing when there is no _job.json), runs
   java -Xmx<N>g -cp ENTITY_RESOLUTION_JAR ErMain with
   --adjudicator always-abstain, --llm-max-per-run 0 and --code-version
-  BUILD_COMMIT, then uploads the output root to the NEW prefix
+  BUILD_COMMIT, then uploads the output root (or, with --upload
+  identity-assignments-only, the parts named above) to the NEW prefix
   s3://{data-bucket}/curated/er/ATTEMPT_ID/ (data files first, then
   _manifest.json, then _SUCCESS; never overwriting). The jar is the one
   scripts/package.sh built for the build commit
@@ -285,6 +300,7 @@ A_SEED=""
 A_MAX_DOWNLOAD_MB="${DEFAULT_MAX_DOWNLOAD_MB}"
 A_ER_HEAP_GB="${DEFAULT_ER_HEAP_GB}"
 A_LLM_MODEL_ID="${ER_LLM_MODEL_ID_DEFAULT}"
+A_ER_UPLOAD="full"
 A_IDENTITY=""
 A_OUT_ROOT=""
 A_SPARK_JAR=""
@@ -334,6 +350,7 @@ parse_args() {
       --max-download-mb) need_value "$#" "$1"; mark_given max-download-mb; A_MAX_DOWNLOAD_MB="$2"; shift 2 ;;
       --er-heap-gb) need_value "$#" "$1"; mark_given er-heap-gb; A_ER_HEAP_GB="$2"; shift 2 ;;
       --llm-model-id) need_value "$#" "$1"; mark_given llm-model-id; A_LLM_MODEL_ID="$2"; shift 2 ;;
+      --upload) need_value "$#" "$1"; mark_given upload; A_ER_UPLOAD="$2"; shift 2 ;;
       --identity-assignments) need_value "$#" "$1"; mark_given identity-assignments; A_IDENTITY="$2"; shift 2 ;;
       --out-root) need_value "$#" "$1"; mark_given out-root; A_OUT_ROOT="$2"; shift 2 ;;
       --spark-jar) need_value "$#" "$1"; mark_given spark-jar; A_SPARK_JAR="$2"; shift 2 ;;
@@ -406,8 +423,12 @@ check_args() {
       require_given dblp
       ;;
     er)
-      allow_only hadoop-export decision-time seed max-download-mb er-heap-gb llm-model-id
+      allow_only hadoop-export decision-time seed max-download-mb er-heap-gb llm-model-id upload
       require_given hadoop-export decision-time seed
+      case "${A_ER_UPLOAD}" in
+        full | identity-assignments-only) ;;
+        *) die 2 "--upload must be full or identity-assignments-only" ;;
+      esac
       [[ "${A_DECISION_TIME}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] ||
         die 2 "--decision-time must look like 2026-11-14T00:00:00Z"
       [[ "${A_SEED}" =~ ^[0-9]{1,18}$ ]] || die 2 "--seed must be a non-negative integer"
@@ -1074,14 +1095,40 @@ stage_er() {
   add_str RUN_IDS_JSON er_run_id "${run_id}"
 
   step "er-upload"
-  local dest="${P_CURATED}/er/${ATTEMPT_ID}" f relf
+  local dest="${P_CURATED}/er/${ATTEMPT_ID}" f relf ia_rel left="${TMP_DIR}/er-left-out.tsv" n_up=0
+  # The Spark stage reads only run=HEX/_SUCCESS, run=HEX/_manifest.json and
+  # run=HEX/decisions/identity_assignment/** (Pipeline.checkErRun, inputListing).
+  ia_rel="${run_dir#"${out_root}/"}/decisions/identity_assignment/"
+  : >"${left}"
   while IFS= read -r f; do
     relf="${f#"${out_root}/"}"
     case "${relf##*/}" in
       _SUCCESS | _manifest.json) continue ;;
     esac
+    if [ "${A_ER_UPLOAD}" = "identity-assignments-only" ]; then
+      case "${relf}" in
+        "${ia_rel}"*) ;;
+        *)
+          printf '%s\t%s\n' "${relf}" "$(sc_bytes "${f}")" >>"${left}"
+          continue
+          ;;
+      esac
+    fi
     put_once "${f}" "${dest}/${relf}"
+    n_up=$((n_up + 1))
   done < <(find "${out_root}" -type f | LC_ALL=C sort)
+  if [ "${A_ER_UPLOAD}" = "identity-assignments-only" ] && [ "${n_up}" -eq 0 ]; then
+    die 6 "decisions/identity_assignment holds no data file; _manifest.json and _SUCCESS not uploaded"
+  fi
+  add_str OUTPUTS_JSON upload_mode "${A_ER_UPLOAD}"
+  add_json OUTPUTS_JSON left_out "$(jq -R -s --arg root "${out_root}" --arg mode "${A_ER_UPLOAD}" \
+    '[split("\n")[] | select(length > 0) | split("\t") | {path: .[0], bytes: (.[1] | tonumber)}]
+     | {mode: $mode, files: length, bytes: (map(.bytes) | add // 0), kept_in_local_folder: $root,
+        note: "not in S3; nothing after the ER stage reads these files; _manifest.json still lists them",
+        items: .}' "${left}")"
+  printf 'SUMMARY: er-upload mode=%s data_files_uploaded=%s left_out_files=%s left_out_bytes=%s\n' \
+    "${A_ER_UPLOAD}" "${n_up}" "$(jq -r '.left_out.files' <<<"${OUTPUTS_JSON}")" \
+    "$(jq -r '.left_out.bytes' <<<"${OUTPUTS_JSON}")"
   put_once "${run_dir}/_manifest.json" "${dest}/${run_dir#"${out_root}/"}/_manifest.json"
   put_once "${run_dir}/_SUCCESS" "${dest}/${run_dir#"${out_root}/"}/_SUCCESS"
   add_str OUTPUTS_JSON er_output_root "$(logical_s3 "s3://${DATA_BUCKET}/${dest}")"

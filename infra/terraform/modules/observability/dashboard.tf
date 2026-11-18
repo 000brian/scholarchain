@@ -121,7 +121,7 @@ locals {
           ["AWS/States", "ExecutionsStarted", "StateMachineArn", var.state_machine_arn],
           ["AWS/States", "ExecutionsSucceeded", "StateMachineArn", var.state_machine_arn],
           ["AWS/States", "ExecutionsFailed", "StateMachineArn", var.state_machine_arn],
-          [{ expression = "SEARCH('{AWS/ElasticMapReduce,JobFlowId} MetricName=\"AppsRunning\"', 'Maximum', 300)", id = "emrapps", label = "EMR apps running", yAxis = "right" }],
+          [{ expression = "SEARCH('{AWS/ElasticMapReduce,JobFlowId} MetricName=\"AppsRunning\"', 'Maximum', 300)", id = "emrapps", label = "EMR apps running" }],
         ]
       }
     },
