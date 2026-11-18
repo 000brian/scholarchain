@@ -1,0 +1,462 @@
+diff --git a/scripts/README.md b/scripts/README.md
+index bdf9ea5..7c40aee 100644
+--- a/scripts/README.md
++++ b/scripts/README.md
+@@ -76,7 +76,7 @@ Run each line as `COMMAND 2>&1 | tee /tmp/p14-DNN.log; echo "exit=${pipestatus[1
+ | D4 | publish | `bash scripts/package.sh --publish` (image `BUILD` to ECR, jars to `s3://{data-bucket}/artifacts/BUILD/`) |
+ | D5a | check the inputs | `md5 -q 'LOCAL_DIR/dblp-2026-11-01.xml.gz'` must print the manifest's `snapshot_md5` (`datasets/dataset-manifest.yaml`); `shasum -a 256 'LOCAL_DIR/dblp.dtd'` must print the manifest's `dtd_sha256` (`2d864498f9eef9298662df11e3874171ff24cd4a21ab5974f1369c90acdb1ef6`) |
+ | D5b | upload the DTD | `bash scripts/run-bounded-pipeline.sh --stage upload-input --source dblp --snapshot dblp-2026-11-01 --file 'LOCAL_DIR/dblp.dtd'` (prints `INPUT-LOCATION: s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp.dtd`) |
+-| D5c | upload the release | `bash scripts/run-bounded-pipeline.sh --stage upload-input --source dblp --snapshot dblp-2026-11-01 --max-upload-mb 1100 --file 'LOCAL_DIR/dblp-2026-11-01.xml.gz'` (the file is 1,064.4 MiB, above the 1024 MiB default) |
++| D5c | upload the release | `bash scripts/run-bounded-pipeline.sh --stage upload-input --source dblp --snapshot dblp-2026-11-01 --max-upload-mb 1100 --file 'LOCAL_DIR/dblp-2026-11-01.xml.gz'` (the file is 1,064.4 MiB, above the 1024 MiB default; it goes as a multipart upload of 17 parts, see "Large uploads" below; expect 17 `POLL: multipart` lines, then `SUMMARY: multipart ... outcome=uploaded` and `SUMMARY: upload-input ... method=multipart`) |
+ | D6 | Hadoop (EMR) | `bash scripts/run-bounded-pipeline.sh --stage hadoop --snapshot dblp-2026-11-01 --dblp 's3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp-2026-11-01.xml.gz' --hadoop-extra-arg '--dblp-dtd' --hadoop-extra-arg 's3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp.dtd'` (see "DBLP DTD" below); then `aws emr list-clusters --active --query 'length(Clusters)' --output text` prints `0` |
+ | D7 | entity resolution (this machine) | `bash scripts/run-bounded-pipeline.sh --stage er --snapshot dblp-2026-11-01 --hadoop-export 's3://{data-bucket}/curated/hadoop/SCOPE/j09-graph-export/run=HEX' --decision-time 2026-11-14T00:00:00Z --seed 20261114` (the J09 run is in the hadoop record, `run_ids.hadoop_j09_export_runs`); on a slow uplink add `--upload identity-assignments-only` (see "ER upload size" below) |
+ | D8 | Spark graph (EMR) | `bash scripts/run-bounded-pipeline.sh --stage spark --snapshot dblp-2026-11-01 --hadoop-export 's3://{data-bucket}/curated/hadoop/SCOPE/j09-graph-export/run=HEX' --identity-assignments 's3://{data-bucket}/curated/er/ATTEMPT_ID/run=HEX/decisions/identity_assignment' --out-root 's3://{data-bucket}/graph/runs'` (exactly one graph run in `run_ids.graph_runs_under_out_root`); the EMR check as in D6 |
+@@ -105,6 +105,19 @@ Uppercase words (`LOCAL_DIR`, `SCOPE`, `HEX`, `HEX32`, `HEX64`, `ATTEMPT_ID`, `B
+ 
+ The release declares no entities itself and writes non-ASCII characters as DTD named entities (`&eacute;`), so the Hadoop parse needs `dblp.dtd`. Without it the Hadoop stage still SUCCEEDS but rejects every record with a named entity as `undefined_entity`. The driver option `--dblp-dtd PATH` (modules/hadoop, `ScholarChainHadoop`) sets `scholarchain.dblp.dtdPath`; it goes through two `--hadoop-extra-arg` values, in this order: `'--dblp-dtd'`, then `'s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp.dtd'`. Do not pass `-D scholarchain.dblp.dtdPath=...` that way: the state machine appends the extra arguments after the application options, and the driver refuses a trailing `-D`. The D6 check: the J01 counter `scholarchain.reject-reason:undefined_entity` is 0. The run record's `configuration.note` and `configuration.extra_args` name the options passed.
+ 
++## Large uploads (Phase 14 G-07)
++
++D5c's first try sent the 1.1 GB release as one `put-object` and lost it to one dropped connection. `run-bounded-pipeline.sh` (`put_once`, used by `--stage upload-input` and by the ER upload, also `--upload full`) now sends every file above 64 MiB as a multipart upload; files of at most 64 MiB stay one `put-object`. The options and the command lines do not change.
++
++- Never overwrite: a `head-object` check before the start (as before), and `complete-multipart-upload --if-none-match '*'`, which S3 refuses with 412 when the key exists. After a failed complete the script reads the key: this attempt's object (a lost answer) counts as uploaded, the same sha256 from another attempt as `already-present`, other bytes are refused (exit 4).
++- Metadata: `scholarchain-sha256`, `scholarchain-commit`, `scholarchain-attempt` are set on `create-multipart-upload`, so later stages read them as before.
++- Checksum: `--checksum-algorithm SHA256` on create and on every part. For SHA-256, S3 supports only the composite type on a multipart upload (full-object checksums are CRC only). S3 checks each part; the script also compares each part's `ChecksumSHA256` with its own SHA-256 of the part. `head-object --checksum-mode ENABLED` then shows `ChecksumType` `COMPOSITE` and a `ChecksumSHA256` computed from the part checksums, not from the whole file (the `-N` part-count suffix on that value is unverified); the whole-file sha256 stays in the `scholarchain-sha256` metadata, and the script checks `ContentLength`.
++- Per part: 64 MiB read into one temporary file (only one on disk at a time), at most 600 s per try, up to 5 tries; one `POLL: multipart location=... part=I/N bytes=B tries=T` line per part; one `SUMMARY: multipart ...` line per file. A 4.25 GB ER file is 64 parts (68 if it is 4.25 GiB).
++- On failure, INT or TERM the script aborts its own incomplete upload (`abort-multipart-upload`, then `list-parts` must show none) and prints `SUMMARY: multipart-abort location=... parts_uploaded=N result=aborted`; the record gets `outputs.multipart_aborted`. This frees the parts of an upload that never became an object; it touches no stored object. A second Ctrl-C during the abort can stop it; the data bucket's lifecycle rule aborts any incomplete upload after one day.
++- Record: each `uploaded_keys` entry now also has `method` (`put-object`, `multipart`, or null when the key was already present); a multipart entry adds `parts`, `part_bytes`, `s3_checksum_type`, `s3_checksum_sha256`.
++- Needs `dd` and `base64` (both in macOS), and the permissions `s3:AbortMultipartUpload` and `s3:ListMultipartUploadParts` (the human's admin profile has them).
++- No resume: a new attempt starts the file again from part 1.
++
+ ## ER upload size (Phase 14 step D-ER)
+ 
+ The ER output root is large (Phase 5's run wrote about 21 GB, almost all of it `decisions/mention_pair/`); at 30 Mbit/s the full upload takes about 1.6 to 1.7 hours (estimate, untested). Only the Spark stage reads the ER output after D7, and it reads only `run=HEX/_SUCCESS`, `run=HEX/_manifest.json` and the data files of `run=HEX/decisions/identity_assignment/` (`modules/spark/.../Pipeline.scala` `checkErRun` and `inputListing`); storage, rag and the services read only Spark's exports and the stores. `--upload identity-assignments-only` uploads just those parts (data files first, then `_manifest.json`, then `_SUCCESS`); every other file stays in the local folder `${TMPDIR:-/tmp}/scholarchain-er-ATTEMPT_ID/er-out/` and is listed in the run record's `outputs.left_out` (path relative to the output root, bytes, totals), with `outputs.upload_mode`. The step prints `SUMMARY: er-upload mode=... data_files_uploaded=N left_out_files=M left_out_bytes=B`. Keep the local folder: the review queue, the pair decisions and `run-report.json` exist only there (they are ER evaluation evidence). The default (`--upload full`) is unchanged. D8 takes the same `--identity-assignments` value either way.
+diff --git a/scripts/run-bounded-pipeline.sh b/scripts/run-bounded-pipeline.sh
+index 941fff2..1bc533a 100644
+--- a/scripts/run-bounded-pipeline.sh
++++ b/scripts/run-bounded-pipeline.sh
+@@ -7,7 +7,8 @@
+ # inputs and the cost bound.
+ #
+ # Status (Phase 13): static: shellcheck clean; runtime: untested; human
+-# execution required.
++# execution required. Phase 14 G-07: uploads above 64 MiB are multipart
++# (mpu_upload); runtime: untested.
+ 
+ set -Eeuo pipefail
+ umask 077
+@@ -22,6 +23,14 @@ readonly AWS_TIMEOUT=120
+ readonly LIST_TIMEOUT=600
+ readonly TRANSFER_TIMEOUT=1800
+ readonly MAX_TRIES=3
++# G-07 (Phase 14 D5c): a file above MULTIPART_THRESHOLD_BYTES is sent as a
++# multipart upload of MPU_PART_MIB parts, each retried up to PART_TRIES times
++# and bounded by PART_TIMEOUT seconds; smaller files keep one put-object.
++readonly MPU_PART_MIB=64
++readonly MULTIPART_THRESHOLD_BYTES=$((MPU_PART_MIB * 1024 * 1024))
++readonly PART_TIMEOUT=600
++readonly PART_TRIES=5
++readonly COMPLETE_TIMEOUT=600
+ readonly DEFAULT_EXEC_WAIT=15000
+ readonly MAX_EXEC_WAIT=44000
+ readonly EXEC_POLL_SECONDS=60
+@@ -53,6 +62,11 @@ SIGNAL_NAME=""
+ HEAD_SHA=""
+ BUILD_SHA=""
+ STARTED_UTC=""
++# G-07: the multipart upload in progress (empty when none), read by on_exit.
++MPU_UPLOAD_ID=""
++MPU_KEY=""
++MPU_LOGICAL=""
++MPU_PARTS_DONE=0
+ 
+ usage() {
+   cat <<'EOF'
+@@ -88,6 +102,22 @@ Common options:
+   Key: s3://{data-bucket}/raw/SOURCE/SNAPSHOT/BASENAME. The one exception to
+   attempt-ID keys: input keys are fixed by source and snapshot; a key that
+   exists with the same sha256 is a no-op, with other bytes it is refused.
++  Prints "SUMMARY: upload-input location=... bytes=... method=... outcome=...".
++
++Uploads (upload-input and er): a file of at most 64 MiB is one put-object
++(--if-none-match '*', SHA-256 checksum, retried up to 3 times). A larger
++file is a multipart upload: create-multipart-upload with the metadata and
++--checksum-algorithm SHA256, then 64 MiB parts (each read into one temporary
++part file, retried up to 5 times, at most 600 s per try; S3 checks each
++part's SHA-256 and this script compares it with its own), then
++complete-multipart-upload --if-none-match '*'; head-object then checks the
++length and the metadata. One "POLL: multipart ..." line per part and one
++"SUMMARY: multipart ..." line per file. On any failure, INT or TERM the
++script aborts its own incomplete multipart upload (abort-multipart-upload,
++then list-parts must show none): that frees the parts of an upload that never
++became an object; no stored object is touched. The record then has
++outputs.multipart_aborted. The data bucket's lifecycle rule aborts any
++incomplete upload left behind after one day.
+ 
+ --stage hadoop (one Step Functions execution with the Hadoop half only):
+   --dblp s3://{data-bucket}/raw/...            DBLP input (required)
+@@ -204,13 +234,17 @@ names before it is written.
+ Bounds: the state machine's TimeoutSeconds, the EMR managed-scaling maximum
+ and idle end bound the remote work (Terraform). Step Functions does not end
+ an EMR cluster when an execution is stopped by hand: check for clusters
+-tagged project=scholarchain afterwards. Retries: only reads and put-if-absent
+-uploads are retried; start-execution and run-task are never retried.
+-
+-Requirements: bash, git, terraform (output only), aws (CLI v2), jq (1.6+),
+-shasum or sha256sum, timeout or gtimeout (GNU coreutils); for --stage er
+-also java 17 and df; AWS credentials allowed to do the stage (the human's
+-or the deploy profile).
++tagged project=scholarchain afterwards. Retries: only reads, put-if-absent
++uploads, multipart create and parts, and complete-if-absent are retried;
++start-execution and run-task are never retried.
++
++Requirements: bash, git, terraform (output only), aws (CLI v2 with
++--if-none-match on put-object and complete-multipart-upload), jq (1.6+),
++shasum or sha256sum, timeout or gtimeout (GNU coreutils); for upload-input
++and er also dd and base64; for --stage er also java 17 and df; AWS
++credentials allowed to do the stage (the human's or the deploy profile; a
++multipart upload also needs s3:AbortMultipartUpload and
++s3:ListMultipartUploadParts).
+ 
+ Exit codes: 0 stage succeeded; 2 usage error; 3 missing prerequisite or
+ Terraform output; 4 refused by a safety check (not at the repository root,
+@@ -254,6 +288,9 @@ on_exit() {
+   local rc="$?"
+   trap - ERR
+   set +e
++  # G-07: abort this attempt's own incomplete multipart upload (if any)
++  # before the final record is written, so the record shows the result.
++  mpu_abort_pending
+   if [ "${STARTED_WRITTEN}" = "true" ] && [ "${FINAL_WRITTEN}" = "false" ]; then
+     write_final_record "${rc}"
+   fi
+@@ -509,6 +546,12 @@ check_prerequisites() {
+       command -v "${tool}" >/dev/null 2>&1 || die 3 "required tool not found: ${tool}"
+     done
+   fi
++  if [ "${STAGE}" = "er" ] || [ "${STAGE}" = "upload-input" ]; then
++    for tool in dd base64; do
++      command -v "${tool}" >/dev/null 2>&1 || die 3 "required tool not found: ${tool}"
++    done
++    mpu_self_test
++  fi
+   if command -v timeout >/dev/null 2>&1; then
+     TIMEOUT_BIN="timeout"
+   elif command -v gtimeout >/dev/null 2>&1; then
+@@ -665,12 +708,269 @@ check_artifact_commit() {
+ 
+ UPLOADED_JSON="[]"
+ 
++# ---- multipart upload (G-07) -------------------------------------------------------
++
++MPU_PART_CHECK="on"
++MPU_OUTCOME=""
++MPU_DETAIL_JSON="{}"
++
++# aws_write SECONDS READ_TIMEOUT ARGS...: ONE write call (the caller decides
++# whether a retry is safe); prints the JSON answer. Status 7 on time-out, 5
++# otherwise; the error text stays in aws_errfile.
++aws_write() {
++  local secs="$1" read_timeout="$2" rc=0 out
++  shift 2
++  out="$(with_timeout "${secs}" aws --region "${EXPECTED_REGION}" --cli-connect-timeout 10 \
++    --cli-read-timeout "${read_timeout}" --no-cli-pager --output json "$@" 2>"$(aws_errfile)")" || rc=$?
++  if [ "${rc}" -ne 0 ]; then
++    case "${rc}" in
++      124 | 137) return 7 ;;
++    esac
++    return 5
++  fi
++  [ -n "${out}" ] || out='{}'
++  printf '%s\n' "${out}"
++}
++
++aws_err_has() { grep -qE "$1" "$(aws_errfile)" 2>/dev/null; }
++
++# hex_to_b64 HEX: prints the base64 form of the bytes written as HEX (the
++# form S3 uses for ChecksumSHA256).
++hex_to_b64() {
++  local hex="$1" esc="" i
++  [[ "${hex}" =~ ^([0-9a-f]{2})+$ ]] || return 5
++  for ((i = 0; i < ${#hex}; i += 2)); do
++    esc="${esc}\\x${hex:i:2}"
++  done
++  printf '%b' "${esc}" | base64 | tr -d '\n\r '
++}
++
++# mpu_self_test: checks hex_to_b64 against two known values (one with a zero
++# byte); if this shell or base64 gives another answer, the script's own
++# per-part comparison is switched off (S3 still checks every part's SHA-256).
++mpu_self_test() {
++  local a b
++  a="$(hex_to_b64 00ff10 2>/dev/null)" || a=""
++  b="$(hex_to_b64 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 2>/dev/null)" || b=""
++  if [ "${a}" = "AP8Q" ] && [ "${b}" = "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=" ]; then
++    MPU_PART_CHECK="on"
++  else
++    MPU_PART_CHECK="off"
++    warn "local SHA-256 to base64 conversion failed its self-test; multipart parts are checked by S3 only"
++  fi
++}
++
++# mpu_upload FILE KEY SHA BYTES: one multipart upload of FILE to KEY, never
++# overwriting. Sets MPU_OUTCOME (uploaded or already-present) and
++# MPU_DETAIL_JSON; any failure ends the script (die), and on_exit then aborts
++# the incomplete upload. Must run in the main shell (not inside $(...)), so
++# that MPU_UPLOAD_ID reaches on_exit.
++mpu_upload() {
++  local file="$1" key="$2" sha="$3" bytes="$4" logical part_bytes n_parts out rc try
++  local part_no offset expect got part_file etag csum local_csum parts_json='[]' parts_file err_text
++  local present attempt head len ctype csha alg
++  logical="$(logical_s3 "s3://${DATA_BUCKET}/${key}")"
++  part_bytes=$((MPU_PART_MIB * 1024 * 1024))
++  n_parts=$(((bytes + part_bytes - 1) / part_bytes))
++  [ "${n_parts}" -ge 2 ] && [ "${n_parts}" -le 10000 ] || die 4 "refusing: ${logical} would need ${n_parts} parts (2..10000)"
++  MPU_OUTCOME=""
++  MPU_DETAIL_JSON="{}"
++  info "multipart upload of ${logical}: ${bytes} bytes, ${n_parts} parts of ${MPU_PART_MIB} MiB"
++
++  # create: a retry after a lost answer leaves at most an upload with no
++  # parts (no stored bytes), which the bucket lifecycle rule aborts after a day.
++  try=1
++  while :; do
++    rc=0
++    out="$(aws_write "${AWS_TIMEOUT}" 60 s3api create-multipart-upload --bucket "${DATA_BUCKET}" --key "${key}" \
++      --checksum-algorithm SHA256 \
++      --metadata "scholarchain-sha256=${sha},scholarchain-commit=${BUILD_SHA},scholarchain-attempt=${ATTEMPT_ID}")" || rc=$?
++    [ "${rc}" -ne 0 ] || break
++    [ "${try}" -lt "${MAX_TRIES}" ] || {
++      print_aws_error
++      die "${rc}" "create-multipart-upload for ${logical} failed after ${MAX_TRIES} tries"
++    }
++    try=$((try + 1))
++    warn "create-multipart-upload failed (status ${rc}); retrying (${try}/${MAX_TRIES})"
++    sleep $((try * 5))
++  done
++  MPU_UPLOAD_ID="$(jq -r '.UploadId // empty' <<<"${out}")"
++  MPU_KEY="${key}"
++  MPU_LOGICAL="${logical}"
++  MPU_PARTS_DONE=0
++  [ -n "${MPU_UPLOAD_ID}" ] || die 5 "create-multipart-upload returned no UploadId"
++  alg="$(jq -r '.ChecksumAlgorithm // empty' <<<"${out}")"
++  case "${alg}" in
++    SHA256) ;;
++    "") warn "create-multipart-upload did not echo ChecksumAlgorithm; each part still sends --checksum-algorithm SHA256" ;;
++    *) die 6 "create-multipart-upload answered checksum algorithm ${alg}, not SHA256" ;;
++  esac
++
++  # parts: one temporary part file at a time (at most 64 MiB on disk).
++  part_file="${TMP_DIR}/mpu-part.bin"
++  part_no=1
++  while [ "${part_no}" -le "${n_parts}" ]; do
++    offset=$(((part_no - 1) * part_bytes))
++    expect=$((bytes - offset))
++    [ "${expect}" -le "${part_bytes}" ] || expect="${part_bytes}"
++    dd if="${file}" of="${part_file}" bs=1048576 skip=$(((part_no - 1) * MPU_PART_MIB)) count="${MPU_PART_MIB}" \
++      2>/dev/null || die 5 "could not read part ${part_no} of ${file##*/}"
++    got="$(sc_bytes "${part_file}")"
++    [ "${got}" = "${expect}" ] || die 6 "part ${part_no} of ${file##*/}: read ${got} bytes, expected ${expect}"
++    local_csum=""
++    if [ "${MPU_PART_CHECK}" = "on" ]; then
++      local_csum="$(hex_to_b64 "$(sc_sha256 "${part_file}")")" || die 5 "could not compute the SHA-256 of part ${part_no}"
++    fi
++    try=1
++    while :; do
++      rc=0
++      out="$(aws_write "${PART_TIMEOUT}" 300 s3api upload-part --bucket "${DATA_BUCKET}" --key "${key}" \
++        --upload-id "${MPU_UPLOAD_ID}" --part-number "${part_no}" --body "${part_file}" \
++        --checksum-algorithm SHA256)" || rc=$?
++      if [ "${rc}" -eq 0 ]; then
++        etag="$(jq -r '.ETag // empty' <<<"${out}")"
++        csum="$(jq -r '.ChecksumSHA256 // empty' <<<"${out}")"
++        [ -n "${etag}" ] && [ -n "${csum}" ] || die 6 "upload-part ${part_no} returned no ETag or no ChecksumSHA256"
++        break
++      fi
++      if aws_err_has 'NoSuchUpload'; then
++        print_aws_error
++        die 6 "the multipart upload of ${logical} no longer exists (part ${part_no})"
++      fi
++      [ "${try}" -lt "${PART_TRIES}" ] || {
++        print_aws_error
++        [ "${rc}" -eq 7 ] && die 7 "part ${part_no}/${n_parts} of ${logical} timed out ${PART_TRIES} times (${PART_TIMEOUT}s each)"
++        die 5 "part ${part_no}/${n_parts} of ${logical} failed after ${PART_TRIES} tries"
++      }
++      try=$((try + 1))
++      warn "part ${part_no}/${n_parts} failed (status ${rc}); retrying the same part (${try}/${PART_TRIES})"
++      sleep $((try * 5))
++    done
++    if [ -n "${local_csum}" ] && [ "${csum}" != "${local_csum}" ]; then
++      die 6 "part ${part_no}: S3 reports SHA-256 ${csum}, the local part has ${local_csum}"
++    fi
++    parts_json="$(jq -c --arg e "${etag}" --arg c "${csum}" --argjson n "${part_no}" \
++      '. + [{ETag: $e, ChecksumSHA256: $c, PartNumber: $n}]' <<<"${parts_json}")"
++    MPU_PARTS_DONE="${part_no}"
++    printf 'POLL: multipart location=%s part=%s/%s bytes=%s tries=%s\n' "${logical}" "${part_no}" "${n_parts}" "${got}" "${try}"
++    part_no=$((part_no + 1))
++  done
++
++  # complete, put-if-absent (--if-none-match '*'). After a failure the key
++  # decides: our own attempt's object (a lost answer) is success; the same
++  # bytes from another attempt are already-present; other bytes are refused.
++  parts_file="${TMP_DIR}/mpu-parts.json"
++  jq -n --argjson p "${parts_json}" '{Parts: $p}' >"${parts_file}"
++  try=1
++  while :; do
++    rc=0
++    aws_write "${COMPLETE_TIMEOUT}" 300 s3api complete-multipart-upload --bucket "${DATA_BUCKET}" --key "${key}" \
++      --upload-id "${MPU_UPLOAD_ID}" --multipart-upload "file://${parts_file}" --if-none-match '*' >/dev/null || rc=$?
++    if [ "${rc}" -eq 0 ]; then
++      MPU_UPLOAD_ID=""
++      MPU_OUTCOME="uploaded"
++      break
++    fi
++    err_text="$(cat "$(aws_errfile)" 2>/dev/null)"
++    present="$(head_meta "${key}" scholarchain-sha256)" || die 5 "aws s3api head-object failed for ${logical} after a failed complete"
++    if [ -n "${present}" ]; then
++      [ "${present}" = "${sha}" ] ||
++        die 4 "refusing: ${logical} appeared with other bytes (or without scholarchain-sha256 metadata) during the upload; nothing is overwritten"
++      attempt="$(head_meta "${key}" scholarchain-attempt)" || die 5 "aws s3api head-object failed for ${logical}"
++      if [ "${attempt}" = "${ATTEMPT_ID}" ]; then
++        MPU_UPLOAD_ID=""
++        MPU_OUTCOME="uploaded"
++        info "complete-multipart-upload answered status ${rc}, but ${logical} holds this attempt's object (lost answer)"
++      else
++        MPU_OUTCOME="already-present"
++        info "${logical} was stored with the same sha256 by attempt ${attempt}; this attempt's upload is aborted"
++        mpu_abort_pending
++      fi
++      break
++    fi
++    printf 'AWS-ERROR: %s\n' "$(mask_text "${err_text}")" >&2
++    case "${err_text}" in
++      *ConditionalRequestConflict* | *"(409)"*) die 5 "complete-multipart-upload of ${logical} met a conflicting write (409); run a new attempt" ;;
++      *NoSuchUpload*) die 6 "the multipart upload of ${logical} no longer exists and the key is absent" ;;
++    esac
++    [ "${try}" -lt "${MAX_TRIES}" ] || {
++      [ "${rc}" -eq 7 ] && die 7 "complete-multipart-upload of ${logical} timed out"
++      die 5 "complete-multipart-upload of ${logical} failed after ${MAX_TRIES} tries"
++    }
++    try=$((try + 1))
++    warn "complete-multipart-upload failed (status ${rc}); the key is still absent; retrying (${try}/${MAX_TRIES})"
++    sleep $((try * 5))
++  done
++
++  # check: the stored length and the composite SHA-256 S3 keeps for the object.
++  head="$(aws_read "${AWS_TIMEOUT}" s3api head-object --bucket "${DATA_BUCKET}" --key "${key}" --checksum-mode ENABLED)" || {
++    print_aws_error
++    die 5 "aws s3api head-object failed for ${logical} after the upload"
++  }
++  len="$(jq -r '.ContentLength // empty' <<<"${head}")"
++  [ "${len}" = "${bytes}" ] || die 6 "${logical} holds ${len:-no} bytes, the local file ${bytes}"
++  ctype="$(jq -r '.ChecksumType // "not-returned"' <<<"${head}")"
++  csha="$(jq -r '.ChecksumSHA256 // ""' <<<"${head}")"
++  MPU_DETAIL_JSON="$(jq -n --argjson n "${n_parts}" --argjson pb "${part_bytes}" --arg t "${ctype}" --arg c "${csha}" \
++    '{parts: $n, part_bytes: $pb, s3_checksum_type: $t, s3_checksum_sha256: (if $c == "" then null else $c end)}')"
++  printf 'SUMMARY: multipart location=%s bytes=%s parts=%s part_mib=%s checksum_type=%s outcome=%s\n' \
++    "${logical}" "${bytes}" "${n_parts}" "${MPU_PART_MIB}" "${ctype}" "${MPU_OUTCOME}"
++}
++
++# mpu_abort_pending: aborts this attempt's incomplete multipart upload, if
++# any, then checks with list-parts that no part is left (a part still in
++# flight may land after an abort). This frees the parts of an upload that
++# never became an object; it touches no stored object. Bounded: MAX_TRIES
++# rounds of AWS_TIMEOUT seconds per call. Called by on_exit and by
++# mpu_upload; records outputs.multipart_aborted.
++mpu_abort_pending() {
++  [ -n "${MPU_UPLOAD_ID}" ] || return 0
++  local try=1 rc result="abort-failed" listed n_left
++  while [ "${try}" -le "${MAX_TRIES}" ]; do
++    rc=0
++    aws_write "${AWS_TIMEOUT}" 60 s3api abort-multipart-upload --bucket "${DATA_BUCKET}" --key "${MPU_KEY}" \
++      --upload-id "${MPU_UPLOAD_ID}" >/dev/null || rc=$?
++    if [ "${rc}" -eq 0 ] || aws_err_has 'NoSuchUpload'; then
++      rc=0
++      listed="$(aws_write "${AWS_TIMEOUT}" 60 s3api list-parts --bucket "${DATA_BUCKET}" --key "${MPU_KEY}" \
++        --upload-id "${MPU_UPLOAD_ID}")" || rc=$?
++      if [ "${rc}" -ne 0 ] && aws_err_has 'NoSuchUpload'; then
++        result="aborted"
++        break
++      fi
++      if [ "${rc}" -eq 0 ]; then
++        n_left="$(jq '[.Parts[]?] | length' <<<"${listed}" 2>/dev/null)" || n_left=""
++        if [ "${n_left}" = "0" ]; then
++          result="aborted"
++          break
++        fi
++      fi
++    fi
++    try=$((try + 1))
++    sleep 3
++  done
++  if [ "${result}" != "aborted" ]; then
++    print_aws_error
++    printf 'WARN: %s could not confirm the abort of the multipart upload of %s; the bucket lifecycle rule aborts it after one day\n' \
++      "${SCRIPT_NAME}" "${MPU_LOGICAL}" >&2
++  fi
++  local updated note="abort of this attempt's own incomplete multipart upload (frees its parts); no stored object was touched"
++  if updated="$(jq -c --arg l "${MPU_LOGICAL}" --argjson n "${MPU_PARTS_DONE}" --arg r "${result}" --arg note "${note}" \
++    '. + {multipart_aborted: ((.multipart_aborted // []) + [{location: $l, parts_uploaded: $n, result: $r, note: $note}])}' \
++    <<<"${OUTPUTS_JSON}")" && [ -n "${updated}" ]; then
++    OUTPUTS_JSON="${updated}"
++  fi
++  printf 'SUMMARY: multipart-abort location=%s parts_uploaded=%s result=%s\n' "${MPU_LOGICAL}" "${MPU_PARTS_DONE}" "${result}"
++  MPU_UPLOAD_ID=""
++}
++
+ # put_once FILE KEY: uploads FILE to KEY put-if-absent with the metadata
+ # scholarchain-sha256, scholarchain-commit and scholarchain-attempt; a key
+ # that exists with the same sha256 is a no-op, with other bytes (or without
+-# the metadata) it is refused (exit 4). Only this upload is retried.
++# the metadata) it is refused (exit 4). Files above MULTIPART_THRESHOLD_BYTES
++# go through mpu_upload (G-07); smaller ones are one put-object, retried.
+ put_once() {
+-  local file="$1" key="$2" sha bytes meta outcome="" try=1 rc logical
++  local file="$1" key="$2" sha bytes meta outcome="" try=1 rc logical method="" detail='{}' sent_mpu="false"
+   sha="$(sc_sha256 "${file}")"
+   bytes="$(sc_bytes "${file}")"
+   logical="$(logical_s3 "s3://${DATA_BUCKET}/${key}")"
+@@ -682,6 +982,16 @@ put_once() {
+       outcome="${outcome:-already-present}"
+       break
+     fi
++    if [ "${bytes}" -gt "${MULTIPART_THRESHOLD_BYTES}" ]; then
++      [ "${sent_mpu}" = "false" ] || die 6 "${logical} is absent right after a completed multipart upload"
++      sent_mpu="true"
++      method="multipart"
++      mpu_upload "${file}" "${key}" "${sha}" "${bytes}"
++      outcome="${MPU_OUTCOME}"
++      detail="${MPU_DETAIL_JSON}"
++      continue # read the metadata back once
++    fi
++    method="put-object"
+     rc=0
+     with_timeout "${TRANSFER_TIMEOUT}" aws --region "${EXPECTED_REGION}" --cli-connect-timeout 10 \
+       --cli-read-timeout 300 --no-cli-pager --output json s3api put-object --bucket "${DATA_BUCKET}" \
+@@ -702,10 +1012,17 @@ put_once() {
+     sleep $((try * 5))
+   done
+   UPLOADED_JSON="$(jq -c --arg u "${logical}" --arg s "${sha}" --argjson b "${bytes}" --arg o "${outcome}" \
+-    '. + [{location: $u, sha256: $s, bytes: $b, outcome: $o}]' <<<"${UPLOADED_JSON}")"
++    --arg m "${method}" --argjson d "${detail}" \
++    '. + [{location: $u, sha256: $s, bytes: $b, outcome: $o,
++           method: (if $m == "" then null else $m end)} + $d]' <<<"${UPLOADED_JSON}")"
++  LAST_PUT_METHOD="${method:-none}"
++  LAST_PUT_OUTCOME="${outcome}"
+   info "${logical} ${outcome}"
+ }
+ 
++LAST_PUT_METHOD=""
++LAST_PUT_OUTCOME=""
++
+ # list_keys PREFIX_KEY: prints "KEY<TAB>SIZE" for every object under
+ # PREFIX_KEY/ (CLI pagination; directory markers skipped).
+ list_keys() {
+@@ -886,6 +1203,8 @@ stage_upload_input() {
+     '{name: $n, bytes: $b, sha256: $s, source: $src, max_upload_mb: $max}')"
+   put_once "${A_FILE}" "${key}"
+   add_str OUTPUTS_JSON input_location "$(logical_s3 "s3://${DATA_BUCKET}/${key}")"
++  printf 'SUMMARY: upload-input location=%s bytes=%s method=%s outcome=%s\n' \
++    "$(logical_s3 "s3://${DATA_BUCKET}/${key}")" "${bytes}" "${LAST_PUT_METHOD}" "${LAST_PUT_OUTCOME}"
+   printf 'INPUT-LOCATION: %s\n' "$(logical_s3 "s3://${DATA_BUCKET}/${key}")"
+ }
+ 
