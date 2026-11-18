@@ -15,3 +15,7 @@ Attempt 2 (plan 6d4a629c) stopped after 21 of 22 creates: PutDashboard refused t
 I approve this plan to be applied with my own admin profile (default). Signed: Brian, Nov 18, 2026
 
 APPROVED-PLAN-SHA256: a865a94dce63f9cc6e683e62105814475a2849f0fa065234320c44d94eab67d1
+
+## Cost bound
+
+Phase 14 cost bound: $8 across AWS, Anthropic and Voyage. Signed: Brian, Nov 18, 2026
