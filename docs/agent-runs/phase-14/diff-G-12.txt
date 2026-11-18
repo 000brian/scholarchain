@@ -1,0 +1,48 @@
+diff --git a/scripts/run-bounded-pipeline.sh b/scripts/run-bounded-pipeline.sh
+index 1bc533a..a48c845 100644
+--- a/scripts/run-bounded-pipeline.sh
++++ b/scripts/run-bounded-pipeline.sh
+@@ -678,6 +678,25 @@ resolve_location() {
+ 
+ key_of() { printf '%s' "${1#"s3://${DATA_BUCKET}/"}"; }
+ 
++# replace_literal VAR TEXT FROM TO: sets VAR to TEXT with every occurrence of
++# the literal string FROM replaced by the literal string TO (FROM is never a
++# glob, so {data-bucket} and bucket names match as text). Phase 14 repair
++# G-12: it uses only quoted-pattern removal (${s%%"FROM"*}, ${s#*"FROM"}) and
++# no ${s//pat/rep} replacement part, because bash 3.2 (macOS /bin/bash) keeps
++# the double quotes of a quoted replacement (quote removal there began in bash
++# 4.3, see shopt compat42) and bash 5.2 reads an unquoted & in it as the match
++# (patsub_replacement). Same result on bash 3.2 and bash 5.
++replace_literal() {
++  local _rl_var="$1" _rl_s="$2" _rl_from="$3" _rl_to="$4" _rl_out=""
++  if [ -n "${_rl_from}" ]; then
++    while [[ "${_rl_s}" == *"${_rl_from}"* ]]; do
++      _rl_out="${_rl_out}${_rl_s%%"${_rl_from}"*}${_rl_to}"
++      _rl_s="${_rl_s#*"${_rl_from}"}"
++    done
++  fi
++  printf -v "${_rl_var}" '%s' "${_rl_out}${_rl_s}"
++}
++
+ # head_meta KEY FIELD: prints the object metadata FIELD (or "-" when the
+ # object has none), or nothing when the key does not exist.
+ head_meta() {
+@@ -1222,7 +1241,7 @@ stage_hadoop() {
+   dblp_sha="$(head_meta "$(key_of "${dblp}")" scholarchain-sha256)" || die 5 "aws s3api head-object failed for --dblp"
+   [ -n "${dblp_sha}" ] || die 4 "refusing: --dblp $(logical_s3 "${dblp}") does not exist (run --stage upload-input first)"
+   for a in ${A_HADOOP_EXTRA[@]+"${A_HADOOP_EXTRA[@]}"}; do
+-    real_a="${a//"${LOGICAL_DATA_PREFIX}"/"s3://${DATA_BUCKET}/"}"
++    replace_literal real_a "${a}" "${LOGICAL_DATA_PREFIX}" "s3://${DATA_BUCKET}/"
+     case "${real_a}" in
+       *"{"*"}"*) die 4 "refusing: --hadoop-extra-arg has an unknown placeholder" ;;
+     esac
+@@ -1236,7 +1255,7 @@ stage_hadoop() {
+         *"s3://"* | *..*) die 4 "refusing: --hadoop-extra-arg may name one s3:// location without '..'" ;;
+       esac
+     fi
+-    logical_a="${real_a//"s3://${DATA_BUCKET}/"/"${LOGICAL_DATA_PREFIX}"}"
++    replace_literal logical_a "${real_a}" "s3://${DATA_BUCKET}/" "${LOGICAL_DATA_PREFIX}"
+     extra="$(jq -c --arg a "${real_a}" '. + [$a]' <<<"${extra}")"
+     extra_logical="$(jq -c --arg a "${logical_a}" '. + [$a]' <<<"${extra_logical}")"
+   done
