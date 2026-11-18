@@ -95,8 +95,14 @@ variable "emr_core_instance_type" {
   default     = "m5.xlarge"
 }
 
-variable "emr_instance_vcpus" {
-  description = "vCPUs per EMR instance of the chosen types (area 5; m5.xlarge = 4)."
+variable "emr_primary_instance_vcpus" {
+  description = "vCPUs of emr_primary_instance_type (area 5; m5.xlarge = 4). Budget check: primary + max * core <= emr_vcpu_budget."
+  type        = number
+  default     = 4
+}
+
+variable "emr_core_instance_vcpus" {
+  description = "vCPUs of emr_core_instance_type (area 5; m5.xlarge = 4). Budget check: primary + max * core <= emr_vcpu_budget."
   type        = number
   default     = 4
 }

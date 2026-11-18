@@ -225,7 +225,6 @@ data "aws_iam_policy_document" "deployment" {
         "ecs-tasks.amazonaws.com",
         "rds.amazonaws.com",
         "states.amazonaws.com",
-        "apigateway.amazonaws.com",
       ]
     }
   }
@@ -281,6 +280,18 @@ data "aws_iam_policy_document" "deployment" {
     resources = ["*"]
   }
 
+  # Phase 13 I-02: no resource policy on any secret through this role. A
+  # resource policy could grant GetSecretValue to another principal and so
+  # route around NeverReadAppKeyValues. Terraform defines no secret policy
+  # (app-keys.tf has no aws_secretsmanager_secret_policy), so it never needs
+  # these two writes; GetResourcePolicy (read, used on refresh) stays allowed.
+  statement {
+    sid       = "NeverSetSecretResourcePolicies"
+    effect    = "Deny"
+    actions   = ["secretsmanager:PutResourcePolicy", "secretsmanager:DeleteResourcePolicy"]
+    resources = ["*"]
+  }
+
   # Repair I-01 (a): never change, pass or remove itself (or a look-alike
   # role on its name pattern). Without this, PutRolePolicy on its own name
   # with "*" on "*" would make it an account administrator.
@@ -297,7 +308,11 @@ data "aws_iam_policy_document" "deployment" {
       "iam:PassRole",
       "iam:PutRolePermissionsBoundary",
       "iam:PutRolePolicy",
+      "iam:TagRole",
+      "iam:UntagRole",
       "iam:UpdateAssumeRolePolicy",
+      "iam:UpdateRole",
+      "iam:UpdateRoleDescription",
     ]
     resources = [local.deployment_role_pattern]
   }

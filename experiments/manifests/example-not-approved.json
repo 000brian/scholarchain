@@ -1,0 +1,62 @@
+{
+  "format": "scholarchain.experiment-manifest",
+  "formatVersion": 1,
+  "manifestId": "example-not-approved",
+  "example": true,
+  "experiment": "A",
+  "description": "FORMAT EXAMPLE, NEVER RUN. Experiment A (Hadoop and Spark baseline): the Hadoop half of the bounded pipeline on the bounded DBLP subset at minimum EMR capacity; records input and output records, task counts, duration, shuffle, failures and estimated cost.",
+  "region": "us-east-1",
+  "datasetSnapshot": "dblp 2026-11-01, subset rule dblp-subset-v1",
+  "costBoundUsd": 1,
+  "maxDurationSeconds": 3600,
+  "resourceLimits": {
+    "emrManagedScalingMinUnits": 1,
+    "emrManagedScalingMaxUnits": 2,
+    "ecsMaxTasks": 0,
+    "terraformSource": "infra/terraform/modules/emr/variables.tf (managed_scaling_min_units, managed_scaling_max_units, idle_timeout_seconds) and infra/terraform/modules/workflow/variables.tf (pipeline_timeout_seconds)"
+  },
+  "action": {
+    "kind": "pipeline",
+    "args": [
+      "--stage",
+      "hadoop",
+      "--dblp",
+      "s3://{data-bucket}/raw/dblp/2026-11-01/dblp-subset-v1.xml.gz",
+      "--dblp-snapshot",
+      "2026-11-01",
+      "--wait-timeout",
+      "3300"
+    ]
+  },
+  "metrics": [
+    {
+      "namespace": "AWS/ElasticMapReduce",
+      "metricName": "TotalUnitsRequested",
+      "dimensions": [{ "name": "JobFlowId", "value": "{emr-cluster-id}" }],
+      "stat": "Maximum",
+      "periodSeconds": 60
+    },
+    {
+      "namespace": "AWS/ElasticMapReduce",
+      "metricName": "TotalUnitsRunning",
+      "dimensions": [{ "name": "JobFlowId", "value": "{emr-cluster-id}" }],
+      "stat": "Maximum",
+      "periodSeconds": 60
+    },
+    {
+      "namespace": "AWS/ElasticMapReduce",
+      "metricName": "AppsPending",
+      "dimensions": [{ "name": "JobFlowId", "value": "{emr-cluster-id}" }],
+      "stat": "Maximum",
+      "periodSeconds": 60
+    },
+    {
+      "namespace": "AWS/States",
+      "metricName": "ExecutionTime",
+      "dimensions": [{ "name": "StateMachineArn", "value": "{state-machine-arn}" }],
+      "stat": "Maximum",
+      "periodSeconds": 60
+    }
+  ],
+  "notes": "example: true, so scripts/run-experiment.sh refuses it (check.sh probes that refusal). The arguments follow decision 9.6 of the Phase 13 work order (stage 'hadoop'); jar and output locations take the script's defaults. Placeholders in braces are resolved at run time; this file holds no bucket name, account ID or ARN."
+}

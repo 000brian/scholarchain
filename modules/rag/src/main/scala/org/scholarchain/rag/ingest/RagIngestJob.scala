@@ -25,9 +25,19 @@ import org.scholarchain.storage.ingest.{
   TextStore,
   VectorIngestPipeline
 }
+import org.scholarchain.storage.load.{BuildIdentity, Masking}
 import org.scholarchain.storage.local.LocalStorageEnvironment
-import org.scholarchain.storage.ports.{EmbeddingPort, MetaValue, MetadataFilter, VectorIndexPort}
-import org.scholarchain.storage.source.{ExportManifest, LocalDirectorySource, RejectLog}
+import org.scholarchain.storage.ports.{
+  EmbeddingPort,
+  MetaValue,
+  MetadataFilter,
+  ObjectRef,
+  ObjectStore,
+  PutOutcome,
+  VectorIndexPort
+}
+import org.scholarchain.storage.s3.S3KeyLayout
+import org.scholarchain.storage.source.{ExportSources, RejectLog, S3ExportSource}
 
 /** The rag ingest job: renders every registered template from a Spark JSON Lines export, embeds
   * through the configured provider and ingests through storage's
@@ -40,66 +50,141 @@ import org.scholarchain.storage.source.{ExportManifest, LocalDirectorySource, Re
   * `voyage` provider only. The job refuses `fake` for AWS stores and live providers for local
   * stores. The AWS path is compiled and unit-tested with stub stores; it has never been run.
   *
+  * Export (`--export`): a local export directory (`.../run=<hex>`), or (Phase 13, 7b) an
+  * `s3://BUCKET/PREFIX/run=<32 hex>` export read through storage's [[S3ExportSource]] (stores `aws`
+  * only; the bucket must be a configured data-lake zone bucket). Either way the manifest must be
+  * present, every listed file present with its size, and every byte read matches the manifest's
+  * sha256.
+  *
+  * Report: `<out>/run-report.json` always; with stores `aws` also a byte-identical copy at
+  * `<semantic-context prefix>/ingest-reports/run=<hex>/run-report-sha256=<hex>.json` (the data
+  * lake's `rag/` prefix in the course configuration), put-if-absent, with the outcome in
+  * `<out>/run-report-copy.json` and on standard output. The report records `--code-version` (the
+  * build commit) and the jar's [[BuildIdentity]]; [[CodeVersion]] stays the run-ID input. Bucket
+  * names and the account ID are masked in every report and printed line ([[Masking]]).
+  *
   * Bounds: `<out>` must not exist (a new root per attempt); a step longer than 60 minutes or free
-  * disk below 15 GB stops the run.
+  * disk below 15 GiB ([[MinFreeBytes]]) stops the run.
   *
   * {{{
-  * sbt "rag/runMain org.scholarchain.rag.ingest.RagIngestJob --config FILE --export RUN_DIR --out DIR [--runs 2] [--samples-per-index 25]"
+  * java -cp app.jar org.scholarchain.rag.ingest.RagIngestJob --config FILE --export RUN_DIR|s3://... --out DIR --code-version SHA40 [--stores local|aws] [--runs 2] [--samples-per-index 25]
   * }}}
   */
 object RagIngestJob {
   val JobName = "rag.vector-ingest"
+
+  /** The job's code version, an input of its run ID (unchanged meaning; `--code-version` is the
+    * build commit and is only recorded).
+    */
   val CodeVersion = "rag/1"
   val SourceDataset = "dblp"
   val Label = "local fake, not representative"
-  private val MinFreeBytes = 15L * 1024 * 1024 * 1024
+
+  /** Free disk the job needs under `--out` at the start of every step (15 GiB). */
+  val MinFreeBytes: Long = 15L * 1024 * 1024 * 1024
   private val MaxStepMillis = 60L * 60 * 1000
+
+  /** The contract (decision 7): the option names, without `--`. The parser accepts exactly these;
+    * scripts are written from this constant.
+    */
+  val Required: List[String] = List("config", "export", "out", "code-version")
+  val Optional: List[String] = List("stores", "runs", "samples-per-index")
+
+  val ReportFormat = "scholarchain.rag.ingest-run-report"
+  val ReportCopyFormat = "scholarchain.rag.ingest-report-copy"
+
+  /** Folder under the semantic-context (`rag/`) prefix that holds the report copies. */
+  val ReportCopyFolder = "ingest-reports"
+
+  private val CodeVersionPattern = "[A-Za-z0-9][A-Za-z0-9._-]{0,99}".r
 
   final class StopRun(msg: String) extends RuntimeException(msg)
 
+  /** @param exportLocation
+    *   a local export directory (absolute) or an `s3://` export URI
+    */
   final case class Options(
       config: Path,
-      exportDir: Path,
+      exportLocation: String,
       out: Path,
       runs: Int,
       samplesPerIndex: Int,
-      stores: String
+      stores: String,
+      codeVersion: String
   )
 
+  /** Parses `--name value` pairs; exactly the names of [[Required]] and [[Optional]] are accepted
+    * (unknown and repeated names are refused). Messages never repeat a value.
+    */
   def parse(args: Array[String]): Either[String, Options] = {
-    if (args.length % 2 != 0) Left("arguments must be --key value pairs")
+    if (args.length % 2 != 0) Left("arguments must be --name value pairs")
     else {
-      val m = args.grouped(2).map(a => a(0) -> a(1)).toMap
-      val known = Set("--config", "--export", "--out", "--runs", "--samples-per-index", "--stores")
-      val unknown = m.keySet -- known
-      def req(k: String) = m.get(k).toRight(s"$k is required")
+      val pairs = args.toList.grouped(2).map(a => a.head -> a(1)).toList
+      val names = pairs.map(_._1.stripPrefix("--"))
+      val notOptions = pairs.map(_._1).filterNot(_.startsWith("--"))
+      val known = (Required ++ Optional).toSet
+      val unknown = names.filterNot(known)
+      val repeated = names.diff(names.distinct).distinct
+      val m = pairs.map { case (k, v) => k.stripPrefix("--") -> v }.toMap
+      def req(k: String) = m.get(k).toRight(s"--$k is required")
       def int(k: String, d: Int, lo: Int, hi: Int) =
         m.get(k) match {
           case None    => Right(d)
           case Some(v) =>
-            v.toIntOption.filter(x => x >= lo && x <= hi).toRight(s"$k must be in $lo..$hi")
+            v.toIntOption.filter(x => x >= lo && x <= hi).toRight(s"--$k must be in $lo..$hi")
         }
       for {
+        _ <- Either.cond(notOptions.isEmpty, (), "arguments must be --name value pairs")
         _ <- Either.cond(
           unknown.isEmpty,
           (),
-          s"unknown arguments: ${unknown.toList.sorted.mkString(", ")}"
+          s"unknown options: ${unknown.distinct.sorted.map("--" + _).mkString(", ")}"
         )
-        c <- req("--config")
-        e <- req("--export")
-        o <- req("--out")
-        runs <- int("--runs", 2, 1, 3)
-        samples <- int("--samples-per-index", 25, 1, 500)
-        stores = m.getOrElse("--stores", "local")
+        _ <- Either.cond(
+          repeated.isEmpty,
+          (),
+          s"repeated options: ${repeated.sorted.map("--" + _).mkString(", ")}"
+        )
+        c <- req("config")
+        e <- req("export")
+        o <- req("out")
+        code <- req("code-version").filterOrElse(
+          CodeVersionPattern.matches,
+          "--code-version must match [A-Za-z0-9][A-Za-z0-9._-]{0,99} (the build commit)"
+        )
+        runs <- int("runs", 2, 1, 3)
+        samples <- int("samples-per-index", 25, 1, 500)
+        stores <- Right(m.getOrElse("stores", "local"))
+          .filterOrElse(Set("local", "aws"), "--stores must be local or aws")
+        _ <- Either.cond(
+          !e.startsWith("s3://") || stores == "aws",
+          (),
+          "an s3:// export needs --stores aws"
+        )
       } yield Options(
         Paths.get(c).toAbsolutePath,
-        Paths.get(e).toAbsolutePath,
+        if (e.startsWith("s3://")) e else Paths.get(e).toAbsolutePath.toString,
         Paths.get(o).toAbsolutePath,
         runs,
         samples,
-        stores
+        stores,
+        code
       )
     }
+  }
+
+  /** What one invocation uses besides its options and stores (tests inject both). */
+  final case class Hooks(
+      buildIdentity: () => BuildIdentity = () => BuildIdentity.load(),
+      print: String => Unit = (s: String) => println(s)
+  )
+
+  /** The report and, with stores `aws`, the outcome of its copy to the data lake. */
+  final case class JobResult(report: ujson.Obj, reportCopy: Option[ujson.Obj]) {
+
+    /** The report copy, when one was due, was written or was already present. */
+    def copyOk: Boolean =
+      reportCopy.forall(c => Set("created", "already present").contains(c("outcome").str))
   }
 
   /** The provider and store combinations this job accepts: `fake` with `local` stores, and `voyage`
@@ -136,6 +221,9 @@ object RagIngestJob {
     ): VectorIngestPipeline
     def vectors: VectorIndexPort
     def textStore: TextStore
+
+    /** The ordinary-S3 store (`s3://` exports are read and the report copy is written here). */
+    def objects: ObjectStore
     def rejectsTotal: Long
     def report(cfg: StorageConfig): ujson.Obj
   }
@@ -148,6 +236,7 @@ object RagIngestJob {
       env.pipeline(e, s, extrasOf = x)
     def vectors: VectorIndexPort = env.vectors
     def textStore: TextStore = env.textStore
+    def objects: ObjectStore = env.objects
     def rejectsTotal: Long = env.rejects.total
     def report(cfg: StorageConfig): ujson.Obj = ujson.Obj(
       "indexCounts" -> ujson.Obj.from(
@@ -172,6 +261,7 @@ object RagIngestJob {
       env.pipeline(e, s, extrasOf = x)
     def vectors: VectorIndexPort = env.vectors
     def textStore: TextStore = env.textStore
+    def objects: ObjectStore = env.objects
     def rejectsTotal: Long = env.rejects.total
     def report(cfg: StorageConfig): ujson.Obj = ujson.Obj("retries" -> env.retryReport)
     def close(): Unit = env.close()
@@ -220,12 +310,36 @@ object RagIngestJob {
       .map(_.config)
   }
 
-  def main(args: Array[String]): Unit = {
-    val opts = parse(args).fold(e => sys.error(e), identity)
-    val report = run(opts)
-    println(s"[rag-ingest] ${report("status").str}; report: ${opts.out.resolve("run-report.json")}")
-    if (!report("status").str.startsWith("completed")) sys.exit(1)
+  /** Exit codes: 0 completed (and, with stores `aws`, the report copy written or already present),
+    * 1 failed or stopped (or the report copy failed), 2 refused arguments.
+    */
+  def main(args: Array[String]): Unit =
+    parse(args) match {
+      case Left(e) =>
+        println(s"[rag-ingest] refused: $e")
+        sys.exit(2)
+      case Right(opts) =>
+        val result = execute(opts)
+        if (!result.report("status").str.startsWith("completed") || !result.copyOk) sys.exit(1)
+    }
+
+  /** Logical key of the report copy: `<semantic-context prefix>/ingest-reports/<run>/
+    * run-report-sha256=<hex>.json`, where `<run>` is `run=<32 hex>` or `no-run` when the run ID was
+    * never derived (for example an unreadable export). Content-addressed, so put-if-absent never
+    * meets different bytes under one key.
+    */
+  def reportCopyKey(prefix: String, runId: Option[RunId], sha256Hex: String): String = {
+    val run = runId.map(S3KeyLayout.runSegment).getOrElse("no-run")
+    s"$prefix/$ReportCopyFolder/$run/run-report-sha256=$sha256Hex.json"
   }
+
+  /** Runs the job and returns the report (also written to `<out>/run-report.json`). */
+  def run(
+      opts: Options,
+      storesFactory: (StorageConfig, String, Path) => Either[String, IngestStores] = defaultStores,
+      wiring: EmbeddingProviders.Wiring = EmbeddingProviders.Wiring(),
+      hooks: Hooks = Hooks()
+  ): ujson.Obj = execute(opts, storesFactory, wiring, hooks).report
 
   private def stats(xs: Seq[Double]): ujson.Obj =
     if (xs.isEmpty) ujson.Obj("n" -> 0)
@@ -241,45 +355,62 @@ object RagIngestJob {
       )
     }
 
-  /** Runs the job and returns the report (also written to `<out>/run-report.json`). */
-  def run(
+  /** Runs the job: writes `<out>/run-report.json` and, with stores `aws`, copies the same bytes to
+    * the data lake ([[reportCopyKey]]) and writes the copy's outcome to
+    * `<out>/run-report-copy.json`.
+    */
+  def execute(
       opts: Options,
       storesFactory: (StorageConfig, String, Path) => Either[String, IngestStores] = defaultStores,
-      wiring: EmbeddingProviders.Wiring = EmbeddingProviders.Wiring()
-  ): ujson.Obj = {
+      wiring: EmbeddingProviders.Wiring = EmbeddingProviders.Wiring(),
+      hooks: Hooks = Hooks()
+  ): JobResult = {
     if (Files.exists(opts.out)) sys.error(s"${opts.out} exists; every attempt uses a new root")
     Files.createDirectories(opts.out)
     val report = ujson.Obj(
-      "format" -> "scholarchain.rag.ingest-run-report",
+      "format" -> ReportFormat,
       "formatVersion" -> 1,
-      "label" -> Label
+      "label" -> Label,
+      "codeVersion" -> opts.codeVersion,
+      "jobCodeVersion" -> CodeVersion,
+      "build" -> hooks.buildIdentity().toJson
     )
     val steps = ujson.Obj()
     report("steps") = steps
+    var masking = new Masking(Nil, Nil)
+    def say(line: String): Unit = hooks.print(masking(line))
     def disk(): Long = Files.getFileStore(opts.out).getUsableSpace
     def step[A](name: String)(f: => A): A = {
-      if (disk() < MinFreeBytes) throw new StopRun(s"free disk below 15 GB at start of $name")
+      if (disk() < MinFreeBytes) throw new StopRun(s"free disk below 15 GiB at start of $name")
       val t0 = System.nanoTime()
-      println(s"[rag-ingest] step $name started")
+      say(s"[rag-ingest] step $name started")
       val a = f
       val ms = (System.nanoTime() - t0) / 1000000L
-      println(s"[rag-ingest] step $name finished in $ms ms")
+      say(s"[rag-ingest] step $name finished in $ms ms")
       steps(name) = ujson.Obj("millis" -> ms.toDouble, "freeDiskBytesAfter" -> disk().toDouble)
       if (ms > MaxStepMillis) throw new StopRun(s"step $name took $ms ms (> 60 minutes)")
       a
     }
-    def write(): Unit =
-      Files.write(
-        opts.out.resolve("run-report.json"),
-        report.render(indent = 2).getBytes(StandardCharsets.UTF_8)
-      )
+    def write(): Array[Byte] = {
+      val bytes = masking(report.render(indent = 2)).getBytes(StandardCharsets.UTF_8)
+      Files.write(opts.out.resolve("run-report.json"), bytes)
+      bytes
+    }
 
     val t0 = System.nanoTime()
     val renderRejects = new RejectLog(Some(opts.out.resolve("render-rejects.jsonl")))
     var env: IngestStores = null
+    var storageCfg: Option[StorageConfig] = None
+    var runIdOpt: Option[RunId] = None
+    var copy: Option[ujson.Obj] = None
     try {
       val config = loadConfig(opts.config).fold(e => sys.error(e), identity)
       val cfg = StorageConfig.from(config).fold(e => sys.error(e.mkString("; ")), identity)
+      masking = new Masking(
+        cfg.zones.values.map(_.bucket) ++ List(cfg.vectorBucket),
+        List(config.aws.accountId)
+      )
+      storageCfg = Some(cfg)
       val provider = cfg.embedding.providerKind.fold(e => sys.error(e), identity)
       checkProviderAndStores(provider, opts.stores).fold(e => sys.error(e), identity)
       val doc =
@@ -289,17 +420,30 @@ object RagIngestJob {
       val query =
         EmbeddingProviders.create(config, InputType.Query, wiring).fold(e => sys.error(e), identity)
 
-      val src = new LocalDirectorySource(opts.exportDir)
-      val manifest = src.manifest()
-      val manifestSha =
-        Hashing.sha256Hex(Files.readAllBytes(opts.exportDir.resolve(ExportManifest.FileName)))
+      env = storesFactory(cfg, opts.stores, opts.out.resolve("ingest-rejects.jsonl"))
+        .fold(e => sys.error(e), identity)
+      val src = ExportSources
+        .open(opts.exportLocation, Some(env.objects))
+        .fold(e => sys.error(s"--export: $e"), identity)
+      src match {
+        case s3: S3ExportSource if !cfg.zones.values.exists(_.bucket == s3.root.bucket) =>
+          sys.error("--export must be in a bucket of the configured data-lake zones")
+        case _ => ()
+      }
+      val (manifest, manifestSha) = src.manifestWithSha256()
+      val present = src.checkPresence(manifest)
       val runId = RunId
         .of(JobName, CodeVersion, s"sha256:$manifestSha", config.fingerprint)
         .fold(e => sys.error(e), identity)
+      runIdOpt = Some(runId)
       report("input") = ujson.Obj(
-        "exportDir" -> opts.exportDir.toString,
+        "export" -> src.describe,
+        "exportKind" -> (if (opts.exportLocation.startsWith("s3://")) "s3" else "local"),
         "exportManifestSha256" -> manifestSha,
         "sourceRunId" -> manifest.sourceRunId.value,
+        "files" -> present.files,
+        "bytes" -> present.bytes.toDouble,
+        "checks" -> "manifest present; every listed file present with its byte count; bytes and sha256 checked as each file is read",
         "configFile" -> opts.config.getFileName.toString,
         "configFingerprint" -> config.fingerprint
       )
@@ -307,7 +451,9 @@ object RagIngestJob {
         "heapMaxBytes" -> Runtime.getRuntime.maxMemory.toDouble,
         "processors" -> Runtime.getRuntime.availableProcessors,
         "freeDiskBytesAtStart" -> disk().toDouble,
-        "stores" -> opts.stores
+        "minFreeDiskBytes" -> MinFreeBytes.toDouble,
+        "stores" -> opts.stores,
+        "storesDescription" -> env.description
       )
       report("embedding") = ujson.Obj(
         "provider" -> provider.wire,
@@ -335,9 +481,6 @@ object RagIngestJob {
       report("runId") = runId.value
       write()
 
-      env = storesFactory(cfg, opts.stores, opts.out.resolve("ingest-rejects.jsonl"))
-        .fold(e => sys.error(e), identity)
-      report("environment")("storesDescription") = env.description
       @volatile var corpus: RenderedCorpus = null
       val pipeline = env.pipeline(doc.port, SourceDataset, extrasOf = d => corpus.extrasOf(d))
       val builder = new ExportDocuments(src, manifest, cfg.vectors, renderRejects)
@@ -453,11 +596,74 @@ object RagIngestJob {
         report("status") = s"failed: ${e.getClass.getSimpleName}: ${e.getMessage}"
     } finally {
       renderRejects.close()
-      if (env != null) env.close()
       report("totalMillis") = ((System.nanoTime() - t0) / 1000000L).toDouble
-      write()
+      val bytes = write()
+      try {
+        if (opts.stores == "aws") {
+          val c = copyReport(bytes, storageCfg, Option(env), runIdOpt, masking)
+          Files.write(
+            opts.out.resolve("run-report-copy.json"),
+            masking(c.render(indent = 2)).getBytes(StandardCharsets.UTF_8)
+          )
+          say(s"[rag-ingest] report copy: ${c("outcome").str} ${c("object").str}")
+          copy = Some(c)
+        }
+      } finally if (env != null) env.close()
     }
-    report
+    say(s"[rag-ingest] ${report("status").str}; report: ${opts.out.resolve("run-report.json")}")
+    JobResult(report, copy)
+  }
+
+  /** Copies the report bytes to the data lake's semantic-context (`rag/`) prefix, put-if-absent.
+    * The result names the object by its logical location (`s3://{data-bucket}/KEY`); it never fails
+    * the job silently: every outcome is recorded.
+    */
+  private def copyReport(
+      bytes: Array[Byte],
+      cfg: Option[StorageConfig],
+      env: Option[IngestStores],
+      runId: Option[RunId],
+      masking: Masking
+  ): ujson.Obj = {
+    val sha = Hashing.sha256Hex(bytes)
+    val base = ujson.Obj(
+      "format" -> ReportCopyFormat,
+      "formatVersion" -> 1,
+      "sha256" -> sha,
+      "bytes" -> bytes.length.toDouble
+    )
+    def outcome(obj: String, o: String): ujson.Obj = {
+      base("object") = obj
+      base("outcome") = o
+      base
+    }
+    (cfg.flatMap(_.zones.get("semantic-context")), env) match {
+      case (None, _) =>
+        outcome("-", "not attempted: the semantic-context zone is not configured")
+      case (_, None)                  => outcome("-", "not attempted: the stores were not built")
+      case (Some(zone), Some(stores)) =>
+        val ref = ObjectRef(zone.bucket, reportCopyKey(zone.prefix, runId, sha))
+        val logical = s"s3://${Masking.DataBucket}/${ref.key}"
+        try
+          stores.objects.putIfAbsent(
+            ref,
+            bytes,
+            "application/json",
+            Map(ObjectStore.Sha256MetadataKey -> sha)
+          ) match {
+            case PutOutcome.Created        => outcome(logical, "created")
+            case PutOutcome.AlreadyPresent => outcome(logical, "already present")
+            case PutOutcome.Conflict(_)    =>
+              outcome(logical, "conflict: an object with other bytes exists; nothing written")
+          }
+        catch {
+          case NonFatal(e) =>
+            outcome(
+              logical,
+              masking(s"failed: ${e.getClass.getSimpleName}: ${Option(e.getMessage).getOrElse("")}")
+            )
+        }
+    }
   }
 
   /** A metadata filter on a document's own window (windowStartYear and windowEndYear), if any. */

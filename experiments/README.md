@@ -1,0 +1,110 @@
+# ScholarChain experiments
+
+Owner: `experiment-engineer`. This folder holds experiment manifests, raw results, collectors and the scripts that derive tables and plots. The format is defined in `manifest-schema-v1.json` (JSON Schema draft 2020-12, format v1).
+
+## Layout
+
+| Path | What it holds | Who writes it |
+|---|---|---|
+| `manifest-schema-v1.json` | the manifest format, v1 | `experiment-engineer` |
+| `manifests/MANIFEST_ID.json` | one committed manifest per experiment run plan | `experiment-engineer` |
+| `manifests/example-not-approved.json` | the format example (`"example": true`); never runs | `experiment-engineer` |
+| `collectors/` | committed executables a `command` action may run | `experiment-engineer` |
+| `raw/MANIFEST_ID/ATTEMPT_ID/` | raw results of one run; read-only after collection; committed by the human | `scripts/run-experiment.sh` (moved there after the run) |
+| `derived/` | tables and plots, each reproducible from a committed script over `raw/` | `experiment-engineer` |
+
+Load generators live under `load-tests/` (also `experiment-engineer`).
+
+## What a manifest is
+
+A manifest is one JSON file that says, before anything runs, which experiment (A to F of the specification's Phase 15) is run, on which dataset snapshot, in which Region, with which declared resource limits and cost bound, by which action, and which CloudWatch metrics are exported afterwards. The file name is the `manifestId` plus `.json`. A manifest holds no secret, account ID, ARN with an account ID, queue URL or literal bucket name: S3 locations are logical (`s3://{data-bucket}/KEY`), and metric dimension values that would carry an account ID are placeholders in braces (for example `{state-machine-arn}`, `{emr-cluster-id}`) resolved at run time.
+
+Required fields (types and value rules: `manifest-schema-v1.json`): `format`, `formatVersion`, `manifestId`, `example`, `experiment`, `description`, `region`, `datasetSnapshot`, `costBoundUsd`, `maxDurationSeconds`, `resourceLimits`, `action`, `metrics`. Optional: `notes`.
+
+## How the human approves a manifest
+
+1. `experiment-engineer` commits the manifest (through the human's commit).
+2. The human computes `shasum -a 256 experiments/manifests/MANIFEST_ID.json` on the committed file and, at a gate, signs it by committing a whole line of exactly this form in a file named `human-gate.md` or `approvals.md` under `docs/agent-runs/`:
+
+   ```text
+   APPROVED-MANIFEST-SHA256: HEX64
+   ```
+
+   `HEX64` is the 64 lowercase hex characters of the sha256, and nothing else is on the line. Other files (agent reports, summaries, prompts) never count, so a report that quotes a checksum cannot approve it. Agents cannot write under `docs/agent-runs/`.
+3. Any change to the manifest changes its sha256 and needs a new approval line.
+
+An example manifest (`"example": true`) is never approved and never runs.
+
+## How `scripts/run-experiment.sh` runs a manifest
+
+Command: `bash scripts/run-experiment.sh --manifest experiments/manifests/MANIFEST_ID.json --manifest-sha256 HEX64` (authored by `infra-engineer`; this section describes its contract from decision 9.7 of the Phase 13 work order; the script's usage text is authoritative).
+
+It refuses, checked in this order (the first failing check gives the message):
+
+1. a dirty tree;
+2. a manifest that is not tracked by git;
+3. a sha256 that does not equal the file's;
+4. `"example": true`;
+5. a manifest that fails the v1 checks below (marked "yes"), including a Region other than `us-east-1` and `costBoundUsd` above the 5 USD cap;
+6. no approval line `APPROVED-MANIFEST-SHA256: HEX64` for that sha256 in a tracked `human-gate.md` or `approvals.md` under `docs/agent-runs/`.
+
+Three guarantees, kept apart: integrity (the committed file has exactly the given sha256; checked), approval (the human's committed approval line; checked), caller (not checked; anyone with a shell on the laptop and AWS credentials can run it, an accepted limit of a one-person project).
+
+Then it prints the cost bound and limits labelled "declared, not enforced", and runs the action under `timeout maxDurationSeconds`:
+
+- `"kind": "pipeline"`: `scripts/run-bounded-pipeline.sh` with the manifest's `args`, unchanged;
+- `"kind": "command"`: the committed executable at `path` (only under `load-tests/` or `experiments/collectors/`) with `args`.
+
+After the action it exports the manifest's `metrics` with CloudWatch `get-metric-data` for the run window plus 5 minutes on each side.
+
+### Rules: enforced by the runner or documentation only
+
+The runner has no JSON Schema validator; it checks with `jq` exactly the rules marked "yes". Every rule marked "no" is documentation only: a manifest that breaks it is not refused, and the human checks it when signing.
+
+| Rule | enforced by run-experiment.sh |
+|---|---|
+| `format` equals `"scholarchain.experiment-manifest"` | yes |
+| `formatVersion` equals `1` (a number) | yes |
+| `manifestId` is a string matching `^[a-z0-9][a-z0-9-]{0,63}$` | yes |
+| the file name is `manifestId` plus `.json` | yes |
+| `example` is a boolean; `true` is refused | yes |
+| `experiment` is one of `A`, `B`, `C`, `D`, `E`, `F` | yes |
+| `description` is a non-empty string | yes |
+| `region` equals `us-east-1` | yes |
+| `datasetSnapshot` is a non-empty string | yes |
+| `costBoundUsd` is a number greater than 0 and not above 5 (the runner's hard per-run cap) | yes |
+| `maxDurationSeconds` is an integer greater than 0 | yes |
+| `resourceLimits` is an object | yes |
+| `action.kind` is `pipeline` or `command` | yes |
+| `action.args` is an array of strings | yes |
+| `action.path` (kind `command`) starts with `load-tests/` or `experiments/collectors/` and has no `..` segment | yes |
+| `metrics` is an array | yes |
+| `manifestId` is unique across `experiments/manifests/` | no |
+| no field other than the listed ones (`additionalProperties: false`) | no |
+| the recommended keys and types inside `resourceLimits` | no |
+| `action.path` is a committed executable file | no (git and the shell refuse a missing or non-executable file when the action starts) |
+| `action.args` match the usage text of `scripts/run-bounded-pipeline.sh` or of the command | no (the called program refuses wrong arguments) |
+| each `metrics` item has `namespace`, `metricName`, `dimensions` (name and value pairs), `stat`, `periodSeconds` (60 or a multiple of 60) | no (a malformed query makes the export fail: the run becomes `succeeded-metrics-failed`) |
+| no secret, account ID, ARN with an account ID, queue URL or literal bucket name in the manifest | no (the human checks it when signing) |
+| `datasetSnapshot` names a snapshot in `datasets/dataset-manifest.yaml` | no |
+
+## What the limits do
+
+`maxDurationSeconds` bounds only the local runner; remote work it started (a Step Functions execution, an EMR cluster) keeps running and is bounded by the state machine's own timeout, the EMR managed-scaling maximum and the idle end, all set in Terraform. `resourceLimits` are recorded, not applied: the real caps are the Terraform values. `costBoundUsd` is a declaration; the runner refuses a manifest whose `costBoundUsd` is above a hard per-run cap of 5 USD (a constant in the script), and nothing measures spend during a run.
+
+On a local timeout the runner prints what may still be running remotely (the Step Functions execution name from the nested record, running EMR clusters tagged `project=scholarchain`) and exits 7. It never stops remote work itself.
+
+## Where the raw data goes
+
+1. During the run everything is written under `evidence/experiment-runs/ATTEMPT_ID/` (gitignored), because the nested `scripts/run-bounded-pipeline.sh` refuses a dirty tree and a new folder under `experiments/raw/` would make the tree dirty.
+2. After the metrics export the runner moves the folder to `experiments/raw/MANIFEST_ID/ATTEMPT_ID/` and makes it read-only. The human commits it; it is committed raw evidence.
+3. Inside a run folder: `run-record.json` (written as `started` before the first action, then final: HEAD, build commit, manifest sha256, start and end UTC, Region, declared limits, action exit code, metric file locations, every remote ID the action reported, all as logical locations) and `metrics/` (the CloudWatch exports). Final statuses: `succeeded`, `failed`, `timed-out`, `succeeded-metrics-failed`.
+
+`ATTEMPT_ID` is the UTC time to the second, the short HEAD and 4 random hex characters, so two runs never share a folder.
+
+## Raw results are immutable; failed runs are kept
+
+- Nothing under `experiments/raw/` is edited, rewritten, renamed or removed after collection, by any agent or script. A correction is a new run with a new attempt ID, or a derived table that says what it excludes and why.
+- Every attempt keeps its folder and its `run-record.json`, whatever its status. A run killed so hard that it left only a `started` record is an incomplete attempt, never a success. Failed, timed-out and incomplete runs are listed in every results summary; none is silently discarded.
+- Derived tables and plots are produced by committed scripts under `experiments/derived/` from `raw/` only, so anyone can reproduce them.
+- No implementation is tuned during a run and reported as one experiment; a change of code, configuration or Terraform is a new build commit and a new manifest.

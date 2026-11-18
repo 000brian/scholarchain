@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scholarchain.example/experiments/manifest-schema-v1.json",
+  "title": "ScholarChain experiment manifest, format v1",
+  "description": "One bounded experiment run by scripts/run-experiment.sh. No schema validator is installed: the runner checks only the rules marked 'enforced by run-experiment.sh: yes' in experiments/README.md, with jq. Every other rule here is documentation only. A manifest never holds a secret, an account ID, an ARN with an account ID, a queue URL or a literal bucket name; S3 locations are logical (s3://{data-bucket}/KEY).",
+  "type": "object",
+  "required": [
+    "format",
+    "formatVersion",
+    "manifestId",
+    "example",
+    "experiment",
+    "description",
+    "region",
+    "datasetSnapshot",
+    "costBoundUsd",
+    "maxDurationSeconds",
+    "resourceLimits",
+    "action",
+    "metrics"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "description": "Format name. Enforced.",
+      "const": "scholarchain.experiment-manifest"
+    },
+    "formatVersion": {
+      "description": "Format version. Enforced.",
+      "const": 1
+    },
+    "manifestId": {
+      "description": "Lowercase letters, digits and '-'; starts with a letter or digit; at most 64 characters. Equals the file name without '.json' (enforced by the runner; JSON Schema cannot express it). Unique across experiments/manifests/ (documentation only).",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "example": {
+      "description": "true marks a format example; the runner always refuses it. Enforced.",
+      "type": "boolean"
+    },
+    "experiment": {
+      "description": "The specification's Phase 15 experiment: A Hadoop and Spark baseline, B Hadoop and Spark burst, C embedding backlog, D query load, E retrieval modes, F failure and recovery. Enforced.",
+      "enum": ["A", "B", "C", "D", "E", "F"]
+    },
+    "description": {
+      "description": "What the run measures and why. Enforced: non-empty string.",
+      "type": "string",
+      "minLength": 1
+    },
+    "region": {
+      "description": "AWS Region. Enforced.",
+      "const": "us-east-1"
+    },
+    "datasetSnapshot": {
+      "description": "Dataset snapshot and subset rule the run reads, as named in datasets/dataset-manifest.yaml. Enforced: non-empty string.",
+      "type": "string",
+      "minLength": 1
+    },
+    "costBoundUsd": {
+      "description": "Declared cost bound in USD. Enforced: a number greater than 0 and not above the runner's hard per-run cap of 5 USD. A declaration: nothing measures spend during a run.",
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 5
+    },
+    "maxDurationSeconds": {
+      "description": "Bounds only the local runner (timeout). Remote work keeps running and is bounded by Terraform (state machine timeout, EMR managed-scaling maximum, idle end). Enforced: integer greater than 0.",
+      "type": "integer",
+      "exclusiveMinimum": 0
+    },
+    "resourceLimits": {
+      "description": "Recorded, not applied: the real caps are the Terraform values. Enforced: an object. Its keys are documentation only; the recommended keys are listed below, others are allowed.",
+      "type": "object",
+      "properties": {
+        "emrManagedScalingMinUnits": { "type": "integer", "minimum": 1 },
+        "emrManagedScalingMaxUnits": { "type": "integer", "minimum": 1 },
+        "ecsMaxTasks": { "type": "integer", "minimum": 0 },
+        "clientConcurrencyLevels": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 },
+          "minItems": 1
+        },
+        "maxRequests": { "type": "integer", "minimum": 1 },
+        "maxQueueMessages": { "type": "integer", "minimum": 1 },
+        "terraformSource": {
+          "description": "Where the enforced cap lives, for example 'infra/terraform/modules/emr/variables.tf managed_scaling_max_units'.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "action": {
+      "description": "What the runner starts. Enforced: kind is 'pipeline' or 'command'; for 'command', path starts with 'load-tests/' or 'experiments/collectors/' and has no '..' segment; args is an array of strings.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "args"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "pipeline" },
+            "args": {
+              "description": "Arguments passed unchanged to scripts/run-bounded-pipeline.sh, as its usage text at the manifest's commit defines them.",
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "path", "args"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "command" },
+            "path": {
+              "description": "A committed executable under load-tests/ or experiments/collectors/, relative to the repository root.",
+              "type": "string",
+              "pattern": "^(load-tests|experiments/collectors)/[A-Za-z0-9._/-]+$",
+              "not": { "pattern": "(^|/)\\.\\.(/|$)" }
+            },
+            "args": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      ]
+    },
+    "metrics": {
+      "description": "CloudWatch metric queries the runner exports for the run window plus 5 minutes on each side. Enforced: an array. The shape of each item is documentation only; a malformed query makes the export fail, which the runner records as 'succeeded-metrics-failed'.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["namespace", "metricName", "dimensions", "stat", "periodSeconds"],
+        "additionalProperties": false,
+        "properties": {
+          "namespace": { "type": "string", "minLength": 1 },
+          "metricName": { "type": "string", "minLength": 1 },
+          "dimensions": {
+            "description": "Name and value pairs. A value is a literal without account ID, or a placeholder in braces (for example '{emr-cluster-id}', '{state-machine-arn}') that the runner resolves at run time.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "value"],
+              "additionalProperties": false,
+              "properties": {
+                "name": { "type": "string", "minLength": 1 },
+                "value": { "type": "string", "minLength": 1 }
+              }
+            }
+          },
+          "stat": {
+            "description": "A CloudWatch statistic, for example Sum, Average, Maximum, Minimum, SampleCount, p50, p95, p99.",
+            "type": "string",
+            "minLength": 1
+          },
+          "periodSeconds": {
+            "description": "60 or a multiple of 60.",
+            "type": "integer",
+            "minimum": 60,
+            "multipleOf": 60
+          }
+        }
+      }
+    },
+    "notes": {
+      "description": "Optional free text (limitations, links to the gate that approved the manifest).",
+      "type": "string"
+    }
+  }
+}

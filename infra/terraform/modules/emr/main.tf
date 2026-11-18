@@ -35,8 +35,8 @@ resource "aws_s3_object" "bootstrap" {
     }
 
     precondition {
-      condition     = (var.managed_scaling_max_units + 1) * var.instance_vcpus <= var.vcpu_budget
-      error_message = "At full scale (max core nodes + primary) one cluster would exceed vcpu_budget."
+      condition     = var.primary_instance_vcpus + var.managed_scaling_max_units * var.core_instance_vcpus <= var.vcpu_budget
+      error_message = "At full scale (primary + max core nodes) one cluster would exceed vcpu_budget."
     }
   }
 }

@@ -10,6 +10,12 @@ metals.sbt
 .scala-build/
 *.class
 *.log
+# Committed evidence keeps its logs: raw experiment results and release records are never ignored.
+!experiments/**/*.log
+!releases/**/*.log
+
+# Evidence records and archives written by scripts/** (never committed)
+evidence/
 
 # IDEs and OS
 .idea/

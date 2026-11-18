@@ -6,11 +6,10 @@
 # - Index mode: vector buckets created after September 30, 2026 default to
 #   ENHANCED (S3 User Guide, "Changing a vector index's mode"); nothing to set.
 # - Access: the bucket policy denies the vector DATA plane to every principal
-#   except the runtime task roles and the ops role (data_principal_arns, from
-#   step 2b). Control-plane actions (create/describe/remove indexes, the
-#   policy itself) stay with the deployment path. Until step 2b passes the
-#   ARNs, no bucket policy exists and nothing but identity policies grants
-#   access (no role has such a policy before step 2b).
+#   except the runtime task roles and the ops role (data_principal_arns). The
+#   root always passes these ARNs, so the policy always exists. Control-plane
+#   actions (create/describe/remove indexes, the policy itself) stay with the
+#   deployment path.
 # - Application limits (README): PutVectors batches <= 500, topK <= 30.
 
 locals {

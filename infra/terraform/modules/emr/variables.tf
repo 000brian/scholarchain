@@ -85,10 +85,26 @@ variable "core_instance_type" {
   default     = "m5.xlarge"
 }
 
-variable "instance_vcpus" {
-  description = "vCPUs per instance of the chosen types (m5.xlarge: 4). Used only for the quota check below."
+variable "primary_instance_vcpus" {
+  description = "vCPUs of primary_instance_type (m5.xlarge: 4). Used only for the vCPU budget check (Phase 13 I-06)."
   type        = number
   default     = 4
+
+  validation {
+    condition     = var.primary_instance_vcpus >= 1
+    error_message = "primary_instance_vcpus must be at least 1."
+  }
+}
+
+variable "core_instance_vcpus" {
+  description = "vCPUs of core_instance_type (m5.xlarge: 4). Used only for the vCPU budget check (Phase 13 I-06)."
+  type        = number
+  default     = 4
+
+  validation {
+    condition     = var.core_instance_vcpus >= 1
+    error_message = "core_instance_vcpus must be at least 1."
+  }
 }
 
 variable "core_instance_count" {

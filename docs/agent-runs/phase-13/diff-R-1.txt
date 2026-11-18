@@ -1,0 +1,283 @@
+diff --git a/.gitignore b/.gitignore
+index 56e9b58..1e3eab7 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -10,6 +10,12 @@ metals.sbt
+ .scala-build/
+ *.class
+ *.log
++# Committed evidence keeps its logs: raw experiment results and release records are never ignored.
++!experiments/**/*.log
++!releases/**/*.log
++
++# Evidence records and archives written by scripts/** (never committed)
++evidence/
+ 
+ # IDEs and OS
+ .idea/
+diff --git a/build.sbt b/build.sbt
+index 7e25ab6..b2242d6 100644
+--- a/build.sbt
++++ b/build.sbt
+@@ -10,7 +10,11 @@
+ // produces release artifacts.
+ //   JAVA_HOME            [supply chain] JDK that runs sbt, compiles, and forks tests. onLoad
+ //                        rejects any Java feature release other than version.java.
+-//   PATH                 [supply chain] resolves the sbt, java, and docker executables.
++//   PATH                 [supply chain] resolves the sbt, java, git, and docker executables.
++//   GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_CEILING_DIRECTORIES, GIT_CONFIG_GLOBAL,
++//   GIT_CONFIG_SYSTEM, GIT_CONFIG_NOSYSTEM  read by git when the build computes the build
++//                        identity (project/BuildIdentity.scala: `git log` and `git status` over
++//                        the build-input paths); they can change buildCommit and buildDirty.
+ //   HOME                 [supply chain] locates ~/.sbt (global settings, plugins, repositories),
+ //                        ~/.ivy2, the default Coursier cache, and ~/.docker.
+ //   SBT_OPTS, JAVA_OPTS  [supply chain] JVM options of the sbt launcher; can set
+@@ -34,7 +38,7 @@
+ //                        used by dockerLocal when pulling the pinned base image.
+ //   DOCKER_BUILDKIT      builder selection for dockerLocal (the Dockerfile needs BuildKit for
+ //                        COPY --chmod).
+-//   DOCKER_DEFAULT_PLATFORM  target platform of the dockerLocal image when not set explicitly.
++//   DOCKER_DEFAULT_PLATFORM  not used: dockerLocal passes --platform linux/arm64 explicitly.
+ // Besides environment variables, these tools also read files: .sbtopts and .jvmopts in the
+ // repository, the sbt launcher's global sbtopts files, ~/.sbt/**, Coursier config files, and
+ // ~/.docker/config.json. This list covers the inputs known to change this build's behavior for
+@@ -205,7 +209,24 @@ def forkGroups(groups: Int): Setting[_] =
+       }
+   }
+ 
++// Build identity (project/BuildIdentity.scala). Computed once per sbt invocation, never cached
++// across invocations, so a new commit or a working-tree change reaches the next assembly.
++lazy val buildIdentity =
++  taskKey[BuildIdentity.Identity]("Build commit and dirty flag of the build-input paths.")
++ThisBuild / buildIdentity := BuildIdentity.read((ThisBuild / baseDirectory).value)
++
+ // Fat-jar packaging for jobs and services. Provided dependencies are never included.
++// Merge rules, in order (A9):
++//   module-info.class (root or versioned)  discard: a fat jar is not a module.
++//   META-INF/services/**                   filterDistinctLines: service-loader files of several
++//                                          jars are concatenated (distinct lines), never
++//                                          first-wins; the SDK's SdkHttpService registration lives
++//                                          here.
++//   **/execution.interceptors              filterDistinctLines: the AWS SDK's interceptor lists
++//                                          (per service and global) are concatenated too.
++//   anything else                          sbt-assembly's default (identical files deduplicated,
++//                                          a conflict with different bytes fails the assembly).
++// Every assembled jar carries the generated scholarchain-build-info.properties at its root.
+ lazy val assemblySettings: Seq[Setting[_]] = Seq(
+   assembly / assemblyJarName := s"${name.value}-assembly-${version.value}.jar",
+   assembly / assemblyMergeStrategy := {
+@@ -213,9 +234,21 @@ lazy val assemblySettings: Seq[Setting[_]] = Seq(
+     locally {
+       case PathList("module-info.class")                            => MergeStrategy.discard
+       case PathList("META-INF", "versions", _, "module-info.class") => MergeStrategy.discard
+-      case other                                                    => fallback(other)
++      case PathList("META-INF", "services", _*) => MergeStrategy.filterDistinctLines
++      case PathList(xs @ _*) if xs.lastOption.contains("execution.interceptors") =>
++        MergeStrategy.filterDistinctLines
++      case other => fallback(other)
+     }
+-  }
++  },
++  Compile / resourceGenerators += Def.task {
++    val content = BuildIdentity.render(
++      (ThisBuild / buildIdentity).value,
++      thisProject.value.id,
++      version.value
++    )
++    // At the resource root: the classpath path is /scholarchain-build-info.properties.
++    BuildIdentity.generate((Compile / resourceManaged).value, content)
++  }.taskValue
+ )
+ 
+ // ---------------------------------------------------------------------------------------------
+@@ -283,6 +316,11 @@ lazy val hadoop = (project in file("modules/hadoop"))
+     forkedTests(forkedTestHeap, hadoopJava17Options),
+     forkGroups(2),
+     assemblySettings,
++    // No Main-Class in the manifest: the EMR step names the main class, and with a manifest
++    // Main-Class Hadoop's RunJar would run that class and pass the step's class as an argument.
++    // The filter also drops the Main-Class sbt would copy from Compile/packageBin.
++    assembly / mainClass := None,
++    assembly / packageOptions ~= (_.filterNot(_.isInstanceOf[Package.MainClass])),
+     libraryDependencies ++= Seq(hadoopClientApi, hadoopClientRuntime)
+   )
+ 
+@@ -329,12 +367,32 @@ lazy val rag = (project in file("modules/rag"))
+   .settings(
+     name := "scholarchain-rag",
+     commonSettings,
+-    libraryDependencies ++= awsSdkRag
++    libraryDependencies ++= awsSdkRag,
++    // R3-06: prompts/runtime is the one source of the runtime prompts. Its files become rag
++    // resources under PromptResources.ClasspathDir (= Prompts.ResourceRoot). Leftover copies at
++    // that path in src/main/resources are left out of the resources, so each classpath path has
++    // exactly one file, from prompts/runtime; packageCheck reports any copy that differs.
++    Compile / resourceGenerators += Def.task {
++      PromptResources.sync(
++        (ThisBuild / baseDirectory).value / "prompts" / "runtime",
++        (Compile / resourceManaged).value / PromptResources.ClasspathDir
++      )
++    }.taskValue,
++    Compile / unmanagedResources := {
++      val copies = (Compile / resourceDirectory).value / PromptResources.ClasspathDir
++      (Compile / unmanagedResources).value.filterNot(f => IO.relativize(copies, f).isDefined)
++    }
+   )
+ 
+ // The only HTTP layer. Nothing depends on services.
++lazy val dockerStage =
++  taskKey[File](
++    "Assembles services and stages target/docker-context (app.jar, config/course.json, context.sha256). No Docker."
++  )
+ lazy val dockerBuildLocal =
+-  taskKey[Unit]("Builds the local services image from docker/services/Dockerfile.")
++  taskKey[Unit](
++    "Builds the local linux/arm64 services image (scholarchain-services:local) from the staged context."
++  )
+ 
+ lazy val services = (project in file("modules/services"))
+   .configs(AwsTest)
+@@ -348,29 +406,33 @@ lazy val services = (project in file("modules/services"))
+     commonSettings,
+     assemblySettings,
+     libraryDependencies ++= Seq(slf4jApi, logbackClassic),
++    assembly / mainClass := Some(PackageCheck.ServicesMainClass),
++    // Image contents are build facts; tagging and pushing are scripts/package.sh's (no Docker
++    // here). The context is deleted and staged again on every run.
++    dockerStage := {
++      val context = DockerContext.stage(
++        target.value / "docker-context",
++        assembly.value,
++        (ThisBuild / baseDirectory).value / "config" / "course.json"
++      )
++      streams.value.log.info(s"Staged ${context.getPath}")
++      context
++    },
++    // Local use only; never run by agents. Same arguments as scripts/package.sh, local tag.
+     dockerBuildLocal := {
+       val log = streams.value.log
+-      val jar = assembly.value
+-      val context = target.value / "docker-context"
++      val context = dockerStage.value
+       val dockerfile = (ThisBuild / baseDirectory).value / "docker" / "services" / "Dockerfile"
+-      IO.delete(context)
+-      IO.createDirectory(context)
+-      IO.copyFile(jar, context / "app.jar")
+-      val command = Seq(
+-        "docker",
+-        "build",
+-        "--file",
+-        dockerfile.getAbsolutePath,
+-        "--build-arg",
+-        s"JAVA_RUNTIME_IMAGE=${Ledger.javaRuntimeImage}",
+-        "--tag",
++      val command = DockerContext.buildxArgs(
++        dockerfile,
++        Ledger.javaRuntimeImage,
+         "scholarchain-services:local",
+-        context.getAbsolutePath
++        context
+       )
+       log.info(s"Running: ${command.mkString(" ")}")
+       val exit = Process(command).!(ProcessLogger(out => log.info(out), err => log.info(err)))
+       if (exit != 0)
+-        throw new MessageOnlyException(s"docker build failed with exit code $exit")
++        throw new MessageOnlyException(s"docker buildx build failed with exit code $exit")
+     }
+   )
+ 
+@@ -383,7 +445,9 @@ lazy val services = (project in file("modules/services"))
+ lazy val contractTests = (project in file("tests/contracts"))
+   .configs(AwsTest)
+   .dependsOn(
+-    coreScala3,
++    // D-07: core's test fixtures (org.scholarchain.core.Fixtures) are visible to tests/**, so
++    // cross-record contract tests use the frozen wire examples instead of hand-made copies.
++    coreScala3 % "compile->compile;test->test",
+     hadoop,
+     entityResolution,
+     storage % "compile->compile;test->test",
+@@ -424,6 +488,10 @@ lazy val markTestRun =
+   )
+ lazy val ledgerCheck =
+   taskKey[Unit]("Checks that .scalafmt.conf pins the scalafmt version from the ledger.")
++lazy val packageCheck =
++  taskKey[Unit](
++    "Opens the four assembled jars and checks classes, manifests, prompts, SDK merges and build info. No Docker."
++  )
+ 
+ lazy val root = (project in file("."))
+   .configs(AwsTest)
+@@ -433,6 +501,31 @@ lazy val root = (project in file("."))
+     // The formatter hook runs `sbt "scalafmtOnly <repo-relative path>"`; resolve it only
+     // against the root, not against every aggregated project's base directory.
+     scalafmtOnly / aggregate := false,
++    // packageCheck (project/PackageCheck.scala holds the fixed class lists). It depends on the
++    // assemblies it opens, so it always checks fresh jars; one log line per problem.
++    packageCheck / aggregate := false,
++    packageCheck := {
++      val log = streams.value.log
++      val base = (ThisBuild / baseDirectory).value
++      val problems = PackageCheck.run(
++        PackageCheck.Inputs(
++          hadoop = (hadoop / assembly).value,
++          er = (entityResolution / assembly).value,
++          spark = (sparkAnalytics / assembly).value,
++          services = (services / assembly).value,
++          servicesClasspath = (services / assembly / fullClasspath).value.map(_.data),
++          promptSource = base / "prompts" / "runtime",
++          promptCopies = (rag / Compile / resourceDirectory).value / PromptResources.ClasspathDir,
++          version = version.value,
++          identity = (ThisBuild / buildIdentity).value
++        )
++      )
++      if (problems.nonEmpty) {
++        problems.foreach(p => log.error(s"packageCheck: $p"))
++        throw new MessageOnlyException(s"packageCheck failed: ${problems.size} problem(s).")
++      }
++      log.info("packageCheck: ok")
++    },
+     moduleTests := TestGate.evaluate(
+       "Module tests",
+       (Test / executeTests).all(ScopeFilter(inProjects(moduleProjects: _*))).value,
+diff --git a/docker/services/Dockerfile b/docker/services/Dockerfile
+index d0673b4..d690e1b 100644
+--- a/docker/services/Dockerfile
++++ b/docker/services/Dockerfile
+@@ -1,10 +1,15 @@
+-# ScholarChain REST services image (ECS Fargate).
++# ScholarChain REST services image (ECS Fargate, linux/arm64).
+ #
+-# Built by `sbt dockerLocal`, which assembles modules/services and passes the pinned Java
+-# runtime image from the version ledger (project/build.properties, image.java-runtime).
++# Build context: modules/services/target/docker-context, staged by `sbt services/dockerStage`
++# (no Docker). It holds exactly app.jar, config/course.json and context.sha256.
++# The image is built by scripts/package.sh (and, for local use, `sbt dockerLocal`) with
++#   docker buildx build --platform linux/arm64 --load --file docker/services/Dockerfile
++#     --build-arg JAVA_RUNTIME_IMAGE=<image.java-runtime from project/build.properties>
++#     --tag <tag> modules/services/target/docker-context
+ # There is deliberately no default base image: building without the ledger value fails.
+ #
+-# The build context is the staging directory sbt creates; it contains only app.jar.
++# No HEALTHCHECK (Phase 13 decision 5 item 5, planned deviation): ECS does not use it, the
++# runtime image has no HTTP client, and the internal ALB checks /healthz.
+ 
+ ARG JAVA_RUNTIME_IMAGE
+ FROM ${JAVA_RUNTIME_IMAGE}
+@@ -13,11 +18,13 @@ FROM ${JAVA_RUNTIME_IMAGE}
+ RUN groupadd --system --gid 10001 scholarchain \
+  && useradd --system --uid 10001 --gid scholarchain --no-create-home \
+       --home-dir /nonexistent --shell /usr/sbin/nologin scholarchain \
+- && mkdir -p /opt/scholarchain \
+- && chown root:root /opt/scholarchain \
+- && chmod 0755 /opt/scholarchain
++ && mkdir -p /opt/scholarchain/config \
++ && chown root:root /opt/scholarchain /opt/scholarchain/config \
++ && chmod 0755 /opt/scholarchain /opt/scholarchain/config
+ 
++# Root-owned and read-only for the runtime user. The ECS task command reads the config path.
+ COPY --chown=root:root --chmod=0444 app.jar /opt/scholarchain/app.jar
++COPY --chown=root:root --chmod=0444 config/course.json /opt/scholarchain/config/course.json
+ 
+ # Memory is sized as a percentage of the container limit (ECS task memory), never fixed -Xmx.
+ ENV JAVA_TOOL_OPTIONS="-XX:InitialRAMPercentage=50.0 -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"

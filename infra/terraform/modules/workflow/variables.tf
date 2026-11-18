@@ -42,6 +42,16 @@ variable "state_machine_log_group_arn" {
   type        = string
 }
 
+variable "graph_uri_prefix" {
+  description = "s3:// URI of the data lake's graph/ prefix, ending in '/'. The optional JsonlExport step accepts exportRoot and exportSourceRun only under it (the EMR instance role writes there; the ops role reads there)."
+  type        = string
+
+  validation {
+    condition     = can(regex("^s3://[^/]+/[^/]+/$", var.graph_uri_prefix))
+    error_message = "graph_uri_prefix must look like s3://BUCKET/PREFIX/ (one prefix level, trailing slash)."
+  }
+}
+
 variable "pipeline_timeout_seconds" {
   description = "TimeoutSeconds of the whole pipeline execution (both clusters). Step Functions does not end a cluster on timeout; the EMR idle auto-termination policy is the backstop."
   type        = number

@@ -54,6 +54,11 @@ output "ops_task_definition_family" {
   value       = module.runtime.ops_task_definition_family
 }
 
+output "ops_container" {
+  description = "Ops task container: name (run-task --overrides containerOverrides name) and log_stream_prefix (awslogs stream PREFIX/NAME/TASK_ID in log_group_names.ops). Phase 13, run-bounded-pipeline.sh --stage load."
+  value       = module.runtime.ops_container
+}
+
 output "app_subnet_ids" {
   description = "Private app subnets (run-task network configuration of the ops task; assign no public IP)."
   value       = module.network.app_subnet_ids

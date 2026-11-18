@@ -229,4 +229,213 @@ class JsonlExportSuite extends munit.FunSuite {
         .isLeft
     )
   }
+
+  private def fileHashes(dir: File): Map[String, String] = {
+    val all = Files.walk(dir.toPath)
+    try
+      all
+        .iterator()
+        .asScala
+        .filter(Files.isRegularFile(_))
+        .map { p =>
+          dir.toPath.relativize(p).toString -> Files2.sha256(p.toFile)
+        }
+        .toMap
+    finally all.close()
+  }
+
+  test("decision 7c: a file:// URI and a plain path give identical bytes and manifests") {
+    val plainRoot = new File(tmp, "export-plain")
+    val uriRoot = new File(tmp, "export-uri")
+    val plain = JsonlExport.runWith(
+      spark,
+      Seq(
+        "--source-run",
+        source.runDir.getAbsolutePath,
+        "--out-root",
+        plainRoot.getAbsolutePath,
+        "--records-per-file",
+        "7"
+      )
+    )
+    val uri = JsonlExport.runWith(
+      spark,
+      Seq(
+        "--source-run",
+        "file://" + source.runDir.getAbsolutePath,
+        "--out-root",
+        "file://" + uriRoot.getAbsolutePath,
+        "--records-per-file",
+        "7",
+        "--code-version",
+        "0123456789abcdef0123456789abcdef01234567"
+      )
+    )
+    assertEquals(plain.outRun.toUri.getScheme, "file")
+    assertEquals(uri.outRun.toUri.getScheme, "file")
+    assertEquals(ujson.write(plain.manifest), ujson.write(uri.manifest))
+    assertEquals(ujson.write(plain.manifest), ujson.write(ex.manifest))
+    // Every written file (data, checksum side files, manifest) is byte-identical, except the
+    // report, which holds timings and the code version.
+    def bytes(dir: File) = fileHashes(dir).filter(_._1 != JsonlExport.ReportName)
+    val p = bytes(plain.outRunDir)
+    assertEquals(p, bytes(uri.outRunDir))
+    assertEquals(p, bytes(ex.outRunDir))
+    assert(p.contains(JsonlExport.ManifestName))
+    // The manifest on disk is the returned manifest, and it lists every data file it covers.
+    assertEquals(
+      Files2.readString(new File(uri.outRunDir, JsonlExport.ManifestName)),
+      ujson.write(uri.manifest, indent = 2)
+    )
+    val listed = uri.manifest("tables").arr.flatMap(_("files").arr.map(_("path").str)).toSet
+    assertEquals(Files2.listData(uri.outRunDir).map(Files2.rel(uri.outRunDir, _)).toSet, listed)
+  }
+
+  test("decision 7c: a non-file scheme is read and written through the Hadoop FileSystem only") {
+    MockStoreFileSystem.register(spark.sparkContext.hadoopConfiguration)
+    val local = new File(tmp, "export-mockstore")
+    val r = JsonlExport.runWith(
+      spark,
+      Seq(
+        "--source-run",
+        MockStoreFileSystem.uriOf(source.runDir.getAbsolutePath),
+        "--out-root",
+        MockStoreFileSystem.uriOf(local.getAbsolutePath),
+        "--records-per-file",
+        "7"
+      )
+    )
+    assertEquals(r.outRun.toUri.getScheme, MockStoreFileSystem.Scheme)
+    intercept[UnsupportedOperationException](r.outRunDir)
+    assertEquals(ujson.write(r.manifest), ujson.write(ex.manifest))
+    val written = new File(local, source.runDir.getName)
+    assertEquals(
+      Files2.readString(new File(written, JsonlExport.ManifestName)),
+      ujson.write(r.manifest, indent = 2)
+    )
+    def data(dir: File) = fileHashes(dir).filter { case (k, _) =>
+      !k.split('/').exists(s => s.startsWith("_") || s.startsWith("."))
+    }
+    assertEquals(data(written), data(ex.outRunDir))
+    assertEquals(
+      JsonlExport.show(r.outRun),
+      s"mockstore://{authority}${written.getAbsolutePath}"
+    )
+    // A second export to the same location is refused through the same file system.
+    intercept[ExportRefusedException] {
+      JsonlExport.runWith(
+        spark,
+        Seq(
+          "--source-run",
+          MockStoreFileSystem.uriOf(source.runDir.getAbsolutePath),
+          "--out-root",
+          MockStoreFileSystem.uriOf(local.getAbsolutePath)
+        )
+      )
+    }
+  }
+
+  test("decision 7: the report records --code-version and the jar's build identity") {
+    val out = new File(tmp, "export-report")
+    val r = JsonlExport.runWith(
+      spark,
+      Seq(
+        "--source-run",
+        source.runDir.getAbsolutePath,
+        "--out-root",
+        out.getAbsolutePath,
+        "--records-per-file",
+        "7",
+        "--code-version",
+        "fixture-commit"
+      )
+    )
+    val onDisk = ujson.read(Files2.readString(new File(r.outRunDir, JsonlExport.ReportName)))
+    assertEquals(onDisk("codeVersion").str, "fixture-commit")
+    assertEquals(onDisk("runId").str, source.runId)
+    // The identity of the class path the job runs from (the generated resource when the build
+    // puts it there; otherwise every field "unknown" with status "missing").
+    assertEquals(onDisk("buildIdentity"), BuildIdentity.load().toJson: ujson.Value)
+    assert(Set("resource", "missing")(onDisk("buildIdentity")("status").str))
+    assertEquals(
+      onDisk("buildIdentity").obj.keys.toList,
+      List("buildCommit", "buildDirty", "module", "version", "status")
+    )
+    // Without --code-version the field is null; the default export also records it.
+    assertEquals(
+      ujson.read(Files2.readString(new File(ex.outRunDir, JsonlExport.ReportName)))("codeVersion"),
+      ujson.Null
+    )
+  }
+
+  test("decision 7c: an existing (even empty) target run directory is refused, untouched") {
+    val root = new File(tmp, "export-existing")
+    val target = new File(root, source.runDir.getName)
+    assert(target.mkdirs())
+    val e = intercept[ExportRefusedException] {
+      JsonlExport.runWith(
+        spark,
+        Seq("--source-run", source.runDir.getAbsolutePath, "--out-root", "file://" + root)
+      )
+    }
+    assert(e.getMessage.contains("already exists"), e.getMessage)
+    assertEquals(Option(target.list()).map(_.toList), Some(Nil))
+  }
+
+  private def assertNothingWritten(out: File)(body: => Any): Throwable = {
+    val e = intercept[Throwable](body)
+    assert(!out.exists(), s"$out was created: ${e.getMessage}")
+    e
+  }
+
+  test("decision 7c: nothing is written when validation fails") {
+    // A table whose load-manifest schema version is not current (refused by the codec check,
+    // which used to run after the output directory was created).
+    val badSchema = new File(new File(tmp, "bad-schema"), source.runDir.getName)
+    copyTree(source.runDir, badSchema)
+    JsonlExport.Targets.foreach { t =>
+      val f = new File(badSchema, s"${Manifests.LoadDir}/$t.json")
+      val m = ujson.read(Files2.readString(f))
+      m("tables").arr.filter(_("table").str == "authorship").foreach(_("schemaVersion") = 99)
+      Files2.writeString(f, ujson.write(m, indent = 2))
+    }
+    val out1 = new File(tmp, "nothing-1")
+    val e1 = assertNothingWritten(out1)(JsonlExport.run(spark, badSchema, out1, 7L))
+    assert(e1.isInstanceOf[ExportRefusedException], e1.toString)
+    assert(e1.getMessage.contains("schema version"), e1.getMessage)
+
+    // A changed source data file (the run manifest no longer matches).
+    val changed = new File(new File(tmp, "changed"), source.runDir.getName)
+    copyTree(source.runDir, changed)
+    val victim = Files2.listData(new File(changed, "authorship")).head
+    Files.write(victim.toPath, Array[Byte](1, 2, 3))
+    val out2 = new File(tmp, "nothing-2")
+    val e2 = assertNothingWritten(out2)(JsonlExport.run(spark, changed, out2, 7L))
+    assert(e2.isInstanceOf[ExportRefusedException], e2.toString)
+
+    // An invalid code version, an unknown option, and an output root inside the source run.
+    val out3 = new File(tmp, "nothing-3")
+    val e3 = assertNothingWritten(out3)(
+      JsonlExport.run(
+        spark,
+        RunFs.pathOf(source.runDir),
+        RunFs.pathOf(out3),
+        7L,
+        32,
+        Some("not a version/../x")
+      )
+    )
+    assert(e3.isInstanceOf[ExportRefusedException], e3.toString)
+    val out4 = new File(tmp, "nothing-4")
+    val e4 = assertNothingWritten(out4)(
+      JsonlExport.runWith(
+        spark,
+        Seq("--source-run", source.runDir.getPath, "--out-root", out4.getPath, "--extra", "1")
+      )
+    )
+    assert(e4.isInstanceOf[IllegalArgumentException], e4.toString)
+    val inside = new File(source.runDir, "nested-export")
+    val e5 = assertNothingWritten(inside)(JsonlExport.run(spark, source.runDir, inside, 7L))
+    assert(e5.getMessage.contains("overlap"), e5.getMessage)
+  }
 }

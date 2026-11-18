@@ -87,7 +87,8 @@ module "emr" {
   spark_release_label       = var.emr_spark_release_label
   primary_instance_type     = var.emr_primary_instance_type
   core_instance_type        = var.emr_core_instance_type
-  instance_vcpus            = var.emr_instance_vcpus
+  primary_instance_vcpus    = var.emr_primary_instance_vcpus
+  core_instance_vcpus       = var.emr_core_instance_vcpus
   core_instance_count       = var.emr_core_instance_count
   managed_scaling_min_units = var.emr_managed_scaling_min_units
   managed_scaling_max_units = var.emr_managed_scaling_max_units
@@ -201,6 +202,10 @@ module "workflow" {
   emr_instance_role_arn       = module.identity.emr_instance_role_arn
   state_machine_log_group_arn = module.observability.log_group_arns["states"]
   pipeline_timeout_seconds    = var.pipeline_timeout_seconds
+
+  # Phase 13 decision 8.3: the optional JsonlExport step reads and writes only
+  # under the data lake's graph/ prefix.
+  graph_uri_prefix = "s3://${module.data_lake.bucket_name}/${module.data_lake.prefixes.graph}/"
 
   job_producer_role_arns = [module.runtime.task_role_arns["query"]]
   job_consumer_role_arns = [module.runtime.task_role_arns["worker"]]

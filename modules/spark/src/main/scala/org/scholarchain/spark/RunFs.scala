@@ -54,6 +54,13 @@ final class RunFs(conf: Configuration) {
     finally out.close()
   }
 
+  /** Writes a new file; fails (FileAlreadyExistsException) when `p` already exists. */
+  def writeNewString(p: Path, s: String): Unit = {
+    val out = fs(p).create(p, false)
+    try out.write(s.getBytes(StandardCharsets.UTF_8))
+    finally out.close()
+  }
+
   def sha256(p: Path): String = {
     val md = MessageDigest.getInstance("SHA-256")
     val in = fs(p).open(p)

@@ -44,6 +44,11 @@ output "ops_task_definition_family" {
   value       = aws_ecs_task_definition.ops.family
 }
 
+output "ops_container" {
+  description = "Container name and awslogs stream prefix of the ops task (run-task overrides; log stream PREFIX/NAME/TASK_ID)."
+  value       = local.ops_container
+}
+
 output "alb_dns_name" {
   description = "DNS name of the internal ALB (the one internal address; resolvable only inside the VPC)."
   value       = aws_lb.internal.dns_name

@@ -28,6 +28,8 @@ class RagIngestJobSuite extends munit.FunSuite {
           dir.toString,
           "--out",
           out.toString,
+          "--code-version",
+          TestCodeVersion,
           "--runs",
           runs.toString,
           "--samples-per-index",
@@ -180,6 +182,8 @@ class RagIngestJobSuite extends munit.FunSuite {
           dir.toString,
           "--out",
           root.resolve("attempt-01").toString,
+          "--code-version",
+          TestCodeVersion,
           "--runs",
           "1",
           "--samples-per-index",
@@ -212,6 +216,8 @@ class RagIngestJobSuite extends munit.FunSuite {
           dir.toString,
           "--out",
           root.resolve("a").toString,
+          "--code-version",
+          TestCodeVersion,
           "--stores",
           "aws"
         )
@@ -233,7 +239,9 @@ class RagIngestJobSuite extends munit.FunSuite {
           "--export",
           dir.toString,
           "--out",
-          root.resolve("a").toString
+          root.resolve("a").toString,
+          "--code-version",
+          TestCodeVersion
         )
       )
       .toOption
@@ -271,20 +279,389 @@ class RagIngestJobSuite extends munit.FunSuite {
   }
 
   test("argument parsing") {
+    val base = Array("--config", "c", "--export", "e", "--out", "o", "--code-version", "abc123")
     assert(RagIngestJob.parse(Array("--config", "c", "--export", "e")).isLeft)
-    assert(
-      RagIngestJob
-        .parse(Array("--config", "c", "--export", "e", "--out", "o", "--bogus", "1"))
-        .isLeft
+    assert(RagIngestJob.parse(base ++ Array("--bogus", "1")).isLeft)
+    assert(RagIngestJob.parse(base ++ Array("--runs", "9")).isLeft)
+    assertEquals(RagIngestJob.parse(base).map(_.runs), Right(2))
+    assertEquals(RagIngestJob.parse(base).map(_.stores), Right("local"))
+    assertEquals(RagIngestJob.parse(base).map(_.codeVersion), Right("abc123"))
+  }
+
+  // ---- Phase 13 decision 7 and 7b ---------------------------------------------------------------
+
+  test("decision 7: the option constant has exactly these names") {
+    assertEquals(RagIngestJob.Required, List("config", "export", "out", "code-version"))
+    assertEquals(RagIngestJob.Optional, List("stores", "runs", "samples-per-index"))
+  }
+
+  test("decision 7: the parser accepts exactly the constant's names and refuses the rest") {
+    val all = (RagIngestJob.Required ++ RagIngestJob.Optional).flatMap { n =>
+      List(
+        s"--$n",
+        n match {
+          case "stores"            => "aws"
+          case "runs"              => "1"
+          case "samples-per-index" => "3"
+          case "code-version"      => "0123456789abcdef0123456789abcdef01234567"
+          case "export"            => "s3://example-graph-bucket/graph/exports/run=" + "0" * 32
+          case other               => other
+        }
+      )
+    }
+    val ok = RagIngestJob.parse(all.toArray).fold(fail(_), identity)
+    assertEquals(ok.codeVersion, "0123456789abcdef0123456789abcdef01234567")
+    assertEquals(ok.exportLocation, "s3://example-graph-bucket/graph/exports/run=" + "0" * 32)
+    // every required name is required
+    RagIngestJob.Required.foreach { n =>
+      val i = all.indexOf(s"--$n")
+      val without = (all.take(i) ++ all.drop(i + 2)).toArray
+      assertEquals(RagIngestJob.parse(without), Left(s"--$n is required"), n)
+    }
+    // unknown, repeated, positional and malformed values are refused
+    val unknown = RagIngestJob.parse((all ++ List("--export-dir", "x")).toArray)
+    assert(unknown.left.exists(_.contains("unknown options: --export-dir")), unknown.toString)
+    val repeated = RagIngestJob.parse((all ++ List("--runs", "2")).toArray)
+    assert(repeated.left.exists(_.contains("repeated options: --runs")), repeated.toString)
+    assert(RagIngestJob.parse((all ++ List("runs", "2")).toArray).isLeft)
+    assert(RagIngestJob.parse((all :+ "--runs").toArray).isLeft)
+    val badCode = all.updated(all.indexOf("--code-version") + 1, "has space")
+    assert(RagIngestJob.parse(badCode.toArray).left.exists(_.contains("--code-version")))
+    val badStores = all.updated(all.indexOf("--stores") + 1, "s3")
+    assertEquals(RagIngestJob.parse(badStores.toArray), Left("--stores must be local or aws"))
+    // an s3:// export needs the AWS stores (the local stores hold no data lake)
+    val s3Local = all.updated(all.indexOf("--stores") + 1, "local")
+    assertEquals(RagIngestJob.parse(s3Local.toArray), Left("an s3:// export needs --stores aws"))
+  }
+
+  test(
+    "decision 7: --code-version and the build identity are recorded; CodeVersion keeps its role"
+  ) {
+    val root = Files.createTempDirectory("rag-job-code")
+    val dir = writeExport(root.resolve("export"))
+    val opts = parseOk(localArgs(dir, root.resolve("a")))
+    val identity = org.scholarchain.storage.load.BuildIdentity(
+      "0123456789abcdef0123456789abcdef01234567",
+      "false",
+      "services",
+      "0.1.0-SNAPSHOT",
+      "resource"
     )
-    assert(
-      RagIngestJob
-        .parse(Array("--config", "c", "--export", "e", "--out", "o", "--runs", "9"))
-        .isLeft
+    val r = RagIngestJob.run(opts, hooks = RagIngestJob.Hooks(buildIdentity = () => identity))
+    assertEquals(r("status").str, "completed", r.render(indent = 2))
+    assertEquals(r("codeVersion").str, TestCodeVersion)
+    assertEquals(r("jobCodeVersion").str, "rag/1")
+    assertEquals(RagIngestJob.CodeVersion, "rag/1")
+    assertEquals(r("build"), identity.toJson)
+    // the run ID still derives from the job's CodeVersion, not from --code-version
+    val other = parseOk(
+      localArgs(dir, root.resolve("b")).updated(7, "fedcba9876543210fedcba9876543210fedcba98")
     )
+    val r2 = RagIngestJob.run(other)
+    assertEquals(r2("runId").str, r("runId").str)
+    assertEquals(r2("codeVersion").str, "fedcba9876543210fedcba9876543210fedcba98")
+    // in module tests the jar resource is absent: the identity says so, it is never invented
+    assertEquals(r2("build")("buildCommit").str, "unknown")
+    assertEquals(r2("build")("status").str, "missing")
+    // local stores: no copy to the data lake
+    assert(!Files.exists(root.resolve("a").resolve("run-report-copy.json")))
+  }
+
+  test("7b: an s3:// export with aws stores ingests like the local export; the report is copied") {
+    val f = s3Fixture()
+    val r = f.result.report
+    assertEquals(r("status").str, "completed", r.render(indent = 2))
+    assertEquals(r("input")("exportKind").str, "s3")
+    assertEquals(r("input")("export").str, s"s3://{data-bucket}/${f.exportKey}")
+    assertEquals(r("runs")(0)("ingest")("written").num, 15.0)
+    // the same export read from a local directory gives the same run ID and corpus
+    val local = RagIngestJob.run(
+      parseOk(
+        Array(
+          "--config",
+          configPath("rag-voyage-example-v1.json").toString,
+          "--export",
+          f.localExport.toString,
+          "--out",
+          f.root.resolve("local").toString,
+          "--code-version",
+          TestCodeVersion,
+          "--runs",
+          "1",
+          "--samples-per-index",
+          "3",
+          "--stores",
+          "aws"
+        )
+      ),
+      f.factory(),
+      f.wiring
+    )
+    assertEquals(local("status").str, "completed", local.render(indent = 2))
+    assertEquals(local("runId").str, r("runId").str)
+    assertEquals(local("input")("exportManifestSha256").str, r("input")("exportManifestSha256").str)
+    assertEquals(local("runs")(0)("corpusDigest").str, r("runs")(0)("corpusDigest").str)
+
+    // the report copy: same bytes as <out>/run-report.json, at the logical key under rag/
+    val localBytes = Files.readAllBytes(f.out.resolve("run-report.json"))
+    val sha = org.scholarchain.core.Hashing.sha256Hex(localBytes)
+    val runHex = r("runId").str.stripPrefix(org.scholarchain.core.RunId.Prefix)
+    val key = s"${f.ragPrefix}/ingest-reports/run=$runHex/run-report-sha256=$sha.json"
     assertEquals(
-      RagIngestJob.parse(Array("--config", "c", "--export", "e", "--out", "o")).map(_.runs),
-      Right(2)
+      RagIngestJob
+        .reportCopyKey(
+          f.ragPrefix,
+          org.scholarchain.core.RunId.parse(r("runId").str).toOption,
+          sha
+        ),
+      key
+    )
+    val stored = f.env.objects
+      .get(org.scholarchain.storage.ports.ObjectRef(f.ragBucket, key))
+      .getOrElse(fail(s"no report copy at $key"))
+    assertEquals(org.scholarchain.core.Hashing.sha256Hex(stored), sha)
+    val copy = f.result.reportCopy.getOrElse(fail("no copy outcome"))
+    assertEquals(copy("outcome").str, "created")
+    assertEquals(copy("object").str, s"s3://{data-bucket}/$key")
+    assertEquals(copy("sha256").str, sha)
+    assert(f.result.copyOk)
+    val copyFile = ujson.read(Files.readAllBytes(f.out.resolve("run-report-copy.json")))
+    assertEquals(copyFile("outcome").str, "created")
+    assert(f.printed.exists(_.contains(s"report copy: created s3://{data-bucket}/$key")))
+  }
+
+  test(
+    "7b: no bucket name, account ID or key appears in the report, the copy record or the output"
+  ) {
+    val f = s3Fixture()
+    assertEquals(f.result.report("status").str, "completed")
+    val texts = List(
+      new String(Files.readAllBytes(f.out.resolve("run-report.json")), "UTF-8"),
+      new String(Files.readAllBytes(f.out.resolve("run-report-copy.json")), "UTF-8")
+    ) ++ f.printed
+    val cfg = storageConfigOf("rag-voyage-example-v1.json")
+    val forbidden = cfg.zones.values.map(_.bucket).toSet + cfg.vectorBucket + "123456789012" +
+      "test-key-not-real"
+    texts.foreach(t => forbidden.foreach(b => assert(!t.contains(b), s"'$b' in: ${t.take(300)}")))
+  }
+
+  test(
+    "7b: an s3:// export without its manifest fails before any ingest; the report is still copied"
+  ) {
+    val f = s3Fixture(skip = Set("_export_manifest.json"))
+    val r = f.result.report
+    assert(
+      r("status").str.contains("export manifest _export_manifest.json is missing"),
+      r("status").str
+    )
+    assert(!r.value.contains("runs"))
+    // the failed attempt's report still reaches the data lake (no run ID: no-run)
+    val copy = f.result.reportCopy.getOrElse(fail("no copy outcome"))
+    assertEquals(copy("outcome").str, "created")
+    assert(copy("object").str.contains(s"/ingest-reports/no-run/run-report-sha256="), copy.render())
+  }
+
+  test("7b: an s3:// export with a changed file fails the sha256 or size check") {
+    val f = s3Fixture(changeFirstFile = true)
+    val r = f.result.report
+    assert(r("status").str.startsWith("failed"), r("status").str)
+    assert(
+      r("status").str.contains("sha256") || r("status").str.contains("bytes"),
+      r("status").str
+    )
+  }
+
+  test("7b: an s3:// export with a listed file missing is refused before any ingest") {
+    val f = s3Fixture(skip = Set("FIRST_FILE"))
+    val r = f.result.report
+    assert(r("status").str.contains("missing export file"), r("status").str)
+    assert(!r.value.contains("runs"))
+  }
+
+  test("7b: an s3:// export outside the configured data-lake buckets is refused") {
+    val f = s3Fixture(bucket = "example-other-bucket")
+    val r = f.result.report
+    assert(
+      r("status").str.contains("--export must be in a bucket of the configured data-lake zones"),
+      r("status").str
+    )
+    assert(!r.render().contains("example-other-bucket"))
+  }
+
+  test("7b: the free-disk bound is 15 GiB and fits the ops task's 30 GiB ephemeral storage") {
+    assertEquals(RagIngestJob.MinFreeBytes, 15L * 1024 * 1024 * 1024)
+    assert(RagIngestJob.MinFreeBytes < 30L * 1024 * 1024 * 1024)
+  }
+
+  // ---- helpers ----------------------------------------------------------------------------------
+
+  private val TestCodeVersion = "0123456789abcdef0123456789abcdef01234567"
+
+  private def parseOk(args: Array[String]): RagIngestJob.Options =
+    RagIngestJob.parse(args).fold(fail(_), identity)
+
+  private def localArgs(dir: Path, out: Path): Array[String] =
+    Array(
+      "--config",
+      configPath("rag-local-v1.json").toString,
+      "--export",
+      dir.toString,
+      "--out",
+      out.toString,
+      "--code-version",
+      TestCodeVersion,
+      "--runs",
+      "1",
+      "--samples-per-index",
+      "3"
+    )
+
+  private def storageConfigOf(name: String): org.scholarchain.storage.StorageConfig =
+    org.scholarchain.storage.StorageConfig
+      .from(RagIngestJob.loadConfig(configPath(name), Map.empty).fold(fail(_), identity))
+      .fold(e => fail(e.mkString("; ")), identity)
+
+  /** A voyage stub transport that answers with the fake lexical vectors (no network). */
+  private def voyageWiring: org.scholarchain.rag.embedding.EmbeddingProviders.Wiring = {
+    import org.scholarchain.rag.embedding.{FakeLexicalEmbedder, HttpResult, HttpTransport}
+    val stub = new HttpTransport {
+      def postJson(uri: java.net.URI, headers: List[(String, String)], body: String): HttpResult = {
+        val inputs = ujson.read(body)("input").arr.map(_.str)
+        val data = inputs.zipWithIndex.map { case (t, i) =>
+          ujson.Obj(
+            "index" -> i,
+            "embedding" -> ujson.Arr.from(
+              FakeLexicalEmbedder.vector(t, 1024).map(f => ujson.Num(f.toDouble))
+            )
+          )
+        }
+        HttpResult(
+          200,
+          ujson
+            .Obj("data" -> ujson.Arr.from(data), "usage" -> ujson.Obj("total_tokens" -> 10))
+            .render(),
+          None
+        )
+      }
+    }
+    org.scholarchain.rag.embedding.EmbeddingProviders.Wiring(
+      env = Map("SCHOLARCHAIN_VOYAGE_API_KEY" -> "test-key-not-real").get,
+      httpTransport = () => stub
+    )
+  }
+
+  private final case class S3Fixture(
+      root: Path,
+      out: Path,
+      localExport: Path,
+      exportKey: String,
+      ragBucket: String,
+      ragPrefix: String,
+      env: org.scholarchain.storage.local.LocalStorageEnvironment,
+      result: RagIngestJob.JobResult,
+      printed: List[String],
+      wiring: org.scholarchain.rag.embedding.EmbeddingProviders.Wiring
+  ) {
+
+    /** A stores factory over a fresh in-memory environment (for a second, local-export run). */
+    def factory(): (
+        org.scholarchain.storage.StorageConfig,
+        String,
+        Path
+    ) => Either[String, RagIngestJob.IngestStores] =
+      (cfg, _, _) =>
+        Right(
+          new RagIngestJob.LocalIngestStores(
+            org.scholarchain.storage.local.LocalStorageEnvironment.create(cfg, None),
+            kind = "aws"
+          )
+        )
+  }
+
+  /** Copies the fixture export into the in-memory object store under the graph zone, then runs the
+    * job with `--stores aws` over that store (stub AWS stores, stub voyage transport).
+    *
+    * @param skip
+    *   relative paths to leave out of the store (`FIRST_FILE` = the first listed data file)
+    */
+  private def s3Fixture(
+      bucket: String = "",
+      skip: Set[String] = Set.empty,
+      changeFirstFile: Boolean = false
+  ): S3Fixture = {
+    import org.scholarchain.storage.ports.ObjectRef
+    val root = Files.createTempDirectory("rag-job-s3")
+    val local = writeExport(root.resolve("export"))
+    val cfg = storageConfigOf("rag-voyage-example-v1.json")
+    val graph = cfg.zones("graph")
+    val exportBucket = if (bucket.isEmpty) graph.bucket else bucket
+    val exportKey = s"${graph.prefix}/exports/${local.getFileName}"
+    val env = org.scholarchain.storage.local.LocalStorageEnvironment.create(cfg, None)
+    val files = {
+      val s = Files.walk(local)
+      try
+        s.filter(Files.isRegularFile(_))
+          .toArray
+          .toList
+          .map(_.asInstanceOf[Path])
+          .map(p => local.relativize(p).toString.replace('\\', '/') -> p)
+          .sortBy(_._1)
+      finally s.close()
+    }
+    val firstData = files.map(_._1).find(_ != "_export_manifest.json").get
+    val left = skip.map(p => if (p == "FIRST_FILE") firstData else p)
+    files.filterNot(f => left(f._1)).foreach { case (rel, p) =>
+      val bytes0 = Files.readAllBytes(p)
+      val bytes =
+        if (changeFirstFile && rel == firstData) {
+          val b = bytes0.clone(); b(0) = (b(0) ^ 0x01).toByte; b
+        } else bytes0
+      env.objects.putIfAbsent(
+        ObjectRef(exportBucket, s"$exportKey/$rel"),
+        bytes,
+        "text/plain",
+        Map()
+      )
+    }
+    val printed = scala.collection.mutable.ListBuffer.empty[String]
+    val out = root.resolve("attempt-01")
+    val wiring = voyageWiring
+    val opts = parseOk(
+      Array(
+        "--config",
+        configPath("rag-voyage-example-v1.json").toString,
+        "--export",
+        s"s3://$exportBucket/$exportKey",
+        "--out",
+        out.toString,
+        "--code-version",
+        TestCodeVersion,
+        "--runs",
+        "1",
+        "--samples-per-index",
+        "3",
+        "--stores",
+        "aws"
+      )
+    )
+    val result = RagIngestJob.execute(
+      opts,
+      (_, _, _) => Right(new RagIngestJob.LocalIngestStores(env, kind = "aws")),
+      wiring,
+      RagIngestJob.Hooks(print = s => printed += s)
+    )
+    val rag = cfg.zones("semantic-context")
+    S3Fixture(
+      root,
+      out,
+      local,
+      exportKey,
+      rag.bucket,
+      rag.prefix,
+      env,
+      result,
+      printed.toList,
+      wiring
     )
   }
 

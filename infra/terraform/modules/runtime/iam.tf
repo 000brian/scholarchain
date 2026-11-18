@@ -259,6 +259,17 @@ data "aws_iam_policy_document" "ops_task" {
     resources = ["${local.bucket_object}${var.data_prefixes["rag"]}/*"]
   }
 
+  # Phase 13 (storage handoff): StorageLoadMain neptune-csv-build writes the
+  # Neptune CSVs and their _run_manifest.json under graph/ (conditional
+  # If-None-Match puts need only PutObject). The Spark JSON Lines exports it
+  # and RagIngestJob read also live under graph/ (the state machine refuses
+  # an exportRoot elsewhere), so GraphAndRagRead and DataLakeList cover them.
+  statement {
+    sid       = "GraphCsvWrite"
+    actions   = ["s3:PutObject"]
+    resources = ["${local.bucket_object}${var.data_prefixes["graph"]}/*"]
+  }
+
   statement {
     sid       = "TablesLoad"
     actions   = local.write_actions

@@ -189,6 +189,16 @@ resource "aws_ecs_task_definition" "service" {
 # ops: same image, no service. Started by hand with run-task (Phases 14-15);
 # run-task overrides only the command, so the entry point here is the class
 # path and the command is `<main class> <arguments>` given at run time.
+# The container name and log stream prefix are output (ops_container) for
+# run-bounded-pipeline.sh --stage load (run-task overrides name the container;
+# the log stream is PREFIX/NAME/TASK_ID).
+locals {
+  ops_container = {
+    name              = "ops"
+    log_stream_prefix = "ops"
+  }
+}
+
 resource "aws_ecs_task_definition" "ops" {
   family                   = "${var.name_prefix}-ops"
   requires_compatibilities = ["FARGATE"]
@@ -211,7 +221,7 @@ resource "aws_ecs_task_definition" "ops" {
   }
 
   container_definitions = jsonencode([{
-    name        = "ops"
+    name        = local.ops_container.name
     image       = local.image
     essential   = true
     entryPoint  = ["java", "-cp", var.app_jar_path]
@@ -226,7 +236,7 @@ resource "aws_ecs_task_definition" "ops" {
       options = {
         awslogs-group         = var.log_group_names["ops"]
         awslogs-region        = var.region
-        awslogs-stream-prefix = "ops"
+        awslogs-stream-prefix = local.ops_container.log_stream_prefix
       }
     }
   }])

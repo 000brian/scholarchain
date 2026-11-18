@@ -123,37 +123,66 @@ object Prompts {
       "semantic-context-v1"
     )
 
-  /** Every runtime prompt file under `prompts/runtime/`; each is also packaged on the classpath
-    * under [[ResourceRoot]] (D-02), byte for byte (a test checks it).
+  /** Every runtime prompt file under `prompts/runtime/`; each is also on the classpath under
+    * [[ResourceRoot]] (D-02), byte for byte (a test checks it).
     */
   val PromptIds: List[String] = Sets.flatMap(s => List(s.plannerId, s.synthesisId)).distinct
 
-  /** Classpath folder of the packaged copies of the `prompts/runtime` files. */
+  /** Classpath folder of the runtime prompts. R3-06: the build maps every file of the folder
+    * `prompts/runtime` (the one source) to this folder as generated resources; rag keeps no copy in
+    * its own resources.
+    */
   val ResourceRoot = "/org/scholarchain/rag/prompts/runtime"
 
-  /** Loads the packaged copy of `prompts/runtime/<promptId>.md` from the classpath. */
-  def loadResource(promptId: String): Either[String, PromptTemplate] =
+  /** The classpath resource name of `prompts/runtime/<promptId>.md` (no leading slash). */
+  def resourceName(promptId: String): String = s"${ResourceRoot.stripPrefix("/")}/$promptId.md"
+
+  /** The raw bytes of the classpath resource of `promptId` from `loader`; Left (naming the prompt,
+    * the classpath path and its source file) when it is missing.
+    */
+  def resourceBytes(
+      promptId: String,
+      loader: ClassLoader = getClass.getClassLoader
+  ): Either[String, Array[Byte]] =
     if (!promptId.matches("[a-z0-9][a-z0-9._-]*")) Left(s"bad prompt ID '$promptId'")
     else
       try {
-        val in = getClass.getResourceAsStream(s"$ResourceRoot/$promptId.md")
-        if (in == null) Left(s"prompt $promptId is not packaged on the classpath")
+        val in = loader.getResourceAsStream(resourceName(promptId))
+        if (in == null)
+          Left(
+            s"prompt $promptId is missing from the classpath at /${resourceName(promptId)} " +
+              s"(built from prompts/runtime/$promptId.md); the jar or the build mapping is incomplete"
+          )
         else
-          try Right(PromptTemplate(promptId, new String(in.readAllBytes(), StandardCharsets.UTF_8)))
+          try Right(in.readAllBytes())
           finally in.close()
       } catch { case NonFatal(e) => Left(s"cannot load prompt $promptId: ${e.getMessage}") }
 
-  /** The prompt set `spec` from the classpath copies. */
-  def loadPackagedSet(spec: PromptSetSpec): Either[String, PromptSet] =
+  /** Loads `prompts/runtime/<promptId>.md` from the classpath (the build-mapped resource). */
+  def loadResource(
+      promptId: String,
+      loader: ClassLoader = getClass.getClassLoader
+  ): Either[String, PromptTemplate] =
+    resourceBytes(promptId, loader).flatMap { bytes =>
+      try Right(PromptTemplate(promptId, new String(bytes, StandardCharsets.UTF_8)))
+      catch { case NonFatal(e) => Left(s"cannot load prompt $promptId: ${e.getMessage}") }
+    }
+
+  /** The prompt set `spec` from the classpath. */
+  def loadPackagedSet(
+      spec: PromptSetSpec,
+      loader: ClassLoader = getClass.getClassLoader
+  ): Either[String, PromptSet] =
     for {
-      p <- loadResource(spec.plannerId)
-      s <- loadResource(spec.synthesisId)
+      p <- loadResource(spec.plannerId, loader)
+      s <- loadResource(spec.synthesisId, loader)
     } yield PromptSet(p, s, spec.claims)
 
   /** The prompt set `spec` for a runtime (D-02): from `root` when given; else from the `prompts`
     * folder [[locate]] finds at or above the working directory (the repository tree); else, as in
-    * the services container, which holds only the application jar, from the classpath copies. The
-    * files are byte-for-byte equal, so the prompt versions are the same on every path.
+    * the services container, which holds only the application jar, from the classpath resources
+    * mapped from `prompts/runtime` (R3-06). The files are byte-for-byte equal, so the prompt
+    * versions are the same on every path.
     */
   def loadForRuntime(root: Option[Path], spec: PromptSetSpec): Either[String, PromptSet] =
     root match {

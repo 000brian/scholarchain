@@ -9,7 +9,7 @@
 #
 # Flow: create the EMR 7.x cluster -> Hadoop pipeline step -> end it ->
 # create the emr-spark-8.1.0 cluster -> copy the Spark job config to the
-# driver -> GraphAnalyticsJob -> end it. Either half is skipped when its
+# driver -> GraphAnalyticsJob -> (optional) JsonlExport -> end it. Either half is skipped when its
 # input section is absent (for example a Spark-only rerun).
 #
 # Failure: every state after a successful create catches every error, ends
@@ -36,9 +36,24 @@
 #     "config": "s3://.../artifacts/.../spark-job-config.json",
 #     "hadoopExport": "s3://.../curated/.../run=<id>",
 #     "identityAssignments": "s3://.../curated/.../identity_assignment",
-#     "outRoot": "s3://.../graph/..."
+#     "outRoot": "s3://.../graph/...",
+#     "exportSourceRun": "s3://.../graph/.../run=<32 hex>",  (optional, Phase 13)
+#     "exportRoot": "s3://.../graph/exports/<attempt>"       (optional, Phase 13)
 #   }
 # }
+#
+# Optional JSON Lines export (Phase 13 decision 8.3): when spark.exportRoot is
+# present, a second step on the Spark cluster runs
+# org.scholarchain.spark.JsonlExport after GraphAnalyticsJob with
+# --source-run exportSourceRun --out-root exportRoot --code-version codeVersion.
+# exportSourceRun is the FULL graph-run path (ending in run=<32 hex>): the
+# graph job derives that hex from its input content, config and code version
+# while it runs, so the state machine cannot know it beforehand (spark-engineer
+# handoff). The script passes the run path of an earlier execution; with the
+# same spark inputs GraphAnalyticsJob reuses that verified run (Pipeline.scala)
+# before the export runs. Both fields are given together or not at all, and
+# both must lie under graph_uri_prefix; otherwise the execution fails at
+# ExportInputCheck, before any cluster is created.
 
 locals {
   cs = var.cluster_settings
@@ -104,6 +119,19 @@ locals {
 
   spark_config_local = "/home/hadoop/scholarchain-spark-job-config.json"
 
+  # ExportInputCheck conditions (JSONata). The prefix is a bucket URI, which
+  # never contains a quote.
+  graph_prefix_len = length(var.graph_uri_prefix)
+  export_absent    = "{% $not($exists($pipelineInput.spark.exportRoot)) and $not($exists($pipelineInput.spark.exportSourceRun)) %}"
+  export_valid = join(" and ", [
+    "{% $type($pipelineInput.spark.exportRoot) = 'string'",
+    "$type($pipelineInput.spark.exportSourceRun) = 'string'",
+    "$length($pipelineInput.spark.exportRoot) > ${local.graph_prefix_len}",
+    "$length($pipelineInput.spark.exportSourceRun) > ${local.graph_prefix_len}",
+    "$substring($pipelineInput.spark.exportRoot, 0, ${local.graph_prefix_len}) = '${var.graph_uri_prefix}'",
+    "$substring($pipelineInput.spark.exportSourceRun, 0, ${local.graph_prefix_len}) = '${var.graph_uri_prefix}' %}",
+  ])
+
   catch_to = {
     for next in ["CleanupHadoopCluster", "CleanupSparkCluster", "FailPipeline"] : next => [{
       ErrorEquals = ["States.ALL"]
@@ -144,7 +172,27 @@ locals {
           failCause     = "none"
           cleanupError  = "none"
         }
-        Next = "HadoopRequested"
+        Next = "ExportInputCheck"
+      }
+
+      # Phase 13: the optional export fields are checked before any cluster
+      # exists, so a bad input costs nothing.
+      ExportInputCheck = {
+        Type = "Choice"
+        Choices = [
+          { Condition = local.export_absent, Next = "HadoopRequested" },
+          { Condition = local.export_valid, Next = "HadoopRequested" },
+        ]
+        Default = "InvalidExportInput"
+      }
+
+      InvalidExportInput = {
+        Type = "Pass"
+        Assign = {
+          failError = "InvalidExportInput"
+          failCause = "spark.exportRoot and spark.exportSourceRun must be given together, as strings under the data lake's graph/ prefix."
+        }
+        Next = "FailPipeline"
       }
 
       HadoopRequested = {
@@ -253,6 +301,33 @@ locals {
             HadoopJarStep = {
               Jar  = "command-runner.jar"
               Args = "{% ['spark-submit', '--deploy-mode', 'client', '--class', 'org.scholarchain.spark.GraphAnalyticsJob', $pipelineInput.spark.jar, '--hadoop-export', $pipelineInput.spark.hadoopExport, '--identity-assignments', $pipelineInput.spark.identityAssignments, '--out-root', $pipelineInput.spark.outRoot, '--config', '${local.spark_config_local}', '--code-version', $pipelineInput.codeVersion] %}"
+            }
+          }
+        }
+        Catch = local.catch_to["CleanupSparkCluster"]
+        Next  = "SparkExportRequested"
+      }
+
+      SparkExportRequested = {
+        Type    = "Choice"
+        Choices = [{ Condition = "{% $exists($pipelineInput.spark.exportRoot) %}", Next = "SparkJsonlExport" }]
+        Default = "TerminateSparkCluster"
+      }
+
+      # Phase 13 decision 8.3: JSON Lines export of a graph run on the same
+      # cluster. Options from JsonlExport.Required and JsonlExport.Optional
+      # (modules/spark/.../JsonlExport.scala); records-per-file keeps its default.
+      SparkJsonlExport = {
+        Type     = "Task"
+        Resource = "arn:${var.partition}:states:::elasticmapreduce:addStep.sync"
+        Arguments = {
+          ClusterId = "{% $sparkClusterId %}"
+          Step = {
+            Name            = "scholarchain-spark-jsonl-export"
+            ActionOnFailure = "TERMINATE_CLUSTER"
+            HadoopJarStep = {
+              Jar  = "command-runner.jar"
+              Args = "{% ['spark-submit', '--deploy-mode', 'client', '--class', 'org.scholarchain.spark.JsonlExport', $pipelineInput.spark.jar, '--source-run', $pipelineInput.spark.exportSourceRun, '--out-root', $pipelineInput.spark.exportRoot, '--code-version', $pipelineInput.codeVersion] %}"
             }
           }
         }

@@ -344,6 +344,25 @@ resource "aws_vpc_security_group_ingress_rule" "neptune_from_service" {
   referenced_security_group_id = aws_security_group.service[each.key].id
 }
 
+# Phase 13 RK1: the Neptune bulk loader reads the CSVs under graph/ through the
+# S3 gateway endpoint ("The Neptune loader requires a VPC endpoint of type
+# Gateway for Amazon S3", Neptune User Guide, bulk-load-tutorial-vpc.html).
+# Instances that use a gateway endpoint need security-group rules that allow
+# traffic to the service, for example an outbound rule to the S3 prefix list
+# (Amazon VPC PrivateLink guide, gateway-endpoints.html, "Security"). HTTPS to
+# that prefix list only; nothing else leaves the Neptune group. Whether the
+# loader's S3 traffic passes the cluster's security group is unverified until
+# the Phase 14 load. The group's description ("no egress") is left as is:
+# changing a security group description replaces the group.
+resource "aws_vpc_security_group_egress_rule" "neptune_to_s3_gateway" {
+  security_group_id = aws_security_group.neptune.id
+  description       = "Neptune bulk loader to S3 through the gateway endpoint"
+  ip_protocol       = "tcp"
+  from_port         = 443
+  to_port           = 443
+  prefix_list_id    = aws_vpc_endpoint.s3.prefix_list_id
+}
+
 # --- EMR internal (rules from the EMR Management Guide, "Working with Amazon
 # EMR-managed security groups", private subnets)
 

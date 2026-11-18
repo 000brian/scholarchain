@@ -167,6 +167,13 @@ final class AwsStorageEnvironment private (
       s <- GraphReadSettings.from(config)
     } yield new NeptuneGraphRead(client, s)
 
+  /** The Neptune bulk loader (`StartLoaderJob`, `GetLoaderJobStatus`), when the `neptune` section
+    * is configured. Used by `org.scholarchain.storage.load.StorageLoadMain`; not retried (a start
+    * is not idempotent).
+    */
+  val bulkLoader: Either[String, NeptuneBulkLoader] =
+    clients.neptune.toRight("neptune section is not configured").map(new NeptuneBulkLoader(_))
+
   /** Runtime readers and writers over these stores (needs the `neptune` and `runtime` sections). */
   lazy val runtimeStores: Either[String, RuntimeStores] =
     graph.flatMap(g => RuntimeStores.of(config, g, kv, vectors, textStore))

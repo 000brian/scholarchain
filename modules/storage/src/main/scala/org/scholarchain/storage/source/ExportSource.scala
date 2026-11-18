@@ -155,21 +155,108 @@ final class CountingInputStream(in: InputStream) extends java.io.FilterInputStre
   }
 }
 
-/** Where an export lives: a local directory now, an S3 prefix later. Paths are relative to the
-  * export run directory (`run=<hex>/`).
+/** Result of a whole-export check: files and bytes checked. */
+final case class ExportCheck(files: Int, bytes: Long)
+
+/** Where an export lives: a local directory ([[LocalDirectorySource]]) or an S3 prefix read through
+  * the object-store port ([[S3ExportSource]]). Paths are relative to the export run directory
+  * (`run=<hex>/`). Both kinds make the same checks: the manifest must be present and well formed,
+  * every listed file must exist with the manifest's byte count ([[checkPresence]]), and every byte
+  * read is checked against the manifest's size and sha256 ([[lines]] at the end of each file,
+  * [[verifyAll]] for the whole export).
   */
 trait ExportSource {
   def describe: String
-  protected def open(relativePath: String): InputStream
 
-  def manifest(): ExportManifest = {
-    val in = open(ExportManifest.FileName)
-    val text =
-      try new String(in.readAllBytes(), StandardCharsets.UTF_8)
-      finally in.close()
+  /** The file at a relative path, or None when it does not exist. Paths are checked first. */
+  protected def find(relativePath: String): Option[InputStream]
+
+  /** The byte size of the file at a relative path, or None when it does not exist. */
+  protected def sizeOf(relativePath: String): Option[Long]
+
+  protected final def checkedPath(relativePath: String): String = {
+    if (
+      relativePath == null || relativePath.isEmpty || relativePath.startsWith("/") ||
+      relativePath.split('/').exists(s => s.isEmpty || s == "." || s == "..")
+    )
+      throw new ExportSourceException(s"refusing path '$relativePath'")
+    relativePath
+  }
+
+  protected final def open(relativePath: String): InputStream =
+    find(checkedPath(relativePath)).getOrElse(
+      throw new ExportSourceException(s"$describe: missing export file $relativePath")
+    )
+
+  /** The raw bytes of `_export_manifest.json`; a missing manifest is an [[ExportSourceException]].
+    */
+  def manifestBytes(): Array[Byte] = {
+    val in = find(ExportManifest.FileName).getOrElse(
+      throw new ExportSourceException(
+        s"$describe: export manifest ${ExportManifest.FileName} is missing"
+      )
+    )
+    try in.readAllBytes()
+    finally in.close()
+  }
+
+  def manifest(): ExportManifest = parseManifest(manifestBytes())
+
+  /** The manifest and the hex sha256 of its bytes (the input fingerprint of a load). */
+  def manifestWithSha256(): (ExportManifest, String) = {
+    val bytes = manifestBytes()
+    (parseManifest(bytes), org.scholarchain.core.Hashing.sha256Hex(bytes))
+  }
+
+  private def parseManifest(bytes: Array[Byte]): ExportManifest =
     ExportManifest
-      .parse(text)
+      .parse(new String(bytes, StandardCharsets.UTF_8))
       .fold(e => throw new ExportSourceException(s"$describe: $e"), identity)
+
+  /** Every listed file exists and has the manifest's byte count. Reads no content (one size lookup
+    * per file); fails on the first problem.
+    */
+  def checkPresence(m: ExportManifest): ExportCheck = {
+    val files = m.tables.flatMap(_.files)
+    files.foreach { f =>
+      sizeOf(checkedPath(f.path)) match {
+        case None =>
+          throw new ExportSourceException(s"$describe: missing export file ${f.path}")
+        case Some(n) if n != f.bytes =>
+          throw new ExportSourceException(
+            s"$describe/${f.path}: $n bytes present, manifest says ${f.bytes}"
+          )
+        case Some(_) => ()
+      }
+    }
+    ExportCheck(files.size, files.map(_.bytes).sum)
+  }
+
+  /** Reads every listed file in full and checks its byte count and sha256 against the manifest;
+    * fails on the first problem.
+    */
+  def verifyAll(m: ExportManifest): ExportCheck = {
+    val files = m.tables.flatMap(_.files)
+    val buffer = new Array[Byte](1 << 16)
+    files.foreach { f =>
+      val digest = MessageDigest.getInstance("SHA-256")
+      val in = new DigestInputStream(open(f.path), digest)
+      var count = 0L
+      try {
+        var n = in.read(buffer)
+        while (n >= 0) { count += n; n = in.read(buffer) }
+      } finally in.close()
+      if (count != f.bytes)
+        throw new ExportSourceException(
+          s"$describe/${f.path}: $count bytes read, manifest says ${f.bytes}"
+        )
+      val hex = HexBytes.of(digest.digest())
+      if (hex != f.sha256)
+        throw new ExportSourceException(
+          s"$describe/${f.path}: sha256 $hex differs from manifest ${f.sha256}"
+        )
+    }
+    ExportCheck(files.size, files.map(_.bytes).sum)
   }
 
   /** Lines of one listed file, verified against the manifest (bytes and sha256) at the end. */
@@ -180,25 +267,68 @@ trait ExportSource {
 /** A local export directory (`.../phase-07-export/run=<hex>`). */
 final class LocalDirectorySource(root: Path) extends ExportSource {
   def describe: String = root.toString
-  protected def open(relativePath: String): InputStream = {
-    if (relativePath.split('/').contains("..") || relativePath.startsWith("/"))
-      throw new ExportSourceException(s"refusing path '$relativePath'")
-    val p = root.resolve(relativePath)
-    if (!Files.isRegularFile(p)) throw new ExportSourceException(s"missing export file $p")
-    Files.newInputStream(p)
+  protected def find(relativePath: String): Option[InputStream] = {
+    val p = root.resolve(checkedPath(relativePath))
+    if (Files.isRegularFile(p)) Some(Files.newInputStream(p)) else None
+  }
+  protected def sizeOf(relativePath: String): Option[Long] = {
+    val p = root.resolve(checkedPath(relativePath))
+    if (Files.isRegularFile(p)) Some(Files.size(p)) else None
   }
 }
 
-/** An export copied under an S3 prefix (`<prefix>/run=<hex>/...`), read through the object-store
-  * port. The bucket comes from configuration.
+/** A Spark JSON Lines export (`scholarchain.spark.jsonl-export` v1, the Phase 7 layout) under an S3
+  * prefix `s3://BUCKET/PREFIX/run=<32 hex>/`, read through the [[ObjectStore]] port (`get` streams,
+  * `head` sizes). Same checks as [[LocalDirectorySource]]. The bucket is never printed: `describe`
+  * shows it as [[S3ExportSource.MaskedBucket]].
   */
-final class ObjectStoreSource(store: ObjectStore, bucket: String, prefix: String)
-    extends ExportSource {
-  def describe: String = s"object-store:$prefix"
-  protected def open(relativePath: String): InputStream = {
-    val ref = ObjectRef(bucket, s"$prefix/$relativePath")
-    store
-      .openStream(ref)
-      .getOrElse(throw new ExportSourceException(s"missing export object $relativePath"))
-  }
+final class S3ExportSource private (store: ObjectStore, val root: ObjectRef) extends ExportSource {
+  def describe: String = s"s3://${S3ExportSource.MaskedBucket}/${root.key}"
+  private def ref(relativePath: String) = ObjectRef(root.bucket, s"${root.key}/$relativePath")
+  protected def find(relativePath: String): Option[InputStream] =
+    store.openStream(ref(checkedPath(relativePath)))
+  protected def sizeOf(relativePath: String): Option[Long] =
+    store.head(ref(checkedPath(relativePath))).map(_.size)
+}
+
+object S3ExportSource {
+
+  /** How the bucket of an export appears in messages and reports. */
+  val MaskedBucket = "{data-bucket}"
+
+  private val Uri = "s3://([a-z0-9][a-z0-9.-]{1,61}[a-z0-9])/(.+)".r
+  private val RunSegment = "run=[0-9a-f]{32}".r
+  private val Segment = "[A-Za-z0-9][A-Za-z0-9._=-]*".r
+
+  /** An export at `s3://BUCKET/PREFIX/run=<32 hex>` (a trailing `/` is allowed). Messages never
+    * repeat the URI (it holds a bucket name).
+    */
+  def fromUri(store: ObjectStore, uri: String): Either[String, S3ExportSource] =
+    Option(uri).getOrElse("") match {
+      case Uri(bucket, rest) =>
+        val key = rest.stripSuffix("/")
+        val segments = key.split('/').toList
+        if (!segments.forall(Segment.matches))
+          Left("export location has an invalid key segment")
+        else if (!RunSegment.matches(segments.last))
+          Left("export location must end in run=<32 hex> (the export run directory)")
+        else Right(new S3ExportSource(store, ObjectRef(bucket, key)))
+      case _ => Left("export location is not an s3://BUCKET/PREFIX/run=<32 hex> URI")
+    }
+}
+
+/** Opens an export by location: `s3://...` through the object store, anything else as a local
+  * directory.
+  */
+object ExportSources {
+  def open(location: String, objects: Option[ObjectStore]): Either[String, ExportSource] =
+    if (location != null && location.startsWith("s3://"))
+      objects
+        .toRight("an s3:// export needs an object store (--stores)")
+        .flatMap(S3ExportSource.fromUri(_, location))
+    else {
+      val p = java.nio.file.Paths.get(Option(location).getOrElse("")).toAbsolutePath
+      if (Files.isDirectory(p)) Right(new LocalDirectorySource(p))
+      else Left(s"export directory $p does not exist")
+    }
 }

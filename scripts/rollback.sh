@@ -3,8 +3,9 @@
 # task-definition revision named in a release record. Owner: infra-engineer
 # (author); executed by deploy-engineer or incident-responder after approval.
 #
-# Status (Phase 12): static: shellcheck clean; runtime: untested (Phase 13/14
-# runs it); human execution required.
+# Status (Phase 13, repair I-22): static: shellcheck clean; structure
+# reviewed: repo-root refusal, INT/TERM traps, attempt-ID record through
+# scripts/lib/identity.sh; runtime: untested; human execution required.
 
 set -Eeuo pipefail
 umask 077
@@ -24,12 +25,15 @@ CURRENT_STEP="start"
 TMP_DIR=""
 TIMEOUT_BIN=""
 ACCOUNT_ID=""
-REPO_ROOT=""
+ATTEMPT_ID=""
 
 usage() {
   cat <<'EOF'
 Usage: scripts/rollback.sh --release releases/course/<record>.json [--role ROLE]...
        scripts/rollback.sh --help
+
+Run it from the repository root (bash scripts/rollback.sh); it refuses
+elsewhere (exit 4).
 
 What it does (its whole contract):
   - Reads a release record written by deploy.sh. For each selected service
@@ -43,8 +47,14 @@ What it does (its whole contract):
     (aws ecs update-service --task-definition family:revision), waits until
     the services are stable, and verifies that each service and its running
     tasks use the previous revision.
-  - Writes a rollback record releases/course/<UTC time>-rollback.json
-    (from/to revision per service; no account ID, ARN or secret).
+  - Writes a rollback record releases/course/ATTEMPT_ID-rollback.json
+    (ATTEMPT_ID: UTC time, short HEAD and 4 random hex, from
+    scripts/lib/identity.sh new_attempt_id; from/to revision per service; no
+    account ID, ARN, bucket name or secret: checked with grep -F before it
+    is written; written atomically and never overwritten). It is written
+    only after a verified rollback; a failed or interrupted run writes no
+    record (the printed lines are its evidence). Commit it like a release
+    record. Account ID and bucket names are masked in what it prints.
 
 What it is NOT:
   - It is not a rollback of the infrastructure. It never touches stateful
@@ -60,8 +70,11 @@ aws (CLI v2), jq (1.6+), timeout or gtimeout (GNU coreutils); AWS
 credentials of the deploy profile in the environment.
 
 Exit codes: 0 rolled back and verified; 2 usage error; 3 missing
-prerequisite; 4 refused by a safety check; 5 terraform or AWS command
-failed; 6 rollback not verified (evidence printed); 7 timed out.
+prerequisite; 4 refused by a safety check (not at the repository root,
+release record, cluster, revisions, a record name that exists); 5 terraform
+or AWS command failed, or interrupted (INT); 6 rollback not verified
+(evidence printed), or the record held an identifier; 7 timed out (a time
+limit, or TERM, which timeout sends).
 
 Status: static: shellcheck clean; runtime: untested; human execution required.
 EOF
@@ -96,15 +109,16 @@ on_exit() {
   fi
 }
 trap 'on_err "${LINENO}"' ERR
+# I-22: INT and TERM (timeout sends TERM) end with explicit codes, as in the
+# other nine scripts.
+trap 'exit 5' INT
+trap 'exit 7' TERM
 trap on_exit EXIT
 
-mask_text() {
-  local s="$1"
-  if [ -n "${ACCOUNT_ID}" ]; then
-    s="${s//"${ACCOUNT_ID}"/<account>}"
-  fi
-  printf '%s' "${s}"
-}
+# Until the helper is loaded (enter_repo_root), mask_text prints its argument
+# unchanged; the helper's mask_text (scripts/lib/identity.sh) then replaces
+# this definition and masks the identifiers registered in read_outputs.
+mask_text() { printf '%s' "$*"; }
 
 with_timeout() {
   local secs="$1"
@@ -165,6 +179,18 @@ parse_args() {
   fi
 }
 
+# I-22: refuses outside the repository root instead of changing directory.
+enter_repo_root() {
+  local top here
+  top="$(git rev-parse --show-toplevel 2>/dev/null)" ||
+    die 4 "refusing: not inside a git checkout; run from the repository root (bash scripts/${SCRIPT_NAME})"
+  here="$(pwd -P)"
+  [ "${top}" = "${here}" ] || die 4 "refusing: run from the repository root (bash scripts/${SCRIPT_NAME})"
+  [ -f scripts/lib/identity.sh ] || die 3 "missing scripts/lib/identity.sh"
+  # shellcheck source=/dev/null
+  . scripts/lib/identity.sh
+}
+
 check_prerequisites() {
   step "prerequisites"
   local tool
@@ -212,7 +238,11 @@ read_outputs() {
   local ident
   ident="$(aws_json sts get-caller-identity)" || exit "$?"
   ACCOUNT_ID="$(jq -r '.Account // empty' <<<"${ident}")"
-  info "cluster ${CLUSTER}, Region ${EXPECTED_REGION}, profile ${AWS_PROFILE:-<default credential chain>}"
+  [[ "${ACCOUNT_ID}" =~ ^[0-9]{12}$ ]] || die 5 "could not read the account from sts get-caller-identity"
+  # I-22: registered for masking and for the record's identifier check.
+  register_identifiers "${ACCOUNT_ID}" "$(jq -r '.data_bucket_name.value // empty' <<<"${OUTPUTS}")" \
+    "$(jq -r '.vector_bucket_name.value // empty' <<<"${OUTPUTS}")" || die 5 "could not register the identifiers"
+  info "account $(mask_account "${ACCOUNT_ID}"), cluster ${CLUSTER}, Region ${EXPECTED_REGION}, profile ${AWS_PROFILE:-<default credential chain>}"
 }
 
 PLAN_LINES=""
@@ -306,33 +336,43 @@ do_rollback() {
   [ "${failed}" -eq 0 ] || die 6 "rollback NOT verified (evidence above); no rollback record written"
 }
 
+# I-22: the record is named by the attempt ID (new_attempt_id, taken before
+# the first AWS call) and written with the helper's write_record_atomic,
+# which refuses an existing name, checks the JSON and runs
+# check_no_identifiers before the record appears under its final name.
 write_record() {
   step "rollback-record"
-  mkdir -p -- "${RELEASES_DIR}"
-  local file
-  file="${RELEASES_DIR}/$(date -u +%Y%m%dT%H%M%SZ)-rollback.json"
-  [ -e "${file}" ] && die 4 "refusing to overwrite ${file}"
+  local file="${RELEASES_DIR}/${ATTEMPT_ID}-rollback.json" rc=0
   jq -n \
     --arg kind "scholarchain-rollback" \
+    --arg attempt "${ATTEMPT_ID}" \
     --arg environment "${ENVIRONMENT}" \
     --arg region "${EXPECTED_REGION}" \
     --arg source_release "${RELEASE_FILE}" \
     --arg commit "$(git rev-parse --verify HEAD)" \
-    --arg rolled_back_utc "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --arg rolled_back_utc "$(sc_utc_now)" \
     --arg cluster "${CLUSTER}" \
     --argjson services "${ROLLED_JSON}" \
-    '{kind: $kind, version: 1, environment: $environment, region: $region,
+    '{kind: $kind, version: 2, attempt_id: $attempt, environment: $environment, region: $region,
       source_release: $source_release, repository_commit: $commit,
       rolled_back_utc: $rolled_back_utc, ecs_cluster: $cluster,
       services: $services, verified: true,
-      note: "ECS services only; no stateful resource, data or Terraform state was touched; the next plan shows drift."}' >"${file}"
+      note: "ECS services only; no stateful resource, data or Terraform state was touched; the next plan shows drift."}' |
+    write_record_atomic "${file}" || rc=$?
+  case "${rc}" in
+    0) ;;
+    4) die 4 "refusing: ${file} (or its .partial) exists; records are never overwritten" ;;
+    6) die 6 "the rollback record failed its checks (reason above; the .partial file is kept, never commit it); the rollback itself happened and was verified" ;;
+    *) die 5 "could not write the rollback record ${file} (status ${rc}); the rollback itself happened and was verified" ;;
+  esac
   printf 'ROLLBACK-RECORD: %s\n' "${file}"
 }
 
 main() {
   parse_args "$@"
-  REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-  cd "${REPO_ROOT}"
+  enter_repo_root
+  ATTEMPT_ID="$(new_attempt_id)"
+  printf 'ATTEMPT: %s\n' "${ATTEMPT_ID}"
   check_prerequisites
   check_release_record
   read_outputs

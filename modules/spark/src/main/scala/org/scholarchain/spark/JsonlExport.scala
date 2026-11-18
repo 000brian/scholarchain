@@ -1,9 +1,11 @@
 package org.scholarchain.spark
 
-import java.io.{File, FileInputStream}
+import java.io.File
 import java.security.MessageDigest
 
 import scala.reflect.runtime.universe.TypeTag
+import scala.util.control.NonFatal
+import scala.util.matching.Regex
 
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{Encoders, SparkSession}
@@ -21,6 +23,11 @@ final class ExportCountMismatchException(msg: String) extends RuntimeException(m
 
 /** Raised when the source run or the export target is not usable (nothing is written). */
 final class ExportRefusedException(msg: String) extends RuntimeException(msg)
+
+/** What the entry point throws instead of any failure: the message is masked (no bucket name, no
+  * account ID) and the cause is dropped, so the step log holds no identifier.
+  */
+final class JsonlExportFailedException(msg: String) extends RuntimeException(msg)
 
 /** Line codec of one exported table kind: turns a stored row into one `Contract.encode` JSON line
   * (validated on the way out) and checks a written line by decoding it with `Contract.decode` and
@@ -168,13 +175,20 @@ final case class ExportedTable(
   def bytes: Long = files.map(_.bytes).sum
 }
 
+/** Result of one export. `outRun` is the qualified `<outRoot>/run=<hex>` path. */
 final case class ExportResult(
     runId: String,
-    outRunDir: File,
+    outRun: Path,
     tables: Seq[ExportedTable],
     manifest: ujson.Value,
     report: ujson.Value
-)
+) {
+
+  /** The export directory as a local file; only for `file:` exports (tests and local tools). */
+  def outRunDir: File =
+    if (outRun.toUri.getScheme == "file") new File(outRun.toUri)
+    else throw new UnsupportedOperationException(s"${JsonlExport.show(outRun)} is not local")
+}
 
 /** JSON Lines export of a verified Phase 6 run (work order phase-07, decision 5).
   *
@@ -198,13 +212,114 @@ final case class ExportResult(
   * complete export): the load manifests agree with one another; each line count equals the
   * load-manifest count (otherwise [[ExportCountMismatchException]]); every written line decodes
   * with `Contract.decode` and re-encodes to the same text (otherwise
-  * [[ExportValidationException]]). A timing report `_export_report.json` is written next to it.
+  * [[ExportValidationException]]). A report `_export_report.json` (timings, `codeVersion`, the
+  * jar's [[BuildIdentity]]) is written just before it.
+  *
+  * File access (Phase 13 decision 7c): the source run and the output go through the Hadoop
+  * FileSystem API ([[RunFs]]), so `s3://`, `hdfs://`, `file:///` and plain local paths work alike;
+  * a plain path resolves against the default file system (local in tests, HDFS on EMR). Every check
+  * that can refuse (arguments, code version, source verification, load manifests, codecs, target
+  * location, an existing target) runs before anything is written.
+  *
+  * Entry point: `spark-submit --class org.scholarchain.spark.JsonlExport JAR` with the options of
+  * [[Required]] and [[Optional]] (`--name value` pairs; anything else is refused).
   */
 object JsonlExport {
 
   val ManifestName = "_export_manifest.json"
   val ReportName = "_export_report.json"
   val Targets: Seq[String] = Seq("neptune", "dynamodb", "s3vectors", "s3")
+
+  /** Required options of the entry point (without the `--` prefix); the scripts' contract. */
+  val Required: List[String] = List("source-run", "out-root")
+
+  /** Optional options of the entry point (without the `--` prefix). */
+  val Optional: List[String] = List("records-per-file", "code-version")
+
+  val DefaultRecordsPerFile: Long = 250000L
+
+  /** Allowed `--code-version` text (a build commit, a tag or a short label; never a path). */
+  val CodeVersionPattern: Regex = "[A-Za-z0-9][A-Za-z0-9._+-]{0,99}".r
+
+  final case class Args(
+      sourceRun: Path,
+      outRoot: Path,
+      recordsPerFile: Long,
+      codeVersion: Option[String]
+  )
+
+  /** Parses `--name value` pairs against [[Required]] and [[Optional]]. Refuses an odd count, a
+    * name without `--`, a repeated or unknown name, a missing required name and an invalid value.
+    * Values are never echoed in the messages.
+    */
+  def parseArgs(argv: Seq[String]): Either[String, Args] = {
+    def path(k: String, v: String): Either[String, Path] =
+      try {
+        if (v.trim.isEmpty) Left(s"--$k is empty") else Right(new Path(v))
+      } catch { case NonFatal(_) => Left(s"--$k is not a valid path or URI") }
+    for {
+      _ <- if (argv.size % 2 == 0) Right(()) else Left("arguments must be --name value pairs")
+      pairs <- argv
+        .grouped(2)
+        .toList
+        .foldLeft[Either[String, List[(String, String)]]](Right(Nil)) {
+          case (Right(acc), Seq(k, v)) if k.startsWith("--") => Right(acc :+ (k.drop(2) -> v))
+          case (Right(_), Seq(_, _)) => Left("expected --name before each value")
+          case (left, _)             => left
+        }
+      names = pairs.map(_._1)
+      dup = names.diff(names.distinct).distinct
+      _ <- if (dup.isEmpty) Right(()) else Left(s"repeated arguments: ${dup.mkString(", ")}")
+      unknown = names.filterNot(n => Required.contains(n) || Optional.contains(n))
+      _ <- if (unknown.isEmpty) Right(()) else Left(s"unknown arguments: ${unknown.mkString(", ")}")
+      missing = Required.filterNot(names.contains)
+      _ <-
+        if (missing.isEmpty) Right(())
+        else Left(s"missing arguments: ${missing.map("--" + _).mkString(", ")}")
+      m = pairs.toMap
+      s <- path("source-run", m("source-run"))
+      o <- path("out-root", m("out-root"))
+      n <- m.get("records-per-file") match {
+        case None    => Right(DefaultRecordsPerFile)
+        case Some(v) =>
+          scala.util.Try(v.toLong).toOption.filter(_ > 0).toRight("--records-per-file must be > 0")
+      }
+      v <- m.get("code-version") match {
+        case None    => Right(None)
+        case Some(x) =>
+          if (CodeVersionPattern.pattern.matcher(x).matches()) Right(Some(x))
+          else Left(s"--code-version must match ${CodeVersionPattern.regex}")
+      }
+    } yield Args(s, o, n, v)
+  }
+
+  private val S3Authority = "(s3[an]?://)[^/\\s\"']+".r
+  private val ArnAccount = "(arn:[a-z0-9-]+:[a-z0-9-]+:[a-z0-9-]*:)[0-9]{12}:".r
+
+  /** A printable location: the plain path for `file:` paths; otherwise the authority (bucket or
+    * name node) is masked: `s3://{data-bucket}/KEY`, `hdfs://{authority}/PATH`.
+    */
+  def show(p: Path): String = {
+    val u = p.toUri
+    Option(u.getScheme) match {
+      case None | Some("file")             => u.getPath
+      case Some(s) if s.matches("s3[an]?") => s"$s://{data-bucket}${u.getPath}"
+      case Some(s)                         => s"$s://{authority}${u.getPath}"
+    }
+  }
+
+  /** Masks bucket names (`s3://NAME/`, and every literal name in `authorities`) and the account in
+    * ARNs, for messages that leave the job.
+    */
+  def maskText(text: String, authorities: Seq[String] = Nil): String = {
+    val known = authorities.filter(a => a != null && a.nonEmpty).distinct.sortBy(-_.length)
+    val a = known.foldLeft(text)((t, x) => t.replace(x, "{data-bucket}"))
+    val b = S3Authority.replaceAllIn(a, m => Regex.quoteReplacement(m.group(1) + "{data-bucket}"))
+    ArnAccount.replaceAllIn(b, m => Regex.quoteReplacement(m.group(1) + "{account}:"))
+  }
+
+  private def authorityOf(p: Path): Option[String] =
+    Option(p.toUri.getScheme).filterNot(_ == "file").flatMap(_ => Option(p.toUri.getAuthority))
 
   private def optStr(v: ujson.Value): Option[String] = v match {
     case ujson.Null => None
@@ -219,13 +334,16 @@ object JsonlExport {
     * table listed by several targets must have the same path, record, schema version, window and
     * count.
     */
-  def loadTables(sourceRunDir: File): (String, Seq[LoadTable], Map[String, String]) = {
-    val dir = new File(sourceRunDir, Manifests.LoadDir)
+  def loadTables(
+      io: RunFs,
+      sourceRun: Path
+  ): (String, Seq[LoadTable], Map[String, String]) = {
+    val dir = new Path(sourceRun, Manifests.LoadDir)
     val parsed = Targets.map { t =>
-      val f = new File(dir, s"$t.json")
-      if (!f.isFile)
+      val f = new Path(dir, s"$t.json")
+      if (!io.isFile(f))
         throw new ExportRefusedException(s"missing load manifest ${Manifests.LoadDir}/$t.json")
-      (t, ujson.read(Files2.readString(f)), Files2.sha256(f))
+      (t, ujson.read(io.readString(f)), io.sha256(f))
     }
     val runIds = parsed.map(_._2("runId").str).distinct
     if (runIds.size != 1)
@@ -297,9 +415,9 @@ object JsonlExport {
   }
 
   /** sha256, byte count and LF count of a file, in one streaming pass. */
-  private def scan(f: File): (Long, String, Long) = {
+  private def scan(io: RunFs, f: Path): (Long, String, Long) = {
     val md = MessageDigest.getInstance("SHA-256")
-    val in = new FileInputStream(f)
+    val in = io.fs(f).open(f)
     var bytes = 0L
     var lines = 0L
     var last: Byte = '\n'
@@ -321,7 +439,7 @@ object JsonlExport {
       }
     } finally in.close()
     if (bytes > 0 && last != '\n')
-      throw new ExportValidationException(s"$f does not end with a line feed")
+      throw new ExportValidationException(s"${show(f)} does not end with a line feed")
     (bytes, md.digest().map(b => f"${b & 0xff}%02x").mkString, lines)
   }
 
@@ -329,15 +447,15 @@ object JsonlExport {
       spark: SparkSession,
       t: LoadTable,
       codec: JsonlCodec[R],
-      src: File,
-      dst: File,
+      src: Path,
+      dst: Path,
       files: Int
   ): Unit = {
     import spark.implicits._
     val name = t.table
     val c = codec
     spark.read
-      .parquet(src.getPath)
+      .parquet(src.toString)
       .as[R]
       .map(r =>
         c.line(r) match {
@@ -350,15 +468,15 @@ object JsonlExport {
       .write
       .mode("errorifexists")
       .option("mapreduce.fileoutputcommitter.marksuccessfuljobs", "false")
-      .text(dst.getPath)
+      .text(dst.toString)
   }
 
   private def exportAny(
       spark: SparkSession,
       t: LoadTable,
       codec: JsonlCodec[_],
-      src: File,
-      dst: File,
+      src: Path,
+      dst: Path,
       files: Int
   ): Unit = codec match {
     case JsonlCodec.Node         => exportTable(spark, t, JsonlCodec.Node, src, dst, files)
@@ -380,32 +498,38 @@ object JsonlExport {
   /** Renames Spark's part files to `part-NNNNN.jsonl` in partition order (through the Hadoop file
     * system, which also renames local checksum files) and scans them.
     */
-  private def finalizeFiles(spark: SparkSession, outRunDir: File, dst: File): Seq[ExportedFile] = {
-    val dir = new Path(dst.toURI)
+  private def finalizeFiles(
+      spark: SparkSession,
+      io: RunFs,
+      outRun: Path,
+      dir: Path
+  ): Seq[ExportedFile] = {
+    // The checksum-aware file system for local paths, so `.crc` side files are renamed too.
     val fs = dir.getFileSystem(spark.sparkContext.hadoopConfiguration)
     val parts =
       if (!fs.exists(dir)) Nil
       else fs.listStatus(dir).toList.map(_.getPath).filter(_.getName.startsWith("part-"))
     parts.sortBy(_.getName).zipWithIndex.foreach { case (p, i) =>
       val target = new Path(dir, f"part-$i%05d.jsonl")
-      if (!fs.rename(p, target)) throw new ExportRefusedException(s"could not rename $p to $target")
+      if (!fs.rename(p, target))
+        throw new ExportRefusedException(s"could not rename ${show(p)} to ${show(target)}")
     }
-    Files2.listData(dst).map { f =>
-      val (bytes, sha, lines) = scan(f)
-      ExportedFile(Files2.rel(outRunDir, f), bytes, sha, lines)
+    io.listData(dir).map { f =>
+      val (bytes, sha, lines) = scan(io, f)
+      ExportedFile(io.rel(outRun, f), bytes, sha, lines)
     }
   }
 
   /** Decodes every written line; returns (lines, failures, up to 5 failure samples). */
   private def verifyLines(
       spark: SparkSession,
-      t: LoadTable,
+      io: RunFs,
       codec: JsonlCodec[_],
-      dst: File
+      dst: Path
   ): (Long, Long, Seq[String]) = {
-    if (Files2.listData(dst).isEmpty) return (0L, 0L, Nil)
+    if (io.listData(dst).isEmpty) return (0L, 0L, Nil)
     val c = codec
-    val lines = spark.read.textFile(dst.getPath)
+    val lines = spark.read.textFile(dst.toString)
     val errors = lines
       .map(l => c.check(l).fold(e => s"$e: ${l.take(200)}", _ => ""))(Encoders.STRING)
       .where(col("value") =!= "")
@@ -467,42 +591,91 @@ object JsonlExport {
     )
   }
 
-  /** Exports the source run directory (`.../run=<hex>`) to `<outRoot>/run=<hex>`. */
+  /** [[run]] for local directories (tests and local tools). */
   def run(
       spark: SparkSession,
       sourceRunDir: File,
       outRoot: File,
-      recordsPerFile: Long = 250000L,
-      maxFiles: Int = 32
+      recordsPerFile: Long,
+      maxFiles: Int
+  ): ExportResult =
+    run(spark, RunFs.pathOf(sourceRunDir), RunFs.pathOf(outRoot), recordsPerFile, maxFiles, None)
+
+  def run(
+      spark: SparkSession,
+      sourceRunDir: File,
+      outRoot: File,
+      recordsPerFile: Long
+  ): ExportResult =
+    run(spark, sourceRunDir, outRoot, recordsPerFile, 32)
+
+  def run(spark: SparkSession, sourceRunDir: File, outRoot: File): ExportResult =
+    run(spark, sourceRunDir, outRoot, DefaultRecordsPerFile, 32)
+
+  /** Exports the source run (`.../run=<hex>`) to `<outRoot>/run=<hex>`, both Hadoop paths.
+    *
+    * @param codeVersion
+    *   the `--code-version` the scripts pass (the build commit); recorded in the report, `null`
+    *   when absent
+    * @param build
+    *   the jar's build identity, recorded in the report
+    */
+  def run(
+      spark: SparkSession,
+      sourceRun: Path,
+      outRoot: Path,
+      recordsPerFile: Long,
+      maxFiles: Int,
+      codeVersion: Option[String],
+      build: BuildIdentity = BuildIdentity.load()
   ): ExportResult = {
     require(recordsPerFile > 0 && maxFiles > 0, "recordsPerFile and maxFiles must be positive")
     val t0 = System.nanoTime()
-    val (runId, tables, loadSha) = loadTables(sourceRunDir)
+    val io = new RunFs(spark.sparkContext.hadoopConfiguration)
+    // Every check that can refuse runs before the first write.
+    codeVersion.foreach { v =>
+      if (!CodeVersionPattern.pattern.matcher(v).matches())
+        throw new ExportRefusedException(s"code version must match ${CodeVersionPattern.regex}")
+    }
+    val src = io.qualify(sourceRun)
+    if (!io.isDirectory(src))
+      throw new ExportRefusedException(s"source run ${show(src)} is not a directory")
+    val (runId, tables, loadSha) = loadTables(io, src)
     val hex = RunId
       .parse(runId)
       .fold(e => throw new ExportRefusedException(e), _.value.stripPrefix(RunId.Prefix))
-    if (sourceRunDir.getName != s"run=$hex")
-      throw new ExportRefusedException(s"source directory ${sourceRunDir.getName} is not run=$hex")
+    if (src.getName != s"run=$hex")
+      throw new ExportRefusedException(s"source directory ${src.getName} is not run=$hex")
     // The source must be the complete, unchanged run: every file matches its run manifest.
-    try Manifests.verifyExisting(sourceRunDir, runId)
-    catch { case e: RunRefusedException => throw new ExportRefusedException(e.getMessage) }
-    val runManifestSha = Files2.sha256(new File(sourceRunDir, Manifests.RunManifestName))
-    val tVerified = System.nanoTime()
-    val outRunDir = new File(outRoot, s"run=$hex")
-    if (outRunDir.exists())
-      throw new ExportRefusedException(
-        s"$outRunDir already exists; refusing to overwrite an export. Use a new output root."
-      )
-    outRunDir.mkdirs()
+    try Manifests.verifyExisting(io, src, runId, Nil, requireControlFiles = false)
+    catch {
+      case e: RunRefusedException =>
+        throw new ExportRefusedException(maskText(e.getMessage, authorityOf(src).toSeq))
+    }
+    val runManifestSha = io.sha256(new Path(src, Manifests.RunManifestName))
     val codecs = tables.map(t => t -> codecFor(t))
+    val outRun = new Path(io.qualify(outRoot), s"run=$hex")
+    val (srcText, outText) = (src.toString.stripSuffix("/"), outRun.toString.stripSuffix("/"))
+    if (
+      outText == srcText || outText.startsWith(srcText + "/") || srcText.startsWith(outText + "/")
+    )
+      throw new ExportRefusedException(
+        s"export ${show(outRun)} and source ${show(src)} overlap; use an output root outside the run"
+      )
+    if (io.exists(outRun))
+      throw new ExportRefusedException(
+        s"${show(outRun)} already exists; refusing to overwrite an export. Use a new output root."
+      )
+    val tVerified = System.nanoTime()
+    io.mkdirs(outRun)
     val exported = codecs.map { case (t, codec) =>
       val ts = System.nanoTime()
-      val src = new File(sourceRunDir, t.path)
-      val dst = new File(outRunDir, t.path)
+      val from = new Path(src, t.path)
+      val dst = new Path(outRun, t.path)
       val files =
         math.max(1L, math.min(maxFiles.toLong, (t.records + recordsPerFile - 1) / recordsPerFile))
-      exportAny(spark, t, codec, src, dst, files.toInt)
-      val written = finalizeFiles(spark, outRunDir, dst)
+      exportAny(spark, t, codec, from, dst, files.toInt)
+      val written = finalizeFiles(spark, io, outRun, dst)
       val et = ExportedTable(
         t,
         codec.sourceColumnsNotExported,
@@ -514,7 +687,7 @@ object JsonlExport {
           s"${t.table}: exported ${et.records} lines, load manifest lists ${t.records}; " +
             s"no $ManifestName was written"
         )
-      val (lines, bad, samples) = verifyLines(spark, t, codec, dst)
+      val (lines, bad, samples) = verifyLines(spark, io, codec, dst)
       if (bad > 0)
         throw new ExportValidationException(
           s"${t.table}: $bad written line(s) failed decode/re-encode (${samples.mkString(" | ")})"
@@ -535,6 +708,8 @@ object JsonlExport {
       "format" -> "scholarchain.spark.jsonl-export-report",
       "formatVersion" -> 1,
       "runId" -> runId,
+      "codeVersion" -> codeVersion.map(ujson.Str(_)).getOrElse(ujson.Null),
+      "buildIdentity" -> build.toJson,
       "wallMillis" -> wall.toDouble,
       "sourceVerifyMillis" -> ((tVerified - t0) / 1000000L).toDouble,
       "tables" -> ujson.Arr(exported.map { t =>
@@ -548,53 +723,49 @@ object JsonlExport {
       }: _*),
       "totals" -> manifest("totals")
     )
-    Files2.writeString(new File(outRunDir, ReportName), ujson.write(report, indent = 2))
+    io.writeNewString(new Path(outRun, ReportName), ujson.write(report, indent = 2))
     // Written last: its presence marks a complete, verified export.
-    Files2.writeString(new File(outRunDir, ManifestName), ujson.write(manifest, indent = 2))
-    ExportResult(runId, outRunDir, exported, manifest, report)
-  }
-}
-
-/** Entry point of the JSON Lines export (spark-submit on a cluster; locally use the test-scope
-  * runner `LocalJsonlExport`, because Spark is a Provided dependency).
-  * {{{
-  *   --source-run DIR         verified Phase 6 run directory (run=<hex>)
-  *   --out-root DIR           export root; output goes to DIR/run=<hex>
-  *   --records-per-file N     optional, default 250000
-  * }}}
-  */
-object JsonlExportJob {
-
-  final case class Args(sourceRun: File, outRoot: File, recordsPerFile: Long)
-
-  def parseArgs(argv: Seq[String]): Either[String, Args] = {
-    val pairs =
-      argv.grouped(2).collect { case Seq(k, v) if k.startsWith("--") => k.drop(2) -> v }.toMap
-    val known = Set("source-run", "out-root", "records-per-file")
-    val unknown = pairs.keySet -- known
-    for {
-      _ <- if (unknown.isEmpty) Right(()) else Left(s"unknown arguments: ${unknown.mkString(", ")}")
-      s <- pairs.get("source-run").toRight("missing --source-run")
-      o <- pairs.get("out-root").toRight("missing --out-root")
-      n <- pairs.get("records-per-file") match {
-        case None    => Right(250000L)
-        case Some(v) =>
-          scala.util.Try(v.toLong).toOption.filter(_ > 0).toRight(s"invalid --records-per-file $v")
-      }
-    } yield Args(new File(s), new File(o), n)
+    io.writeNewString(new Path(outRun, ManifestName), ujson.write(manifest, indent = 2))
+    ExportResult(runId, outRun, exported, manifest, report)
   }
 
+  /** Parses and runs on the given session (the entry point's path, and the local test runner). */
   def runWith(spark: SparkSession, argv: Seq[String]): ExportResult =
     parseArgs(argv) match {
       case Left(e)  => throw new IllegalArgumentException(e)
-      case Right(a) => JsonlExport.run(spark, a.sourceRun, a.outRoot, a.recordsPerFile)
+      case Right(a) =>
+        run(spark, a.sourceRun, a.outRoot, a.recordsPerFile, 32, a.codeVersion)
     }
 
+  /** The spark-submit entry point (`--class org.scholarchain.spark.JsonlExport`). Arguments are
+    * checked before a session starts. Prints the run ID and the masked export location; any failure
+    * is rethrown as [[JsonlExportFailedException]] with a masked message and no cause.
+    */
   def main(argv: Array[String]): Unit = {
+    val args = parseArgs(argv.toSeq).fold(e => throw new IllegalArgumentException(e), identity)
+    val known = (authorityOf(args.sourceRun) ++ authorityOf(args.outRoot)).toSeq
     val spark = SparkSession.builder().appName("scholarchain-jsonl-export").getOrCreate()
     try {
-      val r = runWith(spark, argv.toSeq)
-      println(s"[scholarchain] export ${r.runId} at ${r.outRunDir}")
+      val r =
+        try run(spark, args.sourceRun, args.outRoot, args.recordsPerFile, 32, args.codeVersion)
+        catch {
+          case NonFatal(e) =>
+            throw new JsonlExportFailedException(
+              maskText(s"${e.getClass.getSimpleName}: ${e.getMessage}", known)
+            )
+        }
+      println(s"[scholarchain] export ${r.runId} at ${show(r.outRun)}")
     } finally spark.stop()
   }
+}
+
+/** Older name of the entry point, kept for the local runner; same options as [[JsonlExport]]. */
+object JsonlExportJob {
+
+  def parseArgs(argv: Seq[String]): Either[String, JsonlExport.Args] = JsonlExport.parseArgs(argv)
+
+  def runWith(spark: SparkSession, argv: Seq[String]): ExportResult =
+    JsonlExport.runWith(spark, argv)
+
+  def main(argv: Array[String]): Unit = JsonlExport.main(argv)
 }
