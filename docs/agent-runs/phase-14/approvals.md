@@ -19,3 +19,11 @@ APPROVED-PLAN-SHA256: a865a94dce63f9cc6e683e62105814475a2849f0fa065234320c44d94e
 ## Cost bound
 
 Phase 14 cost bound: $8 across AWS, Anthropic and Voyage. Signed: Brian, Nov 18, 2026
+
+## Runtime-off plan, attempt 4 (G-14)
+
+D6 attempt 2 failed: the pipeline state machine role lacked elasticmapreduce:AddTags (G-14, fixed in b15dc78). This plan was made at b15dc78 with the default profile in us-east-1: 0 create, 3 in-place updates (state machine role policy, role boundary policy, deployment role policy re-read because it references the boundary), 0 delete, 0 replace. The boundary change needs my admin profile.
+
+I approve this plan to be applied with my own admin profile (default). Signed: Brian, Nov 18, 2026
+
+APPROVED-PLAN-SHA256: 5c77365f770a5cf85507194a07915d7b0b7f223d6b31ca7aeb434fdaea19cc12
