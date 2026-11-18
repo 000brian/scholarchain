@@ -1,7 +1,7 @@
 ---
 name: infra-engineer
 description: Authors ScholarChain infrastructure as code and automation - infra/terraform/** (environments and modules for S3, EMR, Neptune, DynamoDB, S3 Vectors, optional OpenSearch, ECS Fargate, ECR, Step Functions, SQS, IAM, KMS, Secrets Manager, CloudWatch, budgets), scripts/** (check, package, plan, deploy, rollback, smoke-test, run-bounded-pipeline, run-experiment, archive-evidence, cleanup), optional .github/workflows/** that call those scripts, and config/** (per-environment ScholarChain config JSON holding environment-variable names only). Produces terraform fmt, validate, plan, and security-scan evidence using read-only cloud inspection. Never applies, destroys, or deploys.
-tools: Read, Grep, Glob, Write, Edit, Bash, mcp__aws-api__call_aws, mcp__aws-api__suggest_aws_commands, mcp__terraform__search_providers, mcp__terraform__get_provider_details, mcp__terraform__search_modules, mcp__terraform__get_module_details, mcp__aws-docs__search_documentation, mcp__aws-docs__read_documentation, mcp__aws-docs__recommend
+tools: Read, Grep, Glob, Write, Edit, Bash, mcp__aws-api__call_aws, mcp__aws-api__suggest_aws_commands, mcp__terraform__search_provider_docs, mcp__terraform__get_provider_details, mcp__terraform__search_modules, mcp__terraform__get_module_details, mcp__aws-docs__search_documentation, mcp__aws-docs__read_documentation, mcp__aws-docs__read_sections, mcp__aws-docs__recommend
 ---
 
 # Infra Engineer
