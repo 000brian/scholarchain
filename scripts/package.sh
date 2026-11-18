@@ -19,6 +19,10 @@ readonly DOCKERFILE="docker/services/Dockerfile"
 readonly CONTEXT_DIR="modules/services/target/docker-context"
 readonly IMAGE_NAME="scholarchain-services"
 readonly PLATFORM="linux/arm64"
+# Accepted platform values (ERE, used whole-value anchored): linux/arm64 or
+# linux/arm64/<variant>, the variant being letters and digits only (v8).
+# linux/arm/v7, linux/arm64x and linux/amd64 do not match.
+readonly ARM64_PLATFORM_RE='linux/arm64(/[[:alnum:]]+)?'
 readonly BUILD_INFO="scholarchain-build-info.properties"
 readonly SPARK_CONF_DIR="modules/spark/conf"
 readonly SBT_TIMEOUT=5400
@@ -71,7 +75,8 @@ Build mode (default; no AWS call; the base-image check needs network):
      commit is already packaged; records are never overwritten). To package
      the same build commit again, move that folder aside yourself first.
   3. Checks that the ledger runtime image (image.java-runtime in
-     project/build.properties, pinned by digest) lists linux/arm64:
+     project/build.properties, pinned by digest) lists linux/arm64 or
+     linux/arm64/<variant> (for example linux/arm64/v8) on a Platform line:
      docker buildx imagetools inspect (network; retried, a read).
   4. Builds from scratch: sbt -batch clean packageJobs services/dockerStage
      packageCheck ("packageCheck: ok" required); then
@@ -85,7 +90,8 @@ Build mode (default; no AWS call; the base-image check needs network):
      to the services assembly packageCheck opened; the staged
      config/course.json is byte-equal to git show SHA40:config/course.json
      (the working-tree file with --allow-dirty); context.sha256 agrees; the
-     image is linux/arm64 (docker image inspect); docker create plus docker cp
+     image is linux/arm64 or linux/arm64/<variant> (docker image inspect
+     Os/Architecture[/Variant]); docker create plus docker cp
      copy /opt/scholarchain/app.jar and /opt/scholarchain/config/course.json
      out of the image and both equal the staged files (sha256); the one
      stopped container this script created is then removed by its ID.
@@ -359,9 +365,9 @@ check_base_platform() {
     try=$((try + 1))
     sleep $((try * 5))
   done
-  grep -qE 'Platform:[[:space:]]+linux/arm64([[:space:]]|$)' "${out}" ||
-    die 6 "the ledger runtime image does not list linux/arm64 (docker buildx imagetools inspect)"
-  info "base image lists linux/arm64"
+  grep -qE "^[[:space:]]*Platform:[[:space:]]+${ARM64_PLATFORM_RE}[[:space:]]*\$" "${out}" ||
+    die 6 "the ledger runtime image does not list linux/arm64 or linux/arm64/<variant> (docker buildx imagetools inspect)"
+  info "base image lists linux/arm64 (variant allowed)"
 }
 
 refuse_if_packaged() {
@@ -485,9 +491,11 @@ docker_build() {
 check_image() {
   step "check-image"
   local platform out_dir="${TMP_DIR}/from-image"
-  platform="$(with_timeout "${DOCKER_TIMEOUT}" docker image inspect --format '{{.Os}}/{{.Architecture}}' "${IMAGE_NAME}:${TAG}")" ||
+  platform="$(with_timeout "${DOCKER_TIMEOUT}" docker image inspect \
+    --format '{{.Os}}/{{.Architecture}}{{with .Variant}}/{{.}}{{end}}' "${IMAGE_NAME}:${TAG}")" ||
     die 5 "docker image inspect failed"
-  [ "${platform}" = "${PLATFORM}" ] || die 6 "image platform is ${platform}, expected ${PLATFORM}"
+  [[ "${platform}" =~ ^${ARM64_PLATFORM_RE}$ ]] ||
+    die 6 "image platform is ${platform}, expected ${PLATFORM} or ${PLATFORM}/<variant>"
   IMAGE_ID="$(with_timeout "${DOCKER_TIMEOUT}" docker image inspect --format '{{.Id}}' "${IMAGE_NAME}:${TAG}")" ||
     die 5 "docker image inspect failed"
   CONTAINER_ID="$(with_timeout "${DOCKER_TIMEOUT}" docker create --platform "${PLATFORM}" "${IMAGE_NAME}:${TAG}")" ||
