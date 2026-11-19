@@ -1654,8 +1654,14 @@ stage_load() {
     die 3 "terraform output lacks app_subnet_ids or ops_security_group_id"
   overrides="${TMP_DIR}/overrides.json"
   network="${TMP_DIR}/network.json"
-  jq -n --arg n "${OPS_NAME}" '{containerOverrides: [{name: $n, command: $ARGS.positional}]}' \
-    --args "${OPS_CMD[@]}" >"${overrides}"
+  # One --arg per word (G-24): jq reads words after --args that start with
+  # "-" as its own options (jq 1.6 floor has no end-of-options marker).
+  local w command_json='[]'
+  for w in "${OPS_CMD[@]}"; do
+    command_json="$(jq -c --arg w "${w}" '. + [$w]' <<<"${command_json}")"
+  done
+  jq -n --arg n "${OPS_NAME}" --argjson c "${command_json}" '{containerOverrides: [{name: $n, command: $c}]}' \
+    >"${overrides}"
   jq -n --argjson s "${subnets}" --arg g "${sg}" \
     '{awsvpcConfiguration: {subnets: $s, securityGroups: [$g], assignPublicIp: "DISABLED"}}' >"${network}"
   started="$(aws_once "${AWS_TIMEOUT}" ecs run-task --cluster "${CLUSTER}" --task-definition "${OPS_TD_REF}" \
