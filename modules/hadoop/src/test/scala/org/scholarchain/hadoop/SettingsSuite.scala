@@ -1,6 +1,7 @@
 package org.scholarchain.hadoop
 
 import org.apache.hadoop.conf.Configuration
+import org.scholarchain.hadoop.blocking.BlockLimit
 import org.scholarchain.hadoop.common.{Settings, SettingsError}
 
 class SettingsSuite extends munit.FunSuite {
@@ -22,6 +23,24 @@ class SettingsSuite extends munit.FunSuite {
       .filterNot(_ == Settings.Keys.CodeVersion)
       .foreach(k => assert(xml.contains(s"<name>$k</name>"), k))
     assertEquals(xml.split("<property>").length - 1, xml.split("<description>").length - 1)
+  }
+
+  test("G-17: blocking and candidate defaults equal Phase 5's evaluated real-run settings") {
+    // docs/agent-runs/phase-05/agent-report-hadoop.md:119 (the er-v2 calibration candidate set);
+    // the EMR state machine cannot pass -D, so the built-in defaults must carry these values.
+    val s = new Settings(defaults)
+    assertEquals(s.positiveInt(Settings.Keys.BlockingMaxBlock), 200)
+    assertEquals(s.positiveInt(Settings.Keys.FallbackMaxBlock), 200)
+    assertEquals(s.boolean(Settings.Keys.CandidateSkipSameNumberedName), true)
+    assertEquals(s.positiveLong(Settings.Keys.CandidateMaxPairsPerBlock), 125000L)
+    assertEquals(s.string(Settings.Keys.BlockingFamilies), "dblp-base-name,initials-surname")
+    assertEquals(s.string(Settings.Keys.FallbackSecondaryKeys), "coauthor")
+    // effective caps of J05 primary and J05b fallback blocks: 200 members, set by the member cap
+    List(Settings.Keys.BlockingMaxBlock, Settings.Keys.FallbackMaxBlock).foreach { k =>
+      val lim = BlockLimit.of(s, k)
+      assertEquals(lim.effective, 200, k)
+      assert(!lim.pairBound, k)
+    }
   }
 
   test("missing and malformed values fail loudly; no fallback values") {

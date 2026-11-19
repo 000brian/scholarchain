@@ -183,9 +183,10 @@ object BlockShard { implicit val rw: ReadWriter[BlockShard] = macroRW }
   * one expanded block, before the volume rule), largestBlockSeen (largest block read, including
   * oversize ones).
   *
-  * Volume rule (`scholarchain.candidates.skipSameNumberedName`, off by default): pairs whose two
-  * mentions carry the same homonym-numbered dblp name ([[CandidateFeatures.sameNumberedName]]) are
-  * not emitted and are counted as SAME_NUMBERED_NAME_PAIRS_SKIPPED, so per expanded shard
+  * Volume rule (`scholarchain.candidates.skipSameNumberedName`, on by default since Phase 14 repair
+  * G-17): pairs whose two mentions carry the same homonym-numbered dblp name
+  * ([[CandidateFeatures.sameNumberedName]]) are not emitted and are counted as
+  * SAME_NUMBERED_NAME_PAIRS_SKIPPED, so per expanded shard
   * `pairs == MATCH_CANDIDATES_EMITTED + SAME_NUMBERED_NAME_PAIRS_SKIPPED + schema_failure rejects`.
   */
 object CandidateFeatureJob {

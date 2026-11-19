@@ -1,0 +1,343 @@
+diff --git a/modules/hadoop/src/main/resources/scholarchain-hadoop-defaults.xml b/modules/hadoop/src/main/resources/scholarchain-hadoop-defaults.xml
+index 3b57c9b..8b059f0 100644
+--- a/modules/hadoop/src/main/resources/scholarchain-hadoop-defaults.xml
++++ b/modules/hadoop/src/main/resources/scholarchain-hadoop-defaults.xml
+@@ -279,11 +279,16 @@
+   </property>
+   <property>
+     <name>scholarchain.blocking.maxBlockSize</name>
+-    <value>1000</value>
++    <value>200</value>
+     <description>Member cap of J05 primary blocks. J05 treats a block as oversize when it has
+       more members than this OR more pairs (m(m-1)/2) than scholarchain.candidates.maxPairsPerBlock;
+-      the effective cap is min(maxBlockSize, largest m whose pairs fit maxPairsPerBlock), 500 with
+-      the defaults. Oversize blocks are not emitted; they are counted as OVERSIZE_BLOCKS (those
++      the effective cap is min(maxBlockSize, largest m whose pairs fit maxPairsPerBlock), 200 with
++      the defaults (200 members yield 19,900 pairs, within the default maxPairsPerBlock 125000, so
++      the member cap sets it). Default 200 since Phase 14 repair G-17 (was 1000): the value of
++      Phase 5's evaluated real run (docs/agent-runs/phase-05/agent-report-hadoop.md:119, -D
++      scholarchain.blocking.maxBlockSize=200), whose candidate set the er-v2 ER match policy was
++      calibrated and evaluated on; the EMR state machine cannot pass -D, so the default must
++      equal it. Oversize blocks are not emitted; they are counted as OVERSIZE_BLOCKS (those
+       over the pair limit only also as PAIR_LIMIT_OVERSIZE_BLOCKS), listed in oversizeBlocks/
+       (key, size, limit = effective cap, maxBlockSize, maxPairsPerBlock, pairs, reason
+       max_block_size or max_pairs_per_block), and their members are written to oversizeMembers/
+@@ -308,17 +313,21 @@
+   </property>
+   <property>
+     <name>scholarchain.blocking.fallback.maxBlockSize</name>
+-    <value>500</value>
++    <value>200</value>
+     <description>Member cap of J05b fallback blocks. As in J05, a fallback block is oversize when
+       it has more members than this OR more pairs than scholarchain.candidates.maxPairsPerBlock
+-      (effective cap min(fallback.maxBlockSize, largest m whose pairs fit)). Oversize fallback
++      (effective cap min(fallback.maxBlockSize, largest m whose pairs fit), 200 with the
++      defaults). Default 200 since Phase 14 repair G-17 (was 500): the value of Phase 5's
++      evaluated real run (docs/agent-runs/phase-05/agent-report-hadoop.md:119, -D
++      scholarchain.blocking.fallback.maxBlockSize=200), whose candidate set the er-v2 ER match
++      policy was calibrated and evaluated on. Oversize fallback
+       blocks are not emitted: they are counted as OVERSIZE_BLOCKS in J05b (over the pair limit
+       only: also PAIR_LIMIT_OVERSIZE_BLOCKS) and listed in fallbackOversizeBlocks/ with the same
+       limit fields as J05. Members of an oversize
+       primary block that land in no emitted fallback block of two or more members are counted
+       (FALLBACK_UNCOVERED_MEMBERS) and listed in J05c uncoveredMembers/; oversizeKeySummary/
+       gives covered and uncovered counts per oversize key (the worst keys have the most
+-      uncovered members). 500 members yield 124,750 pairs, within the default
++      uncovered members). 200 members yield 19,900 pairs, within the default
+       scholarchain.candidates.maxPairsPerBlock.</description>
+   </property>
+   <property>
+@@ -358,7 +367,10 @@
+     <name>scholarchain.candidates.maxPairsPerBlock</name>
+     <value>125000</value>
+     <description>Maximum candidate pairs from one block (a block of m members yields m(m-1)/2; 500
+-      members yield 124,750). Also read by J05 and J05b, which treat blocks above this pair count
++      members yield 124,750). Unchanged in Phase 14 repair G-17: Phase 5's evaluated run
++      (docs/agent-runs/phase-05/agent-report-hadoop.md:119) used this default, and with the member
++      caps of 200 (19,900 pairs) it does not bind, so the effective cap of J05 and J05b blocks is
++      200. Also read by J05 and J05b, which treat blocks above this pair count
+       as oversize (fallback, coverage accounting) and never emit them, so with one configuration
+       J06 receives no block above the limit. A block above it that J06 still reads (blocks made
+       under another configuration) is not expanded: it is counted as OVERSIZE_BLOCKS (its pairs as
+@@ -379,8 +391,11 @@
+   </property>
+   <property>
+     <name>scholarchain.candidates.skipSameNumberedName</name>
+-    <value>false</value>
+-    <description>Optional volume rule (Phase 5 decision 6): when true, J06 emits no candidate for
++    <value>true</value>
++    <description>Volume rule (Phase 5 decision 6), on by default since Phase 14 repair G-17 (was
++      false): Phase 5's evaluated real run (docs/agent-runs/phase-05/agent-report-hadoop.md:119, -D
++      scholarchain.candidates.skipSameNumberedName=true) turned it on, and the er-v2 ER match
++      policy was calibrated and evaluated on that candidate set. When true, J06 emits no candidate for
+       a pair whose two mentions carry the same homonym-numbered dblp name (for example two
+       "Wei Wang 0001" mentions; dblp already assigns them to one person and they start in one
+       dblp-prior cluster) and counts it as SAME_NUMBERED_NAME_PAIRS_SKIPPED. Downstream review
+diff --git a/modules/hadoop/src/main/scala/org/scholarchain/hadoop/blocking/BlockingJob.scala b/modules/hadoop/src/main/scala/org/scholarchain/hadoop/blocking/BlockingJob.scala
+index b87a645..b4909c9 100644
+--- a/modules/hadoop/src/main/scala/org/scholarchain/hadoop/blocking/BlockingJob.scala
++++ b/modules/hadoop/src/main/scala/org/scholarchain/hadoop/blocking/BlockingJob.scala
+@@ -129,7 +129,8 @@ object OversizeMember {
+   * `maxMembers(memberCap, maxPairsPerBlock)`, the largest m within the member cap whose pairs fit.
+   * Oversize blocks are not emitted; their members are routed to the fallback (J05) or counted and
+   * listed as uncovered (J05b, J05c), as for blocks over the member cap. With the defaults
+-  * (maxBlockSize 1000, maxPairsPerBlock 125000) the primary cap is 500 members (124,750 pairs).
++  * (maxBlockSize 200, fallback maxBlockSize 200, maxPairsPerBlock 125000; Phase 14 repair G-17) the
++  * member cap binds: the J05 and J05b caps are 200 members (19,900 pairs).
+   */
+ final case class BlockLimit(memberCap: Int, maxPairs: Long) {
+ 
+diff --git a/modules/hadoop/src/main/scala/org/scholarchain/hadoop/candidates/CandidateFeatureJob.scala b/modules/hadoop/src/main/scala/org/scholarchain/hadoop/candidates/CandidateFeatureJob.scala
+index 1c3cd83..786bf46 100644
+--- a/modules/hadoop/src/main/scala/org/scholarchain/hadoop/candidates/CandidateFeatureJob.scala
++++ b/modules/hadoop/src/main/scala/org/scholarchain/hadoop/candidates/CandidateFeatureJob.scala
+@@ -183,9 +183,10 @@ object BlockShard { implicit val rw: ReadWriter[BlockShard] = macroRW }
+   * one expanded block, before the volume rule), largestBlockSeen (largest block read, including
+   * oversize ones).
+   *
+-  * Volume rule (`scholarchain.candidates.skipSameNumberedName`, off by default): pairs whose two
+-  * mentions carry the same homonym-numbered dblp name ([[CandidateFeatures.sameNumberedName]]) are
+-  * not emitted and are counted as SAME_NUMBERED_NAME_PAIRS_SKIPPED, so per expanded shard
++  * Volume rule (`scholarchain.candidates.skipSameNumberedName`, on by default since Phase 14 repair
++  * G-17): pairs whose two mentions carry the same homonym-numbered dblp name
++  * ([[CandidateFeatures.sameNumberedName]]) are not emitted and are counted as
++  * SAME_NUMBERED_NAME_PAIRS_SKIPPED, so per expanded shard
+   * `pairs == MATCH_CANDIDATES_EMITTED + SAME_NUMBERED_NAME_PAIRS_SKIPPED + schema_failure rejects`.
+   */
+ object CandidateFeatureJob {
+diff --git a/modules/hadoop/src/test/scala/org/scholarchain/hadoop/CandidateSuite.scala b/modules/hadoop/src/test/scala/org/scholarchain/hadoop/CandidateSuite.scala
+index d082582..1fbb86c 100644
+--- a/modules/hadoop/src/test/scala/org/scholarchain/hadoop/CandidateSuite.scala
++++ b/modules/hadoop/src/test/scala/org/scholarchain/hadoop/CandidateSuite.scala
+@@ -292,9 +292,14 @@ class CandidateSuite extends munit.FunSuite {
+   /** These J06 tests count the blocks of one family; the default runs two since Phase 11 (m5). */
+   private val OneFamily = Settings.Keys.BlockingFamilies -> "dblp-base-name"
+ 
++  /** The volume rule off (its default is on since Phase 14 repair G-17). */
++  private val SkipOff = Settings.Keys.CandidateSkipSameNumberedName -> "false"
++
+   test("J06 local run: all within-block pairs, counters, layout, determinism across sharding") {
+     val work = TestSupport.tempDir("j06")
+-    val conf = TestSupport.localConf(work, OneFamily)
++    // every within-block pair, including the same-numbered "Wei Wang 0001" pair checked below:
++    // the volume rule (on by default since Phase 14 repair G-17) is pinned off here
++    val conf = TestSupport.localConf(work, OneFamily, SkipOff)
+     val r = runJ05J06(work, conf, "out")
+     // blocks: Wei Wang (4 mentions, 6 pairs), Ann Lee (2, 1), Bo Li (2, 1)
+     assertEquals(r.blocking.main(Counters.BlocksEmitted), 3L)
+@@ -343,7 +348,12 @@ class CandidateSuite extends munit.FunSuite {
+     val sharded =
+       runJ05J06(
+         work,
+-        TestSupport.localConf(work, OneFamily, "scholarchain.candidates.pairsPerShard" -> "1"),
++        TestSupport.localConf(
++          work,
++          OneFamily,
++          SkipOff,
++          "scholarchain.candidates.pairsPerShard" -> "1"
++        ),
+         "sharded"
+       )
+     assertEquals(sharded.candidates.main(Counters.CandidateShards), 8L)
+@@ -409,8 +419,8 @@ class CandidateSuite extends munit.FunSuite {
+   }
+ 
+   test("one configuration: J05 routes a block over maxPairsPerBlock to oversize, J06 skips none") {
+-    // maxBlockSize stays 1000, but the 4-member Wei Wang block has 6 pairs > 5: J05 treats it as
+-    // oversize (effective cap 3), streams its members to oversizeMembers/, J06 expands the rest.
++    // maxBlockSize stays at its default 200, but the 4-member Wei Wang block has 6 pairs > 5: J05
++    // treats it as oversize (effective cap 3), streams its members to oversizeMembers/, J06 expands the rest.
+     val work = TestSupport.tempDir("j05-pair-limit")
+     val conf =
+       TestSupport.localConf(work, OneFamily, "scholarchain.candidates.maxPairsPerBlock" -> "5")
+@@ -426,7 +436,7 @@ class CandidateSuite extends munit.FunSuite {
+     assertEquals(l("blockKey").str, "Wei Wang")
+     assertEquals(l("size").num, 4.0)
+     assertEquals(l("limit").num, 3.0)
+-    assertEquals(l("maxBlockSize").num, 1000.0)
++    assertEquals(l("maxBlockSize").num, 200.0)
+     assertEquals(l("maxPairsPerBlock").num, 5.0)
+     assertEquals(l("pairs").num, 6.0)
+     assertEquals(l("reason").str, "max_pairs_per_block")
+diff --git a/modules/hadoop/src/test/scala/org/scholarchain/hadoop/FallbackBlockingSuite.scala b/modules/hadoop/src/test/scala/org/scholarchain/hadoop/FallbackBlockingSuite.scala
+index be52bf5..9e2ae70 100644
+--- a/modules/hadoop/src/test/scala/org/scholarchain/hadoop/FallbackBlockingSuite.scala
++++ b/modules/hadoop/src/test/scala/org/scholarchain/hadoop/FallbackBlockingSuite.scala
+@@ -158,7 +158,7 @@ class FallbackBlockingSuite extends munit.FunSuite {
+   }
+ 
+   test("BlockLimit: effective cap is min(member cap, largest m with m(m-1)/2 <= maxPairs)") {
+-    // defaults: maxBlockSize 1000, maxPairsPerBlock 125000 -> 500 (124,750 pairs); 501 -> 125,250
++    // limits 1000 and 125000 -> 500 (124,750 pairs); 501 -> 125,250 (the pre-G-17 defaults)
+     val d = BlockLimit(1000, 125000L)
+     assertEquals(d.effective, 500)
+     assert(d.pairBound)
+@@ -185,10 +185,15 @@ class FallbackBlockingSuite extends munit.FunSuite {
+     assertEquals(l("limit").num, 500.0)
+     assertEquals(l("pairs").num, 244650.0)
+     assertEquals(l("reason").str, "max_pairs_per_block")
+-    // the defaults resource composes this way
++    // the defaults resource composes this way (Phase 14 repair G-17: Phase 5's evaluated 200,
++    // set by the member caps; the pair limit does not bind)
+     val s = new Settings(Settings.withDefaults(new Configuration(false)))
+-    assertEquals(BlockLimit.of(s, Settings.Keys.BlockingMaxBlock).effective, 500)
+-    assertEquals(BlockLimit.of(s, Settings.Keys.FallbackMaxBlock).effective, 500)
++    List(Settings.Keys.BlockingMaxBlock, Settings.Keys.FallbackMaxBlock).foreach { k =>
++      val lim = BlockLimit.of(s, k)
++      assertEquals(lim.effective, 200, k)
++      assert(!lim.pairBound, k)
++      assertEquals(lim.reason(201), BlockLimit.MemberReason, k)
++    }
+   }
+ 
+   test("volume rule: only pairs with the same homonym-numbered dblp name qualify") {
+diff --git a/modules/hadoop/src/test/scala/org/scholarchain/hadoop/SettingsSuite.scala b/modules/hadoop/src/test/scala/org/scholarchain/hadoop/SettingsSuite.scala
+index d5f9c74..eecd164 100644
+--- a/modules/hadoop/src/test/scala/org/scholarchain/hadoop/SettingsSuite.scala
++++ b/modules/hadoop/src/test/scala/org/scholarchain/hadoop/SettingsSuite.scala
+@@ -1,6 +1,7 @@
+ package org.scholarchain.hadoop
+ 
+ import org.apache.hadoop.conf.Configuration
++import org.scholarchain.hadoop.blocking.BlockLimit
+ import org.scholarchain.hadoop.common.{Settings, SettingsError}
+ 
+ class SettingsSuite extends munit.FunSuite {
+@@ -24,6 +25,24 @@ class SettingsSuite extends munit.FunSuite {
+     assertEquals(xml.split("<property>").length - 1, xml.split("<description>").length - 1)
+   }
+ 
++  test("G-17: blocking and candidate defaults equal Phase 5's evaluated real-run settings") {
++    // docs/agent-runs/phase-05/agent-report-hadoop.md:119 (the er-v2 calibration candidate set);
++    // the EMR state machine cannot pass -D, so the built-in defaults must carry these values.
++    val s = new Settings(defaults)
++    assertEquals(s.positiveInt(Settings.Keys.BlockingMaxBlock), 200)
++    assertEquals(s.positiveInt(Settings.Keys.FallbackMaxBlock), 200)
++    assertEquals(s.boolean(Settings.Keys.CandidateSkipSameNumberedName), true)
++    assertEquals(s.positiveLong(Settings.Keys.CandidateMaxPairsPerBlock), 125000L)
++    assertEquals(s.string(Settings.Keys.BlockingFamilies), "dblp-base-name,initials-surname")
++    assertEquals(s.string(Settings.Keys.FallbackSecondaryKeys), "coauthor")
++    // effective caps of J05 primary and J05b fallback blocks: 200 members, set by the member cap
++    List(Settings.Keys.BlockingMaxBlock, Settings.Keys.FallbackMaxBlock).foreach { k =>
++      val lim = BlockLimit.of(s, k)
++      assertEquals(lim.effective, 200, k)
++      assert(!lim.pairBound, k)
++    }
++  }
++
+   test("missing and malformed values fail loudly; no fallback values") {
+     val s = new Settings(defaults)
+     intercept[SettingsError](s.string(Settings.Keys.CodeVersion))
+diff --git a/tests/contracts/src/test/scala/org/scholarchain/contracts/hadoop/FallbackPipelineEndToEndSuite.scala b/tests/contracts/src/test/scala/org/scholarchain/contracts/hadoop/FallbackPipelineEndToEndSuite.scala
+index 5dba332..1e2fc8b 100644
+--- a/tests/contracts/src/test/scala/org/scholarchain/contracts/hadoop/FallbackPipelineEndToEndSuite.scala
++++ b/tests/contracts/src/test/scala/org/scholarchain/contracts/hadoop/FallbackPipelineEndToEndSuite.scala
+@@ -60,7 +60,10 @@ class FallbackPipelineEndToEndSuite extends munit.FunSuite {
+     Settings.Keys.BlockingMaxBlock -> "5",
+     Settings.Keys.FallbackFamilies -> "dblp-base-name,initials-surname",
+     Settings.Keys.FallbackSecondaryKeys -> "coauthor",
+-    Settings.Keys.FallbackMaxBlock -> "3"
++    Settings.Keys.FallbackMaxBlock -> "3",
++    // pinned off: the built-in default is on since Phase 14 repair G-17, and the volume-rule test
++    // compares this off run with an explicit on run
++    Settings.Keys.CandidateSkipSameNumberedName -> "false"
+   )
+ 
+   private def pipeline(out: String): (PipelineResult, Configuration) = {
+@@ -156,7 +159,10 @@ class FallbackPipelineEndToEndSuite extends munit.FunSuite {
+     val numbered = Set(mention(10, 0), mention(11, 0))
+     val emittedOff = candidates.filter(cd => Set(cd.left, cd.right) == numbered)
+     assertEquals(emittedOff.map(_.blockFamily).sorted, List("dblp-base-name", "initials-surname"))
+-    val cSkip = conf(work, (settings :+ (Settings.Keys.CandidateSkipSameNumberedName -> "true"))*)
++    assertEquals(p.candidates.main(Counters.SameNumberedNameSkipped), 0L, "the base run is off")
++    val skipKey = Settings.Keys.CandidateSkipSameNumberedName
++    val cSkip = conf(work, (settings.filterNot(_._1 == skipKey) :+ (skipKey -> "true"))*)
++    assertEquals(cSkip.get(skipKey), "true")
+     val j06 = org.scholarchain.hadoop.common.JobRunner.run(
+       cSkip,
+       org.scholarchain.hadoop.common.JobRunner.fromRuns(
+diff --git a/tests/contracts/src/test/scala/org/scholarchain/contracts/hadoop/JobLevelBlockingSuite.scala b/tests/contracts/src/test/scala/org/scholarchain/contracts/hadoop/JobLevelBlockingSuite.scala
+index e32c4e5..3b8a571 100644
+--- a/tests/contracts/src/test/scala/org/scholarchain/contracts/hadoop/JobLevelBlockingSuite.scala
++++ b/tests/contracts/src/test/scala/org/scholarchain/contracts/hadoop/JobLevelBlockingSuite.scala
+@@ -180,7 +180,11 @@ class JobLevelBlockingSuite extends munit.FunSuite {
+     assertEquals(o("blockKey").str, HotKey)
+     assertEquals(o("size").num.toLong, Members.toLong)
+     assertEquals(o("limit").num.toLong, 11L, "effective cap: 11 members (55 pairs) fit 65")
+-    assertEquals(o("maxBlockSize").num.toLong, 1000L)
++    // the member cap in force is the built-in default (only the pair limit is overridden here);
++    // since Phase 14 repair G-17 that default is 200
++    val defaultCap = DefaultsXml.values(Settings.Keys.BlockingMaxBlock).toLong
++    assertEquals(defaultCap, 200L)
++    assertEquals(o("maxBlockSize").num.toLong, defaultCap)
+     assertEquals(o("maxPairsPerBlock").num.toLong, 65L)
+     assertEquals(o("pairs").num.toLong, PairCount)
+     assertEquals(o("reason").str, BlockLimit.PairReason)
+diff --git a/tests/contracts/src/test/scala/org/scholarchain/contracts/hadoop/ScaleAndProvenanceAdversarialSuite.scala b/tests/contracts/src/test/scala/org/scholarchain/contracts/hadoop/ScaleAndProvenanceAdversarialSuite.scala
+index 64c06f2..0ec2acf 100644
+--- a/tests/contracts/src/test/scala/org/scholarchain/contracts/hadoop/ScaleAndProvenanceAdversarialSuite.scala
++++ b/tests/contracts/src/test/scala/org/scholarchain/contracts/hadoop/ScaleAndProvenanceAdversarialSuite.scala
+@@ -5,7 +5,7 @@ import scala.collection.mutable
+ import org.scholarchain.contracts.hadoop.AdversarialSupport.*
+ import org.scholarchain.hadoop.io.RawRecord
+ import org.scholarchain.core.{CoauthorPairCandidate, Contract, MentionId, SourceType}
+-import org.scholarchain.hadoop.blocking.{BlockMember, BlockingKeys, CandidateBlock}
++import org.scholarchain.hadoop.blocking.{BlockLimit, BlockMember, BlockingKeys, CandidateBlock}
+ import org.scholarchain.hadoop.candidates.CandidateFeatures
+ import org.scholarchain.hadoop.common.{Disposition, Reasons, Settings}
+ import org.scholarchain.hadoop.pairs.{ExpandedPair, PairConsolidateJob, PairExpansion, PairIndex}
+@@ -210,19 +210,49 @@ class ScaleAndProvenanceAdversarialSuite extends munit.FunSuite {
+     )
+   }
+ 
+-  test("common-name: a hot block at maxBlockSize defaults exceeds maxPairsPerBlock in J06") {
+-    // Default maxBlockSize 1000 gives 499500 pairs; J06 must then skip it (> 125000), and a
+-    // 500-member block (124750 pairs) must still be expanded. Verifies the defaults compose.
++  test(
++    "common-name: a hot block at an explicit maxBlockSize 1000 exceeds the default " +
++      "maxPairsPerBlock, so the pair limit binds (cap 500)"
++  ) {
++    // An explicit maxBlockSize 1000 (the pre-G-17 default, still allowed by -D) gives 499500
++    // pairs; J06 must then skip such a block (> 125000), and a 500-member block (124750 pairs)
++    // must still be expanded. J05 and J05b therefore cap blocks at 500 by the pair limit.
+     val d = DefaultsXml.values
+-    val maxBlock = d(Settings.Keys.BlockingMaxBlock).toInt
++    val hotCap = 1000
+     val maxPairs = d(Settings.Keys.CandidateMaxPairsPerBlock).toLong
+-    assert(PairIndex.pairCount(maxBlock) > maxPairs)
++    assertEquals(maxPairs, 125000L)
++    assert(PairIndex.pairCount(hotCap) > maxPairs)
+     assert(PairIndex.pairCount(500) <= maxPairs)
+     assert(PairIndex.pairCount(501) > maxPairs)
++    val hot = BlockLimit(hotCap, maxPairs)
++    assertEquals(hot.effective, 500)
++    assert(hot.pairBound, "with maxBlockSize 1000 the pair limit, not the member cap, binds")
++    assertEquals(hot.reason(501L), BlockLimit.PairReason)
++    assertEquals(hot.reason(1001L), BlockLimit.MemberReason)
+     val perShard = d(Settings.Keys.CandidatePairsPerShard).toLong
+     assertEquals(PairIndex.shardCount(500, perShard), 3L)
+   }
+ 
++  test(
++    "common-name: with the G-17 defaults (member caps 200) the member cap binds, not the pair limit"
++  ) {
++    // Phase 14 repair G-17: maxBlockSize and fallback.maxBlockSize default to 200 (19900 pairs),
++    // within the default maxPairsPerBlock 125000, so every emitted block J06 reads is expandable
++    // and the effective J05 and J05b caps are the member caps.
++    val d = DefaultsXml.values
++    val maxPairs = d(Settings.Keys.CandidateMaxPairsPerBlock).toLong
++    List(Settings.Keys.BlockingMaxBlock, Settings.Keys.FallbackMaxBlock).foreach { k =>
++      val cap = d(k).toInt
++      assertEquals(cap, 200, k)
++      assertEquals(PairIndex.pairCount(cap), 19900L, k)
++      assert(PairIndex.pairCount(cap) <= maxPairs, k)
++      val limit = BlockLimit(cap, maxPairs)
++      assertEquals(limit.effective, cap, k)
++      assert(!limit.pairBound, s"$k: the member cap must bind with the defaults")
++      assertEquals(limit.reason(cap + 1L), BlockLimit.MemberReason, k)
++    }
++  }
++
+   test("common-name: J06 features are symmetric and the candidate is canonical") {
+     val members = List("Wei Wang 0001", "Wei Wang 0002", "Wei Wang").zipWithIndex
+       .map { case (n, i) =>

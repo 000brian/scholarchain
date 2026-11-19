@@ -129,7 +129,8 @@ object OversizeMember {
   * `maxMembers(memberCap, maxPairsPerBlock)`, the largest m within the member cap whose pairs fit.
   * Oversize blocks are not emitted; their members are routed to the fallback (J05) or counted and
   * listed as uncovered (J05b, J05c), as for blocks over the member cap. With the defaults
-  * (maxBlockSize 1000, maxPairsPerBlock 125000) the primary cap is 500 members (124,750 pairs).
+  * (maxBlockSize 200, fallback maxBlockSize 200, maxPairsPerBlock 125000; Phase 14 repair G-17) the
+  * member cap binds: the J05 and J05b caps are 200 members (19,900 pairs).
   */
 final case class BlockLimit(memberCap: Int, maxPairs: Long) {
 

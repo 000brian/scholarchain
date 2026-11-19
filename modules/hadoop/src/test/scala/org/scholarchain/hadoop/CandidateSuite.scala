@@ -292,9 +292,14 @@ class CandidateSuite extends munit.FunSuite {
   /** These J06 tests count the blocks of one family; the default runs two since Phase 11 (m5). */
   private val OneFamily = Settings.Keys.BlockingFamilies -> "dblp-base-name"
 
+  /** The volume rule off (its default is on since Phase 14 repair G-17). */
+  private val SkipOff = Settings.Keys.CandidateSkipSameNumberedName -> "false"
+
   test("J06 local run: all within-block pairs, counters, layout, determinism across sharding") {
     val work = TestSupport.tempDir("j06")
-    val conf = TestSupport.localConf(work, OneFamily)
+    // every within-block pair, including the same-numbered "Wei Wang 0001" pair checked below:
+    // the volume rule (on by default since Phase 14 repair G-17) is pinned off here
+    val conf = TestSupport.localConf(work, OneFamily, SkipOff)
     val r = runJ05J06(work, conf, "out")
     // blocks: Wei Wang (4 mentions, 6 pairs), Ann Lee (2, 1), Bo Li (2, 1)
     assertEquals(r.blocking.main(Counters.BlocksEmitted), 3L)
@@ -343,7 +348,12 @@ class CandidateSuite extends munit.FunSuite {
     val sharded =
       runJ05J06(
         work,
-        TestSupport.localConf(work, OneFamily, "scholarchain.candidates.pairsPerShard" -> "1"),
+        TestSupport.localConf(
+          work,
+          OneFamily,
+          SkipOff,
+          "scholarchain.candidates.pairsPerShard" -> "1"
+        ),
         "sharded"
       )
     assertEquals(sharded.candidates.main(Counters.CandidateShards), 8L)
@@ -409,8 +419,8 @@ class CandidateSuite extends munit.FunSuite {
   }
 
   test("one configuration: J05 routes a block over maxPairsPerBlock to oversize, J06 skips none") {
-    // maxBlockSize stays 1000, but the 4-member Wei Wang block has 6 pairs > 5: J05 treats it as
-    // oversize (effective cap 3), streams its members to oversizeMembers/, J06 expands the rest.
+    // maxBlockSize stays at its default 200, but the 4-member Wei Wang block has 6 pairs > 5: J05
+    // treats it as oversize (effective cap 3), streams its members to oversizeMembers/, J06 expands the rest.
     val work = TestSupport.tempDir("j05-pair-limit")
     val conf =
       TestSupport.localConf(work, OneFamily, "scholarchain.candidates.maxPairsPerBlock" -> "5")
@@ -426,7 +436,7 @@ class CandidateSuite extends munit.FunSuite {
     assertEquals(l("blockKey").str, "Wei Wang")
     assertEquals(l("size").num, 4.0)
     assertEquals(l("limit").num, 3.0)
-    assertEquals(l("maxBlockSize").num, 1000.0)
+    assertEquals(l("maxBlockSize").num, 200.0)
     assertEquals(l("maxPairsPerBlock").num, 5.0)
     assertEquals(l("pairs").num, 6.0)
     assertEquals(l("reason").str, "max_pairs_per_block")

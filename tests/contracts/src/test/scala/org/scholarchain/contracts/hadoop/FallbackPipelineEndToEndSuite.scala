@@ -60,7 +60,10 @@ class FallbackPipelineEndToEndSuite extends munit.FunSuite {
     Settings.Keys.BlockingMaxBlock -> "5",
     Settings.Keys.FallbackFamilies -> "dblp-base-name,initials-surname",
     Settings.Keys.FallbackSecondaryKeys -> "coauthor",
-    Settings.Keys.FallbackMaxBlock -> "3"
+    Settings.Keys.FallbackMaxBlock -> "3",
+    // pinned off: the built-in default is on since Phase 14 repair G-17, and the volume-rule test
+    // compares this off run with an explicit on run
+    Settings.Keys.CandidateSkipSameNumberedName -> "false"
   )
 
   private def pipeline(out: String): (PipelineResult, Configuration) = {
@@ -156,7 +159,10 @@ class FallbackPipelineEndToEndSuite extends munit.FunSuite {
     val numbered = Set(mention(10, 0), mention(11, 0))
     val emittedOff = candidates.filter(cd => Set(cd.left, cd.right) == numbered)
     assertEquals(emittedOff.map(_.blockFamily).sorted, List("dblp-base-name", "initials-surname"))
-    val cSkip = conf(work, (settings :+ (Settings.Keys.CandidateSkipSameNumberedName -> "true"))*)
+    assertEquals(p.candidates.main(Counters.SameNumberedNameSkipped), 0L, "the base run is off")
+    val skipKey = Settings.Keys.CandidateSkipSameNumberedName
+    val cSkip = conf(work, (settings.filterNot(_._1 == skipKey) :+ (skipKey -> "true"))*)
+    assertEquals(cSkip.get(skipKey), "true")
     val j06 = org.scholarchain.hadoop.common.JobRunner.run(
       cSkip,
       org.scholarchain.hadoop.common.JobRunner.fromRuns(

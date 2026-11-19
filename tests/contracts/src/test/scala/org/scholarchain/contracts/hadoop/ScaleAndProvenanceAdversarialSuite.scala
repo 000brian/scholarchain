@@ -5,7 +5,7 @@ import scala.collection.mutable
 import org.scholarchain.contracts.hadoop.AdversarialSupport.*
 import org.scholarchain.hadoop.io.RawRecord
 import org.scholarchain.core.{CoauthorPairCandidate, Contract, MentionId, SourceType}
-import org.scholarchain.hadoop.blocking.{BlockMember, BlockingKeys, CandidateBlock}
+import org.scholarchain.hadoop.blocking.{BlockLimit, BlockMember, BlockingKeys, CandidateBlock}
 import org.scholarchain.hadoop.candidates.CandidateFeatures
 import org.scholarchain.hadoop.common.{Disposition, Reasons, Settings}
 import org.scholarchain.hadoop.pairs.{ExpandedPair, PairConsolidateJob, PairExpansion, PairIndex}
@@ -210,17 +210,47 @@ class ScaleAndProvenanceAdversarialSuite extends munit.FunSuite {
     )
   }
 
-  test("common-name: a hot block at maxBlockSize defaults exceeds maxPairsPerBlock in J06") {
-    // Default maxBlockSize 1000 gives 499500 pairs; J06 must then skip it (> 125000), and a
-    // 500-member block (124750 pairs) must still be expanded. Verifies the defaults compose.
+  test(
+    "common-name: a hot block at an explicit maxBlockSize 1000 exceeds the default " +
+      "maxPairsPerBlock, so the pair limit binds (cap 500)"
+  ) {
+    // An explicit maxBlockSize 1000 (the pre-G-17 default, still allowed by -D) gives 499500
+    // pairs; J06 must then skip such a block (> 125000), and a 500-member block (124750 pairs)
+    // must still be expanded. J05 and J05b therefore cap blocks at 500 by the pair limit.
     val d = DefaultsXml.values
-    val maxBlock = d(Settings.Keys.BlockingMaxBlock).toInt
+    val hotCap = 1000
     val maxPairs = d(Settings.Keys.CandidateMaxPairsPerBlock).toLong
-    assert(PairIndex.pairCount(maxBlock) > maxPairs)
+    assertEquals(maxPairs, 125000L)
+    assert(PairIndex.pairCount(hotCap) > maxPairs)
     assert(PairIndex.pairCount(500) <= maxPairs)
     assert(PairIndex.pairCount(501) > maxPairs)
+    val hot = BlockLimit(hotCap, maxPairs)
+    assertEquals(hot.effective, 500)
+    assert(hot.pairBound, "with maxBlockSize 1000 the pair limit, not the member cap, binds")
+    assertEquals(hot.reason(501L), BlockLimit.PairReason)
+    assertEquals(hot.reason(1001L), BlockLimit.MemberReason)
     val perShard = d(Settings.Keys.CandidatePairsPerShard).toLong
     assertEquals(PairIndex.shardCount(500, perShard), 3L)
+  }
+
+  test(
+    "common-name: with the G-17 defaults (member caps 200) the member cap binds, not the pair limit"
+  ) {
+    // Phase 14 repair G-17: maxBlockSize and fallback.maxBlockSize default to 200 (19900 pairs),
+    // within the default maxPairsPerBlock 125000, so every emitted block J06 reads is expandable
+    // and the effective J05 and J05b caps are the member caps.
+    val d = DefaultsXml.values
+    val maxPairs = d(Settings.Keys.CandidateMaxPairsPerBlock).toLong
+    List(Settings.Keys.BlockingMaxBlock, Settings.Keys.FallbackMaxBlock).foreach { k =>
+      val cap = d(k).toInt
+      assertEquals(cap, 200, k)
+      assertEquals(PairIndex.pairCount(cap), 19900L, k)
+      assert(PairIndex.pairCount(cap) <= maxPairs, k)
+      val limit = BlockLimit(cap, maxPairs)
+      assertEquals(limit.effective, cap, k)
+      assert(!limit.pairBound, s"$k: the member cap must bind with the defaults")
+      assertEquals(limit.reason(cap + 1L), BlockLimit.MemberReason, k)
+    }
   }
 
   test("common-name: J06 features are symmetric and the candidate is canonical") {

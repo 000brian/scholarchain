@@ -180,7 +180,11 @@ class JobLevelBlockingSuite extends munit.FunSuite {
     assertEquals(o("blockKey").str, HotKey)
     assertEquals(o("size").num.toLong, Members.toLong)
     assertEquals(o("limit").num.toLong, 11L, "effective cap: 11 members (55 pairs) fit 65")
-    assertEquals(o("maxBlockSize").num.toLong, 1000L)
+    // the member cap in force is the built-in default (only the pair limit is overridden here);
+    // since Phase 14 repair G-17 that default is 200
+    val defaultCap = DefaultsXml.values(Settings.Keys.BlockingMaxBlock).toLong
+    assertEquals(defaultCap, 200L)
+    assertEquals(o("maxBlockSize").num.toLong, defaultCap)
     assertEquals(o("maxPairsPerBlock").num.toLong, 65L)
     assertEquals(o("pairs").num.toLong, PairCount)
     assertEquals(o("reason").str, BlockLimit.PairReason)

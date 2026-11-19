@@ -279,11 +279,16 @@
   </property>
   <property>
     <name>scholarchain.blocking.maxBlockSize</name>
-    <value>1000</value>
+    <value>200</value>
     <description>Member cap of J05 primary blocks. J05 treats a block as oversize when it has
       more members than this OR more pairs (m(m-1)/2) than scholarchain.candidates.maxPairsPerBlock;
-      the effective cap is min(maxBlockSize, largest m whose pairs fit maxPairsPerBlock), 500 with
-      the defaults. Oversize blocks are not emitted; they are counted as OVERSIZE_BLOCKS (those
+      the effective cap is min(maxBlockSize, largest m whose pairs fit maxPairsPerBlock), 200 with
+      the defaults (200 members yield 19,900 pairs, within the default maxPairsPerBlock 125000, so
+      the member cap sets it). Default 200 since Phase 14 repair G-17 (was 1000): the value of
+      Phase 5's evaluated real run (docs/agent-runs/phase-05/agent-report-hadoop.md:119, -D
+      scholarchain.blocking.maxBlockSize=200), whose candidate set the er-v2 ER match policy was
+      calibrated and evaluated on; the EMR state machine cannot pass -D, so the default must
+      equal it. Oversize blocks are not emitted; they are counted as OVERSIZE_BLOCKS (those
       over the pair limit only also as PAIR_LIMIT_OVERSIZE_BLOCKS), listed in oversizeBlocks/
       (key, size, limit = effective cap, maxBlockSize, maxPairsPerBlock, pairs, reason
       max_block_size or max_pairs_per_block), and their members are written to oversizeMembers/
@@ -308,17 +313,21 @@
   </property>
   <property>
     <name>scholarchain.blocking.fallback.maxBlockSize</name>
-    <value>500</value>
+    <value>200</value>
     <description>Member cap of J05b fallback blocks. As in J05, a fallback block is oversize when
       it has more members than this OR more pairs than scholarchain.candidates.maxPairsPerBlock
-      (effective cap min(fallback.maxBlockSize, largest m whose pairs fit)). Oversize fallback
+      (effective cap min(fallback.maxBlockSize, largest m whose pairs fit), 200 with the
+      defaults). Default 200 since Phase 14 repair G-17 (was 500): the value of Phase 5's
+      evaluated real run (docs/agent-runs/phase-05/agent-report-hadoop.md:119, -D
+      scholarchain.blocking.fallback.maxBlockSize=200), whose candidate set the er-v2 ER match
+      policy was calibrated and evaluated on. Oversize fallback
       blocks are not emitted: they are counted as OVERSIZE_BLOCKS in J05b (over the pair limit
       only: also PAIR_LIMIT_OVERSIZE_BLOCKS) and listed in fallbackOversizeBlocks/ with the same
       limit fields as J05. Members of an oversize
       primary block that land in no emitted fallback block of two or more members are counted
       (FALLBACK_UNCOVERED_MEMBERS) and listed in J05c uncoveredMembers/; oversizeKeySummary/
       gives covered and uncovered counts per oversize key (the worst keys have the most
-      uncovered members). 500 members yield 124,750 pairs, within the default
+      uncovered members). 200 members yield 19,900 pairs, within the default
       scholarchain.candidates.maxPairsPerBlock.</description>
   </property>
   <property>
@@ -358,7 +367,10 @@
     <name>scholarchain.candidates.maxPairsPerBlock</name>
     <value>125000</value>
     <description>Maximum candidate pairs from one block (a block of m members yields m(m-1)/2; 500
-      members yield 124,750). Also read by J05 and J05b, which treat blocks above this pair count
+      members yield 124,750). Unchanged in Phase 14 repair G-17: Phase 5's evaluated run
+      (docs/agent-runs/phase-05/agent-report-hadoop.md:119) used this default, and with the member
+      caps of 200 (19,900 pairs) it does not bind, so the effective cap of J05 and J05b blocks is
+      200. Also read by J05 and J05b, which treat blocks above this pair count
       as oversize (fallback, coverage accounting) and never emit them, so with one configuration
       J06 receives no block above the limit. A block above it that J06 still reads (blocks made
       under another configuration) is not expanded: it is counted as OVERSIZE_BLOCKS (its pairs as
@@ -379,8 +391,11 @@
   </property>
   <property>
     <name>scholarchain.candidates.skipSameNumberedName</name>
-    <value>false</value>
-    <description>Optional volume rule (Phase 5 decision 6): when true, J06 emits no candidate for
+    <value>true</value>
+    <description>Volume rule (Phase 5 decision 6), on by default since Phase 14 repair G-17 (was
+      false): Phase 5's evaluated real run (docs/agent-runs/phase-05/agent-report-hadoop.md:119, -D
+      scholarchain.candidates.skipSameNumberedName=true) turned it on, and the er-v2 ER match
+      policy was calibrated and evaluated on that candidate set. When true, J06 emits no candidate for
       a pair whose two mentions carry the same homonym-numbered dblp name (for example two
       "Wei Wang 0001" mentions; dblp already assigns them to one person and they start in one
       dblp-prior cluster) and counts it as SAME_NUMBERED_NAME_PAIRS_SKIPPED. Downstream review

@@ -158,7 +158,7 @@ class FallbackBlockingSuite extends munit.FunSuite {
   }
 
   test("BlockLimit: effective cap is min(member cap, largest m with m(m-1)/2 <= maxPairs)") {
-    // defaults: maxBlockSize 1000, maxPairsPerBlock 125000 -> 500 (124,750 pairs); 501 -> 125,250
+    // limits 1000 and 125000 -> 500 (124,750 pairs); 501 -> 125,250 (the pre-G-17 defaults)
     val d = BlockLimit(1000, 125000L)
     assertEquals(d.effective, 500)
     assert(d.pairBound)
@@ -185,10 +185,15 @@ class FallbackBlockingSuite extends munit.FunSuite {
     assertEquals(l("limit").num, 500.0)
     assertEquals(l("pairs").num, 244650.0)
     assertEquals(l("reason").str, "max_pairs_per_block")
-    // the defaults resource composes this way
+    // the defaults resource composes this way (Phase 14 repair G-17: Phase 5's evaluated 200,
+    // set by the member caps; the pair limit does not bind)
     val s = new Settings(Settings.withDefaults(new Configuration(false)))
-    assertEquals(BlockLimit.of(s, Settings.Keys.BlockingMaxBlock).effective, 500)
-    assertEquals(BlockLimit.of(s, Settings.Keys.FallbackMaxBlock).effective, 500)
+    List(Settings.Keys.BlockingMaxBlock, Settings.Keys.FallbackMaxBlock).foreach { k =>
+      val lim = BlockLimit.of(s, k)
+      assertEquals(lim.effective, 200, k)
+      assert(!lim.pairBound, k)
+      assertEquals(lim.reason(201), BlockLimit.MemberReason, k)
+    }
   }
 
   test("volume rule: only pairs with the same homonym-numbered dblp name qualify") {
