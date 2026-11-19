@@ -35,3 +35,11 @@ D8 attempt 1 failed: the Spark driver ran out of memory on EMR with the default 
 I approve this plan. Signed: Brian, Nov 19, 2026
 
 APPROVED-PLAN-SHA256: 619576314f4bcf324397381de79c70d6fde794873770ed526a676f870fdf8975
+
+## Runtime-on plan (D10)
+
+Made at ba345f8 with the default profile in us-east-1: runtime_enabled=true, image_tag=f159535e498ad1a4504dad1fac0a3fb6ceee14e6, graph_run_id=run:v1:f2625d504b12749389cf4f5b1a26aed4 (graph run, Spark export run and export source run all equal). 10 create (3 healthy-host alarms, 5 scaling policies, 2 worker alarms), 8 in-place update (4 scaling targets, 4 ECS services), 5 replace (task definitions only), 0 delete; no IAM, network or stateful change.
+
+I approve this plan to be applied with my own admin profile (default). Signed: Brian, Nov 19, 2026
+
+APPROVED-PLAN-SHA256: 5656145ec55ef6c08230ab4aedae778cf19fa1f99aaa11225040a2c52c7f4199
