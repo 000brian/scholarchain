@@ -119,6 +119,25 @@ locals {
 
   spark_config_local = "/home/hadoop/scholarchain-spark-job-config.json"
 
+  # Phase 14 G-21 (human-approved values): spark-submit runtime options for
+  # both Spark steps. They come before --class, because spark-submit reads its
+  # options before the application jar (EMR Release Guide, "Add a Spark step",
+  # "Overriding Spark default configuration settings"). The driver heap must be
+  # a spark-submit option: in client deploy mode the driver JVM starts before
+  # the application, so spark.driver.memory set in code has no effect. 6g fits
+  # the m5.xlarge primary node (16 GiB); shuffle partitions match Phase 6; the
+  # UI retention limits bound the driver's retained job, stage and SQL state.
+  # The values contain no quote, so each is safe inside a JSONata '...' string.
+  spark_submit_runtime_args = [
+    "--driver-memory", "6g",
+    "--conf", "spark.sql.shuffle.partitions=32",
+    "--conf", "spark.ui.retainedJobs=200",
+    "--conf", "spark.ui.retainedStages=200",
+    "--conf", "spark.ui.retainedTasks=10000",
+    "--conf", "spark.sql.ui.retainedExecutions=50",
+  ]
+  spark_submit_runtime_jsonata = join(", ", [for a in local.spark_submit_runtime_args : "'${a}'"])
+
   # ExportInputCheck conditions (JSONata). The prefix is a bucket URI, which
   # never contains a quote.
   graph_prefix_len = length(var.graph_uri_prefix)
@@ -300,7 +319,7 @@ locals {
             ActionOnFailure = "TERMINATE_CLUSTER"
             HadoopJarStep = {
               Jar  = "command-runner.jar"
-              Args = "{% ['spark-submit', '--deploy-mode', 'client', '--class', 'org.scholarchain.spark.GraphAnalyticsJob', $pipelineInput.spark.jar, '--hadoop-export', $pipelineInput.spark.hadoopExport, '--identity-assignments', $pipelineInput.spark.identityAssignments, '--out-root', $pipelineInput.spark.outRoot, '--config', '${local.spark_config_local}', '--code-version', $pipelineInput.codeVersion] %}"
+              Args = "{% ['spark-submit', '--deploy-mode', 'client', ${local.spark_submit_runtime_jsonata}, '--class', 'org.scholarchain.spark.GraphAnalyticsJob', $pipelineInput.spark.jar, '--hadoop-export', $pipelineInput.spark.hadoopExport, '--identity-assignments', $pipelineInput.spark.identityAssignments, '--out-root', $pipelineInput.spark.outRoot, '--config', '${local.spark_config_local}', '--code-version', $pipelineInput.codeVersion] %}"
             }
           }
         }
@@ -327,7 +346,7 @@ locals {
             ActionOnFailure = "TERMINATE_CLUSTER"
             HadoopJarStep = {
               Jar  = "command-runner.jar"
-              Args = "{% ['spark-submit', '--deploy-mode', 'client', '--class', 'org.scholarchain.spark.JsonlExport', $pipelineInput.spark.jar, '--source-run', $pipelineInput.spark.exportSourceRun, '--out-root', $pipelineInput.spark.exportRoot, '--code-version', $pipelineInput.codeVersion] %}"
+              Args = "{% ['spark-submit', '--deploy-mode', 'client', ${local.spark_submit_runtime_jsonata}, '--class', 'org.scholarchain.spark.JsonlExport', $pipelineInput.spark.jar, '--source-run', $pipelineInput.spark.exportSourceRun, '--out-root', $pipelineInput.spark.exportRoot, '--code-version', $pipelineInput.codeVersion] %}"
             }
           }
         }

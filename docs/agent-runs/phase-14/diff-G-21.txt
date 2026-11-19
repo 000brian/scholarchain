@@ -1,0 +1,63 @@
+diff --git a/infra/terraform/modules/workflow/sfn.tf b/infra/terraform/modules/workflow/sfn.tf
+index 422bef3..4dc9b5b 100644
+--- a/infra/terraform/modules/workflow/sfn.tf
++++ b/infra/terraform/modules/workflow/sfn.tf
+@@ -119,6 +119,25 @@ locals {
+ 
+   spark_config_local = "/home/hadoop/scholarchain-spark-job-config.json"
+ 
++  # Phase 14 G-21 (human-approved values): spark-submit runtime options for
++  # both Spark steps. They come before --class, because spark-submit reads its
++  # options before the application jar (EMR Release Guide, "Add a Spark step",
++  # "Overriding Spark default configuration settings"). The driver heap must be
++  # a spark-submit option: in client deploy mode the driver JVM starts before
++  # the application, so spark.driver.memory set in code has no effect. 6g fits
++  # the m5.xlarge primary node (16 GiB); shuffle partitions match Phase 6; the
++  # UI retention limits bound the driver's retained job, stage and SQL state.
++  # The values contain no quote, so each is safe inside a JSONata '...' string.
++  spark_submit_runtime_args = [
++    "--driver-memory", "6g",
++    "--conf", "spark.sql.shuffle.partitions=32",
++    "--conf", "spark.ui.retainedJobs=200",
++    "--conf", "spark.ui.retainedStages=200",
++    "--conf", "spark.ui.retainedTasks=10000",
++    "--conf", "spark.sql.ui.retainedExecutions=50",
++  ]
++  spark_submit_runtime_jsonata = join(", ", [for a in local.spark_submit_runtime_args : "'${a}'"])
++
+   # ExportInputCheck conditions (JSONata). The prefix is a bucket URI, which
+   # never contains a quote.
+   graph_prefix_len = length(var.graph_uri_prefix)
+@@ -300,7 +319,7 @@ locals {
+             ActionOnFailure = "TERMINATE_CLUSTER"
+             HadoopJarStep = {
+               Jar  = "command-runner.jar"
+-              Args = "{% ['spark-submit', '--deploy-mode', 'client', '--class', 'org.scholarchain.spark.GraphAnalyticsJob', $pipelineInput.spark.jar, '--hadoop-export', $pipelineInput.spark.hadoopExport, '--identity-assignments', $pipelineInput.spark.identityAssignments, '--out-root', $pipelineInput.spark.outRoot, '--config', '${local.spark_config_local}', '--code-version', $pipelineInput.codeVersion] %}"
++              Args = "{% ['spark-submit', '--deploy-mode', 'client', ${local.spark_submit_runtime_jsonata}, '--class', 'org.scholarchain.spark.GraphAnalyticsJob', $pipelineInput.spark.jar, '--hadoop-export', $pipelineInput.spark.hadoopExport, '--identity-assignments', $pipelineInput.spark.identityAssignments, '--out-root', $pipelineInput.spark.outRoot, '--config', '${local.spark_config_local}', '--code-version', $pipelineInput.codeVersion] %}"
+             }
+           }
+         }
+@@ -327,7 +346,7 @@ locals {
+             ActionOnFailure = "TERMINATE_CLUSTER"
+             HadoopJarStep = {
+               Jar  = "command-runner.jar"
+-              Args = "{% ['spark-submit', '--deploy-mode', 'client', '--class', 'org.scholarchain.spark.JsonlExport', $pipelineInput.spark.jar, '--source-run', $pipelineInput.spark.exportSourceRun, '--out-root', $pipelineInput.spark.exportRoot, '--code-version', $pipelineInput.codeVersion] %}"
++              Args = "{% ['spark-submit', '--deploy-mode', 'client', ${local.spark_submit_runtime_jsonata}, '--class', 'org.scholarchain.spark.JsonlExport', $pipelineInput.spark.jar, '--source-run', $pipelineInput.spark.exportSourceRun, '--out-root', $pipelineInput.spark.exportRoot, '--code-version', $pipelineInput.codeVersion] %}"
+             }
+           }
+         }
+diff --git a/scripts/README.md b/scripts/README.md
+index 7c40aee..cccca81 100644
+--- a/scripts/README.md
++++ b/scripts/README.md
+@@ -79,8 +79,8 @@ Run each line as `COMMAND 2>&1 | tee /tmp/p14-DNN.log; echo "exit=${pipestatus[1
+ | D5c | upload the release | `bash scripts/run-bounded-pipeline.sh --stage upload-input --source dblp --snapshot dblp-2026-11-01 --max-upload-mb 1100 --file 'LOCAL_DIR/dblp-2026-11-01.xml.gz'` (the file is 1,064.4 MiB, above the 1024 MiB default; it goes as a multipart upload of 17 parts, see "Large uploads" below; expect 17 `POLL: multipart` lines, then `SUMMARY: multipart ... outcome=uploaded` and `SUMMARY: upload-input ... method=multipart`) |
+ | D6 | Hadoop (EMR) | `bash scripts/run-bounded-pipeline.sh --stage hadoop --snapshot dblp-2026-11-01 --dblp 's3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp-2026-11-01.xml.gz' --hadoop-extra-arg '--dblp-dtd' --hadoop-extra-arg 's3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp.dtd'` (see "DBLP DTD" below); then `aws emr list-clusters --active --query 'length(Clusters)' --output text` prints `0` |
+ | D7 | entity resolution (this machine) | `bash scripts/run-bounded-pipeline.sh --stage er --snapshot dblp-2026-11-01 --hadoop-export 's3://{data-bucket}/curated/hadoop/SCOPE/j09-graph-export/run=HEX' --decision-time 2026-11-14T00:00:00Z --seed 20261114` (the J09 run is in the hadoop record, `run_ids.hadoop_j09_export_runs`); on a slow uplink add `--upload identity-assignments-only` (see "ER upload size" below) |
+-| D8 | Spark graph (EMR) | `bash scripts/run-bounded-pipeline.sh --stage spark --snapshot dblp-2026-11-01 --hadoop-export 's3://{data-bucket}/curated/hadoop/SCOPE/j09-graph-export/run=HEX' --identity-assignments 's3://{data-bucket}/curated/er/ATTEMPT_ID/run=HEX/decisions/identity_assignment' --out-root 's3://{data-bucket}/graph/runs'` (exactly one graph run in `run_ids.graph_runs_under_out_root`); the EMR check as in D6 |
+-| D9 | Spark export (EMR) | the D8 command plus `--export-source-run 's3://{data-bucket}/graph/runs/run=HEX32' --export-root 's3://{data-bucket}/graph/exports'` (the graph job is reused; the export run equals the graph run); the EMR check as in D6 |
++| D8 | Spark graph (EMR) | `bash scripts/run-bounded-pipeline.sh --stage spark --snapshot dblp-2026-11-01 --hadoop-export 's3://{data-bucket}/curated/hadoop/SCOPE/j09-graph-export/run=HEX' --identity-assignments 's3://{data-bucket}/curated/er/ATTEMPT_ID/run=HEX/decisions/identity_assignment' --out-root 's3://{data-bucket}/graph/runs-2'` (exactly one graph run in `run_ids.graph_runs_under_out_root`); the EMR check as in D6. Both Spark steps pass `--driver-memory 6g --conf spark.sql.shuffle.partitions=32` and UI retention limits (`spark.ui.retainedJobs=200`, `retainedStages=200`, `retainedTasks=10000`, `spark.sql.ui.retainedExecutions=50`) to spark-submit (state machine, G-21). The rerun uses the new root `graph/runs-2` because the failed first run left `graph/runs/run=<hex>` without a manifest, which the job refuses (`Output.scala:402-406`) |
++| D9 | Spark export (EMR) | the D8 command plus `--export-source-run 's3://{data-bucket}/graph/runs-2/run=HEX32' --export-root 's3://{data-bucket}/graph/exports'` (the graph job is reused; the export run equals the graph run); the EMR check as in D6 |
+ | D10 | runtime-on plan and sign | `bash scripts/plan.sh --runtime-enabled true --image-tag "$BUILD" --graph-run-id run:v1:HEX32` (HEX32 = the SPARK graph run of D8/D9, never the Neptune CSV folder); no stateful delete or replace in the summary; sign in `approvals.md` as in D0a |
+ | D11 | runtime-on deploy | `bash scripts/deploy.sh --plan-sha256 HEX64`, then commit the release record. Rollback policy: see "First runtime-on deploy" below |
+ | D12 | readiness (information) | `/readyz` answers 200 on empty stores (it proves reachability and IAM, not loaded data) |
