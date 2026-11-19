@@ -27,3 +27,11 @@ D6 attempt 2 failed: the pipeline state machine role lacked elasticmapreduce:Add
 I approve this plan to be applied with my own admin profile (default). Signed: Brian, Nov 18, 2026
 
 APPROVED-PLAN-SHA256: 5c77365f770a5cf85507194a07915d7b0b7f223d6b31ca7aeb434fdaea19cc12
+
+## Runtime-off plan, attempt 5 (G-21)
+
+D8 attempt 1 failed: the Spark driver ran out of memory on EMR with the default 2 GiB heap (G-21, fixed in 20e79f3). This plan was made at 20e79f3 in us-east-1: 0 create, 1 in-place update (pipeline state machine definition: driver memory 6g, shuffle partitions 32 and UI retention for the two Spark steps), 0 delete, 0 replace. No IAM, network or stateful change. Build commit stays f159535e.
+
+I approve this plan. Signed: Brian, Nov 19, 2026
+
+APPROVED-PLAN-SHA256: 619576314f4bcf324397381de79c70d6fde794873770ed526a676f870fdf8975
