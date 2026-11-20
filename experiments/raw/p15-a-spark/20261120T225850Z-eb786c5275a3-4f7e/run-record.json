@@ -1,0 +1,107 @@
+{
+  "kind": "scholarchain-experiment-run-record",
+  "version": 1,
+  "status": "succeeded",
+  "attempt_id": "20261120T225850Z-eb786c5275a3-4f7e",
+  "exit_code": 0,
+  "failed_step": null,
+  "signal": null,
+  "head": "eb786c5275a36130302a2daaf60aa339c33c19da",
+  "build_commit": "684636ef997ee041912e2b57d1c597ded8e9778d",
+  "region": "us-east-1",
+  "manifest": {
+    "path": "experiments/manifests/p15-a-spark.json",
+    "manifest_id": "p15-a-spark",
+    "sha256": "1875db33a1f57632e9fcec579dcce3f1c717139ac1cba13c685ed654588f9531",
+    "experiment": "A",
+    "dataset_snapshot": "dblp-2026-11-01 (DBLP XML with dblp.dtd), subset rule dblp-subset-v1 (datasets/dataset-manifest.yaml); Spark inputs reused from Phase 14 (J09 run=ce46078e05b80d2d5e119939b7d04306, ER run=23b913cc4dab1155d7a75c505eff5d56)"
+  },
+  "declared_not_enforced": {
+    "costBoundUsd": 1.5,
+    "maxDurationSeconds": 17400,
+    "resourceLimits": {
+      "emrManagedScalingMinUnits": 2,
+      "emrManagedScalingMaxUnits": 2,
+      "sparkShufflePartitions": 32,
+      "ecsMaxTasks": 0,
+      "emrUnitType": "Instances (core nodes; the primary node is outside the limits)",
+      "pipelineWaitTimeoutSeconds": 14700,
+      "stateMachineTimeoutSeconds": 14400,
+      "emrIdleTimeoutSeconds": 900,
+      "terraformSource": "infra/terraform/environments/course/variables.tf (emr_managed_scaling_min_units 2, emr_managed_scaling_max_units 4); execution-input fields cluster.managedScalingMaxUnits and spark.shufflePartitions (8..512) resolved and bounded in state ReadInput (infra/terraform/modules/workflow/sfn.tf); infra/terraform/modules/workflow/variables.tf (pipeline_timeout_seconds 14400); infra/terraform/modules/emr/variables.tf (idle_timeout_seconds)"
+    }
+  },
+  "started_utc": "2026-11-20T22:58:50Z",
+  "ended_utc": "2026-11-20T23:41:42Z",
+  "metrics_export_of": null,
+  "action": {
+    "kind": "command",
+    "path": "experiments/collectors/ab-pipeline.sh",
+    "args": [
+      "--stage",
+      "spark",
+      "--snapshot",
+      "dblp-2026-11-01",
+      "--hadoop-export",
+      "s3://{data-bucket}/curated/hadoop/linked/dblp-dblp-2026-11-01/j09-graph-export/run=ce46078e05b80d2d5e119939b7d04306",
+      "--identity-assignments",
+      "s3://{data-bucket}/curated/er/20261119T020635Z-f159535e498a-5bd1/run=23b913cc4dab1155d7a75c505eff5d56/decisions/identity_assignment",
+      "--out-root",
+      "s3://{data-bucket}/graph/runs-p15-a/{attempt-id}",
+      "--emr-max-units",
+      "2",
+      "--spark-shuffle-partitions",
+      "32",
+      "--wait-timeout",
+      "14700"
+    ],
+    "resolved_args": [
+      "--stage",
+      "spark",
+      "--snapshot",
+      "dblp-2026-11-01",
+      "--hadoop-export",
+      "s3://{data-bucket}/curated/hadoop/linked/dblp-dblp-2026-11-01/j09-graph-export/run=ce46078e05b80d2d5e119939b7d04306",
+      "--identity-assignments",
+      "s3://{data-bucket}/curated/er/20261119T020635Z-f159535e498a-5bd1/run=23b913cc4dab1155d7a75c505eff5d56/decisions/identity_assignment",
+      "--out-root",
+      "s3://{data-bucket}/graph/runs-p15-a/20261120T225850Z-eb786c5275a3-4f7e",
+      "--emr-max-units",
+      "2",
+      "--spark-shuffle-partitions",
+      "32",
+      "--wait-timeout",
+      "14700"
+    ],
+    "run": true,
+    "exit_code": 0,
+    "window_epoch": {
+      "start": 1795215530,
+      "end": 1795217800
+    }
+  },
+  "nested_run_records": [
+    {
+      "path": "evidence/runs/20261120T225853Z-eb786c5275a3-f35e-spark.json",
+      "copy": "nested/20261120T225853Z-eb786c5275a3-f35e-spark.json",
+      "sha256": "d0ce00cde2c96146a4ee3a41c13d3b278291452c04944607f71a1c2f911441cc"
+    }
+  ],
+  "remote_ids": {
+    "execution_names": [
+      "20261120T225853Z-eb786c5275a3-f35e-spark"
+    ],
+    "emr_cluster_ids": [
+      "j-0156143328PILM02OMF9"
+    ]
+  },
+  "metrics": {
+    "status": "exported",
+    "files": [
+      "experiments/raw/p15-a-spark/20261120T225850Z-eb786c5275a3-4f7e/metrics/queries.json",
+      "experiments/raw/p15-a-spark/20261120T225850Z-eb786c5275a3-4f7e/metrics/metric-data.json"
+    ],
+    "unresolved": []
+  },
+  "raw_results_location": "experiments/raw/p15-a-spark/20261120T225850Z-eb786c5275a3-4f7e"
+}

@@ -1,0 +1,2 @@
+epoch_s,embedding_visible,embedding_in_flight,job_visible,job_in_flight,worker_desired,worker_running,worker_pending,scaling_in_progress,met,unmet_reasons
+1795215452,0,0,0,0,0,0,0,0,yes,

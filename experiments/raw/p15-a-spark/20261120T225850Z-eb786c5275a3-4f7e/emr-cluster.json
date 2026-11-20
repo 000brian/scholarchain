@@ -1,0 +1,16 @@
+{
+  "clusters": [
+    {
+      "clusterId": "j-0156143328PILM02OMF9",
+      "createdEpoch": 1795215536,
+      "readyEpoch": 1795215823,
+      "terminationRequestedEpoch": 1795217647,
+      "terminationRequestedSource": "Step Functions history: TaskScheduled of elasticmapreduce terminateCluster",
+      "endedEpoch": 1795217737,
+      "finalState": "TERMINATED",
+      "stateChangeReasonCode": "USER_REQUEST",
+      "releaseLabel": "emr-spark-8.1.0",
+      "managedScalingComputeLimits": null
+    }
+  ]
+}

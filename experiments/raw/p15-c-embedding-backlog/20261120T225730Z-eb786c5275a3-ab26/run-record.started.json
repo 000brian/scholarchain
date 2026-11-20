@@ -1,0 +1,68 @@
+{
+  "kind": "scholarchain-experiment-run-record",
+  "version": 1,
+  "status": "started",
+  "attempt_id": "20261120T225730Z-eb786c5275a3-ab26",
+  "exit_code": null,
+  "failed_step": null,
+  "signal": null,
+  "head": "eb786c5275a36130302a2daaf60aa339c33c19da",
+  "build_commit": "684636ef997ee041912e2b57d1c597ded8e9778d",
+  "region": "us-east-1",
+  "manifest": {
+    "path": "experiments/manifests/p15-c-embedding-backlog.json",
+    "manifest_id": "p15-c-embedding-backlog",
+    "sha256": "36352e8fcdf6287a41b66e386f045f81d88db864a7f07e0169c7a6efa5101ab8",
+    "experiment": "C",
+    "dataset_snapshot": "dblp-2026-11-01 (DBLP XML with dblp.dtd), subset rule dblp-subset-v1 (datasets/dataset-manifest.yaml); the researcher-profile-v1 vectors of the Phase 14 export run=f2625d504b12749389cf4f5b1a26aed4"
+  },
+  "declared_not_enforced": {
+    "costBoundUsd": 0.5,
+    "maxDurationSeconds": 7700,
+    "resourceLimits": {
+      "maxQueueMessages": 19200,
+      "ecsMaxTasks": 2,
+      "workerMaxCount": 2,
+      "workerScaleInMinutes": 5,
+      "workerOutCooldownSeconds": 120,
+      "embeddingMaxReceiveCount": 5,
+      "waitLimitSeconds": 5500,
+      "workerEmbeddingConcurrency": 2,
+      "settleLimitSeconds": 900,
+      "terraformSource": "infra/terraform/modules/runtime/variables.tf (worker_max_count 2, worker_scale_in_minutes 5) and autoscaling.tf (worker_out step +1, cooldown 120 s; scale-out alarms on both queues, 60 s, >= 1; scale-in alarm on the sum of visible and in-flight of both queues, 5 of 5, breaching); infra/terraform/modules/workflow/variables.tf (embedding_max_receive_count 5, embedding_visibility_seconds 300); config/course.json embedding.requestsPerMinute 300, tokensPerMinute 1000000, batchSize 64; worker embedding-loop concurrency 2 (ServiceLimits.EmbeddingWorkerConcurrency, services constant, no config key)"
+    }
+  },
+  "started_utc": "2026-11-20T22:57:30Z",
+  "ended_utc": null,
+  "metrics_export_of": null,
+  "action": {
+    "kind": "command",
+    "path": "experiments/collectors/c-embedding-backlog.sh",
+    "args": [
+      "--count",
+      "19200",
+      "--wait-limit-seconds",
+      "5500",
+      "--index",
+      "researcher-profile-v1"
+    ],
+    "resolved_args": null,
+    "run": true,
+    "exit_code": null,
+    "window_epoch": {
+      "start": null,
+      "end": null
+    }
+  },
+  "nested_run_records": [],
+  "remote_ids": {
+    "execution_names": [],
+    "emr_cluster_ids": []
+  },
+  "metrics": {
+    "status": "not-run",
+    "files": [],
+    "unresolved": []
+  },
+  "raw_results_location": "experiments/raw/p15-c-embedding-backlog/20261120T225730Z-eb786c5275a3-ab26"
+}

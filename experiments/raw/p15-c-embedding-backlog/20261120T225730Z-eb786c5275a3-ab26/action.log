@@ -1,0 +1,52 @@
+STEP: c-embedding-backlog.sh prerequisites
+INFO: c-embedding-backlog.sh tool sha256 5a9e895142fc2734921fbaba69dd3e29afe8f3e834dbbdbe3e9d5d2b7592b8f5; attempt 20261120T225730Z-eb786c5275a3-ab26; preflight false
+STEP: c-embedding-backlog.sh out-dir
+STEP: c-embedding-backlog.sh terraform-outputs
+INFO: c-embedding-backlog.sh terraform outputs read (values kept in memory, not shown)
+STEP: c-embedding-backlog.sh names
+INFO: c-embedding-backlog.sh expected stored embeddingModel voyage/voyage-4/1024/document/emb-v1, embeddingDimensions 1024 (config/course.json + EmbeddingModelSpec.id)
+INFO: c-embedding-backlog.sh ECS cluster scholarchain-course-runtime, worker worker, index researcher-profile-v1, N 19200, wait limit 5500s; URLs and table names read (not shown)
+STEP: c-embedding-backlog.sh preconditions
+SETTLE: poll=1 MET (embedding=0/0 job=0/0 worker=0/0/0 scaling_in_progress=0)
+STEP: c-embedding-backlog.sh baseline
+BASELINE: embedding-dlq visible=1; job-dlq visible=0; dlq alarm ALARM; embedding=0/0 job=0/0 worker=0/0/0 scaling_in_progress=0
+STEP: c-embedding-backlog.sh select-keys
+SELECTION: index=researcher-profile-v1 source=ArtifactRegistry scan_calls=20 items_scanned=98000 items_matched=20000 unique_keys=20000 taken=19200 wanted=19200
+STEP: c-embedding-backlog.sh registry-sample
+SAMPLE: keys=20 eligible=20 not_eligible=0 (latest registry versions; expected embeddingModel voyage/voyage-4/1024/document/emb-v1, embeddingDimensions 1024)
+STEP: c-embedding-backlog.sh send
+SENT: ok=19200 failed=0 calls=1920 seconds=1164 broken=false
+STEP: c-embedding-backlog.sh wait
+POLL: embedding=16/22 worker desired=2 running=2 elapsed=1165s
+DRAINED: embedding queue empty 1182s after the first send
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1182s
+POLL: embedding=8/26 worker desired=2 running=2 elapsed=1198s
+DRAINED: embedding queue empty 1214s after the first send
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1214s
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1231s
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1247s
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1263s
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1280s
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1296s
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1312s
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1329s
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1345s
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1361s
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1378s
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1394s
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1410s
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1427s
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1443s
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1459s
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1475s
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1492s
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1508s
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1524s
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1541s
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1557s
+POLL: embedding=0/0 worker desired=2 running=2 elapsed=1574s
+POLL: embedding=0/0 worker desired=0 running=2 elapsed=1590s
+BACK-TO-ZERO: worker desired 0 running 0 392s after the queue emptied
+STEP: c-embedding-backlog.sh worker-log-outcomes
+SEQUENCE: 0->1 at 1795215699; reached 2 at 1795215866; back to 0 at 1795217099; max desired 2
+RESULT: c-embedding-backlog.sh ok

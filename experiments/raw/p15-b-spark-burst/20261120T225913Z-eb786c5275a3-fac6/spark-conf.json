@@ -1,0 +1,10 @@
+{
+  "runId": "run:v1:0f02b5f22d1187932df0fc1decd7e6a5",
+  "sparkConf": {
+    "spark.master": "yarn",
+    "spark.sql.shuffle.partitions": "128",
+    "spark.default.parallelism": null,
+    "spark.sql.autoBroadcastJoinThreshold": "-1",
+    "spark.sql.adaptive.enabled": "true"
+  }
+}

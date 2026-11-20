@@ -1,0 +1,344 @@
+[
+  {
+    "Id": "m0_0",
+    "Label": "AWS/ElasticMapReduce CoreNodesRequested Maximum JobFlowId=j-01156902UW7NYAFY518T",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "CoreNodesRequested",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-01156902UW7NYAFY518T"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m1_0",
+    "Label": "AWS/ElasticMapReduce CoreNodesRunning Maximum JobFlowId=j-01156902UW7NYAFY518T",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "CoreNodesRunning",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-01156902UW7NYAFY518T"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m2_0",
+    "Label": "AWS/ElasticMapReduce CoreNodesPending Maximum JobFlowId=j-01156902UW7NYAFY518T",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "CoreNodesPending",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-01156902UW7NYAFY518T"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m3_0",
+    "Label": "AWS/ElasticMapReduce TotalNodesRequested Maximum JobFlowId=j-01156902UW7NYAFY518T",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "TotalNodesRequested",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-01156902UW7NYAFY518T"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m4_0",
+    "Label": "AWS/ElasticMapReduce TotalNodesRunning Maximum JobFlowId=j-01156902UW7NYAFY518T",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "TotalNodesRunning",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-01156902UW7NYAFY518T"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m5_0",
+    "Label": "AWS/ElasticMapReduce TaskNodesRequested Maximum JobFlowId=j-01156902UW7NYAFY518T",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "TaskNodesRequested",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-01156902UW7NYAFY518T"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m6_0",
+    "Label": "AWS/ElasticMapReduce TaskNodesRunning Maximum JobFlowId=j-01156902UW7NYAFY518T",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "TaskNodesRunning",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-01156902UW7NYAFY518T"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m7_0",
+    "Label": "AWS/ElasticMapReduce ContainerPending Maximum JobFlowId=j-01156902UW7NYAFY518T",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "ContainerPending",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-01156902UW7NYAFY518T"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m8_0",
+    "Label": "AWS/ElasticMapReduce ContainerPendingRatio Maximum JobFlowId=j-01156902UW7NYAFY518T",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "ContainerPendingRatio",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-01156902UW7NYAFY518T"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m9_0",
+    "Label": "AWS/ElasticMapReduce ContainerAllocated Maximum JobFlowId=j-01156902UW7NYAFY518T",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "ContainerAllocated",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-01156902UW7NYAFY518T"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m10_0",
+    "Label": "AWS/ElasticMapReduce AppsPending Maximum JobFlowId=j-01156902UW7NYAFY518T",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "AppsPending",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-01156902UW7NYAFY518T"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m11_0",
+    "Label": "AWS/ElasticMapReduce AppsRunning Maximum JobFlowId=j-01156902UW7NYAFY518T",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "AppsRunning",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-01156902UW7NYAFY518T"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m12_0",
+    "Label": "AWS/ElasticMapReduce YARNMemoryAvailablePercentage Minimum JobFlowId=j-01156902UW7NYAFY518T",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "YARNMemoryAvailablePercentage",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-01156902UW7NYAFY518T"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Minimum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m13_0",
+    "Label": "AWS/States ExecutionsStarted Sum StateMachineArn={state-machine-arn}",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/States",
+        "MetricName": "ExecutionsStarted",
+        "Dimensions": [
+          {
+            "Name": "StateMachineArn",
+            "Value": "{state-machine-arn}"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m14_0",
+    "Label": "AWS/States ExecutionsSucceeded Sum StateMachineArn={state-machine-arn}",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/States",
+        "MetricName": "ExecutionsSucceeded",
+        "Dimensions": [
+          {
+            "Name": "StateMachineArn",
+            "Value": "{state-machine-arn}"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m15_0",
+    "Label": "AWS/States ExecutionsFailed Sum StateMachineArn={state-machine-arn}",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/States",
+        "MetricName": "ExecutionsFailed",
+        "Dimensions": [
+          {
+            "Name": "StateMachineArn",
+            "Value": "{state-machine-arn}"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m16_0",
+    "Label": "AWS/States ExecutionsTimedOut Sum StateMachineArn={state-machine-arn}",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/States",
+        "MetricName": "ExecutionsTimedOut",
+        "Dimensions": [
+          {
+            "Name": "StateMachineArn",
+            "Value": "{state-machine-arn}"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m17_0",
+    "Label": "AWS/States ExecutionTime Maximum StateMachineArn={state-machine-arn}",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/States",
+        "MetricName": "ExecutionTime",
+        "Dimensions": [
+          {
+            "Name": "StateMachineArn",
+            "Value": "{state-machine-arn}"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  }
+]

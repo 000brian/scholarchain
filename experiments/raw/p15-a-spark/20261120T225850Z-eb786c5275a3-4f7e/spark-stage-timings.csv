@@ -1,0 +1,14 @@
+run_id,stage,millis
+run:v1:0f02b5f22d1187932df0fc1decd7e6a5,decode-inputs,59328
+run:v1:0f02b5f22d1187932df0fc1decd7e6a5,canonical-graph,72222
+run:v1:0f02b5f22d1187932df0fc1decd7e6a5,vertex-index,21095
+run:v1:0f02b5f22d1187932df0fc1decd7e6a5,window:full-2015-2025,268776
+run:v1:0f02b5f22d1187932df0fc1decd7e6a5,window:w2015-2017,102576
+run:v1:0f02b5f22d1187932df0fc1decd7e6a5,window:w2018-2020,118330
+run:v1:0f02b5f22d1187932df0fc1decd7e6a5,window:w2021-2023,163982
+run:v1:0f02b5f22d1187932df0fc1decd7e6a5,window:w2024-2025,172708
+run:v1:0f02b5f22d1187932df0fc1decd7e6a5,paths-diameter,165480
+run:v1:0f02b5f22d1187932df0fc1decd7e6a5,semantic-summaries,22100
+run:v1:0f02b5f22d1187932df0fc1decd7e6a5,integrity,90690
+run:v1:0f02b5f22d1187932df0fc1decd7e6a5,temporal-change,3559
+run:v1:0f02b5f22d1187932df0fc1decd7e6a5,verify-outputs,130762

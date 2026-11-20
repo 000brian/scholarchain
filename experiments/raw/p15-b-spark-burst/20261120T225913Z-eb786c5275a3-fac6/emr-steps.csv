@@ -1,0 +1,3 @@
+cluster_id,step_name,state,start_epoch,end_epoch,failure_reported
+j-01156902UW7NYAFY518T,scholarchain-spark-graph-analytics,COMPLETED,1795215969,1795217385,yes
+j-01156902UW7NYAFY518T,scholarchain-spark-job-config,COMPLETED,1795215913,1795215917,yes

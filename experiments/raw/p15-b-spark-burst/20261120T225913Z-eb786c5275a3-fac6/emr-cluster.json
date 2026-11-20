@@ -1,0 +1,22 @@
+{
+  "clusters": [
+    {
+      "clusterId": "j-01156902UW7NYAFY518T",
+      "createdEpoch": 1795215559,
+      "readyEpoch": 1795215877,
+      "terminationRequestedEpoch": 1795217394,
+      "terminationRequestedSource": "Step Functions history: TaskScheduled of elasticmapreduce terminateCluster",
+      "endedEpoch": 1795217468,
+      "finalState": "TERMINATED",
+      "stateChangeReasonCode": "USER_REQUEST",
+      "releaseLabel": "emr-spark-8.1.0",
+      "managedScalingComputeLimits": {
+        "UnitType": "Instances",
+        "MinimumCapacityUnits": 2,
+        "MaximumCapacityUnits": 4,
+        "MaximumOnDemandCapacityUnits": 4,
+        "MaximumCoreCapacityUnits": 4
+      }
+    }
+  ]
+}

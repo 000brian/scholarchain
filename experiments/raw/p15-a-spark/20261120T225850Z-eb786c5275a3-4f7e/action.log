@@ -1,0 +1,73 @@
+STEP: ab-pipeline.sh prerequisites
+INFO: ab-pipeline.sh tool sha256 725cebaef196851384649336f1edfe51579eebddcb521dbe235033e635f176a6; attempt 20261120T225850Z-eb786c5275a3-4f7e; preflight false
+STEP: ab-pipeline.sh out-dir
+STEP: ab-pipeline.sh terraform-outputs
+INFO: ab-pipeline.sh terraform outputs read (values kept in memory, not shown)
+STEP: ab-pipeline.sh pipeline
+STEP: run-bounded-pipeline.sh prerequisites
+STEP: run-bounded-pipeline.sh clean-tree
+INFO: run-bounded-pipeline.sh HEAD eb786c5275a36130302a2daaf60aa339c33c19da; code version (build commit) 684636ef997ee041912e2b57d1c597ded8e9778d
+STEP: run-bounded-pipeline.sh terraform-outputs
+INFO: run-bounded-pipeline.sh account ********2972, Region us-east-1, data-lake bucket <data-bucket> (from terraform output)
+STEP: run-bounded-pipeline.sh record
+ATTEMPT: 20261120T225853Z-eb786c5275a3-f35e
+STEP: run-bounded-pipeline.sh spark-inputs
+INFO: run-bounded-pipeline.sh ER run record evidence/runs/20261119T020635Z-f159535e498a-5bd1-er.json says succeeded
+INPUT: {"codeVersion":"684636ef997ee041912e2b57d1c597ded8e9778d","spark":{"jar":"s3://{data-bucket}/artifacts/684636ef997ee041912e2b57d1c597ded8e9778d/jars/spark-analytics.jar","config":"s3://{data-bucket}/artifacts/684636ef997ee041912e2b57d1c597ded8e9778d/spark-conf/phase06.json","hadoopExport":"s3://{data-bucket}/curated/hadoop/linked/dblp-dblp-2026-11-01/j09-graph-export/run=ce46078e05b80d2d5e119939b7d04306","identityAssignments":"s3://{data-bucket}/curated/er/20261119T020635Z-f159535e498a-5bd1/run=23b913cc4dab1155d7a75c505eff5d56/decisions/identity_assignment","outRoot":"s3://{data-bucket}/graph/runs-p15-a/20261120T225850Z-eb786c5275a3-4f7e","shufflePartitions":32},"cluster":{"managedScalingMaxUnits":2}}
+STEP: run-bounded-pipeline.sh start-execution
+EXECUTION: name=20261120T225853Z-eb786c5275a3-f35e-spark started=2026-11-20T16:58:56.523000-06:00
+STEP: run-bounded-pipeline.sh wait-execution
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=1s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=61s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=122s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=182s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=243s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=304s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=364s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=425s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=486s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=546s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=607s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=667s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=728s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=789s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=849s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=910s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=970s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=1031s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=1092s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=1152s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=1213s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=1274s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=1334s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=1395s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=1456s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=1516s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=1577s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=1638s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=1698s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=1759s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=1820s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=1880s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=1941s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=2002s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=2062s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=2123s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=RUNNING elapsed_wait=2184s
+POLL: name=20261120T225853Z-eb786c5275a3-f35e-spark status=SUCCEEDED elapsed_wait=2245s
+STEP: run-bounded-pipeline.sh execution-result
+INFO: run-bounded-pipeline.sh EMR clusters of this execution: j-0156143328PILM02OMF9
+RESULT-STATUS: SUCCEEDED
+STEP: run-bounded-pipeline.sh spark-outputs
+INFO: run-bounded-pipeline.sh graph runs under the out-root: s3://{data-bucket}/graph/runs-p15-a/20261120T225850Z-eb786c5275a3-4f7e/run=0f02b5f22d1187932df0fc1decd7e6a5
+STEP: run-bounded-pipeline.sh done
+RUN-RECORD: evidence/runs/20261120T225853Z-eb786c5275a3-f35e-spark.json
+RESULT: run-bounded-pipeline.sh ok
+INFO: ab-pipeline.sh the pipeline ended with exit 0
+STEP: ab-pipeline.sh nested-record
+INFO: ab-pipeline.sh nested record evidence/runs/20261120T225853Z-eb786c5275a3-f35e-spark.json (status succeeded)
+STEP: ab-pipeline.sh sfn-history
+STEP: ab-pipeline.sh emr
+STEP: ab-pipeline.sh spark-run-reports
+STEP: ab-pipeline.sh checklist
+RESULT: ab-pipeline.sh ok

@@ -1,0 +1,144 @@
+{
+  "kind": "scholarchain-collector-tool-record",
+  "version": 1,
+  "tool": "c-embedding-backlog.sh",
+  "tool_path": "experiments/collectors/c-embedding-backlog.sh",
+  "tool_sha256": "5a9e895142fc2734921fbaba69dd3e29afe8f3e834dbbdbe3e9d5d2b7592b8f5",
+  "arguments": [
+    "--count",
+    "19200",
+    "--wait-limit-seconds",
+    "5500",
+    "--index",
+    "researcher-profile-v1"
+  ],
+  "attempt_id": "20261120T225730Z-eb786c5275a3-ab26",
+  "manifest_id": "p15-c-embedding-backlog",
+  "region": "us-east-1",
+  "start_epoch_s": 1795215450,
+  "end_epoch_s": 1795217108,
+  "status": "completed",
+  "exit_code": 0,
+  "exit_meaning": "ran (observation recorded)",
+  "limits": {
+    "count": 19200,
+    "max_count": 20000,
+    "wait_limit_s": 5500,
+    "settle_limit_s": 900,
+    "settle_poll_s": 30,
+    "sample_poll_s": 15,
+    "registry_sample_keys": 20,
+    "log_count_limit_s": 300,
+    "batch_size": 10,
+    "note": "N and the wait limit are manifest arguments (6b provisional, 6c final)",
+    "embedding_max_receive_count": "5",
+    "embedding_visibility_timeout_s": "300"
+  },
+  "baseline": {
+    "epoch_s": 1795215457,
+    "embedding_dlq": {
+      "visible": 1,
+      "in_flight": 0
+    },
+    "job_dlq": {
+      "visible": 0,
+      "in_flight": 0
+    },
+    "embedding_dlq_alarm_state": "ALARM",
+    "settled_state": "embedding=0/0 job=0/0 worker=0/0/0 scaling_in_progress=0",
+    "note": "after experiment F the embedding DLQ is not 0; C compares with this baseline"
+  },
+  "selection": {
+    "index": "researcher-profile-v1",
+    "source": "DynamoDB ArtifactRegistry (M-01: the vector bucket policy denies the S3 Vectors data plane to this principal)",
+    "rule": "the first N unique pk artifact#vector#INDEX/KEY in scan order (read-only Scan, FilterExpression begins_with(pk), projection pk, eventually consistent, page size 1000, duplicates of one key dropped keeping the first)",
+    "count": 19200,
+    "keys_sha256": "57c3981c81b07e2406d2c95ad2578a65c361b115d585c5f85c5eece6f51819d6",
+    "scan": {
+      "calls": 20,
+      "items_scanned": 98000,
+      "items_matched": 20000,
+      "unique_keys_seen": 20000
+    },
+    "registry_sample": {
+      "keys": 20,
+      "every_nth": 960,
+      "eligible": 20,
+      "not_eligible": 0,
+      "expected_embedding_model": "voyage/voyage-4/1024/document/emb-v1",
+      "expected_embedding_dimensions": 1024,
+      "checked": "latest registry version (Query ScanIndexForward=false Limit 1): textHash, embeddingModel, embeddingDimensions present; embeddingModel equal to expected_embedding_model (the document-side EmbeddingModelSpec.id built from config/course.json embedding.provider, models.embeddingModelId, embedding.dimensions and the rag spec version, L-02) and embeddingDimensions equal to config/course.json. The vector metadata is checked by the handler (permanent failure on a missing field, counted as a workload failure)"
+    }
+  },
+  "counts": {
+    "settle_polls": 1,
+    "registry_scan_calls": 20,
+    "registry_items_scanned": 98000,
+    "registry_items_matched": 20000,
+    "sent_ok": 19200,
+    "send_failed_entries": 0,
+    "send_calls": 1920,
+    "drain_seconds": 1214,
+    "scale_in_after_drain_seconds": 392,
+    "embedding_dlq_visible_end": "1"
+  },
+  "observation": {
+    "sequence": {
+      "scale_out_0_to_1_epoch_s": 1795215699,
+      "reached_2_epoch_s": 1795215866,
+      "back_to_0_epoch_s": 1795217099,
+      "max_desired": 2,
+      "first_send_epoch_s": 1795215491,
+      "said_plainly": "",
+      "source": "service-samples.csv (describe-services every 15 s); scaling-activities.csv records the actual ECS actions; an alarm in ALARM alone is not a scaling event"
+    },
+    "result": "drained and back to 0 (see sequence)"
+  },
+  "evidence": {
+    "worker_log_outcomes": "1 outcome kinds (worker-outcomes.csv)",
+    "task_counts": "service-samples.csv (describe-services every 15 s) and scaling-activities.csv; Container Insights is off"
+  },
+  "errors": [],
+  "files": [
+    {
+      "name": "settle.csv",
+      "sha256": "98ef13a1688162be12647c01da767010d6cac1f9251cb3efabb2b7b9e00739d0"
+    },
+    {
+      "name": "clock.csv",
+      "sha256": "5f2a0dbcd4d3f4dd78de0bd317c4915c4d3b53e674ec29cb288aab92993e6503"
+    },
+    {
+      "name": "sample-check.csv",
+      "sha256": "70b75b604bef7f44a0e59090f9183471844cdfbc518f26346e727aa8806ae017"
+    },
+    {
+      "name": "selected-keys.txt",
+      "sha256": "57c3981c81b07e2406d2c95ad2578a65c361b115d585c5f85c5eece6f51819d6"
+    },
+    {
+      "name": "queue-samples.csv",
+      "sha256": "d1c2c6978adb1c2897b9d789913a355b55dd9a3fa73d31e3dab4e5beda637d35"
+    },
+    {
+      "name": "service-samples.csv",
+      "sha256": "4eab4c08f7709a290d526db3b2d713fcc404c994927e1eeb0c821e63586f82b8"
+    },
+    {
+      "name": "alarm-samples.csv",
+      "sha256": "08645196a133bdfb43c589d61db4c36faf8e359a359dae23ee580f894d1b3133"
+    },
+    {
+      "name": "scaling-activities.csv",
+      "sha256": "b2489afa6aab75b829ec69e1be65b3c38cf1dc339a858a4631a34fbd81a85f9c"
+    },
+    {
+      "name": "sends.csv",
+      "sha256": "27d37a1b4034990083dd11fffb113e4ac6f0dc0787dfab3d9e9a5a5b02b13f71"
+    },
+    {
+      "name": "worker-outcomes.csv",
+      "sha256": "cf474cae770d5ac89a5a0591cd7a7bfc8cddd99c8e46ad6c7b57da5e212111fb"
+    }
+  ]
+}

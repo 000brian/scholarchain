@@ -1,0 +1,103 @@
+{
+  "kind": "scholarchain-collector-tool-record",
+  "version": 1,
+  "tool": "ab-pipeline.sh",
+  "tool_path": "experiments/collectors/ab-pipeline.sh",
+  "tool_sha256": "725cebaef196851384649336f1edfe51579eebddcb521dbe235033e635f176a6",
+  "arguments": [
+    "--stage",
+    "spark",
+    "--snapshot",
+    "dblp-2026-11-01",
+    "--hadoop-export",
+    "s3://{data-bucket}/curated/hadoop/linked/dblp-dblp-2026-11-01/j09-graph-export/run=ce46078e05b80d2d5e119939b7d04306",
+    "--identity-assignments",
+    "s3://{data-bucket}/curated/er/20261119T020635Z-f159535e498a-5bd1/run=23b913cc4dab1155d7a75c505eff5d56/decisions/identity_assignment",
+    "--out-root",
+    "s3://{data-bucket}/graph/runs-p15-b/20261120T225913Z-eb786c5275a3-fac6",
+    "--emr-max-units",
+    "4",
+    "--spark-shuffle-partitions",
+    "128",
+    "--wait-timeout",
+    "14700"
+  ],
+  "attempt_id": "20261120T225913Z-eb786c5275a3-fac6",
+  "manifest_id": "p15-b-spark-burst",
+  "region": "us-east-1",
+  "start_epoch_s": 1795215553,
+  "end_epoch_s": 1795217582,
+  "status": "completed",
+  "exit_code": 0,
+  "exit_meaning": "ran (observation recorded)",
+  "limits": {
+    "stage": "spark",
+    "emr_max_units_arg": "4",
+    "spark_shuffle_partitions_arg": "128",
+    "cluster_end_wait_s": 900,
+    "step_log_wait_s": 600,
+    "remote_bounds": "state machine TimeoutSeconds (pipeline_timeout_seconds 14400), EMR managed-scaling maximum, EMR idle end 900 s (Terraform)"
+  },
+  "baseline": {},
+  "selection": null,
+  "counts": {
+    "spark_run_reports": 1,
+    "instance_seconds": "8380",
+    "estimated_cost_usd": "0.56 (estimate)",
+    "pipeline_exit": 0,
+    "pipeline_started_epoch_s": 1795215554
+  },
+  "observation": {
+    "result": "pipeline exit 0; capacity over time is read from the exported metrics (requested, running, released); see ab-evidence.json"
+  },
+  "evidence": {},
+  "errors": [
+    "list-instance-groups-cli-exit-252:ParamValidation"
+  ],
+  "files": [
+    {
+      "name": "clock.csv",
+      "sha256": "e4a433ed8da3f73fc1cf05e76583202cafa522774edc7808c6129ba17ff3f257"
+    },
+    {
+      "name": "sfn-events.csv",
+      "sha256": "18647f8d7b44087e6c7a096e6d4fd9d4aad11f19694701cef8e613c3a9f94f8f"
+    },
+    {
+      "name": "emr-instance-groups.csv",
+      "sha256": "93b7bcc6a5dcb1182e9d2a90fef15da805e05aa266886fff92b74ea803a3716b"
+    },
+    {
+      "name": "emr-instances.csv",
+      "sha256": "128ff40a481cf970960e07f9458519ca38a61a8bc2a4547aa2cb055541e98610"
+    },
+    {
+      "name": "emr-steps.csv",
+      "sha256": "5f2f048d4186450f4c7018fa609c8719c9b2fbe91d4abfe59458d517a6c74f44"
+    },
+    {
+      "name": "emr-cluster.json",
+      "sha256": "a6efe6b1803e0c644475fd64b54b80b570f92e4c619a7a33282bcacf0eba62ec"
+    },
+    {
+      "name": "spark-stage-metrics.csv",
+      "sha256": "d303af042db50f24fee510eb9a040088d5874ed22f660ac3cda69cfdc2923822"
+    },
+    {
+      "name": "spark-stage-timings.csv",
+      "sha256": "38f39fe185c4ed806b385384050ca3ba7dbab9ff79fcc4d6e063e264c005494c"
+    },
+    {
+      "name": "spark-outputs.csv",
+      "sha256": "ad70f64017cd4a071d1ab1a8dd8b7b121149e342059e8e1a856da3a695dedc6d"
+    },
+    {
+      "name": "spark-conf.json",
+      "sha256": "3074354033560a3156e9d1cae115b0498ff3417407f0d2837857c8b6c7b419f3"
+    },
+    {
+      "name": "ab-evidence.json",
+      "sha256": "6ba9d418ef463b4a88e65220659d559358be2caac3d458647ad9da3a759d62ae"
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "kind": "scholarchain-pipeline-run-record",
+  "version": 1,
+  "status": "succeeded",
+  "attempt_id": "20261120T225853Z-eb786c5275a3-f35e",
+  "stage": "spark",
+  "head": "eb786c5275a36130302a2daaf60aa339c33c19da",
+  "build_commit": "684636ef997ee041912e2b57d1c597ded8e9778d",
+  "code_version": "684636ef997ee041912e2b57d1c597ded8e9778d",
+  "dataset_snapshot": "dblp-2026-11-01",
+  "region": "us-east-1",
+  "started_utc": "2026-11-20T22:58:53Z",
+  "ended_utc": "2026-11-20T23:36:24Z",
+  "exit_code": 0,
+  "failed_step": null,
+  "signal": null,
+  "inputs": {
+    "er_run_record": "evidence/runs/20261119T020635Z-f159535e498a-5bd1-er.json",
+    "execution_input": {
+      "codeVersion": "684636ef997ee041912e2b57d1c597ded8e9778d",
+      "spark": {
+        "jar": "s3://{data-bucket}/artifacts/684636ef997ee041912e2b57d1c597ded8e9778d/jars/spark-analytics.jar",
+        "config": "s3://{data-bucket}/artifacts/684636ef997ee041912e2b57d1c597ded8e9778d/spark-conf/phase06.json",
+        "hadoopExport": "s3://{data-bucket}/curated/hadoop/linked/dblp-dblp-2026-11-01/j09-graph-export/run=ce46078e05b80d2d5e119939b7d04306",
+        "identityAssignments": "s3://{data-bucket}/curated/er/20261119T020635Z-f159535e498a-5bd1/run=23b913cc4dab1155d7a75c505eff5d56/decisions/identity_assignment",
+        "outRoot": "s3://{data-bucket}/graph/runs-p15-a/20261120T225850Z-eb786c5275a3-4f7e",
+        "shufflePartitions": 32
+      },
+      "cluster": {
+        "managedScalingMaxUnits": 2
+      }
+    }
+  },
+  "outputs": {
+    "execution_status": "SUCCEEDED",
+    "graph_out_root": "s3://{data-bucket}/graph/runs-p15-a/20261120T225850Z-eb786c5275a3-4f7e"
+  },
+  "run_ids": {
+    "execution_name": "20261120T225853Z-eb786c5275a3-f35e-spark",
+    "emr_cluster_ids": [
+      "j-0156143328PILM02OMF9"
+    ],
+    "graph_runs_under_out_root": [
+      "s3://{data-bucket}/graph/runs-p15-a/20261120T225850Z-eb786c5275a3-4f7e/run=0f02b5f22d1187932df0fc1decd7e6a5"
+    ]
+  },
+  "configuration": {
+    "file": "s3://{data-bucket}/artifacts/684636ef997ee041912e2b57d1c597ded8e9778d/spark-conf/phase06.json",
+    "sha256": "9509d47d853ddc5f3d9290b88c2a69751966c306f8f26d66a121a6340e2ee093",
+    "execution_settings": {
+      "emr_max_units": 2,
+      "spark_shuffle_partitions": 32,
+      "note": "null = absent from the execution input: the state machine uses its defaults (the Terraform managed-scaling maximum; 32 shuffle partitions)"
+    }
+  },
+  "uploaded_keys": [],
+  "result": "succeeded"
+}

@@ -1,0 +1,4 @@
+start_epoch_s,end_epoch_s,service,direction,status_code
+1795215685,1795215716,worker,out,Successful
+1795215865,1795215898,worker,out,Successful
+1795217079,,worker,in,InProgress
