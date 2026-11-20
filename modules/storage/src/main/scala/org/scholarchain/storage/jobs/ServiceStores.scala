@@ -6,9 +6,15 @@ import java.time.Clock
 import scala.util.Try
 
 import org.scholarchain.storage.StoreException
-import org.scholarchain.storage.aws.{AwsStorageEnvironment, SqsWorkQueue}
+import org.scholarchain.storage.aws.{AwsStorageEnvironment, SqsRawReceiveQueue, SqsWorkQueue}
 import org.scholarchain.storage.local.{InMemoryWorkQueue, LocalRuntimeEnvironment}
-import org.scholarchain.storage.ports.{KeyValueStore, ReceivedWork, WorkItem, WorkQueue}
+import org.scholarchain.storage.ports.{
+  KeyValueStore,
+  ReceiveQueue,
+  ReceivedWork,
+  WorkItem,
+  WorkQueue
+}
 
 /** The stores of the REST services beyond [[org.scholarchain.storage.runtime.RuntimeStores]]: jobs
   * (QS4), idempotency records (QS5) and the job queue. Services reach them only through this bundle
@@ -99,11 +105,33 @@ object ServiceStores {
       new SqsWorkQueue(client, url, waitSeconds, None)
     )
 
-  private def validQueueUrl(u: String): Either[String, String] =
+  /** AWS: the consuming side of the SQS embedding queue at `queueUrl` (from
+    * `service.embeddingQueueUrl`), for the services' re-embed worker. Bodies are delivered raw and
+    * never parsed ([[SqsRawReceiveQueue]]): `WorkItem.id` is the SQS MessageId, `WorkItem.payload`
+    * the message body unchanged. `ack` = DeleteMessage, `release` = ChangeMessageVisibility 0; no
+    * send. Receives use the queue's own visibility timeout (Terraform). No network call.
+    *
+    * Left when the URL is not an `https://` URL with a host, `waitSeconds` is outside 0..20, or
+    * `env` has no SQS client. No Left message names the URL. Local runs need no factory: an
+    * [[InMemoryWorkQueue]] is a [[ReceiveQueue]] whose payload is the raw body.
+    */
+  def embeddingQueue(
+      env: AwsStorageEnvironment,
+      queueUrl: String,
+      waitSeconds: Int = SqsWaitSeconds
+  ): Either[String, ReceiveQueue] =
+    for {
+      _ <- Either.cond(env != null, (), "no AWS storage environment")
+      url <- validQueueUrl(queueUrl, "embedding queue")
+      _ <- Either.cond(waitSeconds >= 0 && waitSeconds <= 20, (), "waitSeconds must be in 0..20")
+      client <- env.sqsClient.toRight("the AWS storage environment has no SQS client")
+    } yield new SqsRawReceiveQueue(client, url, waitSeconds)
+
+  private def validQueueUrl(u: String, name: String = "job queue"): Either[String, String] =
     Option(u)
       .filter(s => s.startsWith("https://") && !s.exists(_.isWhitespace))
       .flatMap(s => Try(URI.create(s)).toOption.filter(x => x.getHost != null).map(_ => s))
-      .toRight("the job queue URL must be an https:// URL with a host")
+      .toRight(s"the $name URL must be an https:// URL with a host")
 
   private[jobs] def guardQueue[A](f: => A): Either[String, A] =
     try Right(f)

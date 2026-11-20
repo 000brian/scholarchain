@@ -1,0 +1,4 @@
+[
+  {"Id": "m0_0", "Label": "AWS/ElasticMapReduce TotalUnitsRequested Maximum JobFlowId=j-EXAMPLE0000002", "MetricStat": {"Metric": {"Namespace": "AWS/ElasticMapReduce", "MetricName": "TotalUnitsRequested", "Dimensions": [{"Name": "JobFlowId", "Value": "j-EXAMPLE0000002"}]}, "Period": 60, "Stat": "Maximum"}, "ReturnData": true},
+  {"Id": "m1_0", "Label": "AWS/ElasticMapReduce TotalUnitsRunning Maximum JobFlowId=j-EXAMPLE0000002", "MetricStat": {"Metric": {"Namespace": "AWS/ElasticMapReduce", "MetricName": "TotalUnitsRunning", "Dimensions": [{"Name": "JobFlowId", "Value": "j-EXAMPLE0000002"}]}, "Period": 60, "Stat": "Maximum"}, "ReturnData": true}
+]

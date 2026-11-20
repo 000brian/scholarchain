@@ -33,8 +33,8 @@ class QueryAuditV2Suite extends munit.FunSuite {
 
   val V1Keys: List[String] = ujson.read(frozen(1)).obj.keys.toList
 
-  test("v2 is the current version and v1 stays readable") {
-    assertEquals(SchemaVersions.currentOf("QueryAudit"), 2)
+  test("v2 and v1 stay readable (v3 is current since Phase 15, see QueryAuditV3Suite)") {
+    assert(SchemaVersions.isSupported("QueryAudit", 2))
     assert(SchemaVersions.isSupported("QueryAudit", 1))
   }
 

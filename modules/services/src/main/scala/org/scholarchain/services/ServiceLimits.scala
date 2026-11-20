@@ -91,6 +91,35 @@ object ServiceLimits {
     */
   val WorkerIdleMillis: Long = 200L
 
+  /** Default threads of the embedding-queue loop (Phase 15 decision 8.1; `ServerOptions`
+    * `embeddingConcurrency`). Each thread makes at most one rag handler call at a time, and one
+    * call of up to [[EmbeddingReceiveMax]] messages makes one Voyage request (`embedding.batchSize`
+    * 64 is above 10), taking about 1-4 s (estimate, rag report). Two threads send at most about 2
+    * requests per second, under `embedding.requestsPerMinute` 300 (5 per second; the embedder's own
+    * rate limiter enforces it in any case) with room for retries; and the worker task (1 vCPU, 2
+    * GB, Terraform `task_sizes.worker`) also runs `service.workerConcurrency` 2 job threads, so two
+    * more mostly-waiting threads keep its CPU free for the job loop.
+    */
+  val EmbeddingWorkerConcurrency: Int = 2
+
+  /** Upper bound of `embeddingConcurrency` (the setting is refused above it): 300 requests per
+    * minute is 5 per second, so more than 8 threads could only wait on the rate limiter.
+    */
+  val MaxEmbeddingWorkerConcurrency: Int = 8
+
+  /** Messages per embedding-queue receive: the SQS ReceiveMessage maximum. */
+  val EmbeddingReceiveMax: Int = 10
+
+  /** How long `close()` waits for in-flight embedding-queue calls (one receive, one handler call,
+    * its acks and releases) before interrupting them. Below the ECS container `stopTimeout` (120 s,
+    * Terraform `stop_timeout_seconds`, Fargate maximum) with room for the other pools, which drain
+    * at the same time; long enough for one Voyage request with a few retries. A message whose call
+    * is cut off is neither acknowledged nor released: it returns after the queue's visibility
+    * timeout and is handled again (a replay, acknowledged without a second write, when its write
+    * and completion record had finished).
+    */
+  val EmbeddingDrainMillis: Long = 60000L
+
   /** Visibility timeout of the local in-memory job queue, beyond `jobLeaseMillis`: a message must
     * stay hidden longer than a lease so a live lease is never seen twice (decision 6; on SQS this
     * is the queue's own setting, Terraform in Phase 12).

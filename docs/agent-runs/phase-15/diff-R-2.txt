@@ -1,0 +1,1834 @@
+diff --git a/experiments/README.md b/experiments/README.md
+index 1fe531b..31fb980 100644
+--- a/experiments/README.md
++++ b/experiments/README.md
+@@ -9,7 +9,8 @@ Owner: `experiment-engineer`. This folder holds experiment manifests, raw result
+ | `manifest-schema-v1.json` | the manifest format, v1 | `experiment-engineer` |
+ | `manifests/MANIFEST_ID.json` | one committed manifest per experiment run plan | `experiment-engineer` |
+ | `manifests/example-not-approved.json` | the format example (`"example": true`); never runs | `experiment-engineer` |
+-| `collectors/` | committed executables a `command` action may run | `experiment-engineer` |
++| `collectors/` | committed executables a `command` action may run (Phase 15: `f-poison-replay.sh`, `c-embedding-backlog.sh`, `d-load.sh`, `ab-pipeline.sh`; `e-retrieval-modes.sh` in step 6c) | `experiment-engineer` |
++| `collectors/lib/collector-common.sh` | helpers the collectors source (never executed; no executable bit) | `experiment-engineer` |
+ | `raw/MANIFEST_ID/ATTEMPT_ID/` | raw results of one run; read-only after collection; committed by the human | `scripts/run-experiment.sh` (moved there after the run) |
+ | `derived/` | tables and plots, each reproducible from a committed script over `raw/` | `experiment-engineer` |
+ 
+@@ -55,7 +56,7 @@ Then it prints the cost bound and limits labelled "declared, not enforced", and
+ - `"kind": "pipeline"`: `scripts/run-bounded-pipeline.sh` with the manifest's `args`, unchanged;
+ - `"kind": "command"`: the committed executable at `path` (only under `load-tests/` or `experiments/collectors/`) with `args`.
+ 
+-After the action it exports the manifest's `metrics` with CloudWatch `get-metric-data` for the run window plus 5 minutes on each side.
++After the action it exports the manifest's `metrics` with CloudWatch `get-metric-data` for the run window plus 5 minutes on each side. Phase 15 (decision 9.6, `scripts/run-experiment.sh` usage text authoritative): it waits 300 s after every action that ended (succeeded, failed or timed out) before the export; a run stopped by a signal exports nothing; `{attempt-id}` in `action.args` is replaced by the attempt ID; `{alb-dimension}` and `{alb-target-group-query|evidence|graph}` are new metric placeholders; `--check` and `--export-metrics ATTEMPT_ID` are new modes; exit 8 is new (table below).
+ 
+ ### Rules: enforced by the runner or documentation only
+ 
+@@ -108,3 +109,33 @@ On a local timeout the runner prints what may still be running remotely (the Ste
+ - Every attempt keeps its folder and its `run-record.json`, whatever its status. A run killed so hard that it left only a `started` record is an incomplete attempt, never a success. Failed, timed-out and incomplete runs are listed in every results summary; none is silently discarded.
+ - Derived tables and plots are produced by committed scripts under `experiments/derived/` from `raw/` only, so anyone can reproduce them.
+ - No implementation is tuned during a run and reported as one experiment; a change of code, configuration or Terraform is a new build commit and a new manifest.
++
++## Exit codes (Phase 15, decision 10; confirmed by infra-engineer against `scripts/run-experiment.sh` after 9.6(d) and (e))
++
++| Runner exit | Meaning | Collector exit behind it | Final folder in `experiments/raw/` | Remote work may still run | Overnight chain |
++|---|---|---|---|---|---|
++| 0 | action succeeded, metrics exported (or none declared); `--check`: all checks and the preflight passed | 0 (ran; observation recorded) | yes (`--check`: no folder) | no | continue |
++| 2 | usage error | – | no | no | stop |
++| 3 | missing prerequisite or Terraform output (the runner's own) | – | no | no | stop |
++| 4 | refused: dirty tree, untracked manifest, sha256, example, v1 check, a placeholder other than `{attempt-id}` and `s3://{data-bucket}/`, approval, run or raw folder exists, action path untracked or not executable | – | no (the action-path refusal also happens before the folder exists) | no | stop |
++| 5 | the action failed (metrics exported after the 300 s wait; status `failed`); also a runner command failure after the start, Ctrl-C (INT: status `failed`, signal INT, no export), and `--check`'s failed preflight | any non-zero other than 124 and 137: 3 (prerequisite not met), 5 (tool or AWS failure), 7 (collector wait limit), or the nested pipeline's own failure (2 to 7, passed through by `ab-pipeline.sh`) | yes (status `failed`), except `--check` (no folder) | possibly (the collectors and the wrapper record it) | continue only after the active-cluster check |
++| 6 | action succeeded, metrics failed or partial (`succeeded-metrics-failed`) | 0 | yes | no | continue |
++| 7 | the runner's time limit (`maxDurationSeconds`: status `timed-out`, metrics exported, `MAY-STILL-RUN` lines) or TERM (status `timed-out`, signal TERM, no export); `--check`: the preflight passed 600 s | – (the action was stopped) | yes (time limit); yes or only a `started` record (TERM) | **yes** | stop |
++| 8 | an identifier (account ID, bucket name, API host, queue or DLQ URL, ALB or Neptune host) was found in the run record or the run folder; the folder stays under `evidence/experiment-runs/` (never commit it) | – | no | no | stop |
++| anything else | unknown | – | – | – | stop |
++
++Notes (5a): a collector's own exit 7 (its wait limit) becomes runner exit 5 (the runner reports only "the action failed"); runner exit 7 always means the runner's own limit or TERM. Exit 4 can also come from the final move when the raw destination appeared meanwhile (the run then stays under `evidence/`). `--export-metrics` exits 0, 6 or 8 (plus 2, 3, 4, 5). A collector exit 3 after its bounded settle is a temporary unmet prerequisite: the attempt is kept as `failed` and a later attempt is a new run. The scientific outcome is never read from an exit code: every attempt gets four lines (`tool`, `action`, `metrics`, `observation`; decision 10).
++
++## Collector contract (Phase 15)
++
++- The runner starts `./experiments/collectors/NAME.sh RESOLVED_ARGS` from the repository root with standard input `/dev/null` and three variables: `SCHOLARCHAIN_EXPERIMENT_RUN_DIR` (the run folder under `evidence/experiment-runs/ATTEMPT_ID/`, gitignored), `SCHOLARCHAIN_EXPERIMENT_ATTEMPT_ID`, `SCHOLARCHAIN_EXPERIMENT_MANIFEST_ID`. `--check` appends `--preflight` as the last argument and points the run folder to a temporary folder outside the repository.
++- Collectors write raw files only into the run folder (one CSV per event stream plus `tool-record.json`), never `run-record.json`, `run-record.started.json`, `manifest.json`, `action.log`, `metrics/` or `nested/` (the runner's). They store extracted fields only: no raw AWS CLI output, no error text, no response body, no URL, host, key or account. The runner's identifier check (exit 8) is the backstop.
++- Exit codes: 0 ran (whatever the system answered), 2 usage, 3 prerequisite not met after a bounded settle (nothing sent), 5 tool or AWS failure, 7 the collector's own wait limit or TERM. `ab-pipeline.sh` and `d-load.sh` pass their child's exit code through.
++- `ab-pipeline.sh` runs `bash scripts/run-bounded-pipeline.sh` with the arguments unchanged and does not wrap its output, so the nested `RUN-RECORD:` and `EXECUTION:` lines reach the runner (`{emr-cluster-id}` resolution); it finds the nested record by its output root.
++- `--preflight` makes read calls only, prints counts and states, sends nothing and writes nothing outside a temporary folder outside the repository.
++- The executable bit of every collector and of `load-tests/query-load.sh` is set by the human before the commit (decision 16); `lib/collector-common.sh` is sourced and needs none.
++
++## Session 3 checks before the experiments (decision 13)
++
++- **D0a (local, no AWS, before packaging):** Python syntax of every derive script (`python3 -I -c` with `ast.parse`, no bytecode written); each derive script with `--fixtures` (output to a temporary folder outside the repository); `bash -n` on every collector, on `collectors/lib/collector-common.sh` and on `load-tests/query-load.sh`; `jq empty` on every manifest; `ls -l` of the tools (executable bits); then `git status --short` prints nothing. A failure is a tool repair before AWS work starts (tools are not build inputs: no repackaging).
++- **D9a (after D4 and the D9 signatures, before D10):** `bash scripts/run-experiment.sh --manifest experiments/manifests/ID.json --manifest-sha256 HEX64 --check` for every signed manifest: it runs every refusal, resolves the metric placeholders (the ALB placeholders and the DLQ URLs need the Phase 15 Terraform outputs, which exist only after D4), shows the `{attempt-id}` substitution and runs each collector's `--preflight` through the real invocation path (arguments, environment, executable bit). All manifests here are `command` actions, so all get a preflight (A and B through `ab-pipeline.sh --preflight`: inputs present, the ER record succeeded, the output root empty, the jars of the build commit present). `p15-f-poison-replay` and both D manifests need `SCHOLARCHAIN_SERVICE_API_KEY` exported in that terminal. Then `git status --short` prints nothing.
+diff --git a/infra/terraform/COSTS.md b/infra/terraform/COSTS.md
+index 444587f..4a2c463 100644
+--- a/infra/terraform/COSTS.md
++++ b/infra/terraform/COSTS.md
+@@ -17,7 +17,7 @@ Owner: `infra-engineer`. Written in Phase 12 step 2b (2026-11-17) from the Terra
+ | Secrets Manager secrets (identity) | 4 | $0.40 per secret-month + $0.05 per 10 000 calls | $0.053 | estimate (unverified) | Containers exist from the first apply; values entered by hand |
+ | CloudWatch dashboard (observability) | 1 | 3 dashboards free, then $3.00 per month | $0 (free tier) or $0.10 | estimate (unverified) | |
+ | CloudWatch alarms, runtime off (observability) | 4 alarms, 5 alarm metrics (2 DLQ, ALB 5xx with 2 metrics, Neptune CPU) | $0.10 per alarm metric-month (10 free) | about $0.02 | estimate (unverified) | Metric-math alarms bill per metric |
+-| CloudWatch alarms, runtime on (runtime, observability) | + 3 HealthyHostCount, + 2 worker alarms (3 metrics), + target tracking alarms (about 2 per ALB service, created by Application Auto Scaling) | $0.10 per alarm metric-month | about +$0.05 | estimate (unverified) | |
++| CloudWatch alarms, runtime on (runtime, observability) | + 3 HealthyHostCount, + 3 worker alarms (6 metrics; Phase 15: a second scale-out alarm on the embedding queue, and the scale-in alarm sums 4 queue metrics instead of 2), + target tracking alarms (about 2 per ALB service, created by Application Auto Scaling) | $0.10 per alarm metric-month | about +$0.06 (Phase 15 adds about $0.01 per day) | estimate (unverified) | |
+ | CloudWatch Logs (observability) | 5 groups, 7-day retention | $0.50 per GB ingested (vended Step Functions logs: $0.50 per GB), $0.03 per GB-month | about $0 at course traffic | estimate (unverified) | |
+ | ECR repository (runtime) | 1, up to 10 images | $0.10 per GB-month | about $0.01 (3 GB) | estimate (unverified) | Basic scan on push: no charge (unverified) |
+ | S3 data lake (data-lake) | 1 bucket, versioned | $0.023 per GB-month, requests $0.005 per 1 000 PUT, $0.0004 per 1 000 GET | about $0.01 for a few GB | estimate (unverified) | Old versions expire after 7 days, `logs/` after 14 |
+@@ -40,6 +40,8 @@ Owner: `infra-engineer`. Written in Phase 12 step 2b (2026-11-17) from the Terra
+ | EMR-created `emr-service-vpce` interface endpoint (EMR 8.x) | while it exists | about $0.01 per hour per AZ + $0.01 per GB | about $0.24 to $0.48 per day if left behind | estimate (unverified); whether EMR removes it is unverified (step 2a RISK R2) |
+ | NAT data processing | image pulls, Anthropic and Voyage calls, EMR package traffic | $0.045 per GB | a 500 MB image pull costs about $0.02 | estimate (unverified) |
+ | Anthropic, Voyage | per query and per ingest | provider prices | counts against the same $25 ceiling | not an AWS price |
++| Phase 15: worker on the embedding queue (experiments C and F) | the worker scales 0 -> 1 (-> 2) while the embedding queue has visible messages, back to 0 after 5 minutes with both queues empty | worker task 1 vCPU/2 GB at the Fargate rates above (about $0.040 per task-hour); per re-embedded document: one Voyage embedding (free allowance expected), one S3 Vectors GetVectors and PutVectors, one DynamoDB conditional PutItem and one GetItem (the completion record), SQS receive and delete | about $0.04 per hour at 1 task, $0.08 at 2; a 5 000-document backlog adds well under $0.05 of S3 Vectors, DynamoDB and SQS requests | estimate (unverified): Fargate rates of this table; request prices of the S3 Vectors, DynamoDB and SQS rows above, not measured |
++| Phase 15: Spark run with 128 shuffle partitions and managed-scaling maximum 4 (experiment B, `--emr-max-units 4 --spark-shuffle-partitions 128`) | one Spark cluster: primary + 2 core at start, up to 4 core | the EMR row above | about $0.72 per hour at start, at most about $1.20 per hour if all 4 core nodes run (1 primary + 4 core = 5 instances x about $0.24), plus EBS volumes; experiment A at maximum 2 stays at about $0.72 per hour | estimate (unverified): EMR row above; whether managed scaling adds core nodes is an outcome of B, not a promise |
+ 
+ A bounded pipeline run (Hadoop cluster about 1 hour, Spark cluster about 1 hour, both at start size) costs about **$1.50** (estimate (unverified)); a run that reaches peak size and the 4-hour timeout would cost about $5.
+ 
+diff --git a/infra/terraform/environments/course/main.tf b/infra/terraform/environments/course/main.tf
+index 895770d..de252b5 100644
+--- a/infra/terraform/environments/course/main.tf
++++ b/infra/terraform/environments/course/main.tf
+@@ -179,6 +179,8 @@ module "runtime" {
+   job_queue_url               = module.workflow.queue_urls["jobs"]
+   job_queue_arn               = module.workflow.queue_arns["jobs"]
+   embedding_queue_arn         = module.workflow.queue_arns["embedding"]
++  # Phase 15 decision 9.1: the worker task's SCHOLARCHAIN_CFG_SERVICE_EMBEDDING_QUEUE_URL.
++  embedding_queue_url = module.workflow.queue_urls["embedding"]
+ 
+   # Repair I-01: every runtime role carries the project permissions boundary.
+   permissions_boundary_arn = module.identity.role_boundary_arn
+@@ -210,6 +212,8 @@ module "workflow" {
+   job_producer_role_arns = [module.runtime.task_role_arns["query"]]
+   job_consumer_role_arns = [module.runtime.task_role_arns["worker"]]
+   embedding_role_arns    = [module.runtime.task_role_arns["ops"]]
++  # Phase 15 decision 9.1: the worker consumes embedding tasks (no send).
++  embedding_consumer_role_arns = [module.runtime.task_role_arns["worker"]]
+ 
+   # Repair I-01: the Step Functions role carries the project permissions boundary.
+   permissions_boundary_arn = module.identity.role_boundary_arn
+diff --git a/infra/terraform/environments/course/outputs.tf b/infra/terraform/environments/course/outputs.tf
+index 13d65f1..ad39541 100644
+--- a/infra/terraform/environments/course/outputs.tf
++++ b/infra/terraform/environments/course/outputs.tf
+@@ -96,6 +96,21 @@ output "queue_names" {
+   value       = module.workflow.queue_names
+ }
+ 
++output "dlq_urls" {
++  description = "SQS dead-letter queue URLs by source queue (jobs, embedding). Phase 15: run-experiment.sh registers them as identifiers (masked, never printed or recorded)."
++  value       = module.workflow.dlq_urls
++}
++
++output "alb_arn_suffix" {
++  description = "ARN suffix of the internal ALB, app/NAME/ID (the CloudWatch LoadBalancer dimension; no account ID). Phase 15: run-experiment.sh {alb-dimension}."
++  value       = module.runtime.alb_arn_suffix
++}
++
++output "target_group_arn_suffixes" {
++  description = "ARN suffixes of the target groups by role (query, evidence, graph), targetgroup/NAME/ID (CloudWatch TargetGroup dimension). Phase 15: run-experiment.sh {alb-target-group-ROLE}."
++  value       = module.runtime.target_group_arn_suffixes
++}
++
+ # ---- stores -----------------------------------------------------------------------------
+ 
+ output "data_bucket_name" {
+diff --git a/infra/terraform/modules/runtime/autoscaling.tf b/infra/terraform/modules/runtime/autoscaling.tf
+index 1c790a4..7d655af 100644
+--- a/infra/terraform/modules/runtime/autoscaling.tf
++++ b/infra/terraform/modules/runtime/autoscaling.tf
+@@ -6,10 +6,27 @@
+ #   query, evidence, graph: target tracking on average CPU (target
+ #     var.cpu_target_percent), min 1 (CPU target tracking cannot start a
+ #     service from 0 tasks), max var.service_max_count.
+-#   worker: step scaling from 0 on the job queue's SQS metrics (published by
+-#     SQS even with no task): +1 task per step while messages are visible, up to
+-#     var.worker_max_count; to 0 only when visible plus in-flight messages
+-#     have been 0 for var.worker_scale_in_minutes minutes.
++#   worker: step scaling from 0 on the SQS metrics of BOTH its queues (job
++#     queue and, Phase 15, embedding queue; published by SQS even with no
++#     task): +1 task per step while either queue has visible messages, up to
++#     var.worker_max_count; to 0 only when visible plus in-flight messages of
++#     both queues have been 0 for var.worker_scale_in_minutes minutes.
++#
++# Phase 15 decision 9.2, scale-in metric math (no FILL). CloudWatch's metric
++# math page (https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html)
++# says that in basic arithmetic "missing values in a time series are treated
++# as 0", so an idle queue's missing datapoint does not blank the sum while the
++# other queue reports, and it warns that FILL in an alarm can leave the alarm
++# stuck when metrics arrive late. The sum is missing only when no queue metric
++# has a datapoint (both idle); treat_missing_data = "breaching" then scales
++# the worker in (alarm missing-data page:
++# https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/alarms-and-missing-data.html).
++# Remaining limit: if SQS stopped publishing an ACTIVE queue's metrics for
++# var.worker_scale_in_minutes minutes, the worker would scale in (SQS
++# publishes active queues every minute). Step scaling may add a second task
++# while an alarm stays in ALARM past the cooldown (Application Auto Scaling
++# step-scaling overview:
++# https://docs.aws.amazon.com/autoscaling/application/userguide/step-scaling-policy-overview.html).
+ 
+ locals {
+   service_bounds = {
+@@ -19,7 +36,8 @@ locals {
+       : { min = 0, max = var.runtime_enabled ? var.worker_max_count : 0 }
+     )
+   }
+-  job_queue_name = element(split(":", var.job_queue_arn), 5)
++  job_queue_name       = element(split(":", var.job_queue_arn), 5)
++  embedding_queue_name = element(split(":", var.embedding_queue_arn), 5)
+ }
+ 
+ resource "aws_appautoscaling_target" "service" {
+@@ -54,7 +72,7 @@ resource "aws_appautoscaling_policy" "cpu" {
+   }
+ }
+ 
+-# ---- worker: step scaling on the job queue ------------------------------------
++# ---- worker: step scaling on the job and embedding queues ---------------------
+ 
+ resource "aws_appautoscaling_policy" "worker_out" {
+   count = var.runtime_enabled ? 1 : 0
+@@ -118,26 +136,72 @@ resource "aws_cloudwatch_metric_alarm" "worker_out" {
+   tags = { Name = "${var.name_prefix}-worker-scale-out" }
+ }
+ 
++# Phase 15 decision 9.2: the same scale-out rule on the embedding queue (same
++# worker_out policy, same thresholds and periods).
++resource "aws_cloudwatch_metric_alarm" "worker_out_embedding" {
++  count = var.runtime_enabled ? 1 : 0
++
++  alarm_name          = "${var.name_prefix}-worker-scale-out-embedding"
++  alarm_description   = "Embedding queue has visible messages: add a worker task (step scaling)."
++  namespace           = "AWS/SQS"
++  metric_name         = "ApproximateNumberOfMessagesVisible"
++  dimensions          = { QueueName = local.embedding_queue_name }
++  statistic           = "Maximum"
++  period              = 60
++  evaluation_periods  = 1
++  datapoints_to_alarm = 1
++  comparison_operator = "GreaterThanOrEqualToThreshold"
++  threshold           = 1
++  treat_missing_data  = "notBreaching"
++  alarm_actions       = [aws_appautoscaling_policy.worker_out[0].arn]
++
++  tags = { Name = "${var.name_prefix}-worker-scale-out-embedding" }
++}
++
+ resource "aws_cloudwatch_metric_alarm" "worker_in" {
+   count = var.runtime_enabled ? 1 : 0
+ 
+   alarm_name          = "${var.name_prefix}-worker-scale-in"
+-  alarm_description   = "Job queue empty (visible + in flight = 0) for several minutes: scale the worker to 0."
++  alarm_description   = "Job and embedding queues empty (visible + in flight = 0 on both) for several minutes: scale the worker to 0."
+   evaluation_periods  = var.worker_scale_in_minutes
+   datapoints_to_alarm = var.worker_scale_in_minutes
+   comparison_operator = "LessThanThreshold"
+   threshold           = 1
+   # SQS may stop publishing metrics for an idle queue: no data means empty.
++  # The plain sum treats one queue's missing value as 0 (header); the sum is
++  # missing only when no queue has a datapoint (both idle).
+   treat_missing_data = "breaching"
+   alarm_actions      = [aws_appautoscaling_policy.worker_in[0].arn]
+ 
+   metric_query {
+     id          = "total"
+-    expression  = "visible + inflight"
+-    label       = "Visible plus in-flight job messages"
++    expression  = "visible + inflight + emb_visible + emb_inflight"
++    label       = "Visible plus in-flight messages of the job and embedding queues"
+     return_data = true
+   }
+ 
++  metric_query {
++    id = "emb_visible"
++    metric {
++      namespace   = "AWS/SQS"
++      metric_name = "ApproximateNumberOfMessagesVisible"
++      dimensions  = { QueueName = local.embedding_queue_name }
++      stat        = "Maximum"
++      period      = 60
++    }
++  }
++
++  metric_query {
++    id = "emb_inflight"
++    metric {
++      namespace   = "AWS/SQS"
++      metric_name = "ApproximateNumberOfMessagesNotVisible"
++      dimensions  = { QueueName = local.embedding_queue_name }
++      stat        = "Maximum"
++      period      = 60
++    }
++  }
++
+   metric_query {
+     id = "visible"
+     metric {
+diff --git a/infra/terraform/modules/runtime/iam.tf b/infra/terraform/modules/runtime/iam.tf
+index 2c53ecc..b04c4f4 100644
+--- a/infra/terraform/modules/runtime/iam.tf
++++ b/infra/terraform/modules/runtime/iam.tf
+@@ -217,6 +217,21 @@ data "aws_iam_policy_document" "service_task" {
+       resources = [var.job_queue_arn]
+     }
+   }
++
++  # Phase 15 decision 9.1: the worker's second loop receives, acknowledges
++  # (DeleteMessage) and releases (ChangeMessageVisibility) embedding-task-v1
++  # messages. It never sends (no sqs:SendMessage). The project boundary
++  # (identity/boundary.tf ProjectQueueMessages) allows these on
++  # NAME_PREFIX-* queues. The rest of the re-embed call chain (PutVectors,
++  # the completion record) is step 5b's permission matrix.
++  dynamic "statement" {
++    for_each = each.key == "worker" ? [1] : []
++    content {
++      sid       = "EmbeddingQueueConsume"
++      actions   = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:ChangeMessageVisibility"]
++      resources = [var.embedding_queue_arn]
++    }
++  }
+ }
+ 
+ resource "aws_iam_role_policy" "service_task" {
+diff --git a/infra/terraform/modules/runtime/main.tf b/infra/terraform/modules/runtime/main.tf
+index c8c10e2..ac02b62 100644
+--- a/infra/terraform/modules/runtime/main.tf
++++ b/infra/terraform/modules/runtime/main.tf
+@@ -58,6 +58,18 @@ locals {
+     SCHOLARCHAIN_CFG_SERVICE_JOB_QUEUE_URL = var.job_queue_url
+   })
+ 
++  # Phase 15 decision 5 and 9.1: only the worker gets the embedding queue URL
++  # (service.embeddingQueueUrl, override SCHOLARCHAIN_CFG_SERVICE_EMBEDDING_QUEUE_URL);
++  # with it the worker runs its second loop on that queue. The other roles
++  # keep exactly today's environment.
++  role_environment = {
++    for r in local.roles : r => (
++      r == "worker"
++      ? merge(local.service_environment, { SCHOLARCHAIN_CFG_SERVICE_EMBEDDING_QUEUE_URL = var.embedding_queue_url })
++      : local.service_environment
++    )
++  }
++
+   # Secrets per task, by the env-var NAME the code reads (config/course.json).
+   # Every service role needs all four: Main refuses to start without both
+   # service keys, and RuntimeService.aws builds the anthropic model and the
+@@ -163,7 +175,7 @@ resource "aws_ecs_task_definition" "service" {
+     ]
+     # Every role serves /healthz and /readyz; only the ALB roles get traffic.
+     portMappings = [{ containerPort = var.service_port, protocol = "tcp" }]
+-    environment  = [for k, v in local.service_environment : { name = k, value = v }]
++    environment  = [for k, v in local.role_environment[each.key] : { name = k, value = v }]
+     secrets = [for n in local.service_secret_names : {
+       name      = n
+       valueFrom = var.app_key_secret_arns_by_env_var[n]
+diff --git a/infra/terraform/modules/runtime/variables.tf b/infra/terraform/modules/runtime/variables.tf
+index eceef91..d12abd7 100644
+--- a/infra/terraform/modules/runtime/variables.tf
++++ b/infra/terraform/modules/runtime/variables.tf
+@@ -255,7 +255,12 @@ variable "job_queue_arn" {
+ }
+ 
+ variable "embedding_queue_arn" {
+-  description = "ARN of the SQS embedding work queue (ops role only)."
++  description = "ARN of the SQS embedding work queue (ops sends and consumes; Phase 15: the worker consumes, never sends)."
++  type        = string
++}
++
++variable "embedding_queue_url" {
++  description = "URL of the SQS embedding work queue (Phase 15 decision 5: service.embeddingQueueUrl, set on the worker task only through SCHOLARCHAIN_CFG_SERVICE_EMBEDDING_QUEUE_URL; never in config/**)."
+   type        = string
+ }
+ 
+diff --git a/infra/terraform/modules/workflow/main.tf b/infra/terraform/modules/workflow/main.tf
+index 0920618..0f759e6 100644
+--- a/infra/terraform/modules/workflow/main.tf
++++ b/infra/terraform/modules/workflow/main.tf
+@@ -83,6 +83,12 @@ locals {
+         principals = var.embedding_role_arns
+         actions    = ["sqs:SendMessage", "sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:ChangeMessageVisibility"]
+       },
++      # Phase 15 decision 9.1: the worker consumes embedding tasks; it never sends.
++      {
++        sid        = "WorkerConsumesEmbeddingTasks"
++        principals = var.embedding_consumer_role_arns
++        actions    = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:ChangeMessageVisibility"]
++      },
+     ]
+   }
+ }
+diff --git a/infra/terraform/modules/workflow/outputs.tf b/infra/terraform/modules/workflow/outputs.tf
+index ed397a4..03a9728 100644
+--- a/infra/terraform/modules/workflow/outputs.tf
++++ b/infra/terraform/modules/workflow/outputs.tf
+@@ -10,6 +10,11 @@ output "queue_arns" {
+   value       = { for k, q in aws_sqs_queue.this : k => q.arn }
+ }
+ 
++output "dlq_urls" {
++  description = "SQS dead-letter queue URLs by source queue: jobs and embedding (Phase 15: run-experiment.sh registers them as identifiers; never printed)."
++  value       = { for k, q in aws_sqs_queue.dlq : k => q.url }
++}
++
+ output "queue_names" {
+   description = "SQS queue names: jobs, embedding, jobs_dlq, embedding_dlq."
+   value = merge(
+diff --git a/infra/terraform/modules/workflow/sfn.tf b/infra/terraform/modules/workflow/sfn.tf
+index 4dc9b5b..dc0f4f7 100644
+--- a/infra/terraform/modules/workflow/sfn.tf
++++ b/infra/terraform/modules/workflow/sfn.tf
+@@ -38,10 +38,40 @@
+ #     "identityAssignments": "s3://.../curated/.../identity_assignment",
+ #     "outRoot": "s3://.../graph/...",
+ #     "exportSourceRun": "s3://.../graph/.../run=<32 hex>",  (optional, Phase 13)
+-#     "exportRoot": "s3://.../graph/exports/<attempt>"       (optional, Phase 13)
++#     "exportRoot": "s3://.../graph/exports/<attempt>",      (optional, Phase 13)
++#     "shufflePartitions": 128                               (optional, Phase 15)
++#   },
++#   "cluster": {                                    (optional section, Phase 15)
++#     "managedScalingMaxUnits": 2
+ #   }
+ # }
+ #
++# Phase 15 decision 9.3, execution-input settings (resolved in ONE place, the
++# first state ReadInput, from $states.input; absent fields keep today's values
++# exactly):
++#   spark.shufflePartitions        integer 8..512, default
++#     var.spark_shuffle_partitions_default (32); becomes the
++#     --conf spark.sql.shuffle.partitions=N of BOTH Spark steps
++#     (variable sparkShuffleConf).
++#   cluster.managedScalingMaxUnits integer, emr_managed_scaling_min_units ..
++#     emr_managed_scaling_max_units (Terraform), default the Terraform maximum;
++#     becomes MaximumCapacityUnits, MaximumOnDemandCapacityUnits and
++#     MaximumCoreCapacityUnits of whichever cluster the execution creates
++#     (variable clusterComputeLimits). UnitType Instances: one unit is one EC2
++#     instance; the limits apply to core and task nodes only, never the
++#     primary node (EMR API Reference, ComputeLimits:
++#     https://docs.aws.amazon.com/emr/latest/APIReference/API_ComputeLimits.html;
++#     Management Guide, "Using managed scaling":
++#     https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-managed-scaling.html).
++#     Since the value is at least the minimum, the three maxima are never
++#     below MinimumCapacityUnits.
++# A present but invalid value (not a number, not an integer, out of range)
++# makes ReadInput fail with States.QueryEvaluationError ($error), so the
++# execution fails before any cluster exists (Step Functions developer guide,
++# "Transforming data with JSONata", "Handling expression errors":
++# https://docs.aws.amazon.com/step-functions/latest/dg/transforming-data.html).
++# A Pass state has no Catch, so nothing runs after it.
++#
+ # Optional JSON Lines export (Phase 13 decision 8.3): when spark.exportRoot is
+ # present, a second step on the Spark cluster runs
+ # org.scholarchain.spark.JsonlExport after GraphAnalyticsJob with
+@@ -104,14 +134,9 @@ locals {
+     }]
+     Instances            = local.cluster_instances
+     StepConcurrencyLevel = local.cs.step_concurrency_level
++    # Phase 15 decision 9.3: resolved in ReadInput (clusterComputeLimits).
+     ManagedScalingPolicy = {
+-      ComputeLimits = {
+-        UnitType                     = local.cs.managed_scaling.unit_type
+-        MinimumCapacityUnits         = local.cs.managed_scaling.minimum_capacity_units
+-        MaximumCapacityUnits         = local.cs.managed_scaling.maximum_capacity_units
+-        MaximumOnDemandCapacityUnits = local.cs.managed_scaling.maximum_on_demand_capacity_units
+-        MaximumCoreCapacityUnits     = local.cs.managed_scaling.maximum_core_capacity_units
+-      }
++      ComputeLimits = "{% $clusterComputeLimits %}"
+     }
+     AutoTerminationPolicy = { IdleTimeout = local.cs.idle_timeout_seconds }
+     Tags                  = local.cluster_tags
+@@ -127,16 +152,52 @@ locals {
+   # the application, so spark.driver.memory set in code has no effect. 6g fits
+   # the m5.xlarge primary node (16 GiB); shuffle partitions match Phase 6; the
+   # UI retention limits bound the driver's retained job, stage and SQL state.
+-  # The values contain no quote, so each is safe inside a JSONata '...' string.
+-  spark_submit_runtime_args = [
+-    "--driver-memory", "6g",
+-    "--conf", "spark.sql.shuffle.partitions=32",
+-    "--conf", "spark.ui.retainedJobs=200",
+-    "--conf", "spark.ui.retainedStages=200",
+-    "--conf", "spark.ui.retainedTasks=10000",
+-    "--conf", "spark.sql.ui.retainedExecutions=50",
++  # Each entry is a JSONata term: a quoted literal (no quote inside) or, for
++  # the shuffle partitions (Phase 15 decision 9.3), the variable
++  # $sparkShuffleConf resolved in ReadInput; absent input gives exactly the
++  # former literal 'spark.sql.shuffle.partitions=32'.
++  spark_submit_runtime_terms = [
++    "'--driver-memory'", "'6g'",
++    "'--conf'", "$sparkShuffleConf",
++    "'--conf'", "'spark.ui.retainedJobs=200'",
++    "'--conf'", "'spark.ui.retainedStages=200'",
++    "'--conf'", "'spark.ui.retainedTasks=10000'",
++    "'--conf'", "'spark.sql.ui.retainedExecutions=50'",
+   ]
+-  spark_submit_runtime_jsonata = join(", ", [for a in local.spark_submit_runtime_args : "'${a}'"])
++  spark_submit_runtime_jsonata = join(", ", local.spark_submit_runtime_terms)
++
++  # ---- Phase 15 decision 9.3: execution-input settings (ReadInput) ----------
++  ms           = local.cs.managed_scaling
++  in_max_units = "$states.input.cluster.managedScalingMaxUnits"
++  in_shuffle   = "$states.input.spark.shufflePartitions"
++  shuffle_min  = 8
++  shuffle_max  = 512
++
++  units_error   = "$error('InvalidExecutionSettings: cluster.managedScalingMaxUnits must be an integer in ${local.ms.minimum_capacity_units}..${local.ms.maximum_capacity_units}')"
++  shuffle_error = "$error('InvalidExecutionSettings: spark.shufflePartitions must be an integer in ${local.shuffle_min}..${local.shuffle_max}')"
++
++  # Absent: exactly the Terraform ComputeLimits of Phases 13-14. Present and
++  # valid: the three maxima take the given value. Nested conditionals, so a
++  # non-number never reaches $floor.
++  compute_limits_default = "{'UnitType': '${local.ms.unit_type}', 'MinimumCapacityUnits': ${local.ms.minimum_capacity_units}, 'MaximumCapacityUnits': ${local.ms.maximum_capacity_units}, 'MaximumOnDemandCapacityUnits': ${local.ms.maximum_on_demand_capacity_units}, 'MaximumCoreCapacityUnits': ${local.ms.maximum_core_capacity_units}}"
++  compute_limits_given   = "{'UnitType': '${local.ms.unit_type}', 'MinimumCapacityUnits': ${local.ms.minimum_capacity_units}, 'MaximumCapacityUnits': ${local.in_max_units}, 'MaximumOnDemandCapacityUnits': ${local.in_max_units}, 'MaximumCoreCapacityUnits': ${local.in_max_units}}"
++  resolve_compute_limits = join("", [
++    "{% $exists(${local.in_max_units}) ? (",
++    "$type(${local.in_max_units}) = 'number' ? (",
++    "(${local.in_max_units} = $floor(${local.in_max_units}) and ${local.in_max_units} >= ${local.ms.minimum_capacity_units} and ${local.in_max_units} <= ${local.ms.maximum_capacity_units})",
++    " ? ${local.compute_limits_given} : ${local.units_error}",
++    ") : ${local.units_error}",
++    ") : ${local.compute_limits_default} %}",
++  ])
++  resolve_shuffle_conf = join("", [
++    "{% 'spark.sql.shuffle.partitions=' & $string(",
++    "$exists(${local.in_shuffle}) ? (",
++    "$type(${local.in_shuffle}) = 'number' ? (",
++    "(${local.in_shuffle} = $floor(${local.in_shuffle}) and ${local.in_shuffle} >= ${local.shuffle_min} and ${local.in_shuffle} <= ${local.shuffle_max})",
++    " ? ${local.in_shuffle} : ${local.shuffle_error}",
++    ") : ${local.shuffle_error}",
++    ") : ${var.spark_shuffle_partitions_default}) %}",
++  ])
+ 
+   # ExportInputCheck conditions (JSONata). The prefix is a bucket URI, which
+   # never contains a quote.
+@@ -183,13 +244,18 @@ locals {
+     TimeoutSeconds = var.pipeline_timeout_seconds
+     StartAt        = "ReadInput"
+     States = {
++      # Phase 15 decision 9.3: also resolves the execution-input settings
++      # (the one place; all from $states.input, because every Assign of one
++      # state sees the variables as they were before the state).
+       ReadInput = {
+         Type = "Pass"
+         Assign = {
+-          pipelineInput = "{% $states.input %}"
+-          failError     = "none"
+-          failCause     = "none"
+-          cleanupError  = "none"
++          pipelineInput        = "{% $states.input %}"
++          failError            = "none"
++          failCause            = "none"
++          cleanupError         = "none"
++          clusterComputeLimits = local.resolve_compute_limits
++          sparkShuffleConf     = local.resolve_shuffle_conf
+         }
+         Next = "ExportInputCheck"
+       }
+diff --git a/infra/terraform/modules/workflow/variables.tf b/infra/terraform/modules/workflow/variables.tf
+index 2f79a8c..782e336 100644
+--- a/infra/terraform/modules/workflow/variables.tf
++++ b/infra/terraform/modules/workflow/variables.tf
+@@ -76,10 +76,28 @@ variable "job_consumer_role_arns" {
+ }
+ 
+ variable "embedding_role_arns" {
+-  description = "Roles that use the embedding work queue (ops)."
++  description = "Roles that send to and consume the embedding work queue (ops)."
+   type        = list(string)
+ }
+ 
++variable "embedding_consumer_role_arns" {
++  description = "Roles that only receive, acknowledge and release embedding work messages (Phase 15: worker). They never send."
++  type        = list(string)
++}
++
++# ---- execution-input settings (Phase 15 decision 9.3) ------------------------------
++
++variable "spark_shuffle_partitions_default" {
++  description = "spark.sql.shuffle.partitions of both Spark steps when the execution input has no spark.shufflePartitions (today's value, 32)."
++  type        = number
++  default     = 32
++
++  validation {
++    condition     = var.spark_shuffle_partitions_default >= 8 && var.spark_shuffle_partitions_default <= 512 && floor(var.spark_shuffle_partitions_default) == var.spark_shuffle_partitions_default
++    error_message = "spark_shuffle_partitions_default must be an integer in 8..512."
++  }
++}
++
+ # ---- SQS (values derived from config/course.json; keep them in step) -------------
+ 
+ variable "job_lease_seconds" {
+diff --git a/scripts/archive-evidence.sh b/scripts/archive-evidence.sh
+index 6688075..f52f776 100644
+--- a/scripts/archive-evidence.sh
++++ b/scripts/archive-evidence.sh
+@@ -115,7 +115,10 @@ Options:
+ Records: DIR/NAME.started.json first, then DIR/NAME.json (status, tar path and
+ sha256, file count, mode). No record or MANIFEST.json holds an account ID,
+ ARN with an account ID or bucket name (checked with grep -F before it is
+-final); plans/ is checked the same way. The byte copies under repo/ and
++final); plans/ is checked the same way. G-29 (Phase 15): in S3 mode the API
++host (from terraform output api_url), the job, embedding and both DLQ queue
++URLs, the ALB DNS name and the Neptune endpoint are checked the same way and
++masked in printed lines (read at run time, never printed). The byte copies under repo/ and
+ reports/ are kept exactly; if one holds an identifier, the script warns and
+ records it (byte_copies_hold_identifiers: true or false). That check needs
+ the account ID: S3 mode learns it from the caller (sts get-caller-identity)
+@@ -475,7 +478,12 @@ read_outputs() {
+   register_identifiers "${account}" "${DATA_BUCKET}" "${vector}" ||
+     die 5 "could not register the account"
+   account=""
+-  info "account learned from the caller (not printed), bucket <data-bucket>"
++  # G-29 (Phase 15): the API host (from api_url), the queue and DLQ URLs and
++  # the endpoint hosts join the identifier check and the masking; read from
++  # terraform output at run time, held in shell variables, never printed.
++  register_output_identifiers "${outputs}" || die 5 "could not register the Terraform output identifiers"
++  outputs=""
++  info "account learned from the caller (not printed), bucket <data-bucket>; API host, queue URLs and endpoint hosts registered (not printed)"
+ }
+ 
+ copy_reports() {
+diff --git a/scripts/lib/identity.sh b/scripts/lib/identity.sh
+index ea60fc5..278f46b 100644
+--- a/scripts/lib/identity.sh
++++ b/scripts/lib/identity.sh
+@@ -55,6 +55,16 @@ SC_ACCOUNT_ID=""
+ SC_DATA_BUCKET=""
+ SC_VECTOR_BUCKET=""
+ 
++# Phase 15 (G-29, decision 9.5): further identifiers a script learns at run
++# time (the API host, queue URLs, endpoint hosts), registered with
++# register_extra_identifier KIND VALUE. Two parallel indexed arrays and a
++# count (bash 3.2: no associative arrays; the count avoids expanding an empty
++# array under set -u). Masked before the account and buckets, so a URL that
++# contains the account ID is replaced as a whole.
++SC_EXTRA_KINDS=()
++SC_EXTRA_VALUES=()
++SC_EXTRA_COUNT=0
++
+ # Name patterns (ERE) of the two buckets, for output printed BEFORE their real
+ # names are known (the first apply creates them; Phase 13 finding I-21). Set by
+ # register_bucket_patterns; empty means "no pattern masking".
+@@ -232,6 +242,85 @@ register_identifiers() {
+   return 0
+ }
+ 
++# register_extra_identifier KIND VALUE (Phase 15, G-29): remembers VALUE (an
++# API host, a queue URL, an endpoint host) for mask_text, mask_stream and
++# check_no_identifiers, which print <KIND> or name KIND, never the value.
++# KIND matches [a-z0-9][a-z0-9-]{0,39}. An empty VALUE is skipped (status 0:
++# the output does not exist yet); a VALUE shorter than 8 characters is refused
++# (status 2: it would mask ordinary text); a VALUE already registered is
++# skipped. At most 32 values (status 2 beyond).
++register_extra_identifier() {
++  local kind="${1:-}" value="${2:-}" i=0
++  if [[ ! "${kind}" =~ ^[a-z0-9][a-z0-9-]{0,39}$ ]]; then
++    sc_lib_err "identifier kind must match [a-z0-9][a-z0-9-]{0,39}"
++    return 2
++  fi
++  [ -n "${value}" ] || return 0
++  if [ "${#value}" -lt 8 ]; then
++    sc_lib_err "the ${kind} value is shorter than 8 characters; not registered"
++    return 2
++  fi
++  while [ "${i}" -lt "${SC_EXTRA_COUNT}" ]; do
++    [ "${SC_EXTRA_VALUES[${i}]}" = "${value}" ] && return 0
++    i=$((i + 1))
++  done
++  if [ "${SC_EXTRA_COUNT}" -ge 32 ]; then
++    sc_lib_err "too many extra identifiers (at most 32)"
++    return 2
++  fi
++  SC_EXTRA_KINDS[SC_EXTRA_COUNT]="${kind}"
++  SC_EXTRA_VALUES[SC_EXTRA_COUNT]="${value}"
++  SC_EXTRA_COUNT=$((SC_EXTRA_COUNT + 1))
++  return 0
++}
++
++# register_output_identifiers OUTPUTS_JSON (Phase 15, G-29 and decision
++# 9.5): registers, from the JSON of `terraform output -json`, the endpoint
++# values that must never be printed or recorded: api-host (the host of
++# api_url), job-dlq-url and embedding-dlq-url (dlq_urls), job-queue-url
++# (job_queue_url), embedding-queue-url (embedding_queue_url), alb-host
++# (alb_dns_name) and neptune-host (neptune_endpoint). The dead-letter queue
++# URLs are registered before the queue URLs, because each queue URL is a
++# prefix of its DLQ URL (longest first, so the label is right). A missing
++# output is skipped (status 0); prints nothing. Status 3 without jq; 2 when a
++# value is malformed (register_extra_identifier).
++register_output_identifiers() {
++  local o="${1:-}" url host
++  command -v jq >/dev/null 2>&1 || {
++    sc_lib_err "jq not found"
++    return 3
++  }
++  url="$(jq -r '.api_url.value // empty' <<<"${o}" 2>/dev/null)" || url=""
++  host=""
++  case "${url}" in
++    https://*)
++      host="${url#https://}"
++      host="${host%%/*}"
++      ;;
++  esac
++  register_extra_identifier api-host "${host}" || return "$?"
++  register_extra_identifier job-dlq-url "$(jq -r '.dlq_urls.value.jobs // empty' <<<"${o}" 2>/dev/null || true)" || return "$?"
++  register_extra_identifier embedding-dlq-url "$(jq -r '.dlq_urls.value.embedding // empty' <<<"${o}" 2>/dev/null || true)" || return "$?"
++  register_extra_identifier job-queue-url "$(jq -r '.job_queue_url.value // empty' <<<"${o}" 2>/dev/null || true)" || return "$?"
++  register_extra_identifier embedding-queue-url "$(jq -r '.embedding_queue_url.value // empty' <<<"${o}" 2>/dev/null || true)" || return "$?"
++  register_extra_identifier alb-host "$(jq -r '.alb_dns_name.value // empty' <<<"${o}" 2>/dev/null || true)" || return "$?"
++  register_extra_identifier neptune-host "$(jq -r '.neptune_endpoint.value // empty' <<<"${o}" 2>/dev/null || true)" || return "$?"
++  return 0
++}
++
++# sc_mask_extras TEXT: sets SC_MASK_OUT to TEXT with every registered extra
++# identifier replaced by <KIND> (no subshell).
++sc_mask_extras() {
++  local i=0 v
++  SC_MASK_OUT="${1:-}"
++  while [ "${i}" -lt "${SC_EXTRA_COUNT}" ]; do
++    v="${SC_EXTRA_VALUES[${i}]}"
++    SC_MASK_OUT="${SC_MASK_OUT//"${v}"/<${SC_EXTRA_KINDS[${i}]}>}"
++    i=$((i + 1))
++  done
++  return 0
++}
++
+ # register_bucket_patterns NAME_PREFIX: masks, in mask_text and mask_stream,
+ # any text shaped like a bucket name of this environment even when the real
+ # name is not known yet: NAME_PREFIX-data-<14+ digits><hex> (Terraform
+@@ -313,6 +402,8 @@ mask_account() {
+ # registered bucket name patterns (register_bucket_patterns).
+ mask_text() {
+   local s="${1:-}"
++  sc_mask_extras "${s}"
++  s="${SC_MASK_OUT}"
+   if [ -n "${SC_ACCOUNT_ID}" ]; then
+     s="${s//"${SC_ACCOUNT_ID}"/<account>}"
+   fi
+@@ -331,6 +422,8 @@ mask_text() {
+ mask_stream() {
+   local line
+   while IFS= read -r line || [ -n "${line}" ]; do
++    sc_mask_extras "${line}"
++    line="${SC_MASK_OUT}"
+     if [ -n "${SC_ACCOUNT_ID}" ]; then
+       line="${line//"${SC_ACCOUNT_ID}"/<account>}"
+     fi
+@@ -394,12 +487,26 @@ resolve_s3() {
+ }
+ 
+ # check_no_identifiers PATH...: status 6 when any file (directories are read
+-# recursively) contains the registered account ID or a registered bucket name
+-# (grep -F); the file and the kind of identifier are named, never the value.
+-# Status 0 when none is found or no identifier is registered.
++# recursively) contains the registered account ID, a registered bucket name
++# or (Phase 15, G-29) a registered extra identifier (grep -F); the file and
++# the kind of identifier are named, never the value. Status 0 when none is
++# found or no identifier is registered.
+ check_no_identifiers() {
+-  local found=0 p p_hit hits kind value
++  local found=0 p p_hit hits kind value i
+   for p in "$@"; do
++    i=0
++    while [ "${i}" -lt "${SC_EXTRA_COUNT}" ]; do
++      value="${SC_EXTRA_VALUES[${i}]}"
++      kind="${SC_EXTRA_KINDS[${i}]}"
++      i=$((i + 1))
++      hits="$(grep -r -l -F -- "${value}" "${p}" 2>/dev/null || true)"
++      if [ -n "${hits}" ]; then
++        found=1
++        while IFS= read -r p_hit; do
++          [ -n "${p_hit}" ] && printf 'IDENTIFIER-CHECK: %s holds the %s\n' "${p_hit}" "${kind}" >&2
++        done <<<"${hits}"
++      fi
++    done
+     for kind in account-id data-bucket vector-bucket; do
+       case "${kind}" in
+         account-id) value="${SC_ACCOUNT_ID}" ;;
+diff --git a/scripts/run-bounded-pipeline.sh b/scripts/run-bounded-pipeline.sh
+index 47ea7f5..f427d7c 100644
+--- a/scripts/run-bounded-pipeline.sh
++++ b/scripts/run-bounded-pipeline.sh
+@@ -8,7 +8,10 @@
+ #
+ # Status (Phase 13): static: shellcheck clean; runtime: untested; human
+ # execution required. Phase 14 G-07: uploads above 64 MiB are multipart
+-# (mpu_upload); runtime: untested.
++# (mpu_upload); runtime: untested. Phase 15 decision 9.3: --emr-max-units
++# and --spark-shuffle-partitions (execution-input fields
++# cluster.managedScalingMaxUnits and spark.shufflePartitions); runtime:
++# untested (first live use: p15-a-hadoop, D7a).
+ 
+ set -Eeuo pipefail
+ umask 077
+@@ -133,8 +136,17 @@ incomplete upload left behind after one day.
+                         '--dblp-dtd' 's3://{data-bucket}/raw/dblp/SNAPSHOT/dblp.dtd'
+                         (scripts/README.md "DBLP DTD"); recorded in
+                         configuration.extra_args
++  --emr-max-units N     (Phase 15) the EMR managed-scaling maximum of this
++                        execution's cluster: execution-input field
++                        cluster.managedScalingMaxUnits. Integer 1..64 here;
++                        the state machine refuses (fails before any cluster)
++                        unless emr_managed_scaling_min_units <= N <=
++                        emr_managed_scaling_max_units (Terraform; today 2..4).
++                        Absent: today's maximum (Terraform). One unit is one
++                        EC2 instance (core and task nodes only).
+   Recorded: execution name, EMR cluster IDs (execution history), the J09
+-  export runs (curated/.../j09-graph-export/run=HEX) under the output root.
++  export runs (curated/.../j09-graph-export/run=HEX) under the output root,
++  configuration.execution_settings (emr_max_units, null when absent).
+ 
+ --stage er (entity resolution on THIS machine; no AWS compute):
+   --hadoop-export s3://{data-bucket}/curated/.../run=HEX  (required)
+@@ -194,8 +206,16 @@ incomplete upload left behind after one day.
+                         PREFIX/ATTEMPT_ID/run=HEX. Give the same Spark
+                         inputs and out-root as the run being exported, so
+                         the graph job reuses that verified run.
++  --emr-max-units N     (Phase 15) as for --stage hadoop
++  --spark-shuffle-partitions N
++                        (Phase 15) spark.sql.shuffle.partitions of both Spark
++                        steps: execution-input field spark.shufflePartitions,
++                        integer 8..512 (checked here and by the state
++                        machine). Absent: 32 (today's value).
+   Recorded: execution name, EMR cluster IDs, the graph runs
+-  (run=HEX/_run_manifest.json) under the out-root and the export run.
++  (run=HEX/_run_manifest.json) under the out-root and the export run,
++  configuration.execution_settings (emr_max_units and
++  spark_shuffle_partitions, null when absent).
+ 
+ --stage load (one ops task on ECS Fargate; one at a time):
+   --loader dynamodb-load|neptune-csv-build|neptune-bulk-start|neptune-bulk-status|rag-ingest
+@@ -350,6 +370,14 @@ A_DATASET_ID=""
+ A_GRAPH_RUN=""
+ A_LOAD_ID=""
+ A_WAIT_SECONDS=""
++A_EMR_MAX_UNITS=""
++A_SHUFFLE_PARTITIONS=""
++# Phase 15 decision 9.3: the script's own bounds (the state machine checks
++# the Terraform min..max of the units again and refuses before any cluster).
++readonly EMR_MAX_UNITS_LO=1
++readonly EMR_MAX_UNITS_HI=64
++readonly SHUFFLE_PARTITIONS_LO=8
++readonly SHUFFLE_PARTITIONS_HI=512
+ 
+ need_value() {
+   [ "$1" -ge 2 ] || die 2 "$2 needs a value"
+@@ -400,6 +428,8 @@ parse_args() {
+       --graph-run) need_value "$#" "$1"; mark_given graph-run; A_GRAPH_RUN="$2"; shift 2 ;;
+       --load-id) need_value "$#" "$1"; mark_given load-id; A_LOAD_ID="$2"; shift 2 ;;
+       --wait-seconds) need_value "$#" "$1"; mark_given wait-seconds; A_WAIT_SECONDS="$2"; shift 2 ;;
++      --emr-max-units) need_value "$#" "$1"; mark_given emr-max-units; A_EMR_MAX_UNITS="$2"; shift 2 ;;
++      --spark-shuffle-partitions) need_value "$#" "$1"; mark_given spark-shuffle-partitions; A_SHUFFLE_PARTITIONS="$2"; shift 2 ;;
+       *)
+         usage >&2
+         die 2 "unknown argument: $1"
+@@ -441,6 +471,46 @@ int_in() {
+   [[ "$1" =~ ^[0-9]+$ ]] && [ "$1" -ge "$2" ] && [ "$1" -le "$3" ]
+ }
+ 
++# Phase 15 decision 9.3: --emr-max-units and --spark-shuffle-partitions are
++# plain integers in the script's bounds (no leading zero, so jq reads the
++# same number); allow_only has already refused them for other stages.
++check_execution_settings() {
++  if is_given emr-max-units; then
++    if [[ ! "${A_EMR_MAX_UNITS}" =~ ^[1-9][0-9]{0,2}$ ]] ||
++      ! int_in "${A_EMR_MAX_UNITS}" "${EMR_MAX_UNITS_LO}" "${EMR_MAX_UNITS_HI}"; then
++      die 2 "--emr-max-units must be an integer ${EMR_MAX_UNITS_LO}..${EMR_MAX_UNITS_HI} (the state machine also refuses values outside the Terraform managed-scaling min..max)"
++    fi
++  fi
++  if is_given spark-shuffle-partitions; then
++    if [[ ! "${A_SHUFFLE_PARTITIONS}" =~ ^[1-9][0-9]{0,3}$ ]] ||
++      ! int_in "${A_SHUFFLE_PARTITIONS}" "${SHUFFLE_PARTITIONS_LO}" "${SHUFFLE_PARTITIONS_HI}"; then
++      die 2 "--spark-shuffle-partitions must be an integer ${SHUFFLE_PARTITIONS_LO}..${SHUFFLE_PARTITIONS_HI}"
++    fi
++  fi
++}
++
++# execution_settings_json: the Phase 15 execution-input settings for
++# configuration.execution_settings (null when the option was not given, so
++# the state machine used its default).
++execution_settings_json() {
++  jq -n --arg u "${A_EMR_MAX_UNITS}" --arg p "${A_SHUFFLE_PARTITIONS}" \
++    '{emr_max_units: (if $u == "" then null else ($u | tonumber) end),
++      spark_shuffle_partitions: (if $p == "" then null else ($p | tonumber) end),
++      note: "null = absent from the execution input: the state machine uses its defaults (the Terraform managed-scaling maximum; 32 shuffle partitions)"}'
++}
++
++# add_execution_settings INPUT_FILE: adds cluster.managedScalingMaxUnits and
++# spark.shufflePartitions to the execution input when given (numbers); absent
++# options add nothing, so the input is byte-for-byte what Phase 14 sent.
++add_execution_settings() {
++  local f="$1" tmp="${1}.settings"
++  jq --arg u "${A_EMR_MAX_UNITS}" --arg p "${A_SHUFFLE_PARTITIONS}" \
++    '(if $u == "" then . else .cluster = {managedScalingMaxUnits: ($u | tonumber)} end)
++     | (if $p == "" or (.spark | not) then . else .spark.shufflePartitions = ($p | tonumber) end)' \
++    "${f}" >"${tmp}" || die 5 "could not add the execution settings to the input"
++  mv -- "${tmp}" "${f}" || die 5 "could not write the execution input"
++}
++
+ check_args() {
+   [ -n "${STAGE}" ] || {
+     usage >&2
+@@ -456,8 +526,9 @@ check_args() {
+       int_in "${A_MAX_UPLOAD_MB}" 1 "${HARD_MAX_UPLOAD_MB}" || die 2 "--max-upload-mb must be 1..${HARD_MAX_UPLOAD_MB}"
+       ;;
+     hadoop)
+-      allow_only dblp hadoop-output hadoop-jar hadoop-extra-arg
++      allow_only dblp hadoop-output hadoop-jar hadoop-extra-arg emr-max-units
+       require_given dblp
++      check_execution_settings
+       ;;
+     er)
+       allow_only hadoop-export decision-time seed max-download-mb er-heap-gb llm-model-id upload
+@@ -474,11 +545,13 @@ check_args() {
+       [[ "${A_LLM_MODEL_ID}" =~ ^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$ ]] || die 2 "--llm-model-id has unexpected characters"
+       ;;
+     spark)
+-      allow_only hadoop-export identity-assignments out-root spark-jar spark-config export-source-run export-root
++      allow_only hadoop-export identity-assignments out-root spark-jar spark-config export-source-run export-root \
++        emr-max-units spark-shuffle-partitions
+       require_given hadoop-export identity-assignments out-root
+       if is_given export-source-run || is_given export-root; then
+         require_given export-source-run export-root
+       fi
++      check_execution_settings
+       ;;
+     load)
+       allow_only loader export dataset-id graph-run load-id wait-seconds
+@@ -1265,6 +1338,7 @@ stage_hadoop() {
+     --arg snap "${SNAPSHOT}" --argjson extra "${extra}" \
+     '{codeVersion: $cv, hadoop: ({jar: $jar, output: $out, dblp: $dblp, dblpSnapshot: $snap}
+        + (if ($extra | length) > 0 then {extraArgs: $extra} else {} end))}' >"${input}"
++  add_execution_settings "${input}"
+   logical="$(jq -c --arg jar "$(logical_s3 "${jar}")" --arg out "$(logical_s3 "${output}")" \
+     --arg dblp "$(logical_s3 "${dblp}")" --argjson extra "${extra_logical}" \
+     '.hadoop.jar = $jar | .hadoop.output = $out | .hadoop.dblp = $dblp
+@@ -1272,11 +1346,11 @@ stage_hadoop() {
+   add_str INPUTS_JSON dblp_sha256 "${dblp_sha}"
+   # Phase 14 (R-1 note): the note names the driver options given with
+   # --hadoop-extra-arg (for example --dblp-dtd), so it stays true.
+-  CONFIG_JSON="$(jq -n --argjson extra "${extra_logical}" '{file: null, sha256: null,
++  CONFIG_JSON="$(jq -n --argjson extra "${extra_logical}" --argjson settings "$(execution_settings_json)" '{file: null, sha256: null,
+     note: (if ($extra | length) > 0
+            then "the Hadoop jobs use their built-in defaults plus -D scholarchain.code.version and the driver options in extra_args (for example --dblp-dtd, which sets scholarchain.dblp.dtdPath)"
+            else "the Hadoop jobs use their built-in defaults (-D scholarchain.code.version only)" end),
+-    extra_args: $extra}')"
++    extra_args: $extra, execution_settings: $settings}')"
+   printf 'INPUT: %s\n' "${logical}"
+ 
+   run_execution "${input}" "${logical}"
+@@ -1511,7 +1585,8 @@ stage_spark() {
+   check_artifact_commit "${jar}" "the Spark jar" >/dev/null
+   # I-24: a refusal (die 4) inside the substitution keeps its own exit code.
+   conf_sha="$(check_artifact_commit "${conf}" "the Spark job config")" || exit "$?"
+-  CONFIG_JSON="$(jq -n --arg f "$(logical_s3 "${conf}")" --arg s "${conf_sha}" '{file: $f, sha256: $s}')"
++  CONFIG_JSON="$(jq -n --arg f "$(logical_s3 "${conf}")" --arg s "${conf_sha}" \
++    --argjson settings "$(execution_settings_json)" '{file: $f, sha256: $s, execution_settings: $settings}')"
+   if is_given export-source-run; then
+     src="$(resolve_location "${A_EXPORT_SOURCE_RUN}" --export-source-run "${P_GRAPH}")" || exit "$?"
+     [[ "${src}" =~ /run=[0-9a-f]{32}$ ]] || die 4 "refusing: --export-source-run must end in /run=<32 hex>"
+@@ -1525,6 +1600,7 @@ stage_spark() {
+     '{codeVersion: $cv, spark: ({jar: $jar, config: $cfg, hadoopExport: $exp,
+        identityAssignments: $ids, outRoot: $out}
+        + (if $eroot != "" then {exportSourceRun: $src, exportRoot: $eroot} else {} end))}' >"${input}"
++  add_execution_settings "${input}"
+   logical="$(jq -c --arg jar "$(logical_s3 "${jar}")" --arg cfg "$(logical_s3 "${conf}")" \
+     --arg exp "$(logical_s3 "${export_uri}")" --arg ids "$(logical_s3 "${ids}")" \
+     --arg out "$(logical_s3 "${out_root}")" --arg src "$(logical_s3 "${src}")" --arg eroot "$(logical_s3 "${eroot}")" \
+diff --git a/scripts/run-experiment.sh b/scripts/run-experiment.sh
+index edea441..c25ac36 100644
+--- a/scripts/run-experiment.sh
++++ b/scripts/run-experiment.sh
+@@ -2,11 +2,13 @@
+ # scripts/run-experiment.sh - run ONE approved experiment manifest
+ # (experiments/manifest-schema-v1.json), record it, export its CloudWatch
+ # metrics, and keep the raw results (Phase 13 work order, decision 9.7; spec
+-# work-order item 7). Owner: infra-engineer (author). Run by the human or by
+-# experiment-engineer's approved procedure; never by an agent in Phase 13.
++# work-order item 7). Owner: infra-engineer (author). Run by the human only
++# (Phase 15 standing rules); never by an agent.
+ #
+ # Status (Phase 13): static: shellcheck clean; runtime: untested; human
+-# execution required.
++# execution required. Phase 15 decision 9.5 and 9.6 (identifier list,
++# {attempt-id}, ALB placeholders, --check, metrics for failed and timed-out
++# actions, exit 8, --export-metrics): runtime: untested.
+ 
+ set -Eeuo pipefail
+ umask 077
+@@ -21,6 +23,11 @@ readonly OUTPUT_TIMEOUT=120
+ readonly AWS_TIMEOUT=120
+ readonly METRICS_TIMEOUT=300
+ readonly METRIC_MARGIN_SECONDS=300
++# Phase 15 decision 10: CloudWatch data arrive minutes late, so the runner
++# waits this long after the action before it exports the window.
++readonly METRICS_SETTLE_SECONDS=300
++# Phase 15 decision 9.6(c): upper bound of the action's --preflight run.
++readonly PREFLIGHT_TIMEOUT=600
+ readonly MAX_TRIES=3
+ readonly MAX_LISTED_CLUSTERS=20
+ 
+@@ -30,6 +37,8 @@ TIMEOUT_BIN=""
+ MANIFEST=""
+ MANIFEST_SHA_ARG=""
+ MANIFEST_ID=""
++CHECK_MODE="false"
++EXPORT_OF=""
+ HEAD_SHA=""
+ BUILD_SHA=""
+ ATTEMPT_ID=""
+@@ -45,6 +54,10 @@ ACTION_RC="null"
+ ACTION_KIND=""
+ METRICS_STATUS="not-run"
+ STATE_MACHINE_ARN=""
++ALB_SUFFIX=""
++TG_SUFFIXES_JSON="{}"
++RESOLVED_ARGS_JSON="null"
++INVOKE_RC=0
+ EXECUTION_NAMES_JSON="[]"
+ CLUSTER_IDS_JSON="[]"
+ NESTED_JSON="[]"
+@@ -54,6 +67,8 @@ UNRESOLVED_JSON="[]"
+ usage() {
+   cat <<'EOF'
+ Usage: scripts/run-experiment.sh --manifest PATH --manifest-sha256 HEX64
++       scripts/run-experiment.sh --manifest PATH --manifest-sha256 HEX64 --check
++       scripts/run-experiment.sh --manifest PATH --manifest-sha256 HEX64 --export-metrics ATTEMPT_ID
+        scripts/run-experiment.sh --help
+ 
+ Run from the repository root: bash scripts/run-experiment.sh ...
+@@ -73,7 +88,9 @@ the message, before any cloud call:
+      action.kind pipeline|command, action.args array of strings, action.path
+      under load-tests/ or experiments/collectors/ with no ".." segment,
+      metrics array);
+-  6. no approval line.
++  6. (Phase 15) a placeholder in action.args other than {attempt-id}
++     (anywhere) and {data-bucket} (only as s3://{data-bucket}/...);
++  7. no approval line.
+ 
+ Three different guarantees:
+   integrity  the committed file has exactly the given sha256 (checked);
+@@ -88,9 +105,13 @@ Three different guarantees:
+              the first two checks, no more.
+ 
+ Then it:
+-  1. reads state_machine_arn, data_bucket_name and vector_bucket_name from
+-     terraform output and the account (aws sts get-caller-identity), only to
+-     resolve metric dimensions and to mask and check records;
++  1. reads state_machine_arn, data_bucket_name, vector_bucket_name,
++     alb_arn_suffix and target_group_arn_suffixes from terraform output and
++     the account (aws sts get-caller-identity), only to resolve metric
++     dimensions and to mask and check records. Phase 15 (G-29): it also
++     registers the API host (from api_url), the job and embedding queue URLs,
++     both DLQ URLs (dlq_urls), the ALB DNS name and the Neptune endpoint;
++     none is ever printed or recorded (scripts/lib/identity.sh);
+   2. creates evidence/experiment-runs/ATTEMPT_ID/ (gitignored, so the nested
+      run-bounded-pipeline.sh still sees a clean tree) and writes
+      run-record.started.json there;
+@@ -101,55 +122,92 @@ Then it:
+      maximum and the idle end, all set in Terraform; resourceLimits are
+      recorded, not applied; costBoundUsd is a declaration (nothing measures
+      spend during a run), refused above 5 USD;
+-  4. runs the action under timeout maxDurationSeconds, its output masked and
++  4. resolves action.args (Phase 15): every "{attempt-id}" is replaced by
++     this run's attempt ID; nothing else changes (s3://{data-bucket}/...
++     stays logical: run-bounded-pipeline.sh, or a collector, resolves it).
++     The resolved arguments are recorded (action.resolved_args);
++  5. runs the action under timeout maxDurationSeconds, its output masked and
+      kept in action.log: kind "pipeline" runs
+-     bash scripts/run-bounded-pipeline.sh ARGS (action.args passed
+-     UNCHANGED); kind "command" runs the committed executable at action.path
+-     with action.args. The action gets SCHOLARCHAIN_EXPERIMENT_RUN_DIR (the
+-     run folder, for raw output), SCHOLARCHAIN_EXPERIMENT_ATTEMPT_ID and
+-     SCHOLARCHAIN_EXPERIMENT_MANIFEST_ID in its environment;
+-  5. collects the nested run records: every "RUN-RECORD: PATH" line the
++     bash scripts/run-bounded-pipeline.sh RESOLVED_ARGS; kind "command" runs
++     the committed executable at action.path with RESOLVED_ARGS. The action
++     gets SCHOLARCHAIN_EXPERIMENT_RUN_DIR (the run folder, for raw output),
++     SCHOLARCHAIN_EXPERIMENT_ATTEMPT_ID and SCHOLARCHAIN_EXPERIMENT_MANIFEST_ID
++     in its environment;
++  6. collects the nested run records: every "RUN-RECORD: PATH" line the
+      action printed (PATH under evidence/runs/) is copied into nested/, and
+      its remote IDs are read (jq .run_ids.execution_name and
+      .run_ids.emr_cluster_ids[]); "EXECUTION: name=NAME" lines are read too;
+-  6. after a successful action, exports the manifest's metrics with
+-     aws cloudwatch get-metric-data for the action window plus 300 s on each
+-     side into metrics/metric-data.json (queries in logical form in
+-     metrics/queries.json); a failed or timed-out run records the window, so
+-     the metrics can be exported later, but exports none itself;
+-  7. writes run-record.json, checks every file of the run folder for the
+-     real account ID and bucket names (grep -F), then moves the folder to
+-     experiments/raw/MANIFEST_ID/ATTEMPT_ID/ and makes it read-only. The
+-     human commits it (committed raw evidence). A run folder that holds an
+-     identifier is NOT moved (exit 6; it stays under evidence/).
+-
+-Logical locations and placeholders (Phase 13 finding C-03):
+-  - action.args hold logical S3 locations s3://{data-bucket}/KEY. This script
+-    passes them unchanged; scripts/run-bounded-pipeline.sh resolves
+-    {data-bucket} from terraform output data_bucket_name (and turns real
+-    locations back into logical ones in its records). A "command" action
+-    gets the arguments unchanged too and must resolve them itself.
+-  - Metric dimension placeholders are resolved here at export time:
+-    {state-machine-arn} from terraform output state_machine_arn;
+-    {emr-cluster-id} from the nested run records (.run_ids.emr_cluster_ids[];
+-    one query per cluster). A metric whose placeholder cannot be resolved is
+-    not queried and is listed; the run is then succeeded-metrics-failed.
+-    Records and metrics/queries.json keep the placeholder text, never the
+-    ARN.
++  7. for EVERY action that ended (succeeded, failed or timed out; Phase 15
++     decision 9.6(d)), waits 300 s for CloudWatch to catch up, then exports
++     the manifest's metrics with aws cloudwatch get-metric-data for the
++     action window plus 300 s on each side into metrics/metric-data.json
++     (queries in logical form in metrics/queries.json). Only a run stopped by
++     a signal (INT, TERM) exports nothing;
++  8. writes run-record.json, checks every file of the run folder for the
++     real account ID, bucket names and the identifiers of step 1 (grep -F),
++     then moves the folder to experiments/raw/MANIFEST_ID/ATTEMPT_ID/ and
++     makes it read-only. The human commits it (committed raw evidence). A run
++     folder that holds an identifier is NOT moved (exit 8; it stays under
++     evidence/).
++
++--check (Phase 15 decision 9.6(c)): runs every refusal above in order, then
++the read-only part: Terraform outputs and the account (identifier list),
++each metric placeholder shown only as resolved or not, the {attempt-id}
++substitution on a sample attempt ID, the action's executable bit and tracked
++state, the environment variables it would pass; then runs the action in
++PREFLIGHT form through the same code path as a real run: the resolved
++action.args plus --preflight, with the same environment except that
++SCHOLARCHAIN_EXPERIMENT_RUN_DIR points to a temporary folder outside the
++repository (removed at exit), output masked like action.log, at most 600 s.
++A "pipeline" action is not run in preflight form (run-bounded-pipeline.sh has
++no --preflight; said so). It prints the cost bound and limits and exits 0
++without creating a run folder, starting real work or exporting metrics.
++The refusals keep their exit codes; a failed preflight is exit 5 (its exit
++code printed), a preflight past 600 s exit 7.
++
++--export-metrics ATTEMPT_ID (Phase 15 decision 9.6(f)): re-exports the
++metrics of an earlier, committed attempt of the SAME approved manifest
++(experiments/raw/MANIFEST_ID/ATTEMPT_ID/run-record.json, tracked, with the
++same manifest sha256 and an action window) into a NEW folder
++experiments/raw/MANIFEST_ID/ATTEMPT_ID-metrics-UTCSTAMP/ (the original
++window and EMR cluster IDs; the record names the original attempt in
++metrics_export_of). It never touches the original folder and runs no
++action. Same refusals; exit 0, 6 or 8 as below.
++
++Logical locations and placeholders (Phase 13 finding C-03; Phase 15 9.6(a)):
++  - Who resolves what (one rule): {attempt-id} in action.args: this runner;
++    {data-bucket} in an s3:// argument: run-bounded-pipeline.sh, which
++    resolves it from terraform output data_bucket_name and records only the
++    logical form (a "command" action that itself needs a bucket resolves it
++    the same way and never prints it); {emr-cluster-id},
++    {state-machine-arn}, {alb-dimension} and {alb-target-group-ROLE} in
++    metrics: this runner, at export.
++  - Metric dimension placeholders: {state-machine-arn} from terraform output
++    state_machine_arn; {emr-cluster-id} from the nested run records
++    (.run_ids.emr_cluster_ids[]; one query per cluster); {alb-dimension}
++    from terraform output alb_arn_suffix (app/NAME/ID, the ALB's
++    LoadBalancer dimension, never an ARN); {alb-target-group-ROLE} (ROLE
++    query, evidence or graph) from terraform output
++    target_group_arn_suffixes (targetgroup/NAME/ID). A metric whose
++    placeholder cannot be resolved is not queried and is listed; the run is
++    then succeeded-metrics-failed. Records and metrics/queries.json keep the
++    placeholder text, never the ARN.
+ 
+ Run record (run-record.started.json first, then run-record.json; never
+ overwritten): HEAD, build commit, manifest path, id and sha256, start and end
+-UTC, Region, declared limits, action kind, arguments and exit code, nested
+-run records, remote IDs (execution names, EMR cluster IDs), metric file
+-locations, unresolved metrics, status: succeeded, failed,
+-timed-out or succeeded-metrics-failed. A failed run keeps its folder and
+-record. A run killed so hard that no trap ran leaves only the started record
+-under evidence/experiment-runs/: an incomplete attempt, never a success.
++UTC, Region, declared limits, action kind, arguments, resolved arguments and
++exit code, nested run records, remote IDs (execution names, EMR cluster IDs),
++metric file locations and status, unresolved metrics, metrics_export_of
++(null for a run), status: succeeded, failed, timed-out or
++succeeded-metrics-failed. A failed run keeps its folder and record. A run
++killed so hard that no trap ran leaves only the started record under
++evidence/experiment-runs/: an incomplete attempt, never a success.
+ 
+ On a local timeout it prints what may still be running remotely (the Step
+ Functions execution names the action reported, and running EMR clusters
+ tagged project=scholarchain from aws emr list-clusters --active and
+-describe-cluster) and exits 7. It never stops remote work itself.
++describe-cluster), exports the window's metrics, and exits 7. It never stops
++remote work itself.
+ 
+ Requirements: bash, git, jq (1.6+), shasum or sha256sum, timeout or
+ gtimeout (GNU coreutils), checked first; terraform (output only) and aws
+@@ -158,12 +216,23 @@ work on a machine without them; AWS credentials allowed to read Terraform
+ outputs' resources, CloudWatch metrics and EMR clusters, plus whatever the
+ action needs.
+ 
+-Exit codes: 0 action succeeded and metrics exported; 2 usage error; 3 missing
+-prerequisite or Terraform output; 4 refused by a safety check (list above,
+-or the run or raw folder exists); 5 the action or a command failed;
+-6 the action succeeded but the metric export failed or was partial
+-(succeeded-metrics-failed), or an identifier was found in the run folder;
+-7 the local time limit (maxDurationSeconds) or a TERM signal stopped it.
++Exit codes:
++  0  action succeeded and metrics exported (or none declared); --check: all
++     checks and the preflight passed
++  2  usage error
++  3  missing prerequisite or Terraform output (the runner's own)
++  4  refused by a safety check (list above, or the run or raw folder exists)
++  5  the action failed (metrics still exported; status failed), a command of
++     the runner failed, or (--check) the action's preflight failed
++  6  the action succeeded but the metric export failed or was partial
++     (succeeded-metrics-failed)
++  7  the local time limit (maxDurationSeconds) stopped the action (metrics
++     exported; status timed-out; remote work may still run), or a TERM
++     signal stopped the runner (no export)
++  8  (Phase 15) an identifier (account ID, bucket name, API host, queue or
++     DLQ URL, ALB or Neptune host) was found in the run folder or its
++     record; the folder stays under evidence/experiment-runs/ (never commit
++     it)
+ 
+ Status: static: shellcheck clean; runtime: untested; human execution required.
+ EOF
+@@ -245,6 +314,15 @@ parse_args() {
+         MANIFEST_SHA_ARG="$2"
+         shift 2
+         ;;
++      --check)
++        CHECK_MODE="true"
++        shift
++        ;;
++      --export-metrics)
++        [ "$#" -ge 2 ] || die 2 "--export-metrics needs an attempt ID"
++        EXPORT_OF="$2"
++        shift 2
++        ;;
+       *)
+         usage >&2
+         die 2 "unknown argument: $1"
+@@ -256,6 +334,14 @@ parse_args() {
+     die 2 "--manifest PATH is required"
+   }
+   [[ "${MANIFEST_SHA_ARG}" =~ ^[0-9a-f]{64}$ ]] || die 2 "--manifest-sha256 needs 64 lowercase hex"
++  if [ "${CHECK_MODE}" = "true" ] && [ -n "${EXPORT_OF}" ]; then
++    die 2 "--check and --export-metrics cannot be combined"
++  fi
++  if [ -n "${EXPORT_OF}" ]; then
++    # new_attempt_id form (scripts/lib/identity.sh): UTC-HEAD12-RANDOM4.
++    [[ "${EXPORT_OF}" =~ ^[0-9]{8}T[0-9]{6}Z-([0-9a-f]{12}|nohead)-[0-9a-f]{4}$ ]] ||
++      die 2 "--export-metrics needs an attempt ID like 20261120T200000Z-0123456789ab-0f1e"
++  fi
+   while [ "${MANIFEST#./}" != "${MANIFEST}" ]; do
+     MANIFEST="${MANIFEST#./}"
+   done
+@@ -276,8 +362,8 @@ enter_repo_root() {
+ }
+ 
+ # Local tools only: the refusals (dirty tree, untracked, checksum, example, v1,
+-# approval) need no cloud tool, so a machine without the AWS CLI still gets
+-# exit 4 from them (I-20; check.sh's run-experiment-example probe).
++# placeholders, approval) need no cloud tool, so a machine without the AWS CLI
++# still gets exit 4 from them (I-20; check.sh's run-experiment-example probe).
+ check_local_prerequisites() {
+   step "prerequisites-local"
+   local tool
+@@ -392,6 +478,25 @@ check_v1() {
+   info "v1 checks passed: ${MANIFEST_ID}, experiment $(jq -r '.experiment' "${MANIFEST}"), action ${ACTION_KIND}"
+ }
+ 
++# Phase 15 decision 9.6(a): after {attempt-id} (anywhere) and s3://{data-bucket}
++# (the logical bucket of an s3:// argument) are set aside, no "{...}" may be
++# left in any action argument.
++check_placeholders() {
++  step "refuse-placeholders"
++  local bad
++  bad="$(jq -r '.action.args[]
++      | select(gsub("\\{attempt-id\\}"; "") | gsub("s3://\\{data-bucket\\}"; "s3://") | test("\\{[^{}]*\\}"))' \
++    "${MANIFEST}" 2>/dev/null)" || die 4 "refusing: action.args could not be read (placeholder check)"
++  if [ -n "${bad}" ]; then
++    local a
++    while IFS= read -r a; do
++      [ -n "${a}" ] && printf 'PLACEHOLDER-CHECK: unknown placeholder in action argument: %s\n' "${a}" >&2
++    done <<<"${bad}"
++    die 4 "refusing: action.args hold a placeholder other than {attempt-id} and s3://{data-bucket}/ (listed above)"
++  fi
++  info "action.args placeholders: only {attempt-id} and s3://{data-bucket}/"
++}
++
+ check_approval() {
+   step "refuse-no-approval"
+   local hits
+@@ -439,17 +544,38 @@ read_outputs() {
+   vector="$(jq -r '.vector_bucket_name.value // empty' <<<"${outputs}")"
+   [ -n "${STATE_MACHINE_ARN}" ] && [ -n "${data}" ] ||
+     die 3 "terraform output lacks state_machine_arn or data_bucket_name (nothing applied yet?)"
++  # Phase 15 decision 9.6(b): ALB dimension values (ARN suffixes, no account).
++  ALB_SUFFIX="$(jq -r '.alb_arn_suffix.value // empty' <<<"${outputs}")"
++  TG_SUFFIXES_JSON="$(jq -c '.target_group_arn_suffixes.value // {} | if type == "object" then . else {} end' <<<"${outputs}")"
+   ident="$(aws_read sts get-caller-identity)" || die 5 "aws sts get-caller-identity failed"
+   register_identifiers "$(jq -r '.Account // empty' <<<"${ident}")" "${data}" "${vector}" ||
+     die 5 "could not read the account"
+-  info "Region ${EXPECTED_REGION}; state machine and buckets read from terraform output (masked)"
++  ident=""
++  # Phase 15 decision 9.5 (G-29): API host, queue and DLQ URLs, ALB and
++  # Neptune hosts: masked in action.log and every line, refused in the run
++  # folder (exit 8). Read here, held in shell variables, never printed.
++  register_output_identifiers "${outputs}" || die 5 "could not register the Terraform output identifiers"
++  outputs=""
++  info "Region ${EXPECTED_REGION}; state machine, buckets, API host, queue URLs and endpoint hosts read from terraform output (masked, not printed)"
++}
++
++# ---- {attempt-id} (Phase 15 decision 9.6(a)) ------------------------------------------
++
++# resolve_args ID: sets RESOLVED_ARGS_JSON to action.args with every
++# {attempt-id} replaced by ID; every other character unchanged.
++resolve_args() {
++  local id="$1"
++  [[ "${id}" =~ ^[A-Za-z0-9-]+$ ]] || die 5 "internal: unexpected attempt ID form"
++  RESOLVED_ARGS_JSON="$(jq -c --arg a "${id}" '[.action.args[] | gsub("\\{attempt-id\\}"; $a)]' "${MANIFEST}")" ||
++    die 5 "could not resolve {attempt-id} in action.args"
+ }
+ 
+ # ---- run folder and records ----------------------------------------------------------
+ 
++# start_run [ATTEMPT_ID]: a new attempt ID unless one is given (--export-metrics).
+ start_run() {
+   step "start-run"
+-  ATTEMPT_ID="$(new_attempt_id)"
++  ATTEMPT_ID="${1:-$(new_attempt_id)}"
+   RUN_DIR="${RUN_ROOT}/${ATTEMPT_ID}"
+   RAW_DEST="${RAW_ROOT}/${MANIFEST_ID}/${ATTEMPT_ID}"
+   [ ! -e "${RUN_DIR}" ] || die 4 "refusing: ${RUN_DIR} exists"
+@@ -465,7 +591,8 @@ start_run() {
+   info "run folder ${RUN_DIR} (moved to ${RAW_DEST} at the end)"
+ }
+ 
+-# base_record STATUS: prints the run record (logical locations only).
++# base_record STATUS [ENDED_UTC] [EXIT_CODE]: prints the run record (logical
++# locations only).
+ base_record() {
+   jq -n --arg kind "scholarchain-experiment-run-record" --arg status "$1" \
+     --arg attempt "${ATTEMPT_ID}" --arg head "${HEAD_SHA}" --arg build "${BUILD_SHA}" \
+@@ -477,7 +604,8 @@ base_record() {
+     --arg astart "${ACTION_START_EPOCH}" --arg aend "${ACTION_END_EPOCH}" \
+     --argjson executions "${EXECUTION_NAMES_JSON}" --argjson clusters "${CLUSTER_IDS_JSON}" \
+     --argjson nested "${NESTED_JSON}" --argjson metric_files "${METRIC_FILES_JSON}" \
+-    --argjson unresolved "${UNRESOLVED_JSON}" --slurpfile m "${MANIFEST}" \
++    --argjson unresolved "${UNRESOLVED_JSON}" --argjson resolved "${RESOLVED_ARGS_JSON}" \
++    --arg export_of "${EXPORT_OF}" --slurpfile m "${MANIFEST}" \
+     '{kind: $kind, version: 1, status: $status, attempt_id: $attempt,
+       exit_code: $exit_code,
+       failed_step: (if ($status | IN("started", "succeeded")) then null else $step end),
+@@ -488,7 +616,10 @@ base_record() {
+       declared_not_enforced: {costBoundUsd: $m[0].costBoundUsd, maxDurationSeconds: $m[0].maxDurationSeconds,
+                               resourceLimits: $m[0].resourceLimits},
+       started_utc: $started, ended_utc: (if $ended == "" then null else $ended end),
++      metrics_export_of: (if $export_of == "" then null else $export_of end),
+       action: {kind: $m[0].action.kind, path: ($m[0].action.path // null), args: $m[0].action.args,
++               resolved_args: $resolved,
++               run: ($export_of == ""),
+                exit_code: $action_rc,
+                window_epoch: {start: (if $astart == "" then null else ($astart | tonumber) end),
+                               end: (if $aend == "" then null else ($aend | tonumber) end)}},
+@@ -505,46 +636,83 @@ print_declared() {
+   printf 'DECLARED (not enforced): maxDurationSeconds=%s bounds only this local runner\n' \
+     "$(jq -r '.maxDurationSeconds' "${MANIFEST}")"
+   printf 'DECLARED (not enforced): resourceLimits=%s (the real caps are the Terraform values)\n' \
+-    "$(jq -c '.resourceLimits' "${MANIFEST}")"
++    "$(mask_text "$(jq -c '.resourceLimits' "${MANIFEST}")")"
+ }
+ 
+ # ---- action --------------------------------------------------------------------------
+ 
+-run_action() {
+-  step "action"
+-  local args=() a path max rc=0
+-  while IFS= read -r -d '' a; do
+-    args+=("${a}")
+-  done < <(jq -j '.action.args[] | (., "\u0000")' "${MANIFEST}")
+-  max="$(jq -r '.maxDurationSeconds' "${MANIFEST}")"
+-  local cmd=()
++# action_command: prints nothing; sets ACTION_CMD to the command array of the
++# action (pipeline or the committed executable), refusing (4) an untracked or
++# non-executable command path.
++ACTION_CMD=()
++action_command() {
++  local path
+   if [ "${ACTION_KIND}" = "pipeline" ]; then
+     [ -f scripts/run-bounded-pipeline.sh ] || die 3 "missing scripts/run-bounded-pipeline.sh"
+-    cmd=(bash scripts/run-bounded-pipeline.sh)
++    ACTION_CMD=(bash scripts/run-bounded-pipeline.sh)
+   else
+     path="$(jq -r '.action.path' "${MANIFEST}")"
+     git ls-files --error-unmatch -- "${path}" >/dev/null 2>&1 || die 4 "refusing: ${path} is not tracked by git"
+     [ -f "${path}" ] && [ -x "${path}" ] || die 4 "refusing: ${path} is not an executable file"
+-    cmd=("./${path}")
++    ACTION_CMD=("./${path}")
++  fi
++}
++
++# invoke_action RUN_DIR_ABS ATTEMPT MAX_SECONDS LOG_FILE [EXTRA_ARG...]: the ONE
++# code path of a real run and of the --check preflight. Runs ACTION_CMD with
++# RESOLVED_ARGS_JSON (then EXTRA_ARG...) under timeout, with the three
++# SCHOLARCHAIN_EXPERIMENT_* variables, standard input from /dev/null, output
++# masked, shown and kept in LOG_FILE. Sets INVOKE_RC (the action's status).
++invoke_action() {
++  local run_dir="$1" attempt="$2" max="$3" log="$4" a rc=0
++  shift 4
++  local args=()
++  while IFS= read -r -d '' a; do
++    args+=("${a}")
++  done < <(jq -j '.[] | (., "\u0000")' <<<"${RESOLVED_ARGS_JSON}")
++  if [ "$#" -gt 0 ]; then
++    args+=("$@")
+   fi
++  SCHOLARCHAIN_EXPERIMENT_RUN_DIR="${run_dir}" \
++    SCHOLARCHAIN_EXPERIMENT_ATTEMPT_ID="${attempt}" \
++    SCHOLARCHAIN_EXPERIMENT_MANIFEST_ID="${MANIFEST_ID}" \
++    "${TIMEOUT_BIN}" --kill-after=30 "${max}" "${ACTION_CMD[@]}" ${args[@]+"${args[@]}"} 2>&1 </dev/null |
++    mask_stream | tee "${log}" || rc="${PIPESTATUS[0]}"
++  INVOKE_RC="${rc}"
++}
++
++# run_action: runs the action once and records how it ended. It does NOT stop
++# the runner on a failure or a timeout: the metrics are exported for every
++# action that ended (Phase 15 decision 9.6(d)); finish_action decides the exit.
++run_action() {
++  step "action"
++  local max
++  max="$(jq -r '.maxDurationSeconds' "${MANIFEST}")"
++  resolve_args "${ATTEMPT_ID}"
++  info "resolved action.args ({attempt-id} -> ${ATTEMPT_ID}): $(jq -c '.' <<<"${RESOLVED_ARGS_JSON}")"
+   info "running the ${ACTION_KIND} action under timeout ${max}s; output masked into ${RUN_DIR}/action.log"
+   ACTION_START_EPOCH="$(date +%s)"
+-  SCHOLARCHAIN_EXPERIMENT_RUN_DIR="$(pwd -P)/${RUN_DIR}" \
+-    SCHOLARCHAIN_EXPERIMENT_ATTEMPT_ID="${ATTEMPT_ID}" \
+-    SCHOLARCHAIN_EXPERIMENT_MANIFEST_ID="${MANIFEST_ID}" \
+-    "${TIMEOUT_BIN}" --kill-after=30 "${max}" "${cmd[@]}" ${args[@]+"${args[@]}"} 2>&1 </dev/null |
+-    mask_stream | tee "${RUN_DIR}/action.log" || rc="${PIPESTATUS[0]}"
++  invoke_action "$(pwd -P)/${RUN_DIR}" "${ATTEMPT_ID}" "${max}" "${RUN_DIR}/action.log"
+   ACTION_END_EPOCH="$(date +%s)"
+-  ACTION_RC="${rc}"
+-  info "action ended with status ${rc} after $((ACTION_END_EPOCH - ACTION_START_EPOCH))s"
++  ACTION_RC="${INVOKE_RC}"
++  info "action ended with status ${ACTION_RC} after $((ACTION_END_EPOCH - ACTION_START_EPOCH))s"
+   collect_nested
+-  case "${rc}" in
++  case "${ACTION_RC}" in
++    124 | 137) report_remote_leftovers ;;
++  esac
++}
++
++# finish_action: the exit after the metrics (the EXIT trap writes the record).
++finish_action() {
++  local max
++  step "action-result"
++  max="$(jq -r '.maxDurationSeconds' "${MANIFEST}")"
++  case "${ACTION_RC}" in
+     0) return 0 ;;
+     124 | 137)
+-      report_remote_leftovers "${max}"
+-      die 7 "the action exceeded maxDurationSeconds=${max}s; remote work may still run (listed above; never stopped by this script)"
++      die 7 "the action exceeded maxDurationSeconds=${max}s; remote work may still run (listed above; never stopped by this script); metrics: ${METRICS_STATUS}"
+       ;;
+-    *) die 5 "the action failed (status ${rc}); see ${RUN_DIR}/action.log" ;;
++    *) die 5 "the action failed (status ${ACTION_RC}); see ${RUN_DIR}/action.log; metrics: ${METRICS_STATUS}" ;;
+   esac
+ }
+ 
+@@ -607,10 +775,50 @@ report_remote_leftovers() {
+ 
+ # ---- metrics -------------------------------------------------------------------------
+ 
++# The jq program that turns the manifest's metrics into get-metric-data
++# queries. $sm, $alb and $tg resolve {state-machine-arn}, {alb-dimension} and
++# {alb-target-group-ROLE}; $clusters expands {emr-cluster-id} to one query per
++# cluster. With $sm = "{state-machine-arn}", $alb = "" and $tg = {} it gives
++# the logical form (placeholders kept).
++# shellcheck disable=SC2016
++readonly METRIC_QUERY_JQ='
++  def resolve($v; $c):
++    if $v == "{state-machine-arn}" then $sm
++    elif $v == "{emr-cluster-id}" then ($c // $v)
++    elif $v == "{alb-dimension}" then (if $alb == "" then $v else $alb end)
++    elif ($v | test("^\\{alb-target-group-[a-z]+\\}$"))
++      then ($tg[($v | ltrimstr("{alb-target-group-") | rtrimstr("}"))] // $v)
++    else $v end;
++  [ .metrics | to_entries[] | .key as $i | .value as $m
++    | (if any($m.dimensions[]?; .value == "{emr-cluster-id}")
++         then (if ($clusters | length) == 0 then [{c: null, j: 0}]
++               else ($clusters | to_entries | map({c: .value, j: .key})) end)
++         else [{c: null, j: 0}] end)[] as $cv
++    | {Id: "m\($i)_\($cv.j)",
++       Label: ("\($m.namespace) \($m.metricName) \($m.stat) "
++               + ([$m.dimensions[]? | "\(.name)=\(if .value == "{emr-cluster-id}" then ($cv.c // .value) else .value end)"]
++                  | join(","))),
++       MetricStat: {Metric: {Namespace: $m.namespace, MetricName: $m.metricName,
++                             Dimensions: [$m.dimensions[]? | {Name: .name, Value: resolve(.value; $cv.c)}]},
++                    Period: $m.periodSeconds, Stat: $m.stat},
++       ReturnData: true} ]'
++
++# wait_for_metrics: CloudWatch publishes late (decision 10), so the runner
++# waits METRICS_SETTLE_SECONDS after the action before the export.
++wait_for_metrics() {
++  local n
++  n="$(jq '.metrics | length' "${MANIFEST}")"
++  [ "${n}" -gt 0 ] || return 0
++  step "metrics-settle"
++  printf 'METRICS-WAIT: %ss for CloudWatch to publish the end of the window (Ctrl-C stops the runner; no export then)\n' \
++    "${METRICS_SETTLE_SECONDS}"
++  sleep "${METRICS_SETTLE_SECONDS}"
++}
++
+ export_metrics() {
+   step "metrics"
+   local n start end queries="${TMP_DIR}/queries.json" logical="${RUN_DIR}/metrics/queries.json"
+-  local out="${TMP_DIR}/metric-data.json" rc=0 try=1 build
++  local out="${TMP_DIR}/metric-data.json" rc=0 try=1
+   n="$(jq '.metrics | length' "${MANIFEST}")"
+   if [ "${n}" -eq 0 ]; then
+     METRICS_STATUS="none-declared"
+@@ -619,30 +827,15 @@ export_metrics() {
+   fi
+   start="$(sc_epoch_to_utc $((ACTION_START_EPOCH - METRIC_MARGIN_SECONDS)))"
+   end="$(sc_epoch_to_utc $((ACTION_END_EPOCH + METRIC_MARGIN_SECONDS)))"
+-  # shellcheck disable=SC2016
+-  build='
+-    def resolve($v; $c): if $v == "{state-machine-arn}" then $sm
+-                         elif $v == "{emr-cluster-id}" then ($c // $v) else $v end;
+-    [ .metrics | to_entries[] | .key as $i | .value as $m
+-      | (if any($m.dimensions[]?; .value == "{emr-cluster-id}")
+-           then (if ($clusters | length) == 0 then [{c: null, j: 0}]
+-                 else ($clusters | to_entries | map({c: .value, j: .key})) end)
+-           else [{c: null, j: 0}] end)[] as $cv
+-      | {Id: "m\($i)_\($cv.j)",
+-         Label: ("\($m.namespace) \($m.metricName) \($m.stat) "
+-                 + ([$m.dimensions[]? | "\(.name)=\(if .value == "{emr-cluster-id}" then ($cv.c // .value) else .value end)"]
+-                    | join(","))),
+-         MetricStat: {Metric: {Namespace: $m.namespace, MetricName: $m.metricName,
+-                               Dimensions: [$m.dimensions[]? | {Name: .name, Value: resolve(.value; $cv.c)}]},
+-                      Period: $m.periodSeconds, Stat: $m.stat},
+-         ReturnData: true} ]'
+-  jq -c --arg sm "${STATE_MACHINE_ARN}" --argjson clusters "${CLUSTER_IDS_JSON}" "${build}" "${MANIFEST}" >"${TMP_DIR}/all-queries.json" ||
++  jq -c --arg sm "${STATE_MACHINE_ARN}" --arg alb "${ALB_SUFFIX}" --argjson tg "${TG_SUFFIXES_JSON}" \
++    --argjson clusters "${CLUSTER_IDS_JSON}" "${METRIC_QUERY_JQ}" "${MANIFEST}" >"${TMP_DIR}/all-queries.json" ||
+     {
+       METRICS_STATUS="failed"
+       warn "could not build the metric queries from the manifest"
+       return 0
+     }
+-  jq -c --arg sm "{state-machine-arn}" --argjson clusters "${CLUSTER_IDS_JSON}" "${build}" "${MANIFEST}" >"${TMP_DIR}/logical-queries.json" ||
++  jq -c --arg sm "{state-machine-arn}" --arg alb "" --argjson tg '{}' \
++    --argjson clusters "${CLUSTER_IDS_JSON}" "${METRIC_QUERY_JQ}" "${MANIFEST}" >"${TMP_DIR}/logical-queries.json" ||
+     true
+   # Queries whose dimension values still hold a {placeholder} cannot be run.
+   UNRESOLVED_JSON="$(jq -c '[.[] | select(any(.MetricStat.Metric.Dimensions[]?; .Value | test("^\\{.*\\}$"))) | .Label]' \
+@@ -688,13 +881,107 @@ export_metrics() {
+   info "metrics exported for ${start} .. ${end}: $(jq '[.MetricDataResults[]?] | length' "${out}") series"
+ }
+ 
++# ---- --check (Phase 15 decision 9.6(c)) --------------------------------------------------
++
++# metric_placeholder_report: one line per distinct placeholder of the
++# manifest's metrics: resolved now, resolved at export, or not resolvable.
++metric_placeholder_report() {
++  local p state role
++  while IFS= read -r p; do
++    [ -n "${p}" ] || continue
++    case "${p}" in
++      "{state-machine-arn}") [ -n "${STATE_MACHINE_ARN}" ] && state="resolved" || state="NOT resolved" ;;
++      "{emr-cluster-id}") state="resolved at export from the nested run records (one query per cluster)" ;;
++      "{alb-dimension}") [ -n "${ALB_SUFFIX}" ] && state="resolved" || state="NOT resolved (no terraform output alb_arn_suffix)" ;;
++      "{alb-target-group-"*"}")
++        role="${p#\{alb-target-group-}"
++        role="${role%\}}"
++        if jq -e --arg r "${role}" 'has($r)' <<<"${TG_SUFFIXES_JSON}" >/dev/null 2>&1; then
++          state="resolved"
++        else
++          state="NOT resolved (no target group for role ${role})"
++        fi
++        ;;
++      *) state="NOT resolved (unknown placeholder; the query would be listed as unresolved)" ;;
++    esac
++    printf 'CHECK: metric placeholder %s: %s\n' "${p}" "${state}"
++  done < <(jq -r '[.metrics[]?.dimensions[]?.value | strings | select(test("^\\{.*\\}$"))] | unique | .[]' "${MANIFEST}")
++}
++
++run_check() {
++  step "check"
++  local sample max path pf_dir pf_log here
++  print_declared
++  metric_placeholder_report
++  printf 'CHECK: metrics declared: %s\n' "$(jq '.metrics | length' "${MANIFEST}")"
++  sample="$(new_attempt_id)"
++  resolve_args "${sample}"
++  printf 'CHECK: {attempt-id} substitution on the sample attempt ID %s (no run folder): %s\n' \
++    "${sample}" "$(mask_text "$(jq -c '.' <<<"${RESOLVED_ARGS_JSON}")")"
++  action_command
++  if [ "${ACTION_KIND}" = "command" ]; then
++    path="$(jq -r '.action.path' "${MANIFEST}")"
++    printf 'CHECK: action %s: tracked by git, executable bit set\n' "${path}"
++  else
++    printf 'CHECK: action bash scripts/run-bounded-pipeline.sh (kind pipeline)\n'
++  fi
++  here="$(pwd -P)"
++  pf_dir="${TMP_DIR}/preflight-run"
++  case "${pf_dir}" in
++    "${here}"/*) die 4 "refusing: the temporary folder ${pf_dir} lies inside the repository (set TMPDIR elsewhere)" ;;
++  esac
++  mkdir -p -- "${pf_dir}"
++  pf_log="${TMP_DIR}/preflight.log"
++  printf 'CHECK: environment passed: SCHOLARCHAIN_EXPERIMENT_RUN_DIR=<temporary folder outside the repository, removed at exit> SCHOLARCHAIN_EXPERIMENT_ATTEMPT_ID=%s SCHOLARCHAIN_EXPERIMENT_MANIFEST_ID=%s\n' \
++    "${sample}" "${MANIFEST_ID}"
++  if [ "${ACTION_KIND}" = "pipeline" ]; then
++    printf 'PREFLIGHT: skipped: kind pipeline (scripts/run-bounded-pipeline.sh has no --preflight); the first real run is the first test\n'
++    return 0
++  fi
++  max="${PREFLIGHT_TIMEOUT}"
++  step "preflight"
++  printf 'PREFLIGHT: running the action with --preflight (at most %ss; read calls only, by the tool contract)\n' "${max}"
++  invoke_action "${pf_dir}" "${sample}" "${max}" "${pf_log}" --preflight
++  case "${INVOKE_RC}" in
++    0) printf 'PREFLIGHT: ok exit=0\n' ;;
++    124 | 137) die 7 "the action's preflight exceeded ${max}s" ;;
++    *) die 5 "the action's preflight failed (exit ${INVOKE_RC}); output above" ;;
++  esac
++  printf 'CHECK: done: no run folder created, no real work started, no metrics exported\n'
++}
++
++# ---- --export-metrics (Phase 15 decision 9.6(f)) ------------------------------------------
++
++# prepare_export: reads the original attempt's committed record; sets the
++# window, the EMR cluster IDs and the execution names from it.
++prepare_export() {
++  step "export-source"
++  local orig="${RAW_ROOT}/${MANIFEST_ID}/${EXPORT_OF}/run-record.json" sha s e
++  [ -f "${orig}" ] || die 4 "refusing: ${orig} does not exist (commit the original attempt first)"
++  git ls-files --error-unmatch -- "${orig}" >/dev/null 2>&1 ||
++    die 4 "refusing: ${orig} is not tracked by git (commit the original attempt first)"
++  sha="$(jq -r '.manifest.sha256 // empty' "${orig}")"
++  [ "${sha}" = "${MANIFEST_SHA_ARG}" ] ||
++    die 4 "refusing: the original attempt ran another manifest sha256; give that manifest and its sha256"
++  s="$(jq -r '.action.window_epoch.start // empty' "${orig}")"
++  e="$(jq -r '.action.window_epoch.end // empty' "${orig}")"
++  [[ "${s}" =~ ^[0-9]+$ ]] && [[ "${e}" =~ ^[0-9]+$ ]] && [ "${e}" -ge "${s}" ] ||
++    die 4 "refusing: the original record has no complete action window"
++  ACTION_START_EPOCH="${s}"
++  ACTION_END_EPOCH="${e}"
++  CLUSTER_IDS_JSON="$(jq -c '[.remote_ids.emr_cluster_ids[]? | strings] | unique' "${orig}")"
++  EXECUTION_NAMES_JSON="$(jq -c '[.remote_ids.execution_names[]? | strings] | unique' "${orig}")"
++  RESOLVED_ARGS_JSON="$(jq -c '.action.resolved_args // null' "${orig}")"
++  info "re-export of ${EXPORT_OF}: window ${s}..${e}; EMR clusters: $(jq -r 'join(", ")' <<<"${CLUSTER_IDS_JSON}")"
++}
++
+ # ---- finalize (from the EXIT trap) ---------------------------------------------------
+ 
+ # finalize RC: writes run-record.json, checks the run folder for identifiers,
+-# moves it to experiments/raw/ and makes it read-only. Prints the final exit code
+-# through its status.
++# moves it to experiments/raw/ and makes it read-only. Returns the final exit
++# code through its status.
+ finalize() {
+-  local rc="$1" status final_rc
++  local rc="$1" status final_rc wrc=0
+   FINALIZED="true"
+   case "${rc}" in
+     0)
+@@ -715,15 +1002,21 @@ finalize() {
+       final_rc="${rc}"
+       ;;
+   esac
+-  if ! base_record "${status}" "$(sc_utc_now)" "${final_rc}" | write_record_atomic "${RUN_DIR}/run-record.json"; then
++  base_record "${status}" "$(sc_utc_now)" "${final_rc}" | write_record_atomic "${RUN_DIR}/run-record.json" || wrc=$?
++  if [ "${wrc}" -ne 0 ]; then
++    if [ -f "${RUN_DIR}/run-record.json.partial" ] && ! check_no_identifiers "${RUN_DIR}/run-record.json.partial"; then
++      printf 'ERROR: %s the run record holds a real identifier; the folder stays at %s (do not commit it)\n' \
++        "${SCRIPT_NAME}" "${RUN_DIR}" >&2
++      return 8
++    fi
+     printf 'ERROR: %s could not write %s/run-record.json; the folder stays under %s\n' \
+       "${SCRIPT_NAME}" "${RUN_DIR}" "${RUN_ROOT}" >&2
+-    return 6
++    return 5
+   fi
+   if ! check_no_identifiers "${RUN_DIR}"; then
+     printf 'ERROR: %s the run folder holds a real identifier; it is NOT moved and stays at %s (do not commit it)\n' \
+       "${SCRIPT_NAME}" "${RUN_DIR}" >&2
+-    return 6
++    return 8
+   fi
+   mkdir -p -- "${RAW_ROOT}/${MANIFEST_ID}" || return 5
+   if [ -e "${RAW_DEST}" ]; then
+@@ -749,13 +1042,33 @@ main() {
+   check_checksum
+   check_example
+   check_v1
++  check_placeholders
+   check_approval
+   check_cloud_prerequisites
+   read_outputs
++  if [ "${CHECK_MODE}" = "true" ]; then
++    run_check
++    step "done"
++    return 0
++  fi
++  if [ -n "${EXPORT_OF}" ]; then
++    prepare_export
++    start_run "${EXPORT_OF}-metrics-$(date -u +%Y%m%dT%H%M%SZ)"
++    print_declared
++    export_metrics
++    step "done"
++    return 0
++  fi
++  # The action's tracked and executable checks refuse (4) BEFORE a run folder
++  # exists, so a refusal never leaves a raw folder.
++  step "action-command"
++  action_command
+   start_run
+   print_declared
+   run_action
++  wait_for_metrics
+   export_metrics
++  finish_action
+   step "done"
+ }
+ 
+diff --git a/scripts/smoke-test.sh b/scripts/smoke-test.sh
+index 94b0ddb..8072b3f 100644
+--- a/scripts/smoke-test.sh
++++ b/scripts/smoke-test.sh
+@@ -4,7 +4,8 @@
+ # (author); run by the human or deploy-engineer after a deployment.
+ #
+ # Status (Phase 13): static: shellcheck clean; runtime: untested; human
+-# execution required.
++# execution required. Phase 15 G-29 change (API host never printed or
++# recorded; record field api_url = "{api-url}"): runtime: untested.
+ 
+ set -Eeuo pipefail
+ umask 077
+@@ -52,7 +53,12 @@ Errors.scala, Models.scala, QueryService.scala):
+                when its value holds a control character (newline, carriage
+                return), a double quote or a backslash.
+   2. api-url   Reads the API address from the Terraform output api_url (or
+-               --api-url); it must be https://.
++               --api-url); it must be https://. G-29 (Phase 15): the
++               address and its host are never printed or recorded; lines
++               and the record show {api-url}. The host (and, when terraform
++               output is read, the queue URLs and endpoint hosts) is
++               registered with scripts/lib/identity.sh, so every printed
++               line is masked and the record is refused if it holds one.
+   3. healthz   GET /healthz -> 200, body status "ok" (no key).
+   4. readyz    GET /readyz -> 200, body status "ready" (no key).
+   5. auth-error  POST /v1/query WITHOUT the key -> 401 with the documented
+@@ -88,8 +94,11 @@ temporary folder, which is removed at exit.
+ Record: evidence/runs/ATTEMPT_ID-smoke-test.started.json, then
+ evidence/runs/ATTEMPT_ID-smoke-test.json (gitignored; never overwritten):
+ HEAD, build commit, the dirty flag (a dirty tree is recorded, not refused),
+-the API host, each check with its status code and result, the queryId and
+-evidenceId. No key, account ID or bucket name.
++api_url "{api-url}" (the logical form, G-29) and where it came from
++(api_url_source: terraform-output or --api-url), each check with its status
++code and result, the queryId and evidenceId. No key, account ID, bucket
++name, API host, queue URL or endpoint host. curl's own error text (which can
++name the host) is not shown; failures print curl's exit code.
+ 
+ Retries: only the GET requests (healthz, readyz, evidence) are retried, up to
+ 3 times, when curl could not complete them; POST requests are never retried.
+@@ -113,13 +122,17 @@ step() {
+   CURRENT_STEP="$1"
+   printf 'STEP: %s %s\n' "${SCRIPT_NAME}" "$1"
+ }
+-info() { printf 'INFO: %s %s\n' "${SCRIPT_NAME}" "$*"; }
++info() { printf 'INFO: %s %s\n' "${SCRIPT_NAME}" "$(mask_text "$*")"; }
+ die() {
+   local code="$1"
+   shift
+-  printf 'ERROR: %s step=%s exit=%s: %s\n' "${SCRIPT_NAME}" "${CURRENT_STEP}" "${code}" "$*" >&2
++  printf 'ERROR: %s step=%s exit=%s: %s\n' "${SCRIPT_NAME}" "${CURRENT_STEP}" "${code}" "$(mask_text "$*")" >&2
+   exit "${code}"
+ }
++# Until the helper is loaded, mask_text prints its argument unchanged; the
++# helper's mask_text (scripts/lib/identity.sh) then replaces this definition
++# and masks every registered identifier (G-29: the API host).
++mask_text() { printf '%s' "$*"; }
+ on_err() {
+   local rc="$?"
+   printf 'ERROR: %s step=%s line=%s exit=5: command failed with status %s\n' \
+@@ -235,18 +248,21 @@ check_prerequisites() {
+ 
+ # ---- record ----------------------------------------------------------------------
+ 
+-API_HOST=""
++API_URL_SOURCE=""
+ QUERY_ID=""
+ EVIDENCE_ID=""
+ 
++# G-29 (Phase 15): the record holds the logical {api-url} only, never the
++# address or its host.
+ record_json() {
+   jq -n --arg kind "scholarchain-smoke-test-record" --arg status "$1" --arg attempt "${ATTEMPT_ID}" \
+     --arg head "${HEAD_SHA}" --arg build "${BUILD_SHA}" --argjson dirty "${DIRTY}" \
+-    --arg host "${API_HOST}" --arg started "${STARTED_UTC}" --arg ended "${2:-}" \
++    --arg src "${API_URL_SOURCE}" --arg started "${STARTED_UTC}" --arg ended "${2:-}" \
+     --argjson exit_code "${3:-null}" --arg step "${CURRENT_STEP}" --arg signal "${SIGNAL_NAME}" \
+     --arg qid "${QUERY_ID}" --arg eid "${EVIDENCE_ID}" --argjson checks "${CHECKS_JSON}" \
+     '{kind: $kind, version: 1, status: $status, attempt_id: $attempt, head: $head,
+-      build_commit: $build, tree_dirty: $dirty, api_host: $host,
++      build_commit: $build, tree_dirty: $dirty, api_url: "{api-url}",
++      api_url_source: (if $src == "" then null else $src end),
+       started_utc: $started, ended_utc: (if $ended == "" then null else $ended end),
+       exit_code: $exit_code,
+       failed_step: (if ($status | IN("started", "succeeded")) then null else $step end),
+@@ -297,22 +313,32 @@ add_check() {
+ 
+ read_api_url() {
+   step "api-url"
++  local host
+   if [ -z "${API_URL}" ]; then
++    API_URL_SOURCE="terraform-output"
+     command -v terraform >/dev/null 2>&1 || die 3 "required tool not found: terraform"
+     local rc=0 outputs
+     outputs="$("${TIMEOUT_BIN}" --kill-after=30 "${OUTPUT_TIMEOUT}" terraform "-chdir=${TF_DIR}" \
+-      output -json -no-color)" || rc=$?
++      output -json -no-color 2>/dev/null)" || rc=$?
+     [ "${rc}" -eq 124 ] && die 7 "terraform output timed out"
+     [ "${rc}" -eq 0 ] || die 5 "terraform output failed (status ${rc})"
+     API_URL="$(jq -r '.api_url.value // empty' <<<"${outputs}")"
++    # G-29: the API host, queue URLs and endpoint hosts are masked in every
++    # line and refused in the record (identity.sh); never printed.
++    register_output_identifiers "${outputs}" || die 5 "could not register the Terraform output identifiers"
++    outputs=""
++  else
++    API_URL_SOURCE="--api-url"
+   fi
+   API_URL="${API_URL%/}"
+   [ -n "${API_URL}" ] || die 3 "no api_url output (is the environment applied?)"
+   [[ "${API_URL}" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._~/-]*)?$ ]] ||
+     die 3 "api_url must be an https:// address"
+-  API_HOST="${API_URL#https://}"
+-  API_HOST="${API_HOST%%/*}"
+-  info "API: ${API_URL}"
++  host="${API_URL#https://}"
++  host="${host%%/*}"
++  register_extra_identifier api-host "${host}" || die 3 "the API host is too short to mask; refusing to continue"
++  host=""
++  info "API: {api-url} (from ${API_URL_SOURCE}; address not shown)"
+ }
+ 
+ # Response files of the last request. Set once by check_prerequisites (parent
+@@ -342,16 +368,26 @@ request() {
+     args+=(--header "Idempotency-Key: ${idem}")
+   fi
+   local rc=0 status
++  # G-29: curl's error text can name the host, so it goes to a private file
++  # and only curl's exit code is printed.
+   if [ "${auth}" = "yes" ]; then
+     status="$(printf 'header = "X-Api-Key: %s"\n' "${SCHOLARCHAIN_SERVICE_API_KEY}" |
+-      "${TIMEOUT_BIN}" --kill-after=5 "$((max_time + 10))" curl --config - "${args[@]}" "${API_URL}${path}")" || rc=$?
++      "${TIMEOUT_BIN}" --kill-after=5 "$((max_time + 10))" curl --config - "${args[@]}" "${API_URL}${path}" \
++        2>"${TMP_DIR}/curl.err")" || rc=$?
+   else
+-    status="$("${TIMEOUT_BIN}" --kill-after=5 "$((max_time + 10))" curl "${args[@]}" "${API_URL}${path}" </dev/null)" || rc=$?
++    status="$("${TIMEOUT_BIN}" --kill-after=5 "$((max_time + 10))" curl "${args[@]}" "${API_URL}${path}" \
++      </dev/null 2>"${TMP_DIR}/curl.err")" || rc=$?
+   fi
+   case "${rc}" in
+     0) ;;
+-    28 | 124 | 137) return 7 ;;
+-    *) return 5 ;;
++    28 | 124 | 137)
++      printf 'WARN: %s %s %s: curl exit %s (time limit)\n' "${SCRIPT_NAME}" "${method}" "${path%%\?*}" "${rc}" >&2
++      return 7
++      ;;
++    *)
++      printf 'WARN: %s %s %s: curl exit %s\n' "${SCRIPT_NAME}" "${method}" "${path%%\?*}" "${rc}" >&2
++      return 5
++      ;;
+   esac
+   [[ "${status}" =~ ^[0-9]{3}$ ]] || return 5
+   printf '%s' "${status}"

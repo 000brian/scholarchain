@@ -1,7 +1,8 @@
 {
   "abstained": false,
+  "abstentionReasons": [],
   "attemptCount": 2,
-  "auditSchemaVersion": 2,
+  "auditSchemaVersion": 3,
   "bundleId": "evidence:v1:d8dbecf52119e5fe5c3a1d9ea95aee47",
   "cacheHits": {},
   "evidenceIds": [

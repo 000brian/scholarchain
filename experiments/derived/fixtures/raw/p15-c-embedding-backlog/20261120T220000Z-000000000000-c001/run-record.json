@@ -1,0 +1,21 @@
+{
+  "kind": "scholarchain-experiment-run-record",
+  "version": 1,
+  "status": "failed",
+  "attempt_id": "20261120T220000Z-000000000000-c001",
+  "exit_code": 5,
+  "failed_step": "action",
+  "signal": null,
+  "head": "0000000000000000000000000000000000000000",
+  "build_commit": "0000000000000000000000000000000000000000",
+  "region": "us-east-1",
+  "manifest": {"path": "experiments/manifests/p15-c-embedding-backlog.json", "manifest_id": "p15-c-embedding-backlog", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "experiment": "C", "dataset_snapshot": "dblp-2026-11-01"},
+  "declared_not_enforced": {"costBoundUsd": 1, "maxDurationSeconds": 7200, "resourceLimits": {}},
+  "started_utc": "2026-11-20T21:59:50Z",
+  "ended_utc": "2026-11-20T22:15:10Z",
+  "action": {"kind": "command", "path": "experiments/collectors/c-embedding-backlog.sh", "args": ["--count", "100"], "exit_code": 3, "window_epoch": {"start": 1795212000, "end": 1795212900}},
+  "nested_run_records": [],
+  "remote_ids": {"execution_names": [], "emr_cluster_ids": []},
+  "metrics": {"status": "not-run", "files": [], "unresolved": []},
+  "raw_results_location": "experiments/raw/p15-c-embedding-backlog/20261120T220000Z-000000000000-c001"
+}

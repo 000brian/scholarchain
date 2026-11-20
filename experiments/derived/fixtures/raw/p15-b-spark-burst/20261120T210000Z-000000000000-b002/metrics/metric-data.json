@@ -1,0 +1,9 @@
+{
+  "MetricDataResults": [
+    {"Id": "m0_0", "Label": "AWS/ElasticMapReduce TotalUnitsRequested Maximum JobFlowId=j-EXAMPLE0000003", "Timestamps": ["2026-11-20T21:01:00+00:00", "2026-11-20T21:02:00+00:00", "2026-11-20T21:03:00+00:00", "2026-11-20T21:04:00+00:00", "2026-11-20T21:05:00+00:00", "2026-11-20T21:06:00+00:00", "2026-11-20T21:07:00+00:00", "2026-11-20T21:08:00+00:00", "2026-11-20T21:09:00+00:00", "2026-11-20T21:10:00+00:00"], "Values": [2.0, 4.0, 4.0, 4.0, 4.0, 3.0, 2.0, 2.0, 2.0, 2.0], "StatusCode": "Complete"},
+    {"Id": "m1_0", "Label": "AWS/ElasticMapReduce TotalUnitsRunning Maximum JobFlowId=j-EXAMPLE0000003", "Timestamps": ["2026-11-20T21:01:00+00:00", "2026-11-20T21:02:00+00:00", "2026-11-20T21:03:00+00:00", "2026-11-20T21:04:00+00:00", "2026-11-20T21:05:00+00:00", "2026-11-20T21:06:00+00:00", "2026-11-20T21:07:00+00:00", "2026-11-20T21:08:00+00:00", "2026-11-20T21:09:00+00:00", "2026-11-20T21:10:00+00:00"], "Values": [2.0, 2.0, 3.0, 4.0, 4.0, 4.0, 3.0, 2.0, 2.0, 1.0], "StatusCode": "Complete"},
+    {"Id": "m2_0", "Label": "AWS/ElasticMapReduce ContainerPending Maximum JobFlowId=j-EXAMPLE0000003", "Timestamps": ["2026-11-20T21:01:00+00:00", "2026-11-20T21:02:00+00:00", "2026-11-20T21:03:00+00:00", "2026-11-20T21:04:00+00:00", "2026-11-20T21:05:00+00:00", "2026-11-20T21:06:00+00:00", "2026-11-20T21:07:00+00:00", "2026-11-20T21:08:00+00:00"], "Values": [12.0, 40.0, 30.0, 10.0, 0.0, 0.0, 0.0, 0.0], "StatusCode": "Complete"},
+    {"Id": "m3_0", "Label": "AWS/ElasticMapReduce YARNMemoryAvailablePercentage Average JobFlowId=j-EXAMPLE0000003", "Timestamps": [], "Values": [], "StatusCode": "Complete"}
+  ],
+  "Messages": []
+}

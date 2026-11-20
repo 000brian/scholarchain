@@ -1,0 +1,7 @@
+{
+  "MetricDataResults": [
+    {"Id": "m0_0", "Label": "AWS/ElasticMapReduce TotalUnitsRequested Maximum JobFlowId=j-EXAMPLE0000002", "Timestamps": [], "Values": [], "StatusCode": "Complete"},
+    {"Id": "m1_0", "Label": "AWS/ElasticMapReduce TotalUnitsRunning Maximum JobFlowId=j-EXAMPLE0000002", "Timestamps": [], "Values": [], "StatusCode": "Complete"}
+  ],
+  "Messages": []
+}

@@ -1,0 +1,5 @@
+level,question,query_id,start_epoch_s,http_status,curl_exit,time_total_s,error_code,latency_ms,planner_ms,plannerFallback_ms,resolver_ms,metrics_ms,paths_ms,community_ms,semantic_ms,evidence_ms,identity_ms,synthesis_ms,synthesisFallback_ms,verification_ms,input_tokens,output_tokens,abstained,other_stage_keys
+1,q05,run:v1:00000000000000000000000000000001,1795215725,200,0,0.310000,-,8700,1200,,150,900,0,0,0,300,80,6000,,40,5400,3500,false,
+1,q25,run:v1:00000000000000000000000000000002,1795215726,200,0,0.290000,-,11000,1300,,200,1500,0,0,2400,350,90,5100,,50,6000,3700,false,
+1,q07,run:v1:00000000000000000000000000000003,1795215727,200,0,0.300000,-,6500,1100,,120,700,0,0,0,200,60,4300,,20,5000,3000,true,
+2,q05,run:v1:00000000000000000000000000000004,1795216025,404,0,0.100000,QUERY_NOT_FOUND,,,,,,,,,,,,,,,,,

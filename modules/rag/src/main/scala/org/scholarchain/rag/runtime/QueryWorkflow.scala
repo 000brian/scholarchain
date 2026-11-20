@@ -60,9 +60,10 @@ final class AuditStage(stores: RuntimeStores) {
   * graphRunId, prompt versions), config fingerprint)`: the same question, constraints, graph run,
   * prompt set and configuration give the same run ID.
   *
-  * The audit is QueryAudit schema version 2: it also records the graph query-template IDs, the
+  * The audit is QueryAudit schema version 3: it also records the graph query-template IDs, the
   * vector indexes and metadata filter keys, per-task model-call counters and cache hits of the
-  * query ([[QueryTrace]], [[QueryWorkflow.callCounts]]).
+  * query ([[QueryTrace]], [[QueryWorkflow.callCounts]]) and, for an abstained answer, its fixed
+  * abstention codes ([[AbstentionCodes]], Phase 15 G-28).
   *
   * Thread safety: one instance may run queries on several threads at once when its stores, model
   * and retriever are thread-safe (storage's runtime stores, the model clients and the retriever of
@@ -211,6 +212,7 @@ final class QueryWorkflow(
            )
          else Nil)
       abstentions = assembled.abstentions ++ retrieved.abstentions
+      pathContext = QueryWorkflow.pathContextCodes(retrieved.facts)
       synthOut = timed("synthesis")(
         synthesis.run(
           SynthesisInput(
@@ -241,6 +243,7 @@ final class QueryWorkflow(
           verified,
           baseNotes,
           abstentions,
+          pathContext,
           identity,
           peopleOf,
           t0,
@@ -262,7 +265,8 @@ final class QueryWorkflow(
       synthOut: SynthesisOutput,
       verified: List[VerifiedClaim],
       baseNotes: List[String],
-      abstentions: List[String],
+      abstentions: List[Abstention],
+      pathContext: List[String],
       identity: IdentityOutcomes,
       peopleOf: Map[EvidenceId, List[ResearcherId]],
       t0: Long,
@@ -372,18 +376,24 @@ final class QueryWorkflow(
       _.validEvidence.flatMap(itemsById.get).exists(_.evidenceType != EvidenceType.MatchDecision)
     )
     val abstained = substantive.isEmpty || assembled.abstainAll.nonEmpty
+    // G-28: every reason carries a fixed code; the texts form the answer's prose (unchanged), the
+    // codes go into the audit (QueryAudit v3)
+    val coded: List[Abstention] = {
+      val all = assembled.abstainAll ++ abstentions ++
+        (if (substantive.isEmpty && verified.exists(!_.kept))
+           List(Abstention(AbstentionCodes.NoVerifiedClaim, QueryWorkflow.NoVerifiedClaimText))
+         else Nil)
+      if (all.isEmpty)
+        List(Abstention(AbstentionCodes.NoSubstantiveEvidence, QueryWorkflow.NoEvidenceText))
+      else all
+    }
     val abstentionReason =
       if (!abstained) None
-      else
-        Some {
-          val reasons = (assembled.abstainAll ++ abstentions ++
-            (if (substantive.isEmpty && verified.exists(!_.kept))
-               List("no claim could be verified against the evidence")
-             else Nil)).distinct
-          (if (reasons.isEmpty) List("no graph evidence answered the question") else reasons)
-            .mkString("; ")
-            .take(1000)
-        }
+      else Some(coded.map(_.text).distinct.mkString("; ").take(1000))
+    val abstentionCodes = AbstentionCodes.forAudit(
+      abstained,
+      QueryWorkflow.orderedCodes(assembled.abstainAll, pathContext, coded)
+    )
     val answerText = {
       val sb = new StringBuilder
       if (abstained) sb.append(s"No answer: ${abstentionReason.get}.\n")
@@ -403,7 +413,7 @@ final class QueryWorkflow(
       }
       if (!abstained && abstentions.nonEmpty)
         sb.append("\nNot answered:\n")
-          .append(abstentions.distinct.map(a => s"- $a").mkString("\n"))
+          .append(abstentions.map(_.text).distinct.map(a => s"- $a").mkString("\n"))
           .append("\n")
       if (removed.nonEmpty) {
         sb.append("\nRemoved claims:\n")
@@ -463,7 +473,7 @@ final class QueryWorkflow(
       plannerOut.attempts.flatMap(_.outputTokens) ++ synthOut.attempts.flatMap(_.outputTokens)
     )
     val audit = QueryAudit(
-      2,
+      QueryWorkflow.AuditSchemaVersion,
       runId,
       ContentHash.of(question),
       plan,
@@ -504,7 +514,9 @@ final class QueryWorkflow(
         ModelTask.Synthesis.wire -> QueryWorkflow
           .callCounts(synthOut.attempts, synthOut.fallbackReason.isDefined)
       ),
-      cacheHits = trace.cacheHits
+      cacheHits = trace.cacheHits,
+      // QueryAudit v3 (Phase 15, G-28): fixed codes only, non-empty exactly when abstained
+      abstentionCodes = abstentionCodes
     )
     for {
       // a failed bundle write is a workflow failure (Phase 10 U-1): the answer's evidence links
@@ -541,7 +553,7 @@ final class QueryWorkflow(
         Right(aw),
         stageSoFar,
         notes,
-        abstentions,
+        abstentions.map(_.text),
         storeConflicts
       )
     }
@@ -556,10 +568,26 @@ final class QueryWorkflow(
       request: QueryRequest,
       d: PlanDraft,
       res: ResolverOutput
+  ): Assembled = PlanAssembly.assemble(ctx, question, request, d, res)
+}
+
+/** Plan assembly of one question (moved out of [[QueryWorkflow]] in Phase 15 unchanged, so the
+  * retrieval evaluation's graph-only mode runs the workflow's own step rules without a model).
+  */
+private[runtime] object PlanAssembly {
+  import QueryWorkflow.DefaultLimit
+
+  def assemble(
+      ctx: RuntimeContext,
+      question: String,
+      request: QueryRequest,
+      d: PlanDraft,
+      res: ResolverOutput
   ): Assembled = {
+    val _ = question
     val notes = List.newBuilder[String]
-    val abstainAll = List.newBuilder[String]
-    val abstain = List.newBuilder[String]
+    val abstainAll = List.newBuilder[Abstention]
+    val abstain = List.newBuilder[Abstention]
     val windowLabel = request.windowLabel.orElse(d.windowLabel).getOrElse {
       if (
         d.comparisonWindowLabels.isEmpty && !d.operations.forall(
@@ -572,11 +600,20 @@ final class QueryWorkflow(
     d.unsupportedConstraints.foreach { c =>
       c.kind match {
         case "venue" =>
-          abstainAll += s"venue filters are not supported yet (no venue metrics exist): ${c.text}"
+          abstainAll += Abstention(
+            AbstentionCodes.UnsupportedVenueFilter,
+            s"venue filters are not supported yet (no venue metrics exist): ${c.text}"
+          )
         case "institution" =>
-          abstainAll += s"institution filters are not supported yet (no institution data exists): ${c.text}"
+          abstainAll += Abstention(
+            AbstentionCodes.UnsupportedInstitutionFilter,
+            s"institution filters are not supported yet (no institution data exists): ${c.text}"
+          )
         case "window" =>
-          abstainAll += s"the requested years are not a configured window: ${c.text} (windows: ${ctx.windows.map(w => s"${w.startYear}-${w.endYear}").mkString(", ")})"
+          abstainAll += Abstention(
+            AbstentionCodes.WindowNotConfigured,
+            s"the requested years are not a configured window: ${c.text} (windows: ${ctx.windows.map(w => s"${w.startYear}-${w.endYear}").mkString(", ")})"
+          )
         case _ => notes += s"Not supported: ${c.text}"
       }
     }
@@ -614,10 +651,20 @@ final class QueryWorkflow(
       if (!ok) {
         val why =
           if (anyUnresolved)
-            s"${s.operation.wire} was not run because a researcher name could not be resolved to exactly one researcher"
+            Abstention(
+              AbstentionCodes.ResearcherNotResolved,
+              s"${s.operation.wire} was not run because a researcher name could not be resolved to exactly one researcher"
+            )
           else if (s.operation == QueryOperation.ShortestPath)
-            "a shortest path needs exactly two researcher names"
-          else s"${s.operation.wire} needs a researcher name"
+            Abstention(
+              AbstentionCodes.PathNeedsTwoResearchers,
+              "a shortest path needs exactly two researcher names"
+            )
+          else
+            Abstention(
+              AbstentionCodes.ResearcherNameMissing,
+              s"${s.operation.wire} needs a researcher name"
+            )
         abstain += why
       }
       ok
@@ -638,8 +685,8 @@ private[runtime] final case class Assembled(
     planned: List[PlannedStep],
     executable: List[PlannedStep],
     notes: List[String],
-    abstentions: List[String],
-    abstainAll: List[String],
+    abstentions: List[Abstention],
+    abstainAll: List[Abstention],
     resolution: ResolverOutput
 ) {
 
@@ -726,6 +773,36 @@ object QueryWorkflow {
     * `rag-runtime/3` since Phase 11 (prompt versions in the fingerprint, U-3).
     */
   val CodeVersion = "rag-runtime/3"
+
+  /** The QueryAudit schema version this workflow writes: 3 since Phase 15 (G-28,
+    * `abstentionCodes`). The run-ID inputs are unchanged, so [[CodeVersion]] stays.
+    */
+  val AuditSchemaVersion = 3
+
+  /** Answer text of the verification abstention (unchanged since Phase 9). */
+  val NoVerifiedClaimText = "no claim could be verified against the evidence"
+
+  /** Answer text when an abstained answer has no other reason (unchanged since Phase 9). */
+  val NoEvidenceText = "no graph evidence answered the question"
+
+  /** Context codes of shortest-path steps that found no path: `no-path-within-depth` for a complete
+    * search, `path-query-timeout` for one stopped at its time budget (Stages PathFinder).
+    */
+  def pathContextCodes(facts: List[Fact]): List[String] =
+    facts.collect {
+      case p: PathAbsentFact if p.complete  => AbstentionCodes.NoPathWithinDepth
+      case p: PathAbsentFact if !p.complete => AbstentionCodes.PathQueryTimeout
+    }.distinct
+
+  /** Audit code order: whole-question refusals, then path context, then step and verification
+    * reasons (so the most specific codes survive the eight-code bound).
+    */
+  def orderedCodes(
+      abstainAll: List[Abstention],
+      pathContext: List[String],
+      coded: List[Abstention]
+  ): List[String] =
+    (abstainAll.map(_.code) ++ pathContext ++ coded.map(_.code)).distinct
 
   /** The QueryAudit v2 counters of one model task in one query, from its attempt records: logical
     * calls (attempts), invalid and truncated outputs, bound numbers dropped (answer-claims v3,

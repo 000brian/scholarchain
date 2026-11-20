@@ -9,7 +9,8 @@ import org.scholarchain.storage.ingest.{
   DocumentExtras,
   IngestSettings,
   TextStore,
-  VectorIngestPipeline
+  VectorIngestPipeline,
+  VectorReembedder
 }
 import org.scholarchain.storage.ports.{EmbeddingPort, GraphReadSettings}
 import org.scholarchain.storage.runtime.RuntimeStores
@@ -196,6 +197,22 @@ final class AwsStorageEnvironment private (
       rejects,
       sleeper,
       extrasOf
+    )
+
+  /** The re-embed write path (Phase 15) over these stores: GetVectors and PutVectors on the
+    * configured indexes, GetObject on the text objects, GetItem and PutItem on the QuerySession
+    * table (completion records, QS6).
+    */
+  def reembedder(embedder: EmbeddingPort, sleeper: Sleeper = this.sleeper): VectorReembedder =
+    new VectorReembedder(
+      embedder,
+      vectors,
+      textStore,
+      kv,
+      config.dynamoDb.querySessionTable,
+      spec,
+      policy,
+      sleeper
     )
 
   /** The SQS client for the job queue (see [[org.scholarchain.storage.jobs.ServiceStores.aws]]). */

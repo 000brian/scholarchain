@@ -1,0 +1,5 @@
+[
+  {"Id": "m0_0", "Label": "AWS/ApplicationELB TargetResponseTime p95 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}", "MetricStat": {"Metric": {"Namespace": "AWS/ApplicationELB", "MetricName": "TargetResponseTime", "Dimensions": [{"Name": "LoadBalancer", "Value": "{alb-dimension}"}, {"Name": "TargetGroup", "Value": "{alb-target-group-query}"}]}, "Period": 60, "Stat": "p95"}, "ReturnData": true},
+  {"Id": "m1_0", "Label": "AWS/ECS CPUUtilization Average ClusterName=example-cluster,ServiceName=example-query", "MetricStat": {"Metric": {"Namespace": "AWS/ECS", "MetricName": "CPUUtilization", "Dimensions": [{"Name": "ClusterName", "Value": "example-cluster"}, {"Name": "ServiceName", "Value": "example-query"}]}, "Period": 60, "Stat": "Average"}, "ReturnData": true},
+  {"Id": "m2_0", "Label": "AWS/ApplicationELB HTTPCode_ELB_5XX_Count Sum LoadBalancer={alb-dimension}", "MetricStat": {"Metric": {"Namespace": "AWS/ApplicationELB", "MetricName": "HTTPCode_ELB_5XX_Count", "Dimensions": [{"Name": "LoadBalancer", "Value": "{alb-dimension}"}]}, "Period": 60, "Stat": "Sum"}, "ReturnData": true}
+]

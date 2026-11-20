@@ -1,0 +1,5 @@
+{
+  "clusters": [
+    {"clusterId": "j-EXAMPLE0000003", "createdEpoch": 1795208410, "readyEpoch": 1795208450, "terminationRequestedEpoch": 1795208970, "endedEpoch": 1795209060, "finalState": "TERMINATED", "stateChangeReasonCode": "ALL_STEPS_COMPLETED"}
+  ]
+}

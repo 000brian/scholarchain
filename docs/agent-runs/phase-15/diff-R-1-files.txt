@@ -1,0 +1,67 @@
+ M modules/core/src/main/scala/org/scholarchain/core/Records.scala
+ M modules/core/src/main/scala/org/scholarchain/core/SchemaVersions.scala
+ M modules/core/src/main/scala/org/scholarchain/core/Validator.scala
+ M modules/core/src/main/scala/org/scholarchain/core/config/ConfigLoader.scala
+ M modules/core/src/main/scala/org/scholarchain/core/config/ScholarChainConfig.scala
+ M modules/core/src/test/resources/config/valid-v1-service.json
+ M modules/core/src/test/scala/org/scholarchain/core/Fixtures.scala
+ M modules/core/src/test/scala/org/scholarchain/core/QueryAuditV2Suite.scala
+ M modules/core/src/test/scala/org/scholarchain/core/SchemaVersionsSuite.scala
+ M modules/core/src/test/scala/org/scholarchain/core/WireContractSuite.scala
+ M modules/core/src/test/scala/org/scholarchain/core/config/ConfigLoaderSuite.scala
+ M modules/core/src/test/scala/org/scholarchain/core/config/ConfigRefusalSuite.scala
+ M modules/core/src/test/scala/org/scholarchain/core/config/ServiceConfigSuite.scala
+ M modules/rag/src/main/scala/org/scholarchain/rag/embedding/BedrockTitanEmbedder.scala
+ M modules/rag/src/main/scala/org/scholarchain/rag/embedding/FakeLexicalEmbedder.scala
+ M modules/rag/src/main/scala/org/scholarchain/rag/embedding/RateLimiter.scala
+ M modules/rag/src/main/scala/org/scholarchain/rag/embedding/VoyageEmbedder.scala
+ M modules/rag/src/main/scala/org/scholarchain/rag/ingest/RagIngestJob.scala
+ M modules/rag/src/main/scala/org/scholarchain/rag/runtime/QueryWorkflow.scala
+ M modules/rag/src/main/scala/org/scholarchain/rag/runtime/Stages.scala
+ M modules/rag/src/test/scala/org/scholarchain/rag/RagIngestJobSuite.scala
+ M modules/rag/src/test/scala/org/scholarchain/rag/runtime/RuntimeRepairsSuite.scala
+ M modules/services/src/main/scala/org/scholarchain/services/Main.scala
+ M modules/services/src/main/scala/org/scholarchain/services/Models.scala
+ M modules/services/src/main/scala/org/scholarchain/services/ServiceLimits.scala
+ M modules/services/src/main/scala/org/scholarchain/services/ServiceServer.scala
+ M modules/services/src/main/scala/org/scholarchain/services/Support.scala
+ M modules/services/src/test/resources/api/v1/explain.json
+ M modules/services/src/test/scala/org/scholarchain/services/CompositionSuite.scala
+ M modules/services/src/test/scala/org/scholarchain/services/ReadRoutesSuite.scala
+ M modules/services/src/test/scala/org/scholarchain/services/ServiceTestKit.scala
+ M modules/storage/src/main/scala/org/scholarchain/storage/aws/AwsStorageEnvironment.scala
+ M modules/storage/src/main/scala/org/scholarchain/storage/aws/S3VectorsIndex.scala
+ M modules/storage/src/main/scala/org/scholarchain/storage/dynamo/TableSpecs.scala
+ M modules/storage/src/main/scala/org/scholarchain/storage/ingest/VectorIngestPipeline.scala
+ M modules/storage/src/main/scala/org/scholarchain/storage/jobs/ServiceStores.scala
+ M modules/storage/src/main/scala/org/scholarchain/storage/local/LocalStorageEnvironment.scala
+ M modules/storage/src/main/scala/org/scholarchain/storage/local/StubEmbedder.scala
+ M modules/storage/src/main/scala/org/scholarchain/storage/ports/WorkQueue.scala
+ M modules/storage/src/test/scala/org/scholarchain/storage/DynamoSuite.scala
+ M modules/storage/src/test/scala/org/scholarchain/storage/IngestPipelineSuite.scala
+ M modules/storage/src/test/scala/org/scholarchain/storage/jobs/ServiceStoreFixtures.scala
+?? modules/core/src/test/resources/wire/v3/QueryAudit.abstained.json
+?? modules/core/src/test/resources/wire/v3/QueryAudit.json
+?? modules/core/src/test/scala/org/scholarchain/core/QueryAuditV3Suite.scala
+?? modules/rag/src/main/resources/org/scholarchain/rag/eval/benchmark-v1-eval-set.json
+?? modules/rag/src/main/scala/org/scholarchain/rag/eval/RetrievalEval.scala
+?? modules/rag/src/main/scala/org/scholarchain/rag/eval/RetrievalEvalJob.scala
+?? modules/rag/src/main/scala/org/scholarchain/rag/eval/RetrievalEvalSet.scala
+?? modules/rag/src/main/scala/org/scholarchain/rag/reembed/ReembedHandler.scala
+?? modules/rag/src/main/scala/org/scholarchain/rag/runtime/Abstentions.scala
+?? modules/rag/src/main/scala/org/scholarchain/rag/runtime/RetrievalModes.scala
+?? modules/rag/src/test/scala/org/scholarchain/rag/EmbeddingUsageSuite.scala
+?? modules/rag/src/test/scala/org/scholarchain/rag/RagIngestG27Suite.scala
+?? modules/rag/src/test/scala/org/scholarchain/rag/ReembedHandlerSuite.scala
+?? modules/rag/src/test/scala/org/scholarchain/rag/eval/RetrievalEvalSetSuite.scala
+?? modules/rag/src/test/scala/org/scholarchain/rag/eval/RetrievalEvalSuite.scala
+?? modules/rag/src/test/scala/org/scholarchain/rag/runtime/AbstentionCodesSuite.scala
+?? modules/services/src/main/scala/org/scholarchain/services/EmbeddingWorker.scala
+?? modules/services/src/test/scala/org/scholarchain/services/EmbeddingWorkerSuite.scala
+?? modules/storage/src/main/scala/org/scholarchain/storage/aws/SqsRawReceiveQueue.scala
+?? modules/storage/src/main/scala/org/scholarchain/storage/ingest/BoundedPool.scala
+?? modules/storage/src/main/scala/org/scholarchain/storage/ingest/VectorReembedder.scala
+?? modules/storage/src/test/scala/org/scholarchain/storage/IngestBatchingSuite.scala
+?? modules/storage/src/test/scala/org/scholarchain/storage/IngestFakes.scala
+?? modules/storage/src/test/scala/org/scholarchain/storage/ReembedSuite.scala
+?? modules/storage/src/test/scala/org/scholarchain/storage/jobs/EmbeddingQueueSuite.scala

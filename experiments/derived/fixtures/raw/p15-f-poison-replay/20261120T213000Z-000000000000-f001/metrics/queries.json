@@ -1,0 +1,4 @@
+[
+  {"Id": "m0_0", "Label": "AWS/SQS ApproximateNumberOfMessagesVisible Maximum QueueName=example-embedding-dlq", "MetricStat": {"Metric": {"Namespace": "AWS/SQS", "MetricName": "ApproximateNumberOfMessagesVisible", "Dimensions": [{"Name": "QueueName", "Value": "example-embedding-dlq"}]}, "Period": 60, "Stat": "Maximum"}, "ReturnData": true},
+  {"Id": "m1_0", "Label": "AWS/SQS NumberOfMessagesReceived Sum QueueName=example-embedding", "MetricStat": {"Metric": {"Namespace": "AWS/SQS", "MetricName": "NumberOfMessagesReceived", "Dimensions": [{"Name": "QueueName", "Value": "example-embedding"}]}, "Period": 60, "Stat": "Sum"}, "ReturnData": true}
+]

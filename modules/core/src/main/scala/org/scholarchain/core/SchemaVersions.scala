@@ -40,6 +40,9 @@ object SchemaVersions {
     *     the v1 wire). Readers accept versions 1 and 2 (see `supported`). Phase 11 also tightens
     *     two rules without a version change: a `semantic_context` EvidenceItem carries no `metric`,
     *     and configuration refusals no longer repeat the refused value.
+    *   - QueryAudit 3 (Phase 15, additive; decision 7.5): adds `abstentionCodes`, the fixed codes
+    *     of why the answer abstained (required on the v3 wire, absent from the v1 and v2 wires; a
+    *     v1 or v2 record reads with no codes). Readers accept versions 1, 2 and 3.
     */
   val current: ListMap[String, Int] = ListMap(
     "Provenance" -> 1,
@@ -69,11 +72,11 @@ object SchemaVersions {
     "ScholarChainConfig" -> 1,
     "SemanticDocument" -> 1,
     "VectorMetadata" -> 1,
-    "QueryAudit" -> 2
+    "QueryAudit" -> 3
   )
 
   /** Older versions readers still accept, per schema name (additive changes only). */
-  val stillReadable: Map[String, Set[Int]] = Map("QueryAudit" -> Set(1))
+  val stillReadable: Map[String, Set[Int]] = Map("QueryAudit" -> Set(1, 2))
 
   /** Versions readers accept, per schema name: the current version, plus `stillReadable`. */
   val supported: Map[String, Set[Int]] = current.map { case (k, v) =>

@@ -96,6 +96,21 @@ output "queue_names" {
   value       = module.workflow.queue_names
 }
 
+output "dlq_urls" {
+  description = "SQS dead-letter queue URLs by source queue (jobs, embedding). Phase 15: run-experiment.sh registers them as identifiers (masked, never printed or recorded)."
+  value       = module.workflow.dlq_urls
+}
+
+output "alb_arn_suffix" {
+  description = "ARN suffix of the internal ALB, app/NAME/ID (the CloudWatch LoadBalancer dimension; no account ID). Phase 15: run-experiment.sh {alb-dimension}."
+  value       = module.runtime.alb_arn_suffix
+}
+
+output "target_group_arn_suffixes" {
+  description = "ARN suffixes of the target groups by role (query, evidence, graph), targetgroup/NAME/ID (CloudWatch TargetGroup dimension). Phase 15: run-experiment.sh {alb-target-group-ROLE}."
+  value       = module.runtime.target_group_arn_suffixes
+}
+
 # ---- stores -----------------------------------------------------------------------------
 
 output "data_bucket_name" {

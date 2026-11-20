@@ -2,6 +2,7 @@ package org.scholarchain.storage.local
 
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicLong
 
 import org.scholarchain.storage.ports.{EmbeddingBatch, EmbeddingFailure, EmbeddingPort}
 
@@ -13,15 +14,19 @@ import org.scholarchain.storage.ports.{EmbeddingBatch, EmbeddingFailure, Embeddi
 final class StubEmbedder(val modelId: String, val dimensions: Int, val maxBatchSize: Int)
     extends EmbeddingPort {
   require(dimensions >= 1 && dimensions <= 4096, "dimensions must be in 1..4096")
-  @volatile var calls: Long = 0L
-  @volatile var texts: Long = 0L
+  private val callCount = new AtomicLong()
+  private val textCount = new AtomicLong()
+
+  /** Calls and texts so far; exact under concurrent callers (the ingest embeds in parallel). */
+  def calls: Long = callCount.get
+  def texts: Long = textCount.get
 
   def embed(batch: IndexedSeq[String]): Either[EmbeddingFailure, EmbeddingBatch] = {
     if (batch.size > maxBatchSize)
       Left(EmbeddingFailure(s"batch of ${batch.size} exceeds $maxBatchSize", 0))
     else {
-      calls += 1
-      texts += batch.size
+      callCount.incrementAndGet()
+      textCount.addAndGet(batch.size.toLong)
       Right(EmbeddingBatch(batch.map(StubEmbedder.vector(_, dimensions)), 0))
     }
   }

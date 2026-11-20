@@ -1,0 +1,54 @@
+# load-tests/questions-d.txt - question list for experiment D, --mode query
+# (load-tests/query-load.sh). Owner: experiment-engineer. A tool file, not a
+# manifest: its sha256 is recorded in the load-tool-record.json of every run.
+#
+# Format: ID|PLAN|QUESTION, one per line, no single quote, no |.
+#   ID    the benchmark-v1 question ID
+#         (modules/rag/src/test/resources/benchmark/benchmark-v1.json)
+#   PLAN  graph-only or graph-and-vector: from benchmark-v1 expected.operations
+#         (semantic_context present only for q25 and q26) and RulePlanner.scala
+#         lines 124-142 (a topic phrase adds SemanticContext to a ranking,
+#         line 133). The deployed planner may be the model planner
+#         (query-planner-v2); the plan each query actually ran is read from
+#         its explain record (stageMillis "semantic"), not from this column.
+#
+# Selection: benchmark-v1 questions that answered without abstaining in the
+# Phase 10 attempt-06 run (docs/agent-runs/phase-10/run-report-attempt-06-anthropic.json:
+# 3 expected abstentions q27, q28, q29 happened, no unexpected abstention),
+# minus:
+#   q13  abstained live in Phase 14 D15 (G-28; docs/agent-runs/phase-14/runbook-log.md D15)
+#   q27, q28, q29  designed abstentions (institution filter, ambiguous name, unknown name)
+#   q30  the prompt-injection probe (adversarial content, not a load workload)
+# Only q05 is confirmed answering on the live full graph (Phase 14 D14); the
+# others answered on the Phase 10 benchmark export. An abstention or an error
+# on the live graph is a recorded result, not a reason to change this list
+# after D10 (the list is fixed and committed before D10).
+#
+# Order: the generator takes questions in rotation by ticket from the first
+# line at every level, so short levels use a prefix; the prefix mixes
+# operations and both plan kinds.
+q05|graph-only|Which paper of Wanli Ouyang had the most coauthors on one paper between 2015 and 2025?
+q25|graph-and-vector|Which researchers working on WSDM have the most distinct coauthors in 2015-2025?
+q07|graph-only|Who are the direct collaborators of Zhuohang Li in 2015-2025?
+q01|graph-only|Which researchers have the most distinct coauthors in 2015-2025?
+q14|graph-only|Which connected component does Jinshan Pan belong to in 2015-2025, and how large is it?
+q26|graph-and-vector|Among researchers whose profiles mention SIGIR, who has the highest weighted degree in 2015-2025?
+q16|graph-only|Which community is Wangmeng Zuo in during 2015-2025, and is Wangmeng Zuo a bridge between communities?
+q22|graph-only|How did the number of distinct coauthors of Jiangxin Dong change across the time windows?
+q04|graph-only|What is the largest team size of Philip S. Yu in 2015-2025?
+q10|graph-only|What is the shortest coauthorship path between Ioannis Papoutsis and Mengxia Ren in 2015-2025?
+q19|graph-only|Which researchers bridge the most communities in 2015-2025?
+q08|graph-only|List the coauthors of Elie Bakouch between 2015 and 2025.
+q02|graph-only|Who are the top 5 researchers by number of distinct coauthors between 2018 and 2020?
+q23|graph-only|Compare the collaboration breadth of Dacheng Tao between 2015-2017 and 2021-2023.
+q15|graph-only|How large is the connected component of Liang Wang 0015 in 2018-2020?
+q11|graph-only|How are Luc Van Gool and Marcos V. Conde connected through coauthors?
+q06|graph-only|Show the biggest team Xiaodan Liang worked in.
+q17|graph-only|Describe the community of Kele Xu in 2021-2023.
+q20|graph-only|Who are the top 5 bridge researchers between 2021 and 2023?
+q24|graph-only|How has the publication count of Guangtao Zhai evolved over time?
+q09|graph-only|Have Peipei Liang and Meisong Zheng coauthored directly in 2015-2025?
+q03|graph-only|List the ten researchers with the highest collaboration breadth in 2024-2025.
+q18|graph-only|How many other communities does Suiyi Zhao connect to in 2015-2025?
+q21|graph-only|Which researchers connect the most communities in 2024-2025?
+q12|graph-only|Is there a coauthorship path between Rustam Azimov and Radu Timofte within 6 hops in 2015-2025?

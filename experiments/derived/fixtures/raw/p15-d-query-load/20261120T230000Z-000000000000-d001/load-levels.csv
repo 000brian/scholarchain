@@ -1,0 +1,3 @@
+mode,level,clients,window_start_epoch_s,window_end_epoch_s,deadline_epoch_s,stop,attempted,completed,completed_per_s,untimed,n_answered,n_abstained,n_throttled,n_overloaded,n_timeout,n_other-4xx,n_other-5xx,n_client-error,n_unclassified,n_all,p50_all_s,p95_all_s,p99_all_s,note_all,n_success,p50_success_s,p95_success_s,p99_success_s,note_success
+query,1,1,1795215600,1795215720,1795215720,duration,3,3,0.025,0,2,1,0,0,0,0,0,0,0,3,8.912345,11.204511,11.204511,few-samples,2,8.912345,11.204511,11.204511,few-samples
+query,2,2,1795215900,1795216020,1795216020,duration,5,4,0.033,0,1,0,1,1,2,0,0,0,0,5,9.100200,35.001003,35.001003,few-samples,1,9.100200,9.100200,9.100200,few-samples

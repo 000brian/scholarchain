@@ -115,7 +115,10 @@ Options:
 Records: DIR/NAME.started.json first, then DIR/NAME.json (status, tar path and
 sha256, file count, mode). No record or MANIFEST.json holds an account ID,
 ARN with an account ID or bucket name (checked with grep -F before it is
-final); plans/ is checked the same way. The byte copies under repo/ and
+final); plans/ is checked the same way. G-29 (Phase 15): in S3 mode the API
+host (from terraform output api_url), the job, embedding and both DLQ queue
+URLs, the ALB DNS name and the Neptune endpoint are checked the same way and
+masked in printed lines (read at run time, never printed). The byte copies under repo/ and
 reports/ are kept exactly; if one holds an identifier, the script warns and
 records it (byte_copies_hold_identifiers: true or false). That check needs
 the account ID: S3 mode learns it from the caller (sts get-caller-identity)
@@ -475,7 +478,12 @@ read_outputs() {
   register_identifiers "${account}" "${DATA_BUCKET}" "${vector}" ||
     die 5 "could not register the account"
   account=""
-  info "account learned from the caller (not printed), bucket <data-bucket>"
+  # G-29 (Phase 15): the API host (from api_url), the queue and DLQ URLs and
+  # the endpoint hosts join the identifier check and the masking; read from
+  # terraform output at run time, held in shell variables, never printed.
+  register_output_identifiers "${outputs}" || die 5 "could not register the Terraform output identifiers"
+  outputs=""
+  info "account learned from the caller (not printed), bucket <data-bucket>; API host, queue URLs and endpoint hosts registered (not printed)"
 }
 
 copy_reports() {

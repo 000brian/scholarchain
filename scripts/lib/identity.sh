@@ -55,6 +55,16 @@ SC_ACCOUNT_ID=""
 SC_DATA_BUCKET=""
 SC_VECTOR_BUCKET=""
 
+# Phase 15 (G-29, decision 9.5): further identifiers a script learns at run
+# time (the API host, queue URLs, endpoint hosts), registered with
+# register_extra_identifier KIND VALUE. Two parallel indexed arrays and a
+# count (bash 3.2: no associative arrays; the count avoids expanding an empty
+# array under set -u). Masked before the account and buckets, so a URL that
+# contains the account ID is replaced as a whole.
+SC_EXTRA_KINDS=()
+SC_EXTRA_VALUES=()
+SC_EXTRA_COUNT=0
+
 # Name patterns (ERE) of the two buckets, for output printed BEFORE their real
 # names are known (the first apply creates them; Phase 13 finding I-21). Set by
 # register_bucket_patterns; empty means "no pattern masking".
@@ -232,6 +242,85 @@ register_identifiers() {
   return 0
 }
 
+# register_extra_identifier KIND VALUE (Phase 15, G-29): remembers VALUE (an
+# API host, a queue URL, an endpoint host) for mask_text, mask_stream and
+# check_no_identifiers, which print <KIND> or name KIND, never the value.
+# KIND matches [a-z0-9][a-z0-9-]{0,39}. An empty VALUE is skipped (status 0:
+# the output does not exist yet); a VALUE shorter than 8 characters is refused
+# (status 2: it would mask ordinary text); a VALUE already registered is
+# skipped. At most 32 values (status 2 beyond).
+register_extra_identifier() {
+  local kind="${1:-}" value="${2:-}" i=0
+  if [[ ! "${kind}" =~ ^[a-z0-9][a-z0-9-]{0,39}$ ]]; then
+    sc_lib_err "identifier kind must match [a-z0-9][a-z0-9-]{0,39}"
+    return 2
+  fi
+  [ -n "${value}" ] || return 0
+  if [ "${#value}" -lt 8 ]; then
+    sc_lib_err "the ${kind} value is shorter than 8 characters; not registered"
+    return 2
+  fi
+  while [ "${i}" -lt "${SC_EXTRA_COUNT}" ]; do
+    [ "${SC_EXTRA_VALUES[${i}]}" = "${value}" ] && return 0
+    i=$((i + 1))
+  done
+  if [ "${SC_EXTRA_COUNT}" -ge 32 ]; then
+    sc_lib_err "too many extra identifiers (at most 32)"
+    return 2
+  fi
+  SC_EXTRA_KINDS[SC_EXTRA_COUNT]="${kind}"
+  SC_EXTRA_VALUES[SC_EXTRA_COUNT]="${value}"
+  SC_EXTRA_COUNT=$((SC_EXTRA_COUNT + 1))
+  return 0
+}
+
+# register_output_identifiers OUTPUTS_JSON (Phase 15, G-29 and decision
+# 9.5): registers, from the JSON of `terraform output -json`, the endpoint
+# values that must never be printed or recorded: api-host (the host of
+# api_url), job-dlq-url and embedding-dlq-url (dlq_urls), job-queue-url
+# (job_queue_url), embedding-queue-url (embedding_queue_url), alb-host
+# (alb_dns_name) and neptune-host (neptune_endpoint). The dead-letter queue
+# URLs are registered before the queue URLs, because each queue URL is a
+# prefix of its DLQ URL (longest first, so the label is right). A missing
+# output is skipped (status 0); prints nothing. Status 3 without jq; 2 when a
+# value is malformed (register_extra_identifier).
+register_output_identifiers() {
+  local o="${1:-}" url host
+  command -v jq >/dev/null 2>&1 || {
+    sc_lib_err "jq not found"
+    return 3
+  }
+  url="$(jq -r '.api_url.value // empty' <<<"${o}" 2>/dev/null)" || url=""
+  host=""
+  case "${url}" in
+    https://*)
+      host="${url#https://}"
+      host="${host%%/*}"
+      ;;
+  esac
+  register_extra_identifier api-host "${host}" || return "$?"
+  register_extra_identifier job-dlq-url "$(jq -r '.dlq_urls.value.jobs // empty' <<<"${o}" 2>/dev/null || true)" || return "$?"
+  register_extra_identifier embedding-dlq-url "$(jq -r '.dlq_urls.value.embedding // empty' <<<"${o}" 2>/dev/null || true)" || return "$?"
+  register_extra_identifier job-queue-url "$(jq -r '.job_queue_url.value // empty' <<<"${o}" 2>/dev/null || true)" || return "$?"
+  register_extra_identifier embedding-queue-url "$(jq -r '.embedding_queue_url.value // empty' <<<"${o}" 2>/dev/null || true)" || return "$?"
+  register_extra_identifier alb-host "$(jq -r '.alb_dns_name.value // empty' <<<"${o}" 2>/dev/null || true)" || return "$?"
+  register_extra_identifier neptune-host "$(jq -r '.neptune_endpoint.value // empty' <<<"${o}" 2>/dev/null || true)" || return "$?"
+  return 0
+}
+
+# sc_mask_extras TEXT: sets SC_MASK_OUT to TEXT with every registered extra
+# identifier replaced by <KIND> (no subshell).
+sc_mask_extras() {
+  local i=0 v
+  SC_MASK_OUT="${1:-}"
+  while [ "${i}" -lt "${SC_EXTRA_COUNT}" ]; do
+    v="${SC_EXTRA_VALUES[${i}]}"
+    SC_MASK_OUT="${SC_MASK_OUT//"${v}"/<${SC_EXTRA_KINDS[${i}]}>}"
+    i=$((i + 1))
+  done
+  return 0
+}
+
 # register_bucket_patterns NAME_PREFIX: masks, in mask_text and mask_stream,
 # any text shaped like a bucket name of this environment even when the real
 # name is not known yet: NAME_PREFIX-data-<14+ digits><hex> (Terraform
@@ -313,6 +402,8 @@ mask_account() {
 # registered bucket name patterns (register_bucket_patterns).
 mask_text() {
   local s="${1:-}"
+  sc_mask_extras "${s}"
+  s="${SC_MASK_OUT}"
   if [ -n "${SC_ACCOUNT_ID}" ]; then
     s="${s//"${SC_ACCOUNT_ID}"/<account>}"
   fi
@@ -331,6 +422,8 @@ mask_text() {
 mask_stream() {
   local line
   while IFS= read -r line || [ -n "${line}" ]; do
+    sc_mask_extras "${line}"
+    line="${SC_MASK_OUT}"
     if [ -n "${SC_ACCOUNT_ID}" ]; then
       line="${line//"${SC_ACCOUNT_ID}"/<account>}"
     fi
@@ -394,12 +487,26 @@ resolve_s3() {
 }
 
 # check_no_identifiers PATH...: status 6 when any file (directories are read
-# recursively) contains the registered account ID or a registered bucket name
-# (grep -F); the file and the kind of identifier are named, never the value.
-# Status 0 when none is found or no identifier is registered.
+# recursively) contains the registered account ID, a registered bucket name
+# or (Phase 15, G-29) a registered extra identifier (grep -F); the file and
+# the kind of identifier are named, never the value. Status 0 when none is
+# found or no identifier is registered.
 check_no_identifiers() {
-  local found=0 p p_hit hits kind value
+  local found=0 p p_hit hits kind value i
   for p in "$@"; do
+    i=0
+    while [ "${i}" -lt "${SC_EXTRA_COUNT}" ]; do
+      value="${SC_EXTRA_VALUES[${i}]}"
+      kind="${SC_EXTRA_KINDS[${i}]}"
+      i=$((i + 1))
+      hits="$(grep -r -l -F -- "${value}" "${p}" 2>/dev/null || true)"
+      if [ -n "${hits}" ]; then
+        found=1
+        while IFS= read -r p_hit; do
+          [ -n "${p_hit}" ] && printf 'IDENTIFIER-CHECK: %s holds the %s\n' "${p_hit}" "${kind}" >&2
+        done <<<"${hits}"
+      fi
+    done
     for kind in account-id data-bucket vector-bucket; do
       case "${kind}" in
         account-id) value="${SC_ACCOUNT_ID}" ;;

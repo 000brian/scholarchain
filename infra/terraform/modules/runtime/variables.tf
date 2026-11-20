@@ -255,7 +255,12 @@ variable "job_queue_arn" {
 }
 
 variable "embedding_queue_arn" {
-  description = "ARN of the SQS embedding work queue (ops role only)."
+  description = "ARN of the SQS embedding work queue (ops sends and consumes; Phase 15: the worker consumes, never sends)."
+  type        = string
+}
+
+variable "embedding_queue_url" {
+  description = "URL of the SQS embedding work queue (Phase 15 decision 5: service.embeddingQueueUrl, set on all four service tasks through SCHOLARCHAIN_CFG_SERVICE_EMBEDDING_QUEUE_URL so every role resolves the same config fingerprint (review finding H-01); only the worker consumes; never in config/**)."
   type        = string
 }
 

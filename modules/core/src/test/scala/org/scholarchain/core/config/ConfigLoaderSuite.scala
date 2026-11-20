@@ -524,8 +524,8 @@ class ConfigLoaderSuite extends munit.FunSuite {
     val names = ConfigLoader.allKeys.map(_.envVar)
     assertEquals(names.distinct.size, names.size)
     // 37 Phase 7 section keys + 10 llm keys + 7 runtime keys (Phase 9) + 14 service keys
-    // (Phase 10).
-    assertEquals(ConfigLoader.allKeys.size, ConfigLoader.keys.size + 37 + 10 + 7 + 14)
+    // (Phase 10) + 1 service key (Phase 15 decision 5, service.embeddingQueueUrl).
+    assertEquals(ConfigLoader.allKeys.size, ConfigLoader.keys.size + 37 + 10 + 7 + 14 + 1)
   }
 
   // ---- Phase 9 optional sections (llm, runtime) --------------------------------------------

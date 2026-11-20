@@ -1,0 +1,9 @@
+{
+  "incidentId": "p15-f-example",
+  "detectedAtUtc": "2026-11-20T21:34:20Z",
+  "detectionSource": "embedding DLQ alarm (example)",
+  "affectedComponent": "example-worker",
+  "symptom": "poison message redriven to the dead-letter queue (example)",
+  "recoveryEvidence": "valid task processed while the poison message was retried (example)",
+  "note": "hand-written fixture, not a measurement"
+}

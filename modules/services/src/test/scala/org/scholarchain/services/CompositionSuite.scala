@@ -261,6 +261,165 @@ class CompositionSuite extends munit.FunSuite {
     assertEquals(http.calls.get, 0)
   }
 
+  test(
+    "decision 8.1: --stores aws with service.embeddingQueueUrl builds the embedding worker for " +
+      "the worker role from stub clients with zero HTTP calls"
+  ) {
+    val url = "https://queue.example.invalid/example-embedding-tasks"
+    val withQueue =
+      awsConfig.copy(service = awsConfig.service.map(_.copy(embeddingQueueUrl = Some(url))))
+    val http = new CountingHttp
+    val llm = new CountingTransport
+    val emb = new CountingTransport
+    val opts = awsOptions(http, llm, emb)
+    val (rt, stores) = Composition
+      .aws(withQueue, RuntimeFixtures.sparkRun, opts)
+      .fold(e => fail(e), identity)
+    try {
+      val work = Composition
+        .embeddingWork(withQueue, rt, opts.embeddingWiring)
+        .fold(e => fail(e), identity)
+        .getOrElse(fail("no embedding work"))
+      val log = new MemoryLogSink
+      val server = ServiceServer
+        .start(
+          rt,
+          stores,
+          ServerOptions(
+            role = Role.Worker,
+            port = Some(0),
+            env = env.get,
+            logSink = log,
+            startWorker = false,
+            closeRuntime = false,
+            name = "aws-emb",
+            embedding = Some(work)
+          )
+        )
+        .fold(e => fail(e), identity)
+      try {
+        val w = server.embeddingWorker.getOrElse(fail("no embedding worker"))
+        // embedding.batchSize 64: one receive (at most 10 messages) is one Voyage request
+        assertEquals(w.handler.batchLimit, 64)
+        assert(server.embeddingWorker.nonEmpty && !server.embeddingLoopRunning)
+      } finally server.close()
+      // without the key: the job loop only
+      assertEquals(Composition.embeddingWork(awsConfig, rt, opts.embeddingWiring), Right(None))
+      // a refused URL: Left, never naming it
+      val bad = withQueue.copy(service =
+        withQueue.service.map(_.copy(embeddingQueueUrl = Some("http://example-bad-host/q")))
+      )
+      val refused = Composition.embeddingWork(bad, rt, opts.embeddingWiring)
+      assert(refused.left.exists(_.contains("embedding queue URL")), refused.toString)
+      assert(!refused.left.exists(_.contains("example-bad-host")))
+      assert(!log.rendered.exists(_.contains("example-embedding-tasks")))
+    } finally rt.close()
+    assertEquals((http.calls.get, llm.calls.get, emb.calls.get), (0, 0, 0))
+  }
+
+  test(
+    "H-01: with service.embeddingQueueUrl set (every role gets the same environment), roles " +
+      "query, evidence and graph start no embedding loop, build no handler and make no SQS call"
+  ) {
+    val url = "https://queue.example.invalid/example-embedding-tasks"
+    val withQueue =
+      awsConfig.copy(service = awsConfig.service.map(_.copy(embeddingQueueUrl = Some(url))))
+    val http = new CountingHttp
+    val opts = awsOptions(http, new CountingTransport, new CountingTransport)
+    val (rt, stores) = Composition
+      .aws(withQueue, RuntimeFixtures.sparkRun, opts)
+      .fold(e => fail(e), identity)
+    try {
+      val built = Composition
+        .embeddingWork(withQueue, rt, opts.embeddingWiring)
+        .fold(e => fail(e), identity)
+        .getOrElse(fail("no embedding work"))
+      // counts every use of the embedding queue and every handler build
+      val queueCalls = new AtomicInteger()
+      val handlerBuilds = new AtomicInteger()
+      val counted = EmbeddingWork(
+        new org.scholarchain.storage.ports.ReceiveQueue {
+          def receive(max: Int) = { queueCalls.incrementAndGet(); built.queue.receive(max) }
+          def ack(w: org.scholarchain.storage.ports.ReceivedWork) = {
+            queueCalls.incrementAndGet(); built.queue.ack(w)
+          }
+          def release(w: org.scholarchain.storage.ports.ReceivedWork) = {
+            queueCalls.incrementAndGet(); built.queue.release(w)
+          }
+        },
+        log => { handlerBuilds.incrementAndGet(); built.handlerOf(log) }
+      )
+      List(Role.Query, Role.Evidence, Role.Graph).foreach { role =>
+        val log = new MemoryLogSink
+        val server = ServiceServer
+          .start(
+            rt,
+            stores,
+            ServerOptions(
+              role = role,
+              port = Some(0),
+              env = env.get,
+              logSink = log,
+              // as in production: Main passes startWorker = true for every role
+              startWorker = true,
+              closeRuntime = false,
+              name = s"h01-${role.wire}",
+              embedding = Some(counted)
+            )
+          )
+          .fold(e => fail(e), identity)
+        try {
+          assertEquals(server.embeddingWorker, None, role.wire)
+          assert(!server.embeddingLoopRunning, role.wire)
+          val started = log.all.find(_("event").str == "started").getOrElse(fail("no start line"))
+          assertEquals(started("embeddingWorker").bool, false, role.wire)
+          assertEquals(started("worker").bool, false, role.wire)
+          Thread.sleep(300) // a running loop would have received by now (long poll 1 s, idle 0.2 s)
+        } finally server.close()
+        assert(!log.rendered.exists(_.contains("example-embedding-tasks")), role.wire)
+      }
+      assertEquals((queueCalls.get, handlerBuilds.get), (0, 0))
+      assertEquals(http.calls.get, 0)
+      // control: the worker role with the same work builds the handler and starts the loop,
+      // which receives from the (counted) embedding queue
+      val control = ServiceServer
+        .start(
+          rt,
+          stores,
+          ServerOptions(
+            role = Role.Worker,
+            port = Some(0),
+            env = env.get,
+            logSink = new MemoryLogSink,
+            startWorker = true,
+            closeRuntime = false,
+            name = "h01-worker",
+            embedding = Some(counted)
+          )
+        )
+        .fold(e => fail(e), identity)
+      try {
+        assert(control.embeddingLoopRunning)
+        assert(waitUntil()(queueCalls.get > 0))
+      } finally control.close()
+      assertEquals(handlerBuilds.get, 1)
+    } finally rt.close()
+  }
+
+  test("decision 8.1: service.embeddingQueueUrl with a local runtime is refused by embeddingWork") {
+    val (exportDir, csv) = RuntimeFixtures.inputs()
+    val cfg = withService(config)(
+      _.copy(embeddingQueueUrl = Some("https://queue.example.invalid/example-embedding-tasks"))
+    )
+    val (rt, _) =
+      Composition.local(cfg, exportDir, csv, new ManualClock()).fold(e => fail(e), identity)
+    try {
+      val e = Composition.embeddingWork(cfg, rt)
+      assert(e.left.exists(_.contains("needs the AWS stores")), e.toString)
+      assertEquals(Composition.embeddingWork(config, rt), Right(None))
+    } finally rt.close()
+  }
+
   test("live smoke: a deployed query role answers /healthz and /readyz".tag(RequiresAws)) {
     // Phase 12 deploys the services; the base URL comes from the deployment, never from this file.
     val base = sys.env.getOrElse(

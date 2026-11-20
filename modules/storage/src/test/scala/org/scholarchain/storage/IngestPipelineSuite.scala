@@ -71,9 +71,10 @@ class IngestPipelineSuite extends munit.FunSuite {
     val r2 = p.run(run, docs.iterator)
     assertEquals(r2.skipped, 6L)
     assertEquals(r2.skipRatio, 1.0)
+    // G-27: a skipped document makes no text put (before Phase 15 it re-put all 6 texts)
     assertEquals(
       (r2.written, r2.embedCalls, r2.textCreated, r2.textAlreadyPresent),
-      (0L, 0L, 0L, 6L)
+      (0L, 0L, 0L, 0L)
     )
     assertEquals(e.vectors.putCalls.get, puts)
     assertEquals(e.objects.objectCount, objects)

@@ -76,8 +76,26 @@ variable "job_consumer_role_arns" {
 }
 
 variable "embedding_role_arns" {
-  description = "Roles that use the embedding work queue (ops)."
+  description = "Roles that send to and consume the embedding work queue (ops)."
   type        = list(string)
+}
+
+variable "embedding_consumer_role_arns" {
+  description = "Roles that only receive, acknowledge and release embedding work messages (Phase 15: worker). They never send."
+  type        = list(string)
+}
+
+# ---- execution-input settings (Phase 15 decision 9.3) ------------------------------
+
+variable "spark_shuffle_partitions_default" {
+  description = "spark.sql.shuffle.partitions of both Spark steps when the execution input has no spark.shufflePartitions (today's value, 32)."
+  type        = number
+  default     = 32
+
+  validation {
+    condition     = var.spark_shuffle_partitions_default >= 8 && var.spark_shuffle_partitions_default <= 512 && floor(var.spark_shuffle_partitions_default) == var.spark_shuffle_partitions_default
+    error_message = "spark_shuffle_partitions_default must be an integer in 8..512."
+  }
 }
 
 # ---- SQS (values derived from config/course.json; keep them in step) -------------

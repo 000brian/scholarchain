@@ -1,0 +1,83 @@
+ M experiments/README.md
+ M infra/terraform/COSTS.md
+ M infra/terraform/environments/course/main.tf
+ M infra/terraform/environments/course/outputs.tf
+ M infra/terraform/modules/runtime/autoscaling.tf
+ M infra/terraform/modules/runtime/iam.tf
+ M infra/terraform/modules/runtime/main.tf
+ M infra/terraform/modules/runtime/variables.tf
+ M infra/terraform/modules/workflow/main.tf
+ M infra/terraform/modules/workflow/outputs.tf
+ M infra/terraform/modules/workflow/sfn.tf
+ M infra/terraform/modules/workflow/variables.tf
+ M scripts/archive-evidence.sh
+ M scripts/lib/identity.sh
+ M scripts/run-bounded-pipeline.sh
+ M scripts/run-experiment.sh
+ M scripts/smoke-test.sh
+?? experiments/collectors/ab-pipeline.sh
+?? experiments/collectors/c-embedding-backlog.sh
+?? experiments/collectors/d-load.sh
+?? experiments/collectors/f-poison-replay.sh
+?? experiments/collectors/lib/collector-common.sh
+?? experiments/derived/common.py
+?? experiments/derived/emr_capacity.py
+?? experiments/derived/failure_timeline.py
+?? experiments/derived/fixtures/README.md
+?? experiments/derived/fixtures/raw/p15-a-spark/20261120T200000Z-000000000000-a001/emr-cluster.json
+?? experiments/derived/fixtures/raw/p15-a-spark/20261120T200000Z-000000000000-a001/metrics/metric-data.json
+?? experiments/derived/fixtures/raw/p15-a-spark/20261120T200000Z-000000000000-a001/metrics/queries.json
+?? experiments/derived/fixtures/raw/p15-a-spark/20261120T200000Z-000000000000-a001/run-record.json
+?? experiments/derived/fixtures/raw/p15-b-spark-burst/20261120T203000Z-000000000000-b001/metrics/metric-data.json
+?? experiments/derived/fixtures/raw/p15-b-spark-burst/20261120T203000Z-000000000000-b001/metrics/queries.json
+?? experiments/derived/fixtures/raw/p15-b-spark-burst/20261120T203000Z-000000000000-b001/run-record.json
+?? experiments/derived/fixtures/raw/p15-b-spark-burst/20261120T210000Z-000000000000-b002/emr-cluster.json
+?? experiments/derived/fixtures/raw/p15-b-spark-burst/20261120T210000Z-000000000000-b002/metrics/metric-data.json
+?? experiments/derived/fixtures/raw/p15-b-spark-burst/20261120T210000Z-000000000000-b002/metrics/queries.json
+?? experiments/derived/fixtures/raw/p15-b-spark-burst/20261120T210000Z-000000000000-b002/run-record.json
+?? experiments/derived/fixtures/raw/p15-c-embedding-backlog/20261120T220000Z-000000000000-c001/queue-samples.csv
+?? experiments/derived/fixtures/raw/p15-c-embedding-backlog/20261120T220000Z-000000000000-c001/run-record.json
+?? experiments/derived/fixtures/raw/p15-c-embedding-backlog/20261120T220000Z-000000000000-c001/service-samples.csv
+?? experiments/derived/fixtures/raw/p15-c-embedding-backlog/20261120T223000Z-000000000000-c002/metrics/metric-data.json
+?? experiments/derived/fixtures/raw/p15-c-embedding-backlog/20261120T223000Z-000000000000-c002/metrics/queries.json
+?? experiments/derived/fixtures/raw/p15-c-embedding-backlog/20261120T223000Z-000000000000-c002/queue-samples.csv
+?? experiments/derived/fixtures/raw/p15-c-embedding-backlog/20261120T223000Z-000000000000-c002/run-record.json
+?? experiments/derived/fixtures/raw/p15-c-embedding-backlog/20261120T223000Z-000000000000-c002/scaling-activities.csv
+?? experiments/derived/fixtures/raw/p15-c-embedding-backlog/20261120T223000Z-000000000000-c002/service-samples.csv
+?? experiments/derived/fixtures/raw/p15-d-query-load/20261120T230000Z-000000000000-d001/load-clock.csv
+?? experiments/derived/fixtures/raw/p15-d-query-load/20261120T230000Z-000000000000-d001/load-explain.csv
+?? experiments/derived/fixtures/raw/p15-d-query-load/20261120T230000Z-000000000000-d001/load-levels.csv
+?? experiments/derived/fixtures/raw/p15-d-query-load/20261120T230000Z-000000000000-d001/load-requests.csv
+?? experiments/derived/fixtures/raw/p15-d-query-load/20261120T230000Z-000000000000-d001/metrics/metric-data.json
+?? experiments/derived/fixtures/raw/p15-d-query-load/20261120T230000Z-000000000000-d001/metrics/queries.json
+?? experiments/derived/fixtures/raw/p15-d-query-load/20261120T230000Z-000000000000-d001/run-record.json
+?? experiments/derived/fixtures/raw/p15-d-query-load/20261120T230000Z-000000000000-d001/service-samples.csv
+?? experiments/derived/fixtures/raw/p15-d-read-load/20261120T233000Z-000000000000-r001/id-check.csv
+?? experiments/derived/fixtures/raw/p15-d-read-load/20261120T233000Z-000000000000-r001/load-clock.csv
+?? experiments/derived/fixtures/raw/p15-d-read-load/20261120T233000Z-000000000000-r001/load-levels.csv
+?? experiments/derived/fixtures/raw/p15-d-read-load/20261120T233000Z-000000000000-r001/load-requests.csv
+?? experiments/derived/fixtures/raw/p15-d-read-load/20261120T233000Z-000000000000-r001/run-record.json
+?? experiments/derived/fixtures/raw/p15-e-retrieval-modes/20261120T214500Z-000000000000-e001/retrieval-modes.csv
+?? experiments/derived/fixtures/raw/p15-e-retrieval-modes/20261120T214500Z-000000000000-e001/run-record.json
+?? experiments/derived/fixtures/raw/p15-f-poison-replay/20261120T213000Z-000000000000-f001/alarm-samples.csv
+?? experiments/derived/fixtures/raw/p15-f-poison-replay/20261120T213000Z-000000000000-f001/events.csv
+?? experiments/derived/fixtures/raw/p15-f-poison-replay/20261120T213000Z-000000000000-f001/incident-F.json
+?? experiments/derived/fixtures/raw/p15-f-poison-replay/20261120T213000Z-000000000000-f001/metrics/metric-data.json
+?? experiments/derived/fixtures/raw/p15-f-poison-replay/20261120T213000Z-000000000000-f001/metrics/queries.json
+?? experiments/derived/fixtures/raw/p15-f-poison-replay/20261120T213000Z-000000000000-f001/queue-samples.csv
+?? experiments/derived/fixtures/raw/p15-f-poison-replay/20261120T213000Z-000000000000-f001/run-record.json
+?? experiments/derived/fixtures/raw/p15-f-poison-replay/20261120T213000Z-000000000000-f001/service-samples.csv
+?? experiments/derived/load_levels.py
+?? experiments/derived/queue_worker.py
+?? experiments/derived/retrieval_modes.py
+?? experiments/manifests/p15-a-hadoop.json
+?? experiments/manifests/p15-a-spark.json
+?? experiments/manifests/p15-b-spark-burst.json
+?? experiments/manifests/p15-c-embedding-backlog.json
+?? experiments/manifests/p15-d-query-load.json
+?? experiments/manifests/p15-d-read-load.json
+?? experiments/manifests/p15-f-poison-replay.json
+?? experiments/results-summary-template.md
+?? load-tests/query-load.sh
+?? load-tests/questions-d.txt
+?? load-tests/read-ids-d.txt

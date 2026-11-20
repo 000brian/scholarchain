@@ -92,7 +92,7 @@ final class BedrockTitanEmbedder(
         val est = EmbeddingRetry.estimateTokens(t)
         val r = Retry.run(policy, sleeper) {
           limiter.acquire(est)
-          usage.requests += 1
+          usage.addRequests(1L)
           invoker.invoke(spec.model, body)
         }
         retries += r.retries
@@ -101,14 +101,14 @@ final class BedrockTitanEmbedder(
         ) match {
           case Right((v, tokens)) =>
             out += v
-            usage.texts += 1
-            usage.characters += t.length.toLong
-            usage.estimatedTokens += est
-            tokens.foreach(n => usage.reportedTokens += n)
+            usage.addTexts(1L)
+            usage.addCharacters(t.length.toLong)
+            usage.addEstimatedTokens(est)
+            tokens.foreach(n => usage.addReportedTokens(n))
           case Left(e) => failure = Some(s"bedrock: ${e.getMessage}".take(300))
         }
       }
-      usage.retries += retries
+      usage.addRetries(retries.toLong)
       failure match {
         case Some(m) => Left(EmbeddingFailure(m, retries))
         case None    => Right(EmbeddingBatch(out.result(), retries))

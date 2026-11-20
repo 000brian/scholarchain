@@ -4,7 +4,7 @@ import java.nio.charset.StandardCharsets
 import java.util.Base64
 
 import org.scholarchain.core._
-import org.scholarchain.rag.runtime.RuntimeFixtures
+import org.scholarchain.rag.runtime.{AbstentionCodes, RuntimeFixtures}
 
 /** Evidence, explain and graph exploration routes (decisions 7g, 7h). */
 class ReadRoutesSuite extends munit.FunSuite {
@@ -123,8 +123,12 @@ class ReadRoutesSuite extends munit.FunSuite {
     val res = answer(h)
     val ex = get(h, s"/v1/explain/${res.queryId}").json
     val stored = h.runtime.stores.audits.read(RunId(res.queryId), 10).toOption.get.last
-    assertEquals(stored.schemaVersion, 2)
-    assertEquals(ex("auditSchemaVersion").num.toInt, 2)
+    // Phase 15 (G-28): rag writes QueryAudit schema version 3
+    assertEquals(stored.schemaVersion, 3)
+    assertEquals(ex("auditSchemaVersion").num.toInt, 3)
+    // not abstained: the reasons field is present and empty
+    assert(!stored.abstained)
+    assertEquals(ex("abstentionReasons"), ujson.Arr())
     assertEquals(ex("queryTemplateIds").arr.map(_.str).toList, stored.queryTemplateIds)
     assert(stored.queryTemplateIds.nonEmpty, "the fixture query runs graph templates")
     assertEquals(ex("indexesQueried").arr.map(_.str).toList, stored.indexesQueried)
@@ -171,6 +175,36 @@ class ReadRoutesSuite extends munit.FunSuite {
     assertEquals(ex("modelCalls"), ujson.Obj())
     assertEquals(ex("cacheHits"), ujson.Obj())
     assertEquals(ex("notes").arr.map(_.str).toList, List(ExplainView.ScoreNote, ExplainView.V1Note))
+    assertEquals(ex("abstentionReasons"), ujson.Arr())
+  }
+
+  h.test("explain of an abstained v3 audit lists each stored code with its fixed text (G-28)") {
+    h =>
+      val res = answer(h)
+      val v3 = h.runtime.stores.audits.read(RunId(res.queryId), 10).toOption.get.last
+      assertEquals(v3.schemaVersion, 3)
+      val codes = List(
+        AbstentionCodes.NoPathWithinDepth,
+        AbstentionCodes.NoVerifiedClaim,
+        "some-future-code" // well formed but not in rag's table: reads as unclassified
+      )
+      val abstained = v3.copy(abstained = true, abstentionCodes = codes)
+      assert(h.runtime.stores.audits.append(abstained).isRight)
+      val ex = get(h, s"/v1/explain/${res.queryId}").json
+      assertEquals(ex("abstained").bool, true)
+      val reasons = ex("abstentionReasons").arr.toList
+      assertEquals(reasons.map(_.obj.keySet.toSet), List.fill(3)(Set("code", "text")))
+      assertEquals(reasons.map(_("code").str), codes)
+      assertEquals(
+        reasons.map(_("text").str),
+        List(
+          AbstentionCodes.Table(AbstentionCodes.NoPathWithinDepth),
+          AbstentionCodes.Table(AbstentionCodes.NoVerifiedClaim),
+          AbstentionCodes.Table(AbstentionCodes.Unclassified)
+        )
+      )
+      val view = upickle.default.read[ExplainView](get(h, s"/v1/explain/${res.queryId}").body)
+      assertEquals(view.abstentionReasons.map(_.code), codes)
   }
 
   // ---- graph ---------------------------------------------------------------------------------

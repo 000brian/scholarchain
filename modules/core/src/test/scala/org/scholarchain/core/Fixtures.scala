@@ -806,4 +806,17 @@ object Fixtures {
     ),
     cacheHits = Map("researcher-metric-cache" -> 2L)
   )
+
+  /** QueryAudit v3 (Phase 15, additive): the v2 fixture at version 3; it did not abstain, so its
+    * `abstentionCodes` is empty (written as `[]`).
+    */
+  val queryAuditV3: QueryAudit = queryAuditV2.copy(schemaVersion = 3)
+
+  /** QueryAudit v3 of an abstained answer: the codes say why (codes are examples of rag's fixed
+    * vocabulary, not part of the core contract).
+    */
+  val queryAuditV3Abstained: QueryAudit = queryAuditV3.copy(
+    abstained = true,
+    abstentionCodes = List("no-path-within-depth", "path-query-timeout")
+  )
 }

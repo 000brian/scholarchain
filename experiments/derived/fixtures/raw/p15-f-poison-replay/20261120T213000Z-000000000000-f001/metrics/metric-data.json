@@ -1,0 +1,7 @@
+{
+  "MetricDataResults": [
+    {"Id": "m0_0", "Label": "AWS/SQS ApproximateNumberOfMessagesVisible Maximum QueueName=example-embedding-dlq", "Timestamps": ["2026-11-20T21:33:00+00:00", "2026-11-20T21:34:00+00:00", "2026-11-20T21:35:00+00:00"], "Values": [0.0, 1.0, 1.0], "StatusCode": "Complete"},
+    {"Id": "m1_0", "Label": "AWS/SQS NumberOfMessagesReceived Sum QueueName=example-embedding", "Timestamps": [], "Values": [], "StatusCode": "Complete"}
+  ],
+  "Messages": []
+}

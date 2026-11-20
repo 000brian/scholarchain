@@ -99,7 +99,7 @@ final class VoyageEmbedder private (
           case Left((msg, r)) => failure = Some(msg); retries += r
         }
       }
-      usage.retries += retries
+      usage.addRetries(retries.toLong)
       failure match {
         case Some(m) => Left(EmbeddingFailure(m, retries))
         case None    => Right(EmbeddingBatch(out.result(), retries))
@@ -128,7 +128,7 @@ final class VoyageEmbedder private (
     var result: Option[Either[(String, Int), (Vector[Array[Float]], Int)]] = None
     while (result.isEmpty) {
       limiter.acquire(estimate)
-      usage.requests += 1
+      usage.addRequests(1L)
       val attempt: Either[(Boolean, String, Option[Long]), HttpResult] =
         try Right(transport.postJson(endpoint, List("Authorization" -> s"Bearer $apiKey"), body))
         catch {
@@ -144,7 +144,7 @@ final class VoyageEmbedder private (
             VoyageEmbedder
               .parse(r.body, group.size, spec.dimensions)
               .map { case (vs, tokens) =>
-                tokens.foreach(t => usage.reportedTokens += t)
+                tokens.foreach(t => usage.addReportedTokens(t))
                 vs
               }
               .left
@@ -156,9 +156,9 @@ final class VoyageEmbedder private (
         }
       outcome match {
         case Right(vs) =>
-          usage.texts += group.size
-          usage.characters += group.map(_.length.toLong).sum
-          usage.estimatedTokens += estimate
+          usage.addTexts(group.size.toLong)
+          usage.addCharacters(group.map(_.length.toLong).sum)
+          usage.addEstimatedTokens(estimate)
           result = Some(Right((vs, retries)))
         case Left((true, _, retryAfter)) if retries < policy.maxRetries =>
           retries += 1

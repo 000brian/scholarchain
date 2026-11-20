@@ -1,0 +1,51 @@
+# load-tests/read-ids-d.txt - ID list for experiment D, --mode read
+# (load-tests/query-load.sh). Owner: experiment-engineer. A tool file, not a
+# manifest: its sha256 is recorded in the load-tool-record.json of every run.
+# Fixed and committed before D10; the preflight (D9a) prints which IDs answer
+# 200 and the list is corrected, if needed, before D10, never during a run.
+#
+# Format: ROUTE|ID|WINDOW|SOURCE
+#   ROUTE   neighbors: GET /v1/graph/nodes/ID/neighbors?depth=1&limit=50
+#           evidence:  GET /v1/evidence/ID (with ?window=WINDOW unless WINDOW is -)
+#   SOURCE  where the ID comes from (free text without |)
+#
+# Sources:
+#   benchmark-v1 (modules/rag/src/test/resources/benchmark/benchmark-v1.json):
+#   every expected.researcherIds subject (23 researchers) and every
+#   expected.values workId (3 works). benchmark-v1 was generated from the
+#   Phase 10 export (sourceRunId run:v1:51b50d578d5b609842c1c21b8266a00b), not
+#   from the Phase 14 full-graph run; whether each ID exists in the live graph
+#   is unverified until the preflight. A 404 is recorded as not-found.
+#   Phase 14 smoke records (evidence/runs/20261120T150558Z-b39e1ed5b785-6ccd-smoke-test.json
+#   and 20261120T150727Z-b39e1ed5b785-67d3-smoke-test.json, field evidence_id).
+#   The evidence route answers without a window only when the item has one
+#   window; the metric item of q05 is listed a second time with 2015-2025.
+neighbors|researcher:v1:fe1177235d9a724607da7e9700d133c4|-|benchmark-v1 q05 subject
+evidence|evidence:v1:770b25637f1c47a3bddcfcb77fcb264d|-|phase-14 D14 smoke q05 metric
+neighbors|researcher:v1:5d6029542b54c1717977ae66c695e403|-|benchmark-v1 q04 subject
+neighbors|researcher:v1:35fd7b17be0e5be647b62ad6410c70e8|-|benchmark-v1 q06 subject
+neighbors|researcher:v1:00b7c1b012cd8743bbfbfc97c7f79ea7|-|benchmark-v1 q07 subject
+neighbors|work:v1:daa83d005f1e6313587b1f3d3c65c243|-|benchmark-v1 q05 work
+neighbors|researcher:v1:00e8ad347ecd63cf1834a0df916a41b3|-|benchmark-v1 q08 subject
+neighbors|researcher:v1:00fff3380b298f171cb4526fb7bbd471|-|benchmark-v1 q09 subject a
+neighbors|researcher:v1:03c6a0f4c90cef885532de6a7920e497|-|benchmark-v1 q09 subject b
+evidence|evidence:v1:9ce97848a46b05fb17d43390392ab115|-|phase-14 D15 smoke q13 match_decision
+neighbors|researcher:v1:4fc0d2e6fcd1968992095c0a7103298b|-|benchmark-v1 q10 subject a
+neighbors|researcher:v1:c4c4d999ebf6b15b63913d24bcfc4971|-|benchmark-v1 q10 subject b
+neighbors|researcher:v1:df6166236603a3e56028f86b2f9c5c93|-|benchmark-v1 q11 subject a
+neighbors|work:v1:4c070d032cb054efdeeed40a84ff9f08|-|benchmark-v1 q04 work
+neighbors|researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7|-|benchmark-v1 q11 subject b
+neighbors|researcher:v1:00045316553446e1122b19fba5b0d1f5|-|benchmark-v1 q12 subject a
+neighbors|researcher:v1:32ad9abca8538109a54a81cef181dd6d|-|benchmark-v1 q12 subject b
+evidence|evidence:v1:770b25637f1c47a3bddcfcb77fcb264d|2015-2025|phase-14 D14 smoke q05 metric, window 2015-2025
+neighbors|researcher:v1:002a3ae503bdb566079cc2fab5b0d63e|-|benchmark-v1 q13 subject a
+neighbors|researcher:v1:0574994137251083fe63869197dcac40|-|benchmark-v1 q13 subject b
+neighbors|researcher:v1:21a1b7de436b7edbfbbcc30dc8a90c62|-|benchmark-v1 q14 subject
+neighbors|work:v1:95b5fdb1342e9c4cb5879aefb494cfda|-|benchmark-v1 q06 work
+neighbors|researcher:v1:00041d0bb12ab717db10a1023e2b5792|-|benchmark-v1 q15 subject
+neighbors|researcher:v1:c8e08951bf2e63c585e77de4a76470e3|-|benchmark-v1 q16 subject
+neighbors|researcher:v1:0b483e06c74206594317cf2cd77e891f|-|benchmark-v1 q17 subject
+neighbors|researcher:v1:2f7616b9db394715ad95e793f6dfc1c7|-|benchmark-v1 q18 subject
+neighbors|researcher:v1:e77f23197793ad5a0801b6207fc6d22b|-|benchmark-v1 q22 subject
+neighbors|researcher:v1:98afa40ff5b2ad6f93f88f88bcb702a0|-|benchmark-v1 q23 subject
+neighbors|researcher:v1:2dd100a916bcbf343384359301697d00|-|benchmark-v1 q24 subject

@@ -4,7 +4,8 @@
 # (author); run by the human or deploy-engineer after a deployment.
 #
 # Status (Phase 13): static: shellcheck clean; runtime: untested; human
-# execution required.
+# execution required. Phase 15 G-29 change (API host never printed or
+# recorded; record field api_url = "{api-url}"): runtime: untested.
 
 set -Eeuo pipefail
 umask 077
@@ -52,7 +53,12 @@ Errors.scala, Models.scala, QueryService.scala):
                when its value holds a control character (newline, carriage
                return), a double quote or a backslash.
   2. api-url   Reads the API address from the Terraform output api_url (or
-               --api-url); it must be https://.
+               --api-url); it must be https://. G-29 (Phase 15): the
+               address and its host are never printed or recorded; lines
+               and the record show {api-url}. The host (and, when terraform
+               output is read, the queue URLs and endpoint hosts) is
+               registered with scripts/lib/identity.sh, so every printed
+               line is masked and the record is refused if it holds one.
   3. healthz   GET /healthz -> 200, body status "ok" (no key).
   4. readyz    GET /readyz -> 200, body status "ready" (no key).
   5. auth-error  POST /v1/query WITHOUT the key -> 401 with the documented
@@ -88,8 +94,11 @@ temporary folder, which is removed at exit.
 Record: evidence/runs/ATTEMPT_ID-smoke-test.started.json, then
 evidence/runs/ATTEMPT_ID-smoke-test.json (gitignored; never overwritten):
 HEAD, build commit, the dirty flag (a dirty tree is recorded, not refused),
-the API host, each check with its status code and result, the queryId and
-evidenceId. No key, account ID or bucket name.
+api_url "{api-url}" (the logical form, G-29) and where it came from
+(api_url_source: terraform-output or --api-url), each check with its status
+code and result, the queryId and evidenceId. No key, account ID, bucket
+name, API host, queue URL or endpoint host. curl's own error text (which can
+name the host) is not shown; failures print curl's exit code.
 
 Retries: only the GET requests (healthz, readyz, evidence) are retried, up to
 3 times, when curl could not complete them; POST requests are never retried.
@@ -113,13 +122,17 @@ step() {
   CURRENT_STEP="$1"
   printf 'STEP: %s %s\n' "${SCRIPT_NAME}" "$1"
 }
-info() { printf 'INFO: %s %s\n' "${SCRIPT_NAME}" "$*"; }
+info() { printf 'INFO: %s %s\n' "${SCRIPT_NAME}" "$(mask_text "$*")"; }
 die() {
   local code="$1"
   shift
-  printf 'ERROR: %s step=%s exit=%s: %s\n' "${SCRIPT_NAME}" "${CURRENT_STEP}" "${code}" "$*" >&2
+  printf 'ERROR: %s step=%s exit=%s: %s\n' "${SCRIPT_NAME}" "${CURRENT_STEP}" "${code}" "$(mask_text "$*")" >&2
   exit "${code}"
 }
+# Until the helper is loaded, mask_text prints its argument unchanged; the
+# helper's mask_text (scripts/lib/identity.sh) then replaces this definition
+# and masks every registered identifier (G-29: the API host).
+mask_text() { printf '%s' "$*"; }
 on_err() {
   local rc="$?"
   printf 'ERROR: %s step=%s line=%s exit=5: command failed with status %s\n' \
@@ -235,18 +248,21 @@ check_prerequisites() {
 
 # ---- record ----------------------------------------------------------------------
 
-API_HOST=""
+API_URL_SOURCE=""
 QUERY_ID=""
 EVIDENCE_ID=""
 
+# G-29 (Phase 15): the record holds the logical {api-url} only, never the
+# address or its host.
 record_json() {
   jq -n --arg kind "scholarchain-smoke-test-record" --arg status "$1" --arg attempt "${ATTEMPT_ID}" \
     --arg head "${HEAD_SHA}" --arg build "${BUILD_SHA}" --argjson dirty "${DIRTY}" \
-    --arg host "${API_HOST}" --arg started "${STARTED_UTC}" --arg ended "${2:-}" \
+    --arg src "${API_URL_SOURCE}" --arg started "${STARTED_UTC}" --arg ended "${2:-}" \
     --argjson exit_code "${3:-null}" --arg step "${CURRENT_STEP}" --arg signal "${SIGNAL_NAME}" \
     --arg qid "${QUERY_ID}" --arg eid "${EVIDENCE_ID}" --argjson checks "${CHECKS_JSON}" \
     '{kind: $kind, version: 1, status: $status, attempt_id: $attempt, head: $head,
-      build_commit: $build, tree_dirty: $dirty, api_host: $host,
+      build_commit: $build, tree_dirty: $dirty, api_url: "{api-url}",
+      api_url_source: (if $src == "" then null else $src end),
       started_utc: $started, ended_utc: (if $ended == "" then null else $ended end),
       exit_code: $exit_code,
       failed_step: (if ($status | IN("started", "succeeded")) then null else $step end),
@@ -297,22 +313,32 @@ add_check() {
 
 read_api_url() {
   step "api-url"
+  local host
   if [ -z "${API_URL}" ]; then
+    API_URL_SOURCE="terraform-output"
     command -v terraform >/dev/null 2>&1 || die 3 "required tool not found: terraform"
     local rc=0 outputs
     outputs="$("${TIMEOUT_BIN}" --kill-after=30 "${OUTPUT_TIMEOUT}" terraform "-chdir=${TF_DIR}" \
-      output -json -no-color)" || rc=$?
+      output -json -no-color 2>/dev/null)" || rc=$?
     [ "${rc}" -eq 124 ] && die 7 "terraform output timed out"
     [ "${rc}" -eq 0 ] || die 5 "terraform output failed (status ${rc})"
     API_URL="$(jq -r '.api_url.value // empty' <<<"${outputs}")"
+    # G-29: the API host, queue URLs and endpoint hosts are masked in every
+    # line and refused in the record (identity.sh); never printed.
+    register_output_identifiers "${outputs}" || die 5 "could not register the Terraform output identifiers"
+    outputs=""
+  else
+    API_URL_SOURCE="--api-url"
   fi
   API_URL="${API_URL%/}"
   [ -n "${API_URL}" ] || die 3 "no api_url output (is the environment applied?)"
   [[ "${API_URL}" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._~/-]*)?$ ]] ||
     die 3 "api_url must be an https:// address"
-  API_HOST="${API_URL#https://}"
-  API_HOST="${API_HOST%%/*}"
-  info "API: ${API_URL}"
+  host="${API_URL#https://}"
+  host="${host%%/*}"
+  register_extra_identifier api-host "${host}" || die 3 "the API host is too short to mask; refusing to continue"
+  host=""
+  info "API: {api-url} (from ${API_URL_SOURCE}; address not shown)"
 }
 
 # Response files of the last request. Set once by check_prerequisites (parent
@@ -342,16 +368,26 @@ request() {
     args+=(--header "Idempotency-Key: ${idem}")
   fi
   local rc=0 status
+  # G-29: curl's error text can name the host, so it goes to a private file
+  # and only curl's exit code is printed.
   if [ "${auth}" = "yes" ]; then
     status="$(printf 'header = "X-Api-Key: %s"\n' "${SCHOLARCHAIN_SERVICE_API_KEY}" |
-      "${TIMEOUT_BIN}" --kill-after=5 "$((max_time + 10))" curl --config - "${args[@]}" "${API_URL}${path}")" || rc=$?
+      "${TIMEOUT_BIN}" --kill-after=5 "$((max_time + 10))" curl --config - "${args[@]}" "${API_URL}${path}" \
+        2>"${TMP_DIR}/curl.err")" || rc=$?
   else
-    status="$("${TIMEOUT_BIN}" --kill-after=5 "$((max_time + 10))" curl "${args[@]}" "${API_URL}${path}" </dev/null)" || rc=$?
+    status="$("${TIMEOUT_BIN}" --kill-after=5 "$((max_time + 10))" curl "${args[@]}" "${API_URL}${path}" \
+      </dev/null 2>"${TMP_DIR}/curl.err")" || rc=$?
   fi
   case "${rc}" in
     0) ;;
-    28 | 124 | 137) return 7 ;;
-    *) return 5 ;;
+    28 | 124 | 137)
+      printf 'WARN: %s %s %s: curl exit %s (time limit)\n' "${SCRIPT_NAME}" "${method}" "${path%%\?*}" "${rc}" >&2
+      return 7
+      ;;
+    *)
+      printf 'WARN: %s %s %s: curl exit %s\n' "${SCRIPT_NAME}" "${method}" "${path%%\?*}" "${rc}" >&2
+      return 5
+      ;;
   esac
   [[ "${status}" =~ ^[0-9]{3}$ ]] || return 5
   printf '%s' "${status}"

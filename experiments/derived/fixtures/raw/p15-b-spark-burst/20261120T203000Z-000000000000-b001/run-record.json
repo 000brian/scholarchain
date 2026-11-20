@@ -1,0 +1,21 @@
+{
+  "kind": "scholarchain-experiment-run-record",
+  "version": 1,
+  "status": "failed",
+  "attempt_id": "20261120T203000Z-000000000000-b001",
+  "exit_code": 5,
+  "failed_step": "action",
+  "signal": null,
+  "head": "0000000000000000000000000000000000000000",
+  "build_commit": "0000000000000000000000000000000000000000",
+  "region": "us-east-1",
+  "manifest": {"path": "experiments/manifests/p15-b-spark-burst.json", "manifest_id": "p15-b-spark-burst", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "experiment": "B", "dataset_snapshot": "dblp-2026-11-01"},
+  "declared_not_enforced": {"costBoundUsd": 2, "maxDurationSeconds": 5400, "resourceLimits": {}},
+  "started_utc": "2026-11-20T20:29:50Z",
+  "ended_utc": "2026-11-20T20:39:00Z",
+  "action": {"kind": "command", "path": "experiments/collectors/ab-pipeline.sh", "args": [], "exit_code": 5, "window_epoch": {"start": 1795206600, "end": 1795206780}},
+  "nested_run_records": [],
+  "remote_ids": {"execution_names": ["example-execution-failed"], "emr_cluster_ids": ["j-EXAMPLE0000002"]},
+  "metrics": {"status": "exported", "files": [], "unresolved": []},
+  "raw_results_location": "experiments/raw/p15-b-spark-burst/20261120T203000Z-000000000000-b001"
+}

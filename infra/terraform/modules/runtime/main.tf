@@ -53,9 +53,20 @@ locals {
     SCHOLARCHAIN_CFG_DYNAMO_DB_RESEARCHER_METRIC_CACHE_TABLE = var.table_names["ResearcherMetricCache"]
   }
 
-  # The services also need the job queue URL (Composition.aws requires it).
+  # One environment map for all four service roles (query, evidence, graph,
+  # worker). Every role must resolve an identical config: the config
+  # fingerprint (sha256 of the whole resolved config) is part of the query
+  # run ID, so a variable set on one role only makes the query role's ack
+  # queryId differ from the ID the worker stores the async result under
+  # (Phase 15 review finding H-01). Never add a per-role entry here.
+  # - job queue URL: Composition.aws requires it.
+  # - embedding queue URL (Phase 15 decision 5 and 9.1, service.embeddingQueueUrl):
+  #   only roles worker and all build the embedding loop (Main checks the role
+  #   first), so on query, evidence and graph it changes nothing but the
+  #   fingerprint. IAM is unchanged: only the worker may consume the queue.
   service_environment = merge(local.config_environment, {
-    SCHOLARCHAIN_CFG_SERVICE_JOB_QUEUE_URL = var.job_queue_url
+    SCHOLARCHAIN_CFG_SERVICE_JOB_QUEUE_URL       = var.job_queue_url
+    SCHOLARCHAIN_CFG_SERVICE_EMBEDDING_QUEUE_URL = var.embedding_queue_url
   })
 
   # Secrets per task, by the env-var NAME the code reads (config/course.json).
@@ -163,7 +174,8 @@ resource "aws_ecs_task_definition" "service" {
     ]
     # Every role serves /healthz and /readyz; only the ALB roles get traffic.
     portMappings = [{ containerPort = var.service_port, protocol = "tcp" }]
-    environment  = [for k, v in local.service_environment : { name = k, value = v }]
+    # Same map for every role (H-01): no per-role environment.
+    environment = [for k, v in local.service_environment : { name = k, value = v }]
     secrets = [for n in local.service_secret_names : {
       name      = n
       valueFrom = var.app_key_secret_arns_by_env_var[n]

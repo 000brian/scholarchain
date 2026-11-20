@@ -87,8 +87,9 @@ object TableSpecs {
 
   val QuerySession: TableSpec = TableSpec(
     "QuerySession",
-    "session#<sessionId> | job#<jobId> (QS4) | idempotency#<sha256 hex of (scope, key)> (QS5)",
-    "turn#<NNNNNN> | job (QS4) | idempotency (QS5)",
+    "session#<sessionId> | job#<jobId> (QS4) | idempotency#<sha256 hex of (scope, key)> (QS5) | " +
+      "reembed#<sha256 hex of (taskId, textHash)> (QS6)",
+    "turn#<NNNNNN> | job (QS4) | idempotency (QS5) | reembed (QS6)",
     appendOnly = false,
     ttlAttribute = Some("expiresAt"),
     List(
@@ -119,6 +120,14 @@ object TableSpecs {
           "existing record; an expired record is replaced at its version); read it",
         "GetItem; PutItem attribute_not_exists(pk); PutItem attribute_exists(pk) AND version = :read",
         "pk = idempotency#<sha256 hex of canonical (scope, Idempotency-Key)>, sk = idempotency"
+      ),
+      AccessPattern(
+        "QS6",
+        "One re-embed completion record (Phase 15): checked before the embedding call, created " +
+          "put-if-absent after the vector write, never updated (a changed text has a new key); " +
+          "disposable, with expiresAt",
+        "GetItem; PutItem attribute_not_exists(pk)",
+        "pk = reembed#<sha256 hex of canonical (taskId, textHash)>, sk = reembed"
       )
     ),
     _.querySessionTable
@@ -247,6 +256,13 @@ object TableSpecs {
   def idempotencyPk(scope: String, idempotencyKey: String): String =
     "idempotency#" + Hashing.sha256Hex(Hashing.canonicalEncoding(Seq(scope, idempotencyKey)))
   val IdempotencySk = "idempotency"
+
+  /** QS6 partition key: the sha256 of the canonical encoding of (taskId, textHash), so a changed
+    * text gets a new key and no record is ever updated.
+    */
+  def reembedPk(taskId: String, textHash: String): String =
+    "reembed#" + Hashing.sha256Hex(Hashing.canonicalEncoding(Seq(taskId, textHash)))
+  val ReembedSk = "reembed"
   def evidencePk(evidenceId: String): String = s"evidence#$evidenceId"
   def windowSk(start: Int, end: Int): String = s"window#$start-$end"
   val NoWindowSk = "window#none"

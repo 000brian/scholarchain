@@ -3,6 +3,7 @@ package org.scholarchain.services
 import upickle.default.{macroRW, ReadWriter}
 
 import org.scholarchain.core._
+import org.scholarchain.rag.runtime.AbstentionCodes
 
 // REST response models (decision 7j). Encoded only with Json.encode (sorted keys, indent 2); the
 // frozen examples under src/test/resources/api/v1/ decode into them and re-encode unchanged.
@@ -229,6 +230,11 @@ object NeighborsPage { implicit val rw: ReadWriter[NeighborsPage] = macroRW }
   * task: logical calls, invalid and truncated outputs, dropped bound numbers, fallbacks) and
   * `cacheHits` (per cache) come from the record. A version 1 record did not record them: they are
   * empty and a note says so.
+  *
+  * QueryAudit v3 (Phase 15, G-28): `abstentionReasons` lists the stored abstention codes, each with
+  * rag's fixed short text ([[org.scholarchain.rag.runtime.AbstentionCodes]]; an unknown code reads
+  * as the `unclassified` text). Always present: `[]` when the answer did not abstain or the record
+  * is older than version 3 (which stored no codes). Never model prose.
   */
 final case class ExplainView(
     queryId: String,
@@ -250,6 +256,7 @@ final case class ExplainView(
     outputTokens: Option[Long],
     verificationCounts: Map[String, Int],
     abstained: Boolean,
+    abstentionReasons: List[AbstentionReason],
     queryTemplateIds: List[String],
     indexesQueried: List[String],
     metadataFilterKeys: List[String],
@@ -258,6 +265,13 @@ final case class ExplainView(
     scoreComponents: List[String],
     notes: List[String]
 )
+
+/** One entry of `abstentionReasons` in `GET /v1/explain/{queryId}`: a stored abstention code and
+  * its fixed short text.
+  */
+final case class AbstentionReason(code: String, text: String)
+object AbstentionReason { implicit val rw: ReadWriter[AbstentionReason] = macroRW }
+
 object ExplainView {
   implicit val rw: ReadWriter[ExplainView] = macroRW
 
@@ -293,6 +307,9 @@ object ExplainView {
       latest.outputTokens,
       latest.verificationCounts,
       latest.abstained,
+      AbstentionCodes.reasons(latest.abstentionCodes).map { case (c, t) =>
+        AbstentionReason(c, t)
+      },
       latest.queryTemplateIds,
       latest.indexesQueried,
       latest.metadataFilterKeys,

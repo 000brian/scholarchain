@@ -8,7 +8,12 @@
 #
 # Status (Phase 13): static: shellcheck clean; runtime: untested; human
 # execution required. Phase 14 G-07: uploads above 64 MiB are multipart
-# (mpu_upload); runtime: untested.
+# (mpu_upload); runtime: untested. Phase 15 decision 9.3: --emr-max-units
+# and --spark-shuffle-partitions (execution-input fields
+# cluster.managedScalingMaxUnits and spark.shufflePartitions); runtime:
+# untested (first live use: p15-a-hadoop, D7a). Phase 15 decision 9.4: load
+# options --max-documents (rag-ingest) and the loader rag-retrieval-eval
+# (RetrievalEvalJob); runtime: untested (first live use: D7 probe and E, D11).
 
 set -Eeuo pipefail
 umask 077
@@ -133,8 +138,17 @@ incomplete upload left behind after one day.
                         '--dblp-dtd' 's3://{data-bucket}/raw/dblp/SNAPSHOT/dblp.dtd'
                         (scripts/README.md "DBLP DTD"); recorded in
                         configuration.extra_args
+  --emr-max-units N     (Phase 15) the EMR managed-scaling maximum of this
+                        execution's cluster: execution-input field
+                        cluster.managedScalingMaxUnits. Integer 1..64 here;
+                        the state machine refuses (fails before any cluster)
+                        unless emr_managed_scaling_min_units <= N <=
+                        emr_managed_scaling_max_units (Terraform; today 2..4).
+                        Absent: today's maximum (Terraform). One unit is one
+                        EC2 instance (core and task nodes only).
   Recorded: execution name, EMR cluster IDs (execution history), the J09
-  export runs (curated/.../j09-graph-export/run=HEX) under the output root.
+  export runs (curated/.../j09-graph-export/run=HEX) under the output root,
+  configuration.execution_settings (emr_max_units, null when absent).
 
 --stage er (entity resolution on THIS machine; no AWS compute):
   --hadoop-export s3://{data-bucket}/curated/.../run=HEX  (required)
@@ -194,11 +208,19 @@ incomplete upload left behind after one day.
                         PREFIX/ATTEMPT_ID/run=HEX. Give the same Spark
                         inputs and out-root as the run being exported, so
                         the graph job reuses that verified run.
+  --emr-max-units N     (Phase 15) as for --stage hadoop
+  --spark-shuffle-partitions N
+                        (Phase 15) spark.sql.shuffle.partitions of both Spark
+                        steps: execution-input field spark.shufflePartitions,
+                        integer 8..512 (checked here and by the state
+                        machine). Absent: 32 (today's value).
   Recorded: execution name, EMR cluster IDs, the graph runs
-  (run=HEX/_run_manifest.json) under the out-root and the export run.
+  (run=HEX/_run_manifest.json) under the out-root and the export run,
+  configuration.execution_settings (emr_max_units and
+  spark_shuffle_partitions, null when absent).
 
 --stage load (one ops task on ECS Fargate; one at a time):
-  --loader dynamodb-load|neptune-csv-build|neptune-bulk-start|neptune-bulk-status|rag-ingest
+  --loader dynamodb-load|neptune-csv-build|neptune-bulk-start|neptune-bulk-status|rag-ingest|rag-retrieval-eval
   --export s3://{data-bucket}/graph/.../run=HEX   (dynamodb-load,
                         neptune-csv-build, rag-ingest)
   --dataset-id ID       (neptune-csv-build; --snapshot is its snapshot ID)
@@ -208,13 +230,35 @@ incomplete upload left behind after one day.
                         never recorded)
   --load-id ID          (neptune-bulk-status)
   --wait-seconds N      (neptune-bulk-status, 0..3600, passed on)
+  --max-documents N     (rag-ingest, optional; Phase 15 G-27 probe) passed
+                        on as RagIngestJob --max-documents: every run and the
+                        retrieval smoke use only the first N rendered
+                        documents; integer 1..10000000. Recorded in
+                        inputs.loader_options.max_documents (null = all).
+  rag-retrieval-eval (Phase 15 experiment E; RetrievalEvalJob, no LLM call):
+  --graph-run-id run:v1:HEX32  (required) the Spark graph run the runtime
+                        serves (the plan's --graph-run-id), passed on as
+                        RetrievalEvalJob --graph-run
+  --modes LIST          (optional) comma list of graph-only, vector-only,
+                        fused, without spaces (fused needs the other two);
+                        absent: all three (the job's default)
+  --max-seconds N       (optional) the job's total time limit, 60..3600
+                        (absent: the job's default 1200)
+  --question-timeout-seconds N  (optional) per question and mode, 5..300
+                        (absent: the job's default 60)
+  The job's --attempt-id is this run's ATTEMPT_ID, so its report goes to
+  s3://{data-bucket}/rag/retrieval-eval/ATTEMPT_ID/report.json (put-if-absent;
+  the prefix is objectStore.semanticContextPrefix of config/course.json);
+  recorded in outputs.retrieval_eval_report (logical location and the copy
+  outcome from the job's "report copy:" line). --wait-timeout must be at
+  least the job's total time limit plus 300 s (task start and the copy).
   Refuses unless the ops task definition's image tag is the build commit
   and no ops task of this family is running. Runs aws ecs run-task (Fargate,
   app subnets, ops security group, no public IP) with the command of
-  StorageLoadMain SUBCOMMAND or RagIngestJob built from their option
-  constants, waits for the task to stop, and records the task ID, the
-  container exit code and the log stream (logical). A non-zero exit code is
-  a failed stage.
+  StorageLoadMain SUBCOMMAND, RagIngestJob or RetrievalEvalJob built from
+  their option constants, waits for the task to stop, and records the task
+  ID, the container exit code and the log stream (logical). A non-zero exit
+  code is a failed stage (exit 6).
 
 Every stage: refuses a dirty tree (tracked changes or untracked files
 outside .gitignore); the code version passed to every job is the BUILD
@@ -350,6 +394,31 @@ A_DATASET_ID=""
 A_GRAPH_RUN=""
 A_LOAD_ID=""
 A_WAIT_SECONDS=""
+A_EMR_MAX_UNITS=""
+A_SHUFFLE_PARTITIONS=""
+A_MAX_DOCUMENTS=""
+A_GRAPH_RUN_ID=""
+A_MODES=""
+A_MAX_SECONDS=""
+A_QUESTION_TIMEOUT=""
+# Phase 15 decision 9.4: the job bounds, copied from the rag contract
+# (RagIngestJob.MaxDocumentsBound; RetrievalEvalJob DefaultMaxSeconds,
+# MaxMaxSeconds, MaxQuestionTimeoutSeconds and their minimums).
+readonly RAG_MAX_DOCUMENTS_HI=10000000
+readonly EVAL_MAX_SECONDS_LO=60
+readonly EVAL_MAX_SECONDS_HI=3600
+readonly EVAL_MAX_SECONDS_DEFAULT=1200
+readonly EVAL_QUESTION_TIMEOUT_LO=5
+readonly EVAL_QUESTION_TIMEOUT_HI=300
+# The wait must cover the job's own limit plus task start and the report copy.
+readonly EVAL_WAIT_MARGIN_SECONDS=300
+readonly EVAL_REPORT_FOLDER="retrieval-eval"
+# Phase 15 decision 9.3: the script's own bounds (the state machine checks
+# the Terraform min..max of the units again and refuses before any cluster).
+readonly EMR_MAX_UNITS_LO=1
+readonly EMR_MAX_UNITS_HI=64
+readonly SHUFFLE_PARTITIONS_LO=8
+readonly SHUFFLE_PARTITIONS_HI=512
 
 need_value() {
   [ "$1" -ge 2 ] || die 2 "$2 needs a value"
@@ -400,6 +469,13 @@ parse_args() {
       --graph-run) need_value "$#" "$1"; mark_given graph-run; A_GRAPH_RUN="$2"; shift 2 ;;
       --load-id) need_value "$#" "$1"; mark_given load-id; A_LOAD_ID="$2"; shift 2 ;;
       --wait-seconds) need_value "$#" "$1"; mark_given wait-seconds; A_WAIT_SECONDS="$2"; shift 2 ;;
+      --emr-max-units) need_value "$#" "$1"; mark_given emr-max-units; A_EMR_MAX_UNITS="$2"; shift 2 ;;
+      --spark-shuffle-partitions) need_value "$#" "$1"; mark_given spark-shuffle-partitions; A_SHUFFLE_PARTITIONS="$2"; shift 2 ;;
+      --max-documents) need_value "$#" "$1"; mark_given max-documents; A_MAX_DOCUMENTS="$2"; shift 2 ;;
+      --graph-run-id) need_value "$#" "$1"; mark_given graph-run-id; A_GRAPH_RUN_ID="$2"; shift 2 ;;
+      --modes) need_value "$#" "$1"; mark_given modes; A_MODES="$2"; shift 2 ;;
+      --max-seconds) need_value "$#" "$1"; mark_given max-seconds; A_MAX_SECONDS="$2"; shift 2 ;;
+      --question-timeout-seconds) need_value "$#" "$1"; mark_given question-timeout-seconds; A_QUESTION_TIMEOUT="$2"; shift 2 ;;
       *)
         usage >&2
         die 2 "unknown argument: $1"
@@ -441,6 +517,46 @@ int_in() {
   [[ "$1" =~ ^[0-9]+$ ]] && [ "$1" -ge "$2" ] && [ "$1" -le "$3" ]
 }
 
+# Phase 15 decision 9.3: --emr-max-units and --spark-shuffle-partitions are
+# plain integers in the script's bounds (no leading zero, so jq reads the
+# same number); allow_only has already refused them for other stages.
+check_execution_settings() {
+  if is_given emr-max-units; then
+    if [[ ! "${A_EMR_MAX_UNITS}" =~ ^[1-9][0-9]{0,2}$ ]] ||
+      ! int_in "${A_EMR_MAX_UNITS}" "${EMR_MAX_UNITS_LO}" "${EMR_MAX_UNITS_HI}"; then
+      die 2 "--emr-max-units must be an integer ${EMR_MAX_UNITS_LO}..${EMR_MAX_UNITS_HI} (the state machine also refuses values outside the Terraform managed-scaling min..max)"
+    fi
+  fi
+  if is_given spark-shuffle-partitions; then
+    if [[ ! "${A_SHUFFLE_PARTITIONS}" =~ ^[1-9][0-9]{0,3}$ ]] ||
+      ! int_in "${A_SHUFFLE_PARTITIONS}" "${SHUFFLE_PARTITIONS_LO}" "${SHUFFLE_PARTITIONS_HI}"; then
+      die 2 "--spark-shuffle-partitions must be an integer ${SHUFFLE_PARTITIONS_LO}..${SHUFFLE_PARTITIONS_HI}"
+    fi
+  fi
+}
+
+# execution_settings_json: the Phase 15 execution-input settings for
+# configuration.execution_settings (null when the option was not given, so
+# the state machine used its default).
+execution_settings_json() {
+  jq -n --arg u "${A_EMR_MAX_UNITS}" --arg p "${A_SHUFFLE_PARTITIONS}" \
+    '{emr_max_units: (if $u == "" then null else ($u | tonumber) end),
+      spark_shuffle_partitions: (if $p == "" then null else ($p | tonumber) end),
+      note: "null = absent from the execution input: the state machine uses its defaults (the Terraform managed-scaling maximum; 32 shuffle partitions)"}'
+}
+
+# add_execution_settings INPUT_FILE: adds cluster.managedScalingMaxUnits and
+# spark.shufflePartitions to the execution input when given (numbers); absent
+# options add nothing, so the input is byte-for-byte what Phase 14 sent.
+add_execution_settings() {
+  local f="$1" tmp="${1}.settings"
+  jq --arg u "${A_EMR_MAX_UNITS}" --arg p "${A_SHUFFLE_PARTITIONS}" \
+    '(if $u == "" then . else .cluster = {managedScalingMaxUnits: ($u | tonumber)} end)
+     | (if $p == "" or (.spark | not) then . else .spark.shufflePartitions = ($p | tonumber) end)' \
+    "${f}" >"${tmp}" || die 5 "could not add the execution settings to the input"
+  mv -- "${tmp}" "${f}" || die 5 "could not write the execution input"
+}
+
 check_args() {
   [ -n "${STAGE}" ] || {
     usage >&2
@@ -456,8 +572,9 @@ check_args() {
       int_in "${A_MAX_UPLOAD_MB}" 1 "${HARD_MAX_UPLOAD_MB}" || die 2 "--max-upload-mb must be 1..${HARD_MAX_UPLOAD_MB}"
       ;;
     hadoop)
-      allow_only dblp hadoop-output hadoop-jar hadoop-extra-arg
+      allow_only dblp hadoop-output hadoop-jar hadoop-extra-arg emr-max-units
       require_given dblp
+      check_execution_settings
       ;;
     er)
       allow_only hadoop-export decision-time seed max-download-mb er-heap-gb llm-model-id upload
@@ -474,19 +591,53 @@ check_args() {
       [[ "${A_LLM_MODEL_ID}" =~ ^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$ ]] || die 2 "--llm-model-id has unexpected characters"
       ;;
     spark)
-      allow_only hadoop-export identity-assignments out-root spark-jar spark-config export-source-run export-root
+      allow_only hadoop-export identity-assignments out-root spark-jar spark-config export-source-run export-root \
+        emr-max-units spark-shuffle-partitions
       require_given hadoop-export identity-assignments out-root
       if is_given export-source-run || is_given export-root; then
         require_given export-source-run export-root
       fi
+      check_execution_settings
       ;;
     load)
-      allow_only loader export dataset-id graph-run load-id wait-seconds
+      allow_only loader export dataset-id graph-run load-id wait-seconds max-documents \
+        graph-run-id modes max-seconds question-timeout-seconds
       require_given loader
       case "${A_LOADER}" in
-        dynamodb-load | rag-ingest)
+        dynamodb-load)
           allow_only loader export
           require_given export
+          ;;
+        rag-ingest)
+          allow_only loader export max-documents
+          require_given export
+          if is_given max-documents; then
+            if [[ ! "${A_MAX_DOCUMENTS}" =~ ^[1-9][0-9]{0,7}$ ]] ||
+              ! int_in "${A_MAX_DOCUMENTS}" 1 "${RAG_MAX_DOCUMENTS_HI}"; then
+              die 2 "--max-documents must be an integer 1..${RAG_MAX_DOCUMENTS_HI}"
+            fi
+          fi
+          ;;
+        rag-retrieval-eval)
+          allow_only loader graph-run-id modes max-seconds question-timeout-seconds
+          require_given graph-run-id
+          [[ "${A_GRAPH_RUN_ID}" =~ ^run:v1:[0-9a-f]{32}$ ]] || die 2 "--graph-run-id must be run:v1:<32 lowercase hex>"
+          if is_given modes; then
+            [[ "${A_MODES}" =~ ^(graph-only|vector-only|fused)(,(graph-only|vector-only|fused)){0,2}$ ]] ||
+              die 2 "--modes must be a comma list (no spaces) of graph-only, vector-only, fused"
+          fi
+          if is_given max-seconds; then
+            if [[ ! "${A_MAX_SECONDS}" =~ ^[1-9][0-9]{0,3}$ ]] ||
+              ! int_in "${A_MAX_SECONDS}" "${EVAL_MAX_SECONDS_LO}" "${EVAL_MAX_SECONDS_HI}"; then
+              die 2 "--max-seconds must be an integer ${EVAL_MAX_SECONDS_LO}..${EVAL_MAX_SECONDS_HI}"
+            fi
+          fi
+          if is_given question-timeout-seconds; then
+            if [[ ! "${A_QUESTION_TIMEOUT}" =~ ^[1-9][0-9]{0,2}$ ]] ||
+              ! int_in "${A_QUESTION_TIMEOUT}" "${EVAL_QUESTION_TIMEOUT_LO}" "${EVAL_QUESTION_TIMEOUT_HI}"; then
+              die 2 "--question-timeout-seconds must be an integer ${EVAL_QUESTION_TIMEOUT_LO}..${EVAL_QUESTION_TIMEOUT_HI}"
+            fi
+          fi
           ;;
         neptune-csv-build)
           allow_only loader export dataset-id
@@ -505,7 +656,7 @@ check_args() {
             int_in "${A_WAIT_SECONDS}" 0 3600 || die 2 "--wait-seconds must be 0..3600"
           fi
           ;;
-        *) die 2 "--loader must be dynamodb-load, neptune-csv-build, neptune-bulk-start, neptune-bulk-status or rag-ingest" ;;
+        *) die 2 "--loader must be dynamodb-load, neptune-csv-build, neptune-bulk-start, neptune-bulk-status, rag-ingest or rag-retrieval-eval" ;;
       esac
       ;;
     *) die 2 "--stage must be upload-input, hadoop, er, spark or load" ;;
@@ -521,6 +672,13 @@ check_args() {
       load) WAIT_TIMEOUT="${DEFAULT_LOAD_WAIT}" ;;
       *) WAIT_TIMEOUT="${DEFAULT_EXEC_WAIT}" ;;
     esac
+  fi
+  # rag-retrieval-eval: the wait covers the job's own total limit, so a
+  # healthy run never ends as timed-out while the task still works.
+  if [ "${STAGE}" = "load" ] && [ "${A_LOADER}" = "rag-retrieval-eval" ]; then
+    local eval_limit="${A_MAX_SECONDS:-${EVAL_MAX_SECONDS_DEFAULT}}"
+    [ "${WAIT_TIMEOUT}" -ge $((eval_limit + EVAL_WAIT_MARGIN_SECONDS)) ] ||
+      die 2 "--wait-timeout must be at least the job's total limit (${eval_limit} s) plus ${EVAL_WAIT_MARGIN_SECONDS} s"
   fi
 }
 
@@ -1265,6 +1423,7 @@ stage_hadoop() {
     --arg snap "${SNAPSHOT}" --argjson extra "${extra}" \
     '{codeVersion: $cv, hadoop: ({jar: $jar, output: $out, dblp: $dblp, dblpSnapshot: $snap}
        + (if ($extra | length) > 0 then {extraArgs: $extra} else {} end))}' >"${input}"
+  add_execution_settings "${input}"
   logical="$(jq -c --arg jar "$(logical_s3 "${jar}")" --arg out "$(logical_s3 "${output}")" \
     --arg dblp "$(logical_s3 "${dblp}")" --argjson extra "${extra_logical}" \
     '.hadoop.jar = $jar | .hadoop.output = $out | .hadoop.dblp = $dblp
@@ -1272,11 +1431,11 @@ stage_hadoop() {
   add_str INPUTS_JSON dblp_sha256 "${dblp_sha}"
   # Phase 14 (R-1 note): the note names the driver options given with
   # --hadoop-extra-arg (for example --dblp-dtd), so it stays true.
-  CONFIG_JSON="$(jq -n --argjson extra "${extra_logical}" '{file: null, sha256: null,
+  CONFIG_JSON="$(jq -n --argjson extra "${extra_logical}" --argjson settings "$(execution_settings_json)" '{file: null, sha256: null,
     note: (if ($extra | length) > 0
            then "the Hadoop jobs use their built-in defaults plus -D scholarchain.code.version and the driver options in extra_args (for example --dblp-dtd, which sets scholarchain.dblp.dtdPath)"
            else "the Hadoop jobs use their built-in defaults (-D scholarchain.code.version only)" end),
-    extra_args: $extra}')"
+    extra_args: $extra, execution_settings: $settings}')"
   printf 'INPUT: %s\n' "${logical}"
 
   run_execution "${input}" "${logical}"
@@ -1511,7 +1670,8 @@ stage_spark() {
   check_artifact_commit "${jar}" "the Spark jar" >/dev/null
   # I-24: a refusal (die 4) inside the substitution keeps its own exit code.
   conf_sha="$(check_artifact_commit "${conf}" "the Spark job config")" || exit "$?"
-  CONFIG_JSON="$(jq -n --arg f "$(logical_s3 "${conf}")" --arg s "${conf_sha}" '{file: $f, sha256: $s}')"
+  CONFIG_JSON="$(jq -n --arg f "$(logical_s3 "${conf}")" --arg s "${conf_sha}" \
+    --argjson settings "$(execution_settings_json)" '{file: $f, sha256: $s, execution_settings: $settings}')"
   if is_given export-source-run; then
     src="$(resolve_location "${A_EXPORT_SOURCE_RUN}" --export-source-run "${P_GRAPH}")" || exit "$?"
     [[ "${src}" =~ /run=[0-9a-f]{32}$ ]] || die 4 "refusing: --export-source-run must end in /run=<32 hex>"
@@ -1525,6 +1685,7 @@ stage_spark() {
     '{codeVersion: $cv, spark: ({jar: $jar, config: $cfg, hadoopExport: $exp,
        identityAssignments: $ids, outRoot: $out}
        + (if $eroot != "" then {exportSourceRun: $src, exportRoot: $eroot} else {} end))}' >"${input}"
+  add_execution_settings "${input}"
   logical="$(jq -c --arg jar "$(logical_s3 "${jar}")" --arg cfg "$(logical_s3 "${conf}")" \
     --arg exp "$(logical_s3 "${export_uri}")" --arg ids "$(logical_s3 "${ids}")" \
     --arg out "$(logical_s3 "${out_root}")" --arg src "$(logical_s3 "${src}")" --arg eroot "$(logical_s3 "${eroot}")" \
@@ -1587,8 +1748,43 @@ check_ops_task() {
     die 4 "refusing: an ops task of ${OPS_FAMILY} is already running (one loader at a time, Phase 7 m3)"
 }
 
+# rag-retrieval-eval: the logical location of the job's report copy
+# (RetrievalEvalJob.reportKey: <semantic-context prefix>/retrieval-eval/
+# <attempt-id>/report.json; the prefix is the one baked into the image with
+# config/course.json, which equals HEAD's on a clean tree at the build
+# commit). Recorded before the task starts, so a failed run names it too.
+EVAL_REPORT_LOGICAL=""
+
+eval_report_location() {
+  local prefix
+  prefix="$(jq -r '.objectStore.semanticContextPrefix // empty' config/course.json 2>/dev/null)" ||
+    die 3 "cannot read objectStore.semanticContextPrefix from config/course.json"
+  [[ "${prefix}" =~ ^[a-z0-9][a-z0-9-]{0,62}$ ]] ||
+    die 3 "config/course.json objectStore.semanticContextPrefix is missing or unexpected"
+  EVAL_REPORT_LOGICAL="${LOGICAL_DATA_PREFIX}${prefix}/${EVAL_REPORT_FOLDER}/${ATTEMPT_ID}/report.json"
+  add_json OUTPUTS_JSON retrieval_eval_report "$(jq -n --arg l "${EVAL_REPORT_LOGICAL}" \
+    '{location: $l, copy_outcome: null, note: "copy_outcome from the job line \"[rag-retrieval-eval] report copy: OUTCOME OBJECT\"; null = line not seen"}')"
+  printf 'EVAL-REPORT: %s\n' "${EVAL_REPORT_LOGICAL}"
+}
+
+# eval_copy_outcome LINES: sets outputs.retrieval_eval_report.copy_outcome
+# from the job's "report copy:" line (the outcome may be two words, for
+# example "already present"; the object is the last word); best effort.
+eval_copy_outcome() {
+  local line outcome
+  line="$(printf '%s\n' "$1" | grep -E '^\[rag-retrieval-eval\] report copy: ' | tail -n 1 || true)"
+  [ -n "${line}" ] || return 0
+  line="${line#*report copy: }"
+  outcome="${line% *}"
+  [ "${outcome}" != "${line}" ] || return 0
+  add_json OUTPUTS_JSON retrieval_eval_report "$(jq -n --arg l "${EVAL_REPORT_LOGICAL}" --arg o "${outcome}" \
+    '{location: $l, copy_outcome: $o, note: "copy_outcome from the job line \"[rag-retrieval-eval] report copy: OUTCOME OBJECT\""}')"
+  printf 'EVAL-REPORT-COPY: %s %s\n' "${outcome}" "${EVAL_REPORT_LOGICAL}"
+}
+
 # The loader command, from the option constants (StorageLoadMain.Options,
-# RagIngestJob.Required/Optional). Real locations go to the task only.
+# RagIngestJob.Required/Optional, RetrievalEvalJob.Required/Optional). Real
+# locations go to the task only.
 OPS_CMD=()
 
 build_ops_command() {
@@ -1623,8 +1819,37 @@ build_ops_command() {
       ;;
     rag-ingest)
       OPS_CMD=(org.scholarchain.rag.ingest.RagIngestJob --config "${OPS_CONFIG}" --export "${export_real}" --out "${out}" --code-version "${BUILD_SHA}" --stores aws) # contract: RagIngestJob
+      if [ -n "${A_MAX_DOCUMENTS}" ]; then
+        OPS_CMD+=(--max-documents "${A_MAX_DOCUMENTS}") # contract: RagIngestJob.Optional max-documents
+      fi
+      add_json INPUTS_JSON loader_options "$(jq -n --arg m "${A_MAX_DOCUMENTS}" \
+        '{max_documents: (if $m == "" then null else ($m | tonumber) end),
+          note: "null = every rendered document (no --max-documents)"}')"
+      ;;
+    rag-retrieval-eval)
+      # contract: RetrievalEvalJob.Required (config out code-version attempt-id graph-run)
+      OPS_CMD=(org.scholarchain.rag.eval.RetrievalEvalJob --config "${OPS_CONFIG}" --out "${out}" --code-version "${BUILD_SHA}" --attempt-id "${ATTEMPT_ID}" --graph-run "${A_GRAPH_RUN_ID}")
+      # contract: RetrievalEvalJob.Optional (modes max-seconds question-timeout-seconds)
+      if [ -n "${A_MODES}" ]; then
+        OPS_CMD+=(--modes "${A_MODES}")
+      fi
+      if [ -n "${A_MAX_SECONDS}" ]; then
+        OPS_CMD+=(--max-seconds "${A_MAX_SECONDS}")
+      fi
+      if [ -n "${A_QUESTION_TIMEOUT}" ]; then
+        OPS_CMD+=(--question-timeout-seconds "${A_QUESTION_TIMEOUT}")
+      fi
+      add_json INPUTS_JSON loader_options "$(jq -n --arg g "${A_GRAPH_RUN_ID}" --arg a "${ATTEMPT_ID}" \
+        --arg m "${A_MODES}" --arg s "${A_MAX_SECONDS}" --arg q "${A_QUESTION_TIMEOUT}" \
+        '{graph_run_id: $g, eval_attempt_id: $a,
+          modes: (if $m == "" then null else ($m | split(",")) end),
+          max_seconds: (if $s == "" then null else ($s | tonumber) end),
+          question_timeout_seconds: (if $q == "" then null else ($q | tonumber) end),
+          note: "null = the job default (modes: graph-only, vector-only, fused; max_seconds 1200; question_timeout_seconds 60)"}')"
+      eval_report_location
       ;;
   esac
+  add_str INPUTS_JSON loader "${A_LOADER}"
   # The recorded command: logical locations; the loader role ARN (it holds
   # the account ID) is replaced by the name of its Terraform output.
   local a logical_cmd='[]' shown
@@ -1712,8 +1937,9 @@ stage_load() {
 }
 
 # collect_program_lines GROUP STREAM: the program's own summary lines
-# ([storage-load] and [rag-ingest], already masked by the programs and masked
-# again here) from the last 200 log events; best effort.
+# ([storage-load], [rag-ingest] and [rag-retrieval-eval], already masked by
+# the programs and masked again here) from the last 200 log events; best
+# effort.
 collect_program_lines() {
   local group="$1" stream="$2" ev lines
   [ -n "${group}" ] || return 0
@@ -1722,11 +1948,14 @@ collect_program_lines() {
     warn "could not read the task's log events (see the log stream yourself)"
     return 0
   }
-  lines="$(jq -r '.events[]?.message' <<<"${ev}" | grep -E '^\[(storage-load|rag-ingest)\]' | tail -n 20 | cut -c 1-2000 || true)"
+  lines="$(jq -r '.events[]?.message' <<<"${ev}" | grep -E '^\[(storage-load|rag-ingest|rag-retrieval-eval)\]' | tail -n 20 | cut -c 1-2000 || true)"
   if [ -n "${lines}" ]; then
     lines="$(mask_text "${lines}")"
     printf '%s\n' "${lines}"
     add_json OUTPUTS_JSON program_lines "$(jq -R -s -c 'split("\n") | map(select(length > 0))' <<<"${lines}")"
+    if [ "${A_LOADER}" = "rag-retrieval-eval" ]; then
+      eval_copy_outcome "${lines}"
+    fi
   fi
 }
 

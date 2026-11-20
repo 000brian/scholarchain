@@ -9,6 +9,8 @@ import scala.util.control.NonFatal
 
 import org.scholarchain.core.RunId
 import org.scholarchain.core.config.{ConfigLoader, ScholarChainConfig}
+import org.scholarchain.rag.embedding.EmbeddingProviders
+import org.scholarchain.rag.reembed.ReembedHandler
 import org.scholarchain.rag.runtime.RuntimeService
 import org.scholarchain.storage.jobs.ServiceStores
 
@@ -74,6 +76,38 @@ object Composition {
         case r           => r
       }
     } yield (runtime, stores)
+
+  /** AWS, roles `worker` and `all` (Phase 15 decision 8.1): the embedding queue at
+    * `service.embeddingQueueUrl` (storage's `ServiceStores.embeddingQueue`, raw bodies, no send)
+    * and a factory of rag's re-embed handler (`ReembedHandler.fromConfig` with the configured
+    * document embedder and storage's re-embed path `AwsStorageEnvironment.reembedder`). Right(None)
+    * when the URL is not set (the worker runs the job loop only). Left when the runtime has no AWS
+    * environment or the URL is refused (the message never names the URL). Building makes no network
+    * call; the handler is built when the server starts.
+    */
+  def embeddingWork(
+      config: ScholarChainConfig,
+      runtime: RuntimeService,
+      wiring: EmbeddingProviders.Wiring = EmbeddingProviders.Wiring()
+  ): Either[String, Option[EmbeddingWork]] =
+    config.service.flatMap(_.embeddingQueueUrl) match {
+      case None      => Right(None)
+      case Some(url) =>
+        for {
+          env <- runtime.awsEnvironment.toRight(
+            "service.embeddingQueueUrl needs the AWS stores (--stores aws)"
+          )
+          queue <- ServiceStores.embeddingQueue(env, url)
+        } yield Some(
+          EmbeddingWork(
+            queue,
+            log =>
+              ReembedHandler
+                .fromConfig(config, embedder => env.reembedder(embedder), wiring, log)
+                .map(_.handler)
+          )
+        )
+    }
 }
 
 /** The one entry point (decision 7a):
@@ -86,7 +120,9 @@ object Composition {
   *   - `--stores local` allows only `--role all` and needs `--export` and `--neptune-csv`; it binds
   *     127.0.0.1.
   *   - `--stores aws` needs `--graph-run` (the Spark graph run loaded into Neptune and DynamoDB)
-  *     and `service.jobQueueUrl`; it binds 0.0.0.0 (the container network).
+  *     and `service.jobQueueUrl`; it binds 0.0.0.0 (the container network). With
+  *     `service.embeddingQueueUrl` set, roles `worker` and `all` also consume the embedding queue
+  *     ([[Composition.embeddingWork]]); `--stores local` ignores that key (no SQS locally).
   *
   * The API keys are read from the environment variables named by the `service` section; the process
   * refuses to start when either is unset or blank, or both hold the same value.
@@ -193,6 +229,14 @@ object Main {
         case _       => Composition.aws(cfg, a.graphRun.get)
       }
       (runtime, stores) = built
+      // the embedding queue: AWS stores and the roles that run a worker only
+      embedding <-
+        if (a.stores == "aws" && (a.role == Role.Worker || a.role == Role.All))
+          Composition.embeddingWork(cfg, runtime) match {
+            case l @ Left(_) => runtime.close(); l
+            case r           => r
+          }
+        else Right(None)
       server <- ServiceServer.start(
         runtime,
         stores,
@@ -200,7 +244,8 @@ object Main {
           role = a.role,
           bindHost = if (a.stores == "local") "127.0.0.1" else "0.0.0.0",
           clock = clock,
-          env = env.get
+          env = env.get,
+          embedding = embedding
         )
       ) match {
         case l @ Left(_) => runtime.close(); l

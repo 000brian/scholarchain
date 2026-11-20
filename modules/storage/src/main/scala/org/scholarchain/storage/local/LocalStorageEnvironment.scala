@@ -8,7 +8,8 @@ import org.scholarchain.storage.ingest.{
   DocumentExtras,
   IngestSettings,
   TextStore,
-  VectorIngestPipeline
+  VectorIngestPipeline,
+  VectorReembedder
 }
 import org.scholarchain.storage.ports.EmbeddingPort
 import org.scholarchain.storage.s3.S3KeyLayout
@@ -60,6 +61,24 @@ final class LocalStorageEnvironment private (val config: StorageConfig, rejectFi
       rejects,
       sleeper,
       extrasOf
+    )
+
+  /** The re-embed write path over the in-memory stores (completion records in QuerySession). */
+  def reembedder(
+      embedder: EmbeddingPort,
+      sleeper: Sleeper = Sleeper.none,
+      nowSeconds: () => Long = () => System.currentTimeMillis() / 1000L
+  ): VectorReembedder =
+    new VectorReembedder(
+      embedder,
+      vectors,
+      textStore,
+      kv,
+      config.dynamoDb.querySessionTable,
+      spec,
+      config.retryPolicy,
+      sleeper,
+      nowSeconds
     )
 
   def close(): Unit = rejects.close()

@@ -25,6 +25,13 @@ import org.scholarchain.storage.ports.GraphQuery
   *   run the worker loop for roles `worker` and `all` (tests may drive [[Worker.processOne]])
   * @param closeRuntime
   *   `close()` also closes the [[RuntimeService]] handle (decision 7i); a restart test keeps it
+  * @param embedding
+  *   the embedding queue and rag's handler (Phase 15 decision 8.1; `Composition.embeddingWork`);
+  *   roles `worker` and `all` then run a second loop on it next to the job loop; other roles ignore
+  *   it. None: the job loop only
+  * @param embeddingConcurrency
+  *   threads of the embedding-queue loop, 1..[[ServiceLimits.MaxEmbeddingWorkerConcurrency]]
+  *   (default [[ServiceLimits.EmbeddingWorkerConcurrency]])
   */
 final case class ServerOptions(
     role: Role,
@@ -36,7 +43,9 @@ final case class ServerOptions(
     env: String => Option[String] = sys.env.get,
     startWorker: Boolean = true,
     closeRuntime: Boolean = true,
-    name: String = "srv"
+    name: String = "srv",
+    embedding: Option[EmbeddingWork] = None,
+    embeddingConcurrency: Int = ServiceLimits.EmbeddingWorkerConcurrency
 )
 
 /** One running services process: the JDK HTTP server, the route table of its role, the bounded
@@ -48,11 +57,15 @@ final case class ServerOptions(
   *   - `query`: `maxConcurrentQueries` workflow threads; admission is a permit taken before submit
   *     (no waiting queue: a request without a permit gets 503 OVERLOADED);
   *   - `worker`: `workerConcurrency` worker loop threads;
+  *   - `embedding` (roles `worker` and `all` with [[ServerOptions.embedding]]):
+  *     `embeddingConcurrency` embedding-queue loop threads;
   *   - `ready`: 3 readiness check threads, queue 9.
   *
-  * `close()` stops accepting, stops the worker loop, shuts every pool down waiting at most
-  * `syncDeadlineMillis`, waits for its threads, then closes the RuntimeService handle. Thread-safe;
-  * idempotent.
+  * `close()` stops accepting, stops both worker loops, shuts every pool down at once and waits for
+  * them together (each at most `syncDeadlineMillis`, the embedding pool at most
+  * [[ServiceLimits.EmbeddingDrainMillis]], all measured from the same start, so the drain stays
+  * inside the ECS stop timeout), waits for its threads, then closes the RuntimeService handle.
+  * Thread-safe; idempotent.
   */
 final class ServiceServer private (
     val settings: ServiceSettings,
@@ -65,7 +78,10 @@ final class ServiceServer private (
     http: HttpServer,
     pools: List[(ThreadPoolExecutor, NamedThreadFactory)],
     loop: Option[WorkerLoop],
-    val threadPrefix: String
+    val threadPrefix: String,
+    val embeddingWorker: Option[EmbeddingWorker],
+    embeddingLoop: Option[EmbeddingLoop],
+    embeddingPool: Option[ThreadPoolExecutor]
 ) extends AutoCloseable {
   private val closed = new AtomicBoolean(false)
 
@@ -77,13 +93,25 @@ final class ServiceServer private (
 
   def isClosed: Boolean = closed.get
 
+  /** True while the embedding-queue loop runs (tests). */
+  def embeddingLoopRunning: Boolean = embeddingLoop.exists(_.isRunning)
+
   def close(): Unit =
     if (closed.compareAndSet(false, true)) {
       loop.foreach(_.stop())
+      embeddingLoop.foreach(_.stop())
       try http.stop(0)
       catch { case NonFatal(_) => () }
-      val wait = settings.syncDeadlineMillis.toLong
-      pools.foreach { case (p, _) => Pools.shutdown(p, wait) }
+      val start = System.nanoTime()
+      def waitOf(p: ThreadPoolExecutor): Long =
+        if (embeddingPool.exists(_ eq p)) ServiceLimits.EmbeddingDrainMillis
+        else settings.syncDeadlineMillis.toLong
+      // every pool stops taking work now; the waits below overlap instead of adding up
+      pools.foreach { case (p, _) => p.shutdown() }
+      pools.foreach { case (p, _) =>
+        val left = waitOf(p) - (System.nanoTime() - start) / 1000000L
+        Pools.shutdown(p, math.max(0L, left))
+      }
       val deadline = System.nanoTime() + 2000L * 1000000L
       threads.foreach { t =>
         val left = (deadline - System.nanoTime()) / 1000000L
@@ -108,6 +136,12 @@ object ServiceServer {
     for {
       settings <- runtime.config.service.toRight("the service section is not configured")
       keys <- ApiKeys.load(settings, options.env)
+      _ <- Either.cond(
+        options.embeddingConcurrency >= 1 &&
+          options.embeddingConcurrency <= ServiceLimits.MaxEmbeddingWorkerConcurrency,
+        (),
+        s"embeddingConcurrency must be in 1..${ServiceLimits.MaxEmbeddingWorkerConcurrency}"
+      )
       server <- build(runtime, stores, options, settings, keys)
     } yield server
 
@@ -140,7 +174,29 @@ object ServiceServer {
     val workerPool = pool("worker", settings.workerConcurrency, settings.workerConcurrency)
     val readyPool =
       pool("ready", ServiceLimits.ReadinessThreads, ServiceLimits.ReadinessQueueCapacity)
-    val pools = List(httpPool, queryPool, workerPool, readyPool)
+    val workerRole = options.role == Role.Worker || options.role == Role.All
+    // rag's handler, built once with this server's log (its one line per delivery)
+    val handler
+        : Either[String, Option[(EmbeddingWork, org.scholarchain.rag.reembed.ReembedHandler)]] =
+      options.embedding.filter(_ => workerRole) match {
+        case None    => Right(None)
+        case Some(e) =>
+          try
+            e.handlerOf(line => log.external(line, "reembed-delivery"))
+              .map(h => Some(e -> h))
+          catch {
+            case NonFatal(x) =>
+              Left(s"the re-embed handler did not build: ${x.getClass.getSimpleName}")
+          }
+      }
+    val embeddingPool = handler.toOption.flatten.map(_ =>
+      pool("embedding", options.embeddingConcurrency, options.embeddingConcurrency)
+    )
+    val pools = List(httpPool, queryPool, workerPool, readyPool) ++ embeddingPool.toList
+    if (handler.isLeft) {
+      pools.foreach { case (p, _) => p.shutdownNow() }
+      return Left(handler.left.getOrElse(""))
+    }
     try {
       val breakers = new Breakers(settings, clock)
       val ctx = new AppContext(runtime, stores, settings, clock, options.ids, log, breakers)
@@ -181,15 +237,28 @@ object ServiceServer {
       http.createContext("/", adapter)
       http.setExecutor(httpPool._1)
       val loop =
-        if (options.startWorker && (options.role == Role.Worker || options.role == Role.All))
+        if (options.startWorker && workerRole)
           Some(new WorkerLoop(worker, workerPool._1, settings.workerConcurrency, log))
         else None
+      val embeddingWorker = handler.toOption.flatten.map { case (e, h) =>
+        new EmbeddingWorker(e.queue, h, log)
+      }
+      val embeddingLoop =
+        for {
+          w <- embeddingWorker if options.startWorker
+          p <- embeddingPool
+        } yield new EmbeddingLoop(w, p._1, options.embeddingConcurrency, log)
       http.start()
       loop.foreach(_.start())
+      embeddingLoop.foreach(_.start())
       log.event(
         "started",
         None,
-        List("port" -> ujson.Num(http.getAddress.getPort), "worker" -> ujson.Bool(loop.nonEmpty))
+        List(
+          "port" -> ujson.Num(http.getAddress.getPort),
+          "worker" -> ujson.Bool(loop.nonEmpty),
+          "embeddingWorker" -> ujson.Bool(embeddingLoop.nonEmpty)
+        )
       )
       Right(
         new ServiceServer(
@@ -203,7 +272,10 @@ object ServiceServer {
           http,
           pools,
           loop,
-          prefix
+          prefix,
+          embeddingWorker,
+          embeddingLoop,
+          embeddingPool.map(_._1)
         )
       )
     } catch {

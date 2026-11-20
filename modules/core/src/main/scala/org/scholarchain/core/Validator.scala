@@ -1084,6 +1084,40 @@ object Validator {
       } ++
       a.cacheHits.toList.sortBy(_._1).flatMap { case (k, n) =>
         name("cacheHits.<key>", k) ++ count(s"cacheHits[$k]", n)
-      }
+      } ++
+      queryAuditV3(a)
+  }
+
+  /** Rules of the QueryAudit version 3 field (Phase 15, decision 7.5). A refused code is never
+    * repeated in the message (it may be prose).
+    */
+  private def queryAuditV3(a: QueryAudit): List[String] = {
+    val codes = a.abstentionCodes
+    if (a.schemaVersion < 3)
+      check(
+        codes.isEmpty,
+        s"schemaVersion: version ${a.schemaVersion} carries no abstentionCodes"
+      )
+    else
+      each("abstentionCodes", codes)((f, c) =>
+        check(
+          QueryAudit.isValidAbstentionCode(c),
+          s"$f: must match ${QueryAudit.AbstentionCodePattern} and be at most " +
+            s"${QueryAudit.MaxAbstentionCodeLength} characters (a code, never prose)"
+        )
+      ) ++
+        check(
+          codes.size <= QueryAudit.MaxAbstentionCodes,
+          s"abstentionCodes: at most ${QueryAudit.MaxAbstentionCodes} codes (got ${codes.size})"
+        ) ++
+        distinct("abstentionCodes", codes) ++
+        check(
+          !a.abstained || codes.nonEmpty,
+          "abstentionCodes: at least one code is required when abstained is true"
+        ) ++
+        check(
+          a.abstained || codes.isEmpty,
+          "abstentionCodes: must be empty when abstained is false"
+        )
   }
 }

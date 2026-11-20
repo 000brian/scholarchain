@@ -2,6 +2,7 @@ package org.scholarchain.storage.ingest
 
 import scala.collection.immutable.ListMap
 import scala.collection.mutable
+import scala.util.control.NonFatal
 
 import org.scholarchain.core.{
   ContentHash,
@@ -19,7 +20,7 @@ import org.scholarchain.core.{
   YearWindow
 }
 import org.scholarchain.core.config.{DynamoDbSettings, NamedWindow}
-import org.scholarchain.storage.{RetryPolicy, S3VectorsLimits, Sleeper}
+import org.scholarchain.storage.{RetryPolicy, S3VectorsLimits, Sleeper, StoreException}
 import org.scholarchain.storage.dynamo.{ArtifactRegistry, ArtifactVersion, Change, RunLedger}
 import org.scholarchain.storage.ports._
 import org.scholarchain.storage.source.{Reject, RejectLog}
@@ -31,16 +32,69 @@ import org.scholarchain.storage.vectors._
 final case class DocumentExtras(year: Option[Int], venueKey: Option[String])
 object DocumentExtras { val none: DocumentExtras = DocumentExtras(None, None) }
 
+/** Ingest settings. The three G-27 bounds have defaults (named constants below); every one is
+  * bounded.
+  *
+  * @param writeParallelism
+  *   store calls in flight at once for the per-document writes and reads that cannot be batched:
+  *   text puts (S3 `If-None-Match`), the registry's latest-version read and the conditional
+  *   registry puts (DynamoDB `attribute_not_exists`; conditional writes cannot be batched)
+  * @param embedConcurrency
+  *   embedding calls in flight at once (the provider's own rate limiter still applies)
+  * @param windowDocuments
+  *   documents read ahead per skip-check window; the skip check reads the index metadata of a
+  *   window in GetVectors calls of at most 100 keys
+  */
 final case class IngestSettings(
     putBatchSize: Int,
     retry: RetryPolicy,
     sourceDataset: String,
-    jobName: String = VectorIngestPipeline.JobName
+    jobName: String = VectorIngestPipeline.JobName,
+    writeParallelism: Int = IngestSettings.DefaultWriteParallelism,
+    embedConcurrency: Int = IngestSettings.DefaultEmbedConcurrency,
+    windowDocuments: Int = IngestSettings.DefaultWindowDocuments
 ) {
   require(putBatchSize >= 1 && putBatchSize <= S3VectorsLimits.MaxPutVectorsBatch, "putBatchSize")
+  require(
+    writeParallelism >= 1 && writeParallelism <= IngestSettings.MaxWriteParallelism,
+    s"writeParallelism must be in 1..${IngestSettings.MaxWriteParallelism}"
+  )
+  require(
+    embedConcurrency >= 1 && embedConcurrency <= IngestSettings.MaxEmbedConcurrency,
+    s"embedConcurrency must be in 1..${IngestSettings.MaxEmbedConcurrency}"
+  )
+  require(
+    windowDocuments >= 1 && windowDocuments <= IngestSettings.MaxWindowDocuments,
+    s"windowDocuments must be in 1..${IngestSettings.MaxWindowDocuments}"
+  )
 }
 
-/** Counters of one index in one ingest run. */
+object IngestSettings {
+
+  /** 16 calls in flight: S3 allows 3,500 PUT/s per prefix and on-demand DynamoDB about 1,000 write
+    * units/s per partition (registry keys spread over partitions), so 16 synchronous calls of about
+    * 10 to 60 ms each (at most about 1,600 calls/s) stay well under both, while turning the
+    * per-document latency of Phase 14 (about 52 ms per document, single writer) into about 1/16 of
+    * it. The ECS task is I/O bound; 16 threads cost little memory.
+    */
+  val DefaultWriteParallelism: Int = 16
+  val MaxWriteParallelism: Int = 64
+
+  /** 4 embedding calls in flight: with `embedding.requestsPerMinute` 300 (5 requests/s) and about 1
+    * s per call (estimate), 4 in flight stays under the request limit; the token limit (1 M/min) is
+    * enforced by rag's rate limiter, which every call passes.
+    */
+  val DefaultEmbedConcurrency: Int = 4
+  val MaxEmbedConcurrency: Int = 16
+
+  /** 500 documents per window: exactly 5 GetVectors calls of 100 keys when a window holds one index
+    * (documents arrive grouped by index), and at most 8 embedding batches of 64.
+    */
+  val DefaultWindowDocuments: Int = 500
+  val MaxWindowDocuments: Int = 5000
+}
+
+/** Counters of one index in one ingest run. Updated only on the session's thread. */
 final class IndexStats {
   var input = 0L
   var skippedUnchanged = 0L
@@ -73,7 +127,10 @@ final case class IngestReport(
     putRetries: Long,
     registryConflicts: Long,
     ledgerEvents: Long,
-    millis: ListMap[String, Long]
+    millis: ListMap[String, Long],
+    skipReadCalls: Long = 0L,
+    registryReads: Long = 0L,
+    registryWrites: Long = 0L
 ) {
   def total(f: IndexStats => Long): Long = perIndex.values.map(f).sum
   def input: Long = total(_.input)
@@ -97,26 +154,36 @@ final case class IngestReport(
     "embedRetries" -> embedRetries.toDouble,
     "putCalls" -> putCalls.toDouble,
     "putRetries" -> putRetries.toDouble,
+    "skipReadCalls" -> skipReadCalls.toDouble,
+    "registryReads" -> registryReads.toDouble,
+    "registryWrites" -> registryWrites.toDouble,
     "registryConflicts" -> registryConflicts.toDouble,
     "ledgerEvents" -> ledgerEvents.toDouble,
     "millis" -> ujson.Obj.from(millis.map { case (k, v) => k -> ujson.Num(v.toDouble) })
   )
 }
 
-/** The embedding ingest pipeline (spec Phase 8, storage work). For each [[SemanticDocument]]:
+/** The embedding ingest pipeline (spec Phase 8, storage work; G-27 batched and parallel in Phase
+  * 15). Documents are taken in windows of `windowDocuments`; for each window:
   *
-  *   1. write the text to the text store (S3 key containing the text hash, put-if-absent);
-  *   2. look up the vector key in ArtifactRegistry;
-  *   3. if it holds the same textHash, embeddingModel and dimensions, skip it;
-  *   4. if the text or model differs, re-embed and overwrite, and record the old and new hash (and
-  *      model) in RunLedger; never overwrite silently;
-  *   5. put the vector with its metadata (batches of at most `putBatchSize` <= 500, under 20 MiB,
-  *      bounded retries on throttling and 5xx), then register the new version in ArtifactRegistry
-  *      (after the put, so the registry never claims a vector that was not written).
+  *   1. validate every document and drop in-run duplicates (same text counted, different text
+  *      rejected);
+  *   2. skip check, batched: read the index metadata of the window's keys with GetVectors (at most
+  *      100 keys per call, no vector data); a key whose stored `textHash`, `embeddingModel` and
+  *      `embeddingDimensions` equal the document's is skipped. A skipped document makes no
+  *      per-document call at all (no text put, no registry read, no write);
+  *   3. for every other document, in parallel (`writeParallelism`): write the text (S3 key holding
+  *      the text hash, put-if-absent) and read the latest ArtifactRegistry version;
+  *   4. embed in batches of the embedder's `maxBatchSize`, `embedConcurrency` calls at once;
+  *   5. put the vectors with their metadata (batches of at most `putBatchSize` <= 500, under 20
+  *      MiB, bounded retries), then register the new versions in ArtifactRegistry in parallel
+  *      conditional puts (after the put, so the registry never claims a vector that was not
+  *      written). A changed text or model is re-embedded and its old and new hash (and model) are
+  *      recorded in RunLedger; never overwritten silently.
   *
   * Rejected documents and vectors go to the reject file and RunLedger; failures and retry counts go
-  * to RunLedger. Duplicate vector keys inside one run: the same text is counted and skipped;
-  * different text is rejected (never written silently).
+  * to RunLedger. Every counter is updated on the session's thread from the results of the parallel
+  * calls, so counts are exact. An [[IngestSession]] is used from one thread.
   */
 final class VectorIngestPipeline(
     embedder: EmbeddingPort,
@@ -160,18 +227,33 @@ final class VectorIngestPipeline(
       prior: Option[ArtifactVersion]
   )
 
+  private final case class Accepted(doc: SemanticDocument, index: String, hash: String)
+
+  private final case class ToEmbed(
+      doc: SemanticDocument,
+      put: TextPut,
+      prior: Option[ArtifactVersion]
+  )
+
   final class IngestSession private[VectorIngestPipeline] (val runId: RunId, label: String) {
     val ledger: RunLedger = RunLedger.open(kv, tables.runLedgerTable, runId, label)
     private val registry = new ArtifactRegistry(kv, tables.artifactRegistryTable)
     private val writer = new VectorWriter(vectors, settings.retry, sleeper)
+    private val writePool = new BoundedPool("ingest-write", settings.writeParallelism)
+    private val embedPool = new BoundedPool("ingest-embed", settings.embedConcurrency)
     private val stats = ListMap(spec.indexes.map(i => i.name -> new IndexStats): _*)
     private val seen = mutable.HashMap.empty[(String, String), String]
     private val pending =
       mutable.LinkedHashMap(spec.indexes.map(i => i.name -> mutable.ArrayBuffer.empty[Pending]): _*)
-    private var textCreated, textPresent, embedCalls, embedRetries, putCalls, putRetries,
-        conflicts = 0L
-    private val nanos =
-      mutable.LinkedHashMap("text" -> 0L, "registry" -> 0L, "embed" -> 0L, "put" -> 0L)
+    private var textCreated, textPresent, embedCalls, embedRetries, putCalls, putRetries, conflicts,
+        skipReadCalls, registryReads, registryWrites = 0L
+    private val nanos = mutable.LinkedHashMap(
+      "skipRead" -> 0L,
+      "text" -> 0L,
+      "embed" -> 0L,
+      "put" -> 0L,
+      "registry" -> 0L
+    )
     private val started = System.nanoTime()
     private var docNo = 0L
 
@@ -195,70 +277,156 @@ final class VectorIngestPipeline(
     }
 
     def ingest(documents: Iterator[SemanticDocument]): Unit =
-      documents.grouped(embedder.maxBatchSize).foreach(chunk => processChunk(chunk.toVector))
+      documents.grouped(settings.windowDocuments).foreach(w => processWindow(w.toVector))
 
-    private def processChunk(chunk: Vector[SemanticDocument]): Unit = {
-      val toEmbed = mutable.ArrayBuffer.empty[(SemanticDocument, TextPut, Option[ArtifactVersion])]
-      chunk.foreach { doc =>
-        docNo += 1
-        val entry = spec.forType(doc.documentType)
-        val st = stats(entry.name)
-        st.input += 1
-        val windowLabel = doc.window.flatMap(labelOf.get)
-        val problems: List[String] =
-          Contract.validate(doc) ++
-            (if (doc.indexName != entry.name)
-               List(
-                 s"indexName '${doc.indexName}' is not the ${doc.documentType.wire} index '${entry.name}'"
-               )
-             else Nil) ++
-            (if (doc.window.isDefined && windowLabel.isEmpty)
-               List(s"window ${doc.window.get} is not a configured graph window")
-             else Nil) ++
-            (if (doc.window.isEmpty || windowLabel.isDefined)
-               VectorKeys.check(doc, windowLabel).left.toSeq
-             else Nil)
-        if (problems.nonEmpty) reject(Some(doc), entry.name, problems.mkString("; "))
-        else {
-          val hash = ContentHash.of(doc.text)
-          seen.get((entry.name, doc.vectorKey)) match {
-            case Some(h) if h == hash => st.duplicatesSameText += 1
-            case Some(_)              =>
-              reject(Some(doc), entry.name, "duplicate vector key with different text in one run")
-            case None =>
-              seen.update((entry.name, doc.vectorKey), hash)
-              val put = timed("text")(textStore.put(entry.name, doc.text))
-              put.outcome match {
-                case PutOutcome.Conflict(_) =>
-                  reject(Some(doc), entry.name, s"text object conflict at ${put.ref.key}")
-                case o =>
-                  if (o == PutOutcome.Created) textCreated += 1 else textPresent += 1
-                  val prior = timed("registry")(
-                    registry.latest(
-                      VectorIngestPipeline.ArtifactKind,
-                      artifactKey(entry.name, doc.vectorKey)
-                    )
-                  )
-                  val unchanged = prior.exists { p =>
-                    p.item.strOpt("textHash").contains(hash) &&
-                    p.item.strOpt("embeddingModel").contains(embedder.modelId) &&
-                    p.item.long("embeddingDimensions").contains(embedder.dimensions.toLong)
-                  }
-                  if (unchanged) st.skippedUnchanged += 1
-                  else toEmbed += ((doc, put, prior))
-              }
-          }
-        }
+    private def processWindow(window: Vector[SemanticDocument]): Unit = {
+      val accepted = window.flatMap(accept)
+      val toWrite = skipCheck(accepted)
+      if (toWrite.nonEmpty) {
+        val toEmbed = prepare(toWrite)
+        if (toEmbed.nonEmpty) embedAndQueue(toEmbed)
       }
-      if (toEmbed.nonEmpty) embedAndQueue(toEmbed.toVector)
       flush(force = false)
     }
 
-    private def embedAndQueue(
-        batch: Vector[(SemanticDocument, TextPut, Option[ArtifactVersion])]
+    /** Validation and in-run duplicates (no store call). */
+    private def accept(doc: SemanticDocument): Option[Accepted] = {
+      docNo += 1
+      val entry = spec.forType(doc.documentType)
+      val st = stats(entry.name)
+      st.input += 1
+      val windowLabel = doc.window.flatMap(labelOf.get)
+      val problems: List[String] =
+        Contract.validate(doc) ++
+          (if (doc.indexName != entry.name)
+             List(
+               s"indexName '${doc.indexName}' is not the ${doc.documentType.wire} index '${entry.name}'"
+             )
+           else Nil) ++
+          (if (doc.window.isDefined && windowLabel.isEmpty)
+             List(s"window ${doc.window.get} is not a configured graph window")
+           else Nil) ++
+          (if (doc.window.isEmpty || windowLabel.isDefined)
+             VectorKeys.check(doc, windowLabel).left.toSeq
+           else Nil)
+      if (problems.nonEmpty) {
+        reject(Some(doc), entry.name, problems.mkString("; "))
+        None
+      } else {
+        val hash = ContentHash.of(doc.text)
+        seen.get((entry.name, doc.vectorKey)) match {
+          case Some(h) if h == hash =>
+            st.duplicatesSameText += 1
+            None
+          case Some(_) =>
+            reject(Some(doc), entry.name, "duplicate vector key with different text in one run")
+            None
+          case None =>
+            seen.update((entry.name, doc.vectorKey), hash)
+            Some(Accepted(doc, entry.name, hash))
+        }
+      }
+    }
+
+    /** The batched skip check: GetVectors of at most 100 keys per call (metadata only), at most
+      * `writeParallelism` calls at once. Returns the documents to write. A read that fails (after
+      * the port's bounded retries) rejects the documents of that call; they are retried by the next
+      * run.
+      */
+    private def skipCheck(accepted: Vector[Accepted]): Vector[Accepted] = {
+      val calls: Vector[(String, Vector[Accepted])] =
+        accepted
+          .groupBy(_.index)
+          .toVector
+          .sortBy(_._1)
+          .flatMap { case (index, as) =>
+            as.grouped(S3VectorsLimits.MaxGetVectorsBatch).map(index -> _)
+          }
+      val results = timed("skipRead")(writePool.map(calls) { case (index, as) =>
+        try Right(vectors.getVectors(index, as.map(_.doc.vectorKey), returnData = false))
+        catch { case NonFatal(e) => Left(e) }
+      })
+      skipReadCalls += calls.size
+      val unchanged = mutable.HashSet.empty[(String, String)]
+      val failed = mutable.HashMap.empty[(String, String), String]
+      calls.zip(results).foreach {
+        case ((index, as), Left(e)) =>
+          val transient = e match {
+            case s: StoreException => s.transient
+            case _                 => false
+          }
+          ledger.record(
+            "skip-read-failure",
+            "indexName" -> AttrValue.S(index),
+            "vectors" -> AttrValue.n(as.size.toLong),
+            "transient" -> AttrValue.Bool(transient),
+            "reason" -> AttrValue.S(e.getClass.getSimpleName)
+          )
+          as.foreach(a => failed.update((index, a.doc.vectorKey), e.getClass.getSimpleName))
+        case ((index, as), Right(stored)) =>
+          val byKey = stored.map(v => v.key -> v.metadata).toMap
+          as.foreach { a =>
+            if (
+              byKey
+                .get(a.doc.vectorKey)
+                .exists(m => VectorIngestPipeline.sameVector(m, a.hash, embedder))
+            )
+              unchanged += ((index, a.doc.vectorKey))
+          }
+      }
+      accepted.filter { a =>
+        val k = (a.index, a.doc.vectorKey)
+        failed.get(k) match {
+          case Some(cls) =>
+            reject(Some(a.doc), a.index, s"skip check failed: GetVectors $cls")
+            false
+          case None if unchanged(k) =>
+            stats(a.index).skippedUnchanged += 1
+            false
+          case None => true
+        }
+      }
+    }
+
+    /** Text puts and latest-version reads of the documents to write, in parallel. */
+    private def prepare(toWrite: Vector[Accepted]): Vector[ToEmbed] = {
+      val results = timed("text")(writePool.map(toWrite) { a =>
+        val put = textStore.put(a.index, a.doc.text)
+        val prior = put.outcome match {
+          case PutOutcome.Conflict(_) => None
+          case _                      =>
+            registry.latest(
+              VectorIngestPipeline.ArtifactKind,
+              artifactKey(a.index, a.doc.vectorKey)
+            )
+        }
+        (put, prior)
+      })
+      toWrite.zip(results).flatMap { case (a, (put, prior)) =>
+        put.outcome match {
+          case PutOutcome.Conflict(_) =>
+            reject(Some(a.doc), a.index, s"text object conflict at ${put.ref.key}")
+            None
+          case o =>
+            if (o == PutOutcome.Created) textCreated += 1 else textPresent += 1
+            registryReads += 1
+            Some(ToEmbed(a.doc, put, prior))
+        }
+      }
+    }
+
+    private def embedAndQueue(all: Vector[ToEmbed]): Unit = {
+      val batches = all.grouped(embedder.maxBatchSize).toVector
+      // an embedder that throws (a defect: the port returns Left) fails the run, as before
+      val results = timed("embed")(embedPool.map(batches)(b => embedder.embed(b.map(_.doc.text))))
+      embedCalls += batches.size
+      batches.zip(results).foreach { case (b, r) => queueBatch(b, r) }
+    }
+
+    private def queueBatch(
+        batch: Vector[ToEmbed],
+        result: Either[EmbeddingFailure, EmbeddingBatch]
     ): Unit = {
-      embedCalls += 1
-      val result = timed("embed")(embedder.embed(batch.map(_._1.text)))
       val checked: Either[(String, Int), IndexedSeq[Array[Float]]] = result match {
         case Left(f)  => Left((f.message, f.retries))
         case Right(b) =>
@@ -295,25 +463,24 @@ final class VectorIngestPipeline(
             "retries" -> AttrValue.n(retries.toLong),
             "texts" -> AttrValue.n(batch.size.toLong)
           )
-          batch.foreach { case (doc, _, _) =>
-            reject(Some(doc), doc.indexName, s"embedding failed: $msg")
-          }
+          batch.foreach(t => reject(Some(t.doc), t.doc.indexName, s"embedding failed: $msg"))
         case Right(vs) =>
-          batch.zip(vs).foreach { case ((doc, put, prior), v) =>
-            val entry = spec.forType(doc.documentType)
-            val meta = metadataFor(doc, put)
+          batch.zip(vs).foreach { case (t, v) =>
+            val entry = spec.forType(t.doc.documentType)
+            val meta = metadataFor(t.doc, t.put)
             VectorMetadataCodec.encode(meta, entry) match {
-              case Left(errs) => reject(Some(doc), entry.name, s"metadata: ${errs.mkString("; ")}")
+              case Left(errs) =>
+                reject(Some(t.doc), entry.name, s"metadata: ${errs.mkString("; ")}")
               case Right(stored) =>
-                VectorMetadataCodec.checkLimits(stored, entry, Some(doc.text)) match {
+                VectorMetadataCodec.checkLimits(stored, entry, Some(t.doc.text)) match {
                   case Nil =>
                     pending(entry.name) += Pending(
-                      doc,
+                      t.doc,
                       meta,
-                      VectorRecord(doc.vectorKey, v, stored),
-                      prior
+                      VectorRecord(t.doc.vectorKey, v, stored),
+                      t.prior
                     )
-                  case errs => reject(Some(doc), entry.name, s"metadata: ${errs.mkString("; ")}")
+                  case errs => reject(Some(t.doc), entry.name, s"metadata: ${errs.mkString("; ")}")
                 }
             }
           }
@@ -399,28 +566,30 @@ final class VectorIngestPipeline(
                     "indexName" -> AttrValue.S(index),
                     "retries" -> AttrValue.n(r.retries.toLong)
                   )
-                batch.foreach(v => registerWritten(index, byKey(v.key)))
+                registerWritten(index, batch.map(v => byKey(v.key)))
             }
           }
         }
       }
 
-    private def registerWritten(index: String, p: Pending): Unit = {
-      val st = stats(index)
-      st.written += 1
-      val previousVersion = p.prior.map(_.version).getOrElse(0L)
-      val prevAttrs = p.prior.toList.flatMap { pr =>
+    private def prevAttrs(p: Pending): List[(String, AttrValue)] =
+      p.prior.toList.flatMap { pr =>
         List(
           pr.item.strOpt("textHash").map("previousTextHash" -> AttrValue.S(_)),
           pr.item.strOpt("embeddingModel").map("previousEmbeddingModel" -> AttrValue.S(_)),
           pr.item.long("embeddingDimensions").map("previousEmbeddingDimensions" -> AttrValue.n(_))
         ).flatten
       }
-      val change = timed("registry")(
+
+    /** Conditional registry puts of one written batch, in parallel; counters and ledger events
+      * afterwards, on this thread.
+      */
+    private def registerWritten(index: String, written: Vector[Pending]): Unit = {
+      val changes = timed("registry")(writePool.map(written) { p =>
         registry.register(
           VectorIngestPipeline.ArtifactKind,
           artifactKey(index, p.meta.vectorKey),
-          previousVersion,
+          p.prior.map(_.version).getOrElse(0L),
           (List(
             "indexName" -> AttrValue.S(index),
             "vectorKey" -> AttrValue.S(p.meta.vectorKey),
@@ -430,64 +599,76 @@ final class VectorIngestPipeline(
             "embeddingModel" -> AttrValue.S(p.meta.embeddingModel),
             "embeddingDimensions" -> AttrValue.n(p.meta.embeddingDimensions.toLong),
             "runId" -> AttrValue.S(runId.value)
-          ) ++ prevAttrs): _*
+          ) ++ prevAttrs(p)): _*
         )
-      )
-      if (change == Change.Conflict) {
-        conflicts += 1
-        ledger.record(
-          "registry-conflict",
-          "indexName" -> AttrValue.S(index),
-          "vectorKey" -> AttrValue.S(p.meta.vectorKey)
-        )
-      }
-      p.prior match {
-        case None     => st.embeddedNew += 1
-        case Some(pr) =>
-          st.reembeddedChanged += 1
+      })
+      registryWrites += written.size
+      written.zip(changes).foreach { case (p, change) =>
+        val st = stats(index)
+        st.written += 1
+        if (change == Change.Conflict) {
+          conflicts += 1
           ledger.record(
-            "vector-overwrite",
-            (List(
-              "indexName" -> AttrValue.S(index),
-              "vectorKey" -> AttrValue.S(p.meta.vectorKey),
-              "newTextHash" -> AttrValue.S(p.meta.textHash),
-              "newEmbeddingModel" -> AttrValue.S(p.meta.embeddingModel),
-              "newEmbeddingDimensions" -> AttrValue.n(p.meta.embeddingDimensions.toLong),
-              "previousVersion" -> AttrValue.n(pr.version)
-            ) ++ prevAttrs.map { case (k, v) => k.replace("previous", "old") -> v }): _*
+            "registry-conflict",
+            "indexName" -> AttrValue.S(index),
+            "vectorKey" -> AttrValue.S(p.meta.vectorKey)
           )
+        }
+        p.prior match {
+          case None     => st.embeddedNew += 1
+          case Some(pr) =>
+            st.reembeddedChanged += 1
+            ledger.record(
+              "vector-overwrite",
+              (List(
+                "indexName" -> AttrValue.S(index),
+                "vectorKey" -> AttrValue.S(p.meta.vectorKey),
+                "newTextHash" -> AttrValue.S(p.meta.textHash),
+                "newEmbeddingModel" -> AttrValue.S(p.meta.embeddingModel),
+                "newEmbeddingDimensions" -> AttrValue.n(p.meta.embeddingDimensions.toLong),
+                "previousVersion" -> AttrValue.n(pr.version)
+              ) ++ prevAttrs(p).map { case (k, v) => k.replace("previous", "old") -> v }): _*
+            )
+        }
       }
     }
 
-    def finish(): IngestReport = {
-      flush(force = true)
-      val millis = ListMap.from(nanos.map { case (k, v) => k -> v / 1000000L }) +
-        ("total" -> (System.nanoTime() - started) / 1000000L)
-      val report = IngestReport(
-        runId,
-        ledger.attempt,
-        stats,
-        textCreated,
-        textPresent,
-        embedCalls,
-        embedRetries,
-        putCalls,
-        putRetries,
-        conflicts,
-        0L,
-        millis
-      )
-      ledger.record(
-        "ingest-summary",
-        "input" -> AttrValue.n(report.input),
-        "skippedUnchanged" -> AttrValue.n(report.skipped),
-        "written" -> AttrValue.n(report.written),
-        "rejected" -> AttrValue.n(report.rejected),
-        "embedRetries" -> AttrValue.n(embedRetries),
-        "putRetries" -> AttrValue.n(putRetries)
-      )
-      report.copy(ledgerEvents = ledger.eventsAppended)
-    }
+    def finish(): IngestReport =
+      try {
+        flush(force = true)
+        val millis = ListMap.from(nanos.map { case (k, v) => k -> v / 1000000L }) +
+          ("total" -> (System.nanoTime() - started) / 1000000L)
+        val report = IngestReport(
+          runId,
+          ledger.attempt,
+          stats,
+          textCreated,
+          textPresent,
+          embedCalls,
+          embedRetries,
+          putCalls,
+          putRetries,
+          conflicts,
+          0L,
+          millis,
+          skipReadCalls,
+          registryReads,
+          registryWrites
+        )
+        ledger.record(
+          "ingest-summary",
+          "input" -> AttrValue.n(report.input),
+          "skippedUnchanged" -> AttrValue.n(report.skipped),
+          "written" -> AttrValue.n(report.written),
+          "rejected" -> AttrValue.n(report.rejected),
+          "embedRetries" -> AttrValue.n(embedRetries),
+          "putRetries" -> AttrValue.n(putRetries)
+        )
+        report.copy(ledgerEvents = ledger.eventsAppended)
+      } finally {
+        writePool.close()
+        embedPool.close()
+      }
   }
 
   private def artifactKey(index: String, vectorKey: String) = s"$index/$vectorKey"
@@ -496,4 +677,15 @@ final class VectorIngestPipeline(
 object VectorIngestPipeline {
   val JobName = "storage.vector-ingest"
   val ArtifactKind = "vector"
+
+  /** The skip rule: the stored vector's metadata holds the document's `textHash` and the embedder's
+    * `embeddingModel` and `embeddingDimensions`. Nothing else is compared (not the run ID, code
+    * version or job), so a new build alone never forces re-embedding.
+    */
+  def sameVector(stored: StoredMetadata, textHash: String, embedder: EmbeddingPort): Boolean = {
+    val m = stored.all
+    m.get("textHash").contains(MetaValue.Str(textHash)) &&
+    m.get("embeddingModel").contains(MetaValue.Str(embedder.modelId)) &&
+    m.get("embeddingDimensions").contains(MetaValue.Num(embedder.dimensions.toLong))
+  }
 }

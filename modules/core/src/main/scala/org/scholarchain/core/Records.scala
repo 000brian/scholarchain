@@ -695,6 +695,17 @@ object ModelCallCounts {
   *   - `cacheHits`: reads served from a cache, by cache name (key: [[QueryAudit.NamePattern]]),
   *     values >= 0; names are the producer's fixed vocabulary.
   *
+  * Version 3 field (Phase 15, additive, decision 7.5; optional in the constructor, required on the
+  * v3 wire, absent from the v1 and v2 wires):
+  *   - `abstentionCodes`: why the answer abstained, as fixed codes from the producer's vocabulary
+  *     (for example `no-path-within-depth`, `path-query-timeout`, `graph-store-failure`,
+  *     `researcher-not-resolved`; the code table and its texts belong to rag, not core). Codes
+  *     only, never prose: each matches [[QueryAudit.AbstentionCodePattern]] (lowercase kebab-case)
+  *     and is at most [[QueryAudit.MaxAbstentionCodeLength]] characters; at most
+  *     [[QueryAudit.MaxAbstentionCodes]] codes, distinct. In version 3 the list is non-empty
+  *     exactly when `abstained` is true. A version 1 or 2 record carries none (it reads with an
+  *     empty list, also when it abstained).
+  *
   * A version 1 record carries every v2 field at its default (empty). Not recorded (no per-query
   * source in the runtime today): HTTP attempts and retried HTTP attempts per task; they are counted
   * only per process, in the run report.
@@ -736,13 +747,34 @@ final case class QueryAudit(
     indexesQueried: List[String] = Nil,
     metadataFilterKeys: List[String] = Nil,
     modelCalls: Map[String, ModelCallCounts] = Map.empty,
-    cacheHits: Map[String, Long] = Map.empty
+    cacheHits: Map[String, Long] = Map.empty,
+    // ---- schema version 3 (Phase 15, additive): default is the v1/v2 meaning ("not recorded") ----
+    abstentionCodes: List[String] = Nil
 )
 object QueryAudit {
 
   /** The fields added by schema version 2, in wire order. */
   val V2Fields: List[String] =
     List("queryTemplateIds", "indexesQueried", "metadataFilterKeys", "modelCalls", "cacheHits")
+
+  /** The fields added by schema version 3, in wire order. */
+  val V3Fields: List[String] = List("abstentionCodes")
+
+  /** Pattern of one `abstentionCodes` entry: lowercase kebab-case, starting with a letter (for
+    * example `no-path-within-depth`). Spaces, punctuation and capitals are refused, so no prose
+    * fits.
+    */
+  val AbstentionCodePattern: String = "[a-z][a-z0-9]*(-[a-z0-9]+)*"
+  private val compiledCode = AbstentionCodePattern.r.pattern
+
+  /** Longest allowed abstention code, in characters. */
+  val MaxAbstentionCodeLength: Int = 64
+
+  /** Most abstention codes one audit may carry. */
+  val MaxAbstentionCodes: Int = 8
+
+  def isValidAbstentionCode(s: String): Boolean =
+    s != null && s.length <= MaxAbstentionCodeLength && compiledCode.matcher(s).matches()
 
   /** Pattern of a graph query-template ID and of a `modelCalls` / `cacheHits` key. */
   val NamePattern: String = "[a-z0-9][a-z0-9_.-]*"
@@ -751,18 +783,22 @@ object QueryAudit {
 
   private val base: ReadWriter[QueryAudit] = macroRW
 
-  /** The JSON of a v2 field at its default: `[]` for the lists, `{}` for the maps. */
+  /** The JSON of a v2 or v3 field at its default: `[]` for the lists, `{}` for the maps. */
   private def emptyJson(field: String): ujson.Value =
     if (field == "modelCalls" || field == "cacheHits") ujson.Obj() else ujson.Arr()
 
-  /** Version-aware wire form (Phase 11, reviewer advisory D-06).
+  /** The fields added after version 1, with the version that added them, in wire order. */
+  private val addedFields: List[(String, Int)] = V2Fields.map(_ -> 2) ++ V3Fields.map(_ -> 3)
+
+  /** Version-aware wire form (Phase 11, reviewer advisory D-06; Phase 15, version 3).
     *
-    *   - Writing: every field is written, including v2 fields at their defaults (uPickle would
-    *     otherwise omit a field equal to its default). A record with `schemaVersion` 1 is written
-    *     without the v2 fields, so a v1 record round-trips byte-for-byte to its v1 form.
-    *   - Reading: a v1 record must not carry a v2 field; a record of version 2 or later must carry
-    *     every v2 field (it is required on the wire, like every other field). An unsupported
-    *     version still fails in `Validator`.
+    *   - Writing: every field of the record's version is written, including added fields at their
+    *     defaults (uPickle would otherwise omit a field equal to its default). A record is written
+    *     without the fields added after its `schemaVersion`, so a v1 or v2 record round-trips to
+    *     exactly its own wire form.
+    *   - Reading: a record must not carry a field added after its version, and must carry every
+    *     field added up to its version (required on the wire, like every other field). An
+    *     unsupported version still fails in `Validator`.
     */
   implicit val readWriter: ReadWriter[QueryAudit] =
     upickle.default
@@ -770,23 +806,24 @@ object QueryAudit {
       .bimap[QueryAudit](
         a => {
           val obj = upickle.default.writeJs(a)(base).obj
-          val head = obj.toList.filterNot { case (k, _) => V2Fields.contains(k) }
-          // v2 fields in declared order; a field uPickle left out is at its default
-          val tail =
-            if (a.schemaVersion == 1) Nil
-            else V2Fields.map(k => k -> obj.getOrElse(k, emptyJson(k)))
+          val head = obj.toList.filterNot { case (k, _) => addedFields.exists(_._1 == k) }
+          // added fields in declared order; a field uPickle left out is at its default
+          val tail = addedFields.collect {
+            case (k, since) if a.schemaVersion >= since => k -> obj.getOrElse(k, emptyJson(k))
+          }
           ujson.Obj.from(head ++ tail)
         },
         js => {
           val obj = js.obj
           val version = obj.get("schemaVersion").collect { case ujson.Num(n) => n }
-          if (version.contains(1.0)) {
-            V2Fields.filter(obj.contains).foreach { k =>
-              throw new upickle.core.Abort(s"$k: not a field of QueryAudit schema version 1")
-            }
-          } else if (version.exists(_ >= 2.0)) {
-            V2Fields.filterNot(obj.contains).foreach { k =>
-              throw new upickle.core.Abort(s"$k: required in QueryAudit schema version 2")
+          version.foreach { v =>
+            addedFields.foreach { case (k, since) =>
+              if (v >= 1.0 && v < since && obj.contains(k))
+                throw new upickle.core.Abort(
+                  s"$k: not a field of QueryAudit schema version ${v.toInt}"
+                )
+              if (v >= since && !obj.contains(k))
+                throw new upickle.core.Abort(s"$k: required in QueryAudit schema version $since")
             }
           }
           upickle.default.read[QueryAudit](js)(base)

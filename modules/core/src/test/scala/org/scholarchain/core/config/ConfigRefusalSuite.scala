@@ -79,6 +79,7 @@ class ConfigRefusalSuite extends munit.FunSuite {
       "llm.apiKeyEnvVar",
       "embedding.apiKeyEnvVar",
       "service.jobQueueUrl",
+      "service.embeddingQueueUrl",
       "environment",
       "aws.region",
       "storage.rawBucket",
@@ -107,6 +108,19 @@ class ConfigRefusalSuite extends munit.FunSuite {
       messages(load(edit(_("service")("jobQueueUrl") = Sentinel))),
       List("service.jobQueueUrl: must be an https:// URL with a host")
     )
+  }
+
+  test(
+    "U-6 (Phase 15 decision 5): an invalid service.embeddingQueueUrl is refused by field and rule only"
+  ) {
+    assertEquals(
+      messages(load(edit(_("service")("embeddingQueueUrl") = Sentinel))),
+      List("service.embeddingQueueUrl: must be an https:// URL with a host")
+    )
+    val viaEnv =
+      messages(load(env = Map("SCHOLARCHAIN_CFG_SERVICE_EMBEDDING_QUEUE_URL" -> Sentinel)))
+    assert(viaEnv.forall(!_.contains("SENTINEL")), viaEnv)
+    assert(viaEnv.exists(_.startsWith("service.embeddingQueueUrl")), viaEnv)
   }
 
   test("D-03: a graph window label and a configVersion are refused without their value") {

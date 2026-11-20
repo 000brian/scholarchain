@@ -266,6 +266,25 @@ final class ServiceLog(sink: LogSink, role: String, clock: Clock, redactor: Reda
     emit(o)
   }
 
+  /** A structured line another module built (rag's `reembed-delivery` line, Phase 15 decision 8.1),
+    * written as one line of this log: `time` and `role` are added, the line's own fields (its
+    * `event` included) are kept unchanged. The line's fields are fixed vocabularies and validated
+    * IDs (rag's contract), so no redaction is applied: the redactor's 12-digit rule would mangle a
+    * task ID. A line that is not a JSON object is written as `{"event": "<event>", "code":
+    * "log-line-unreadable"}` so the one-line-per-delivery count holds.
+    */
+  def external(line: String, fallbackEvent: String): Unit = {
+    val o = base(fallbackEvent)
+    val parsed =
+      try ujson.read(line).objOpt
+      catch { case scala.util.control.NonFatal(_) => None }
+    parsed match {
+      case Some(fields) => fields.foreach { case (k, v) => o(k) = v }
+      case None         => o("code") = "log-line-unreadable"
+    }
+    emit(o)
+  }
+
   /** An unexpected exception: the fixed cause `unexpected-exception` and the exception's class name
     * only (never its message, which may hold downstream text). The class name passes the redactor
     * as a last guard.

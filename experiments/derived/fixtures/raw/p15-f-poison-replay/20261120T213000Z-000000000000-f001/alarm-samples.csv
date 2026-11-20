@@ -1,0 +1,5 @@
+epoch_s,alarm,state
+1795210200,example-embedding-dlq-alarm,OK
+1795210380,example-embedding-dlq-alarm,OK
+1795210460,example-embedding-dlq-alarm,ALARM
+1795210700,example-embedding-dlq-alarm,ALARM

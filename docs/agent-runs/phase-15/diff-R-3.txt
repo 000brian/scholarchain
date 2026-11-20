@@ -1,0 +1,661 @@
+diff --git a/experiments/README.md b/experiments/README.md
+index 1fe531b..7cc7ae6 100644
+--- a/experiments/README.md
++++ b/experiments/README.md
+@@ -9,7 +9,8 @@ Owner: `experiment-engineer`. This folder holds experiment manifests, raw result
+ | `manifest-schema-v1.json` | the manifest format, v1 | `experiment-engineer` |
+ | `manifests/MANIFEST_ID.json` | one committed manifest per experiment run plan | `experiment-engineer` |
+ | `manifests/example-not-approved.json` | the format example (`"example": true`); never runs | `experiment-engineer` |
+-| `collectors/` | committed executables a `command` action may run | `experiment-engineer` |
++| `collectors/` | committed executables a `command` action may run (Phase 15: `f-poison-replay.sh`, `c-embedding-backlog.sh`, `d-load.sh`, `ab-pipeline.sh`, `e-retrieval-modes.sh`) | `experiment-engineer` |
++| `collectors/lib/collector-common.sh` | helpers the collectors source (never executed; no executable bit) | `experiment-engineer` |
+ | `raw/MANIFEST_ID/ATTEMPT_ID/` | raw results of one run; read-only after collection; committed by the human | `scripts/run-experiment.sh` (moved there after the run) |
+ | `derived/` | tables and plots, each reproducible from a committed script over `raw/` | `experiment-engineer` |
+ 
+@@ -55,7 +56,7 @@ Then it prints the cost bound and limits labelled "declared, not enforced", and
+ - `"kind": "pipeline"`: `scripts/run-bounded-pipeline.sh` with the manifest's `args`, unchanged;
+ - `"kind": "command"`: the committed executable at `path` (only under `load-tests/` or `experiments/collectors/`) with `args`.
+ 
+-After the action it exports the manifest's `metrics` with CloudWatch `get-metric-data` for the run window plus 5 minutes on each side.
++After the action it exports the manifest's `metrics` with CloudWatch `get-metric-data` for the run window plus 5 minutes on each side. Phase 15 (decision 9.6, `scripts/run-experiment.sh` usage text authoritative): it waits 300 s after every action that ended (succeeded, failed or timed out) before the export; a run stopped by a signal exports nothing; `{attempt-id}` in `action.args` is replaced by the attempt ID; `{alb-dimension}` and `{alb-target-group-query|evidence|graph}` are new metric placeholders; `--check` and `--export-metrics ATTEMPT_ID` are new modes; exit 8 is new (table below).
+ 
+ ### Rules: enforced by the runner or documentation only
+ 
+@@ -108,3 +109,33 @@ On a local timeout the runner prints what may still be running remotely (the Ste
+ - Every attempt keeps its folder and its `run-record.json`, whatever its status. A run killed so hard that it left only a `started` record is an incomplete attempt, never a success. Failed, timed-out and incomplete runs are listed in every results summary; none is silently discarded.
+ - Derived tables and plots are produced by committed scripts under `experiments/derived/` from `raw/` only, so anyone can reproduce them.
+ - No implementation is tuned during a run and reported as one experiment; a change of code, configuration or Terraform is a new build commit and a new manifest.
++
++## Exit codes (Phase 15, decision 10; confirmed by infra-engineer against `scripts/run-experiment.sh` after 9.6(d) and (e))
++
++| Runner exit | Meaning | Collector exit behind it | Final folder in `experiments/raw/` | Remote work may still run | Overnight chain |
++|---|---|---|---|---|---|
++| 0 | action succeeded, metrics exported (or none declared); `--check`: all checks and the preflight passed | 0 (ran; observation recorded) | yes (`--check`: no folder) | no | continue |
++| 2 | usage error | – | no | no | stop |
++| 3 | missing prerequisite or Terraform output (the runner's own) | – | no | no | stop |
++| 4 | refused: dirty tree, untracked manifest, sha256, example, v1 check, a placeholder other than `{attempt-id}` and `s3://{data-bucket}/`, approval, run or raw folder exists, action path untracked or not executable | – | no (the action-path refusal also happens before the folder exists) | no | stop |
++| 5 | the action failed (metrics exported after the 300 s wait; status `failed`); also a runner command failure after the start, Ctrl-C (INT: status `failed`, signal INT, no export), and `--check`'s failed preflight | any non-zero other than 124 and 137: 3 (prerequisite not met), 5 (tool or AWS failure), 7 (collector wait limit), or the nested pipeline's own failure (2 to 7, passed through by `ab-pipeline.sh`) | yes (status `failed`), except `--check` (no folder) | possibly (the collectors and the wrapper record it) | continue only after the active-cluster check |
++| 6 | action succeeded, metrics failed or partial (`succeeded-metrics-failed`) | 0 | yes | no | continue |
++| 7 | the runner's time limit (`maxDurationSeconds`: status `timed-out`, metrics exported, `MAY-STILL-RUN` lines) or TERM (status `timed-out`, signal TERM, no export); `--check`: the preflight passed 600 s | – (the action was stopped) | yes (time limit); yes or only a `started` record (TERM) | **yes** | stop |
++| 8 | an identifier (account ID, bucket name, API host, queue or DLQ URL, ALB or Neptune host) was found in the run record or the run folder; the folder stays under `evidence/experiment-runs/` (never commit it) | – | no | no | stop |
++| anything else | unknown | – | – | – | stop |
++
++Notes (5a): a collector's own exit 7 (its wait limit) becomes runner exit 5 (the runner reports only "the action failed"); runner exit 7 always means the runner's own limit or TERM. Exit 4 can also come from the final move when the raw destination appeared meanwhile (the run then stays under `evidence/`). `--export-metrics` exits 0, 6 or 8 (plus 2, 3, 4, 5). A collector exit 3 after its bounded settle is a temporary unmet prerequisite: the attempt is kept as `failed` and a later attempt is a new run. The scientific outcome is never read from an exit code: every attempt gets four lines (`tool`, `action`, `metrics`, `observation`; decision 10).
++
++## Collector contract (Phase 15)
++
++- The runner starts `./experiments/collectors/NAME.sh RESOLVED_ARGS` from the repository root with standard input `/dev/null` and three variables: `SCHOLARCHAIN_EXPERIMENT_RUN_DIR` (the run folder under `evidence/experiment-runs/ATTEMPT_ID/`, gitignored), `SCHOLARCHAIN_EXPERIMENT_ATTEMPT_ID`, `SCHOLARCHAIN_EXPERIMENT_MANIFEST_ID`. `--check` appends `--preflight` as the last argument and points the run folder to a temporary folder outside the repository.
++- Collectors write raw files only into the run folder (one CSV per event stream plus `tool-record.json`), never `run-record.json`, `run-record.started.json`, `manifest.json`, `action.log`, `metrics/` or `nested/` (the runner's). They store extracted fields only: no raw AWS CLI output, no error text, no response body, no URL, host, key or account. The runner's identifier check (exit 8) is the backstop.
++- Exit codes: 0 ran (whatever the system answered), 2 usage, 3 prerequisite not met after a bounded settle (nothing sent), 5 tool or AWS failure, 7 the collector's own wait limit or TERM. `ab-pipeline.sh` and `d-load.sh` pass their child's exit code through.
++- `ab-pipeline.sh` runs `bash scripts/run-bounded-pipeline.sh` with the arguments unchanged and does not wrap its output, so the nested `RUN-RECORD:` and `EXECUTION:` lines reach the runner (`{emr-cluster-id}` resolution); it finds the nested record by its output root.
++- `--preflight` makes read calls only, prints counts and states, sends nothing and writes nothing outside a temporary folder outside the repository.
++- The executable bit of every collector and of `load-tests/query-load.sh` is set by the human before the commit (decision 16); `lib/collector-common.sh` is sourced and needs none.
++
++## Session 3 checks before the experiments (decision 13)
++
++- **D0a (local, no AWS, before packaging):** Python syntax of every derive script (`python3 -I -c` with `ast.parse`, no bytecode written); each derive script with `--fixtures` (output to a temporary folder outside the repository); `bash -n` on every collector, on `collectors/lib/collector-common.sh` and on `load-tests/query-load.sh`; `jq empty` on every manifest; `ls -l` of the tools (executable bits); then `git status --short` prints nothing. A failure is a tool repair before AWS work starts (tools are not build inputs: no repackaging).
++- **D9a (after D4 and the D9 signatures, before D10):** `bash scripts/run-experiment.sh --manifest experiments/manifests/ID.json --manifest-sha256 HEX64 --check` for every signed manifest: it runs every refusal, resolves the metric placeholders (the ALB placeholders and the DLQ URLs need the Phase 15 Terraform outputs, which exist only after D4), shows the `{attempt-id}` substitution and runs each collector's `--preflight` through the real invocation path (arguments, environment, executable bit). All manifests here are `command` actions, so all get a preflight (A and B through `ab-pipeline.sh --preflight`: inputs present, the ER record succeeded, the output root empty, the jars of the build commit present). `p15-f-poison-replay` and both D manifests need `SCHOLARCHAIN_SERVICE_API_KEY` exported in that terminal. Then `git status --short` prints nothing.
+diff --git a/infra/terraform/modules/runtime/iam.tf b/infra/terraform/modules/runtime/iam.tf
+index 2c53ecc..d5c6d0b 100644
+--- a/infra/terraform/modules/runtime/iam.tf
++++ b/infra/terraform/modules/runtime/iam.tf
+@@ -217,6 +217,36 @@ data "aws_iam_policy_document" "service_task" {
+       resources = [var.job_queue_arn]
+     }
+   }
++
++  # Phase 15 decision 9.1: the worker's second loop receives, acknowledges
++  # (DeleteMessage) and releases (ChangeMessageVisibility) embedding-task-v1
++  # messages. It never sends (no sqs:SendMessage). The project boundary
++  # (identity/boundary.tf ProjectQueueMessages) allows these on
++  # NAME_PREFIX-* queues.
++  dynamic "statement" {
++    for_each = each.key == "worker" ? [1] : []
++    content {
++      sid       = "EmbeddingQueueConsume"
++      actions   = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:ChangeMessageVisibility"]
++      resources = [var.embedding_queue_arn]
++    }
++  }
++
++  # Phase 15 decision 9.1 (step 5b permission matrix): the re-embed path
++  # (storage VectorReembedder) rewrites one existing vector under its key with
++  # its existing metadata (PutVectors). Its other calls are granted above:
++  # GetVectors (VectorQueries), the text GetObject (SemanticTextRead), the
++  # completion record GetItem and PutItem on QuerySession (TablesReadWrite).
++  # Worker only; the boundary allows it (ProjectVectorData). The vector
++  # bucket is SSE-S3 (vectors module), so no KMS permission is needed.
++  dynamic "statement" {
++    for_each = each.key == "worker" ? [1] : []
++    content {
++      sid       = "VectorReembedWrite"
++      actions   = ["s3vectors:PutVectors"]
++      resources = local.index_arns
++    }
++  }
+ }
+ 
+ resource "aws_iam_role_policy" "service_task" {
+@@ -227,7 +257,8 @@ resource "aws_iam_role_policy" "service_task" {
+   policy = data.aws_iam_policy_document.service_task[each.key].json
+ }
+ 
+-# ops: storage loaders and the rag embedding ingest (decision 6 area 10).
++# ops: storage loaders, the rag embedding ingest (decision 6 area 10) and,
++# from Phase 15, the rag retrieval evaluation (rag-retrieval-eval).
+ data "aws_iam_policy_document" "ops_task" {
+   statement {
+     sid       = "DataLakeList"
+@@ -299,6 +330,16 @@ data "aws_iam_policy_document" "ops_task" {
+     resources = [local.neptune_db]
+   }
+ 
++  # Phase 15 decision 9.4: rag-retrieval-eval (RetrievalEvalJob, experiment
++  # E) runs the graph-only mode's openCypher reads from the ops task
++  # (NeptuneAdapters executeOpenCypherQuery). Read only, the same cluster
++  # resource; the boundary allows it (NeptuneData).
++  statement {
++    sid       = "NeptuneReadForEval"
++    actions   = ["neptune-db:ReadDataViaQuery"]
++    resources = [local.neptune_db]
++  }
++
+   statement {
+     sid = "EmbeddingQueue"
+     actions = [
+diff --git a/scripts/README.md b/scripts/README.md
+index cccca81..9a85691 100644
+--- a/scripts/README.md
++++ b/scripts/README.md
+@@ -37,7 +37,7 @@ Gate 4 runs `shellcheck -x -P SCRIPTDIR` on `scripts/*.sh`, `scripts/lib/*.sh`,
+ 
+ ## The ten scripts
+ 
+-Exit codes everywhere: 0 ok, 2 usage, 3 missing prerequisite, 4 refused by a safety check, 5 a command failed, 6 a check failed, 7 timed out. Records under `evidence/**` are gitignored and never overwritten (a `NAME.started.json` first, then `NAME.json`).
++Exit codes everywhere: 0 ok, 2 usage, 3 missing prerequisite, 4 refused by a safety check, 5 a command failed, 6 a check failed, 7 timed out; run-experiment.sh adds 8 (an identifier found in its run record or folder; Phase 15). Records under `evidence/**` are gitignored and never overwritten (a `NAME.started.json` first, then `NAME.json`).
+ 
+ | Script | Command line | Reads | Environment variables (names) | Human approval points | Writes | Cloud | Rollback behavior |
+ |---|---|---|---|---|---|---|---|
+@@ -46,8 +46,8 @@ Exit codes everywhere: 0 ok, 2 usage, 3 missing prerequisite, 4 refused by a saf
+ | plan.sh | `bash scripts/plan.sh [--runtime-enabled true\|false] [--image-tag BUILD_COMMIT] [--graph-run-id run:v1:HEX32] [--cleanup-mode true\|false]` | Terraform configuration and state; `sts get-caller-identity` | `AWS_PROFILE` | the human signs the printed sha256 (`APPROVED-PLAN-SHA256:` line) | `infra/terraform/environments/course/plans/PLAN_COMMIT-PLAN_ID.{tfplan,plan.txt,summary.txt,record.json}` (gitignored) | read only (plan) | never applies; nothing to undo |
+ | deploy.sh | `bash scripts/deploy.sh --plan-sha256 HEX64` | plan records; the approval line at HEAD; Terraform outputs; ECS and ECR reads | `AWS_PROFILE` | the committed `APPROVED-PLAN-SHA256: HEX64` line (checked); `/deploy` | `releases/course/ATTEMPT_ID.json` (tracked: the human commits it); `plans/...apply.txt` | yes (terraform apply of the approved plan) | rollback.sh points services back to the previous revision in the release record; infrastructure: fix forward with a new signed plan |
+ | smoke-test.sh | `bash scripts/smoke-test.sh --question 'TEXT' [--api-url https://HOST]` | Terraform output `api_url` | `SCHOLARCHAIN_SERVICE_API_KEY` (required; never printed, passed to curl on standard input) | none | `evidence/runs/ATTEMPT_ID-smoke-test.json` | yes (HTTPS calls to the API; one bounded query) | nothing to undo (one job and one idempotency record, both expiring) |
+-| run-bounded-pipeline.sh | `bash scripts/run-bounded-pipeline.sh --stage STAGE --snapshot ID ...` (stages upload-input, hadoop, er, spark, load; see `--help`) | Terraform outputs (`data_bucket_name`, `data_prefixes`, `state_machine_arn`, `ecs_cluster_name`, `ops_task_definition_family`, `ops_container`, `app_subnet_ids`, `ops_security_group_id`, `log_group_names`, `neptune_loader_role_arn`, `ecr_repository_url`, `vector_bucket_name`); `evidence/packages/BUILD_COMMIT/package-record.json` (er) | `AWS_PROFILE`; `TMPDIR` (er download folder) | the human approves the environment, the bounded inputs and the cost bound (`/run-pipeline`) | `evidence/runs/ATTEMPT_ID-STAGE.json`; S3 `raw/SOURCE/SNAPSHOT/FILE`, `curated/er/ATTEMPT_ID/`, `graph/.../ATTEMPT_ID/`; local `${TMPDIR:-/tmp}/scholarchain-er-ATTEMPT_ID/` (er; kept) | yes (Step Functions, EMR, ECS ops task, S3) | nothing is overwritten; a failed stage keeps its record and partial outputs under its own attempt prefix; run a new attempt |
+-| run-experiment.sh | `bash scripts/run-experiment.sh --manifest experiments/manifests/ID.json --manifest-sha256 HEX64` | the manifest (tracked, sha256), the approval line at HEAD, Terraform outputs, CloudWatch | `AWS_PROFILE`; sets `SCHOLARCHAIN_EXPERIMENT_RUN_DIR`, `SCHOLARCHAIN_EXPERIMENT_ATTEMPT_ID`, `SCHOLARCHAIN_EXPERIMENT_MANIFEST_ID` for its action | the committed `APPROVED-MANIFEST-SHA256: HEX64` line (checked) | `evidence/experiment-runs/ATTEMPT_ID/`, moved to `experiments/raw/MANIFEST_ID/ATTEMPT_ID/` (read-only; the human commits it) | yes (through its action) | none; remote work is bounded by Terraform limits; failed runs are kept |
++| run-bounded-pipeline.sh | `bash scripts/run-bounded-pipeline.sh --stage STAGE --snapshot ID ...` (stages upload-input, hadoop, er, spark, load; loaders dynamodb-load, neptune-csv-build, neptune-bulk-start, neptune-bulk-status, rag-ingest, rag-retrieval-eval; Phase 15 options `--emr-max-units`, `--spark-shuffle-partitions`, `--max-documents`; see `--help` and "Phase 15 options and loaders" below) | Terraform outputs (`data_bucket_name`, `data_prefixes`, `state_machine_arn`, `ecs_cluster_name`, `ops_task_definition_family`, `ops_container`, `app_subnet_ids`, `ops_security_group_id`, `log_group_names`, `neptune_loader_role_arn`, `ecr_repository_url`, `vector_bucket_name`); `evidence/packages/BUILD_COMMIT/package-record.json` (er) | `AWS_PROFILE`; `TMPDIR` (er download folder) | the human approves the environment, the bounded inputs and the cost bound (`/run-pipeline`) | `evidence/runs/ATTEMPT_ID-STAGE.json`; S3 `raw/SOURCE/SNAPSHOT/FILE`, `curated/er/ATTEMPT_ID/`, `graph/.../ATTEMPT_ID/`; local `${TMPDIR:-/tmp}/scholarchain-er-ATTEMPT_ID/` (er; kept) | yes (Step Functions, EMR, ECS ops task, S3) | nothing is overwritten; a failed stage keeps its record and partial outputs under its own attempt prefix; run a new attempt |
++| run-experiment.sh | `bash scripts/run-experiment.sh --manifest experiments/manifests/ID.json --manifest-sha256 HEX64 [--check \| --export-metrics ATTEMPT_ID]` (exit 8: an identifier in the run folder; see "The experiment runner" below) | the manifest (tracked, sha256), the approval line at HEAD, Terraform outputs, CloudWatch | `AWS_PROFILE`; sets `SCHOLARCHAIN_EXPERIMENT_RUN_DIR`, `SCHOLARCHAIN_EXPERIMENT_ATTEMPT_ID`, `SCHOLARCHAIN_EXPERIMENT_MANIFEST_ID` for its action | the committed `APPROVED-MANIFEST-SHA256: HEX64` line (checked) | `evidence/experiment-runs/ATTEMPT_ID/`, moved to `experiments/raw/MANIFEST_ID/ATTEMPT_ID/` (read-only; the human commits it) | yes (through its action) | none; remote work is bounded by Terraform limits; failed runs are kept |
+ | archive-evidence.sh | `bash scripts/archive-evidence.sh --local-only [--out-dir DIR]`; `bash scripts/archive-evidence.sh [--out-dir DIR] [--max-mb N] [--metrics-file PATH]` | repository evidence, plan records (masked), `evidence/**`; S3 `reports/` (S3 mode) | `AWS_PROFILE` (S3 mode) | none | `evidence/archives/ATTEMPT_ID/`, `.tar`, `.tar.sha256` | S3 mode only (reads) | nothing to undo |
+ | cleanup.sh | `bash scripts/cleanup.sh --evidence-archive PATH --list`; `bash scripts/cleanup.sh --evidence-archive PATH --remove --plan-sha256 HEX64` | the evidence archive (`archive_keys`), Terraform state and outputs, live AWS listings | `AWS_PROFILE` (the human's own administrator profile, I-08) | the committed `APPROVED-PLAN-SHA256:` line for the removal plan; a typed confirmation `REMOVE course FIRST12HEX` at the terminal | `plans/cleanup-PLAN_COMMIT-PLAN_ID.{tfplan,plan.txt,record.json,apply.txt}` | `--list`: reads and a plan; `--remove`: removes the environment | none: removal is final; the evidence archive, `reports/`, `docs/agent-runs/` and `releases/` stay; expected leftovers (task-definition revisions, I-15) are listed |
+ | rollback.sh | `bash scripts/rollback.sh --release releases/course/RECORD.json [--role ROLE]` | the release record; Terraform outputs; ECS | `AWS_PROFILE` | approval of a rollback beyond the recorded previous revision (human gate 3) | `releases/course/ATTEMPT_ID-rollback.json` (only after a verified rollback; never overwritten) | yes (ECS update-service) | it is the rollback; the next plan shows ECS drift; fix forward with a new signed plan |
+@@ -101,6 +101,76 @@ Run each line as `COMMAND 2>&1 | tee /tmp/p14-DNN.log; echo "exit=${pipestatus[1
+ 
+ Uppercase words (`LOCAL_DIR`, `SCOPE`, `HEX`, `HEX32`, `HEX64`, `ATTEMPT_ID`, `BUILD`, `LOAD-ID`, `NAME`) are values you copy from the previous step's printed lines or run record; replace them before you run the line.
+ 
++## Phase 15 runbook (Phase 15 work order, decision 13)
++
++Phase 15 session 3 runs these steps in this order, one at a time, each by the human (no agent runs a script). The work order (`docs/agent-runs/phase-15/prompt.md`, decision 13) is authoritative for each step's checks; this table is the order and the commands. Every script refuses an untracked file, so every report copy and every finished raw folder is committed before the next script runs. Long runs: `caffeinate -i bash scripts/NAME.sh ARGS 2>&1 | tee /tmp/p15-DNN.log; echo "exit=${pipestatus[1]}"`.
++
++| Step | What | Command or action |
++|---|---|---|
++| D0 | Billing numbers; cost bound line in `approvals.md`; commit `docs/agent-runs/**` | human |
++| D0a | local checks, no AWS: derive scripts with `--fixtures`, syntax of collectors and load generators, `jq empty` on the manifests, executable bits, `git status --short` prints nothing | human (lines from the orchestrator) |
++| D1 | package | `bash scripts/package.sh` (the build commit is the session 2 commit) |
++| D2 | publish | `bash scripts/package.sh --publish` |
++| D3 | runtime-on plan | `bash scripts/plan.sh --runtime-enabled true --image-tag BUILD --graph-run-id run:v1:f2625d504b12749389cf4f5b1a26aed4`; compare `plans/*.summary.txt` with the expected list (infra-engineer 5a and 5b reports); any stateful delete or replace is a stop |
++| D4a | state-machine checks on the saved plan, before signing | the read-only `validate-state-machine-definition` and `test-state` lines of decision 9.3 (agent-report-infra-5a.md) |
++| D4 | deploy | `bash scripts/deploy.sh --plan-sha256 HEX64`; commit the release record. Rollback: `rollback.sh` to the Phase 14 revisions (`f159535e`) with the human's go |
++| D5 | smoke A (q05), G-29 check | `bash scripts/smoke-test.sh --question '...'` (key exported with `read -rs`); the record holds `api_url: "{api-url}"`, no host |
++| D6 | G-28 re-run (q13) | `bash scripts/smoke-test.sh --question '...'`, then one explain read (the orchestrator writes it) |
++| D7 | G-27 ingest probe, then the skip-only pass | probe: `bash scripts/run-bounded-pipeline.sh --stage load --snapshot dblp-2026-11-01 --loader rag-ingest --export 's3://{data-bucket}/graph/exports/20261119T062721Z-ba345f8d576c-cebe/run=f2625d504b12749389cf4f5b1a26aed4' --max-documents 5000 --wait-timeout 1800`; the full pass only if the probe wrote 0 vectors and 0 text objects with skip ratio 1.0: the same line without `--max-documents` (wait sized from the probe; rag's estimate `--wait-timeout 1800`) |
++| D7a | `p15-a-hadoop` (evening, attended, second terminal, right after D7 started) | `caffeinate -i bash scripts/run-experiment.sh --manifest experiments/manifests/p15-a-hadoop.json --manifest-sha256 HEX64` |
++| D8 | two cheap live suites | the sbt commands of the Phase 14 rag report |
++| D9 | sign the manifests | one `APPROVED-MANIFEST-SHA256: HEX64` line per manifest in `approvals.md`, one commit (before D7a) |
++| D9a | dry checks | `bash scripts/run-experiment.sh --manifest ... --manifest-sha256 HEX64 --check` for every signed manifest (the `p15-a-hadoop` one before D7a); then `git status --short` prints nothing |
++| D10 | F | `run-experiment.sh` with `p15-f-poison-replay` (terminal with `SCHOLARCHAIN_SERVICE_API_KEY` exported); commit the raw folder |
++| D11 | E | `run-experiment.sh` with `p15-e-retrieval-modes` (its collector runs the `rag-retrieval-eval` loader); commit the raw folder |
++| D11a | `p15-a-spark` (second terminal, after D11's folder is committed) | `run-experiment.sh` with `p15-a-spark` |
++| D11b | `p15-b-spark-burst` (third terminal, right after D11a) | `run-experiment.sh` with `p15-b-spark-burst` |
++| D12, D12b | C, then C's derived plot | `run-experiment.sh` with `p15-c-embedding-backlog`; commit; `python3 -I experiments/derived/NAME.py --manifest p15-c-embedding-backlog`; commit its output |
++| D13, D14 | D-query, D-read | `run-experiment.sh` with `p15-d-query-load`, then `p15-d-read-load`; commit after each |
++| D15 | gate check before the demo | orchestrator (records only) |
++| D16 to D18 | demo recording; `AwsAdaptersAwsSuite` (last); deploy-engineer's read-only report | human and agents |
++| D19, D20 | runtime-off and cleanup-mode plan, deploy | `bash scripts/plan.sh --runtime-enabled false --cleanup-mode true`; sign; `bash scripts/deploy.sh --plan-sha256 HEX64`; commit the release record (every service desired 0, running 0) |
++| D21 | overnight fallback only (see "Evening EMR runs and the D21 fallback") | one `caffeinate -i zsh -c '...'` line from the orchestrator |
++| D22, D23 | results check; derived tables and plots | `python3 -I experiments/derived/NAME.py` per script; commit `experiments/derived/out/**` |
++| D24 to D28 | instructor note, archive, cleanup | see "Cleanup order (D24 to D28)" |
++| D29, D30 | final summary; copy and commit `runbook-log.md` | orchestrator and human |
++
++Join before D19: every EMR run has ended and its folder is committed; `aws emr list-clusters --active --query 'length(Clusters)' --output text` prints `0` and no pipeline execution is `RUNNING`.
++
++## Phase 15 options and loaders (run-bounded-pipeline.sh)
++
++- `--emr-max-units N` (stages hadoop and spark): the EMR managed-scaling maximum of this execution's cluster (execution-input field `cluster.managedScalingMaxUnits`); integer 1..64 in the script, and the state machine fails the execution in its first state, before any cluster, unless `emr_managed_scaling_min_units <= N <= emr_managed_scaling_max_units` (today 2..4). Recorded in `configuration.execution_settings.emr_max_units`.
++- `--spark-shuffle-partitions N` (stage spark): `spark.sql.shuffle.partitions` of both Spark steps (field `spark.shufflePartitions`), 8..512, default 32. Recorded in `configuration.execution_settings.spark_shuffle_partitions`.
++- `--max-documents N` (loader rag-ingest, optional): passed on as `RagIngestJob --max-documents N` (1..10000000): every run and the retrieval smoke use the first N rendered documents. Recorded in `inputs.loader_options.max_documents` (null = all) and in `inputs.ops_command`.
++- `--loader rag-retrieval-eval` (experiment E; `org.scholarchain.rag.eval.RetrievalEvalJob`, no LLM call): `--graph-run-id run:v1:HEX32` (required; passed on as the job's `--graph-run`), `--modes LIST` (optional, comma list without spaces of `graph-only`, `vector-only`, `fused`; fused needs the other two), `--max-seconds N` (optional, 60..3600; job default 1200), `--question-timeout-seconds N` (optional, 5..300; job default 60). The job's `--attempt-id` is the script's own attempt ID, and its `--out` is a new folder inside the task. `--wait-timeout` must be at least the job's total limit plus 300 s (usage error 2 otherwise). Same refusals as every loader: the ops task definition's image tag must be the build commit, and no ops task of the family may be running (one ops task at a time). The report copy goes to `s3://{data-bucket}/rag/retrieval-eval/ATTEMPT_ID/report.json` (put-if-absent); the script prints `EVAL-REPORT: LOCATION` before the task starts and `EVAL-REPORT-COPY: OUTCOME LOCATION` after it, and records `outputs.retrieval_eval_report` (`location`, `copy_outcome`). Container exit 0 means completed with the copy `created` or `already present`; exit 1 (failed, the job's total time limit, or a failed copy) or 2 (refused arguments) makes the stage exit 6.
++- Example (E, run by its collector through run-experiment.sh): `bash scripts/run-bounded-pipeline.sh --stage load --snapshot dblp-2026-11-01 --loader rag-retrieval-eval --graph-run-id run:v1:f2625d504b12749389cf4f5b1a26aed4 --wait-timeout 1800`.
++
++## The experiment runner (run-experiment.sh)
++
++- One run per manifest attempt: `bash scripts/run-experiment.sh --manifest experiments/manifests/ID.json --manifest-sha256 HEX64`. It refuses (exit 4) a dirty tree, an untracked manifest, a sha256 mismatch, the example manifest, a manifest without its committed `APPROVED-MANIFEST-SHA256:` line, an existing run or raw folder, an untracked or non-executable action, and any `{...}` in `action.args` other than `{attempt-id}` and `s3://{data-bucket}/...`.
++- `--check`: every refusal, the read-only part (Terraform outputs, metric placeholders resolved or not, `{attempt-id}` on a sample ID, executable bit) and the action's `--preflight` through the real path; no run folder, no export. `--export-metrics ATTEMPT_ID`: a new folder `experiments/raw/MANIFEST_ID/ATTEMPT_ID-metrics-UTCSTAMP/` with the original window; the original folder is never touched.
++- After every ended action (also a failed or timed-out one) the runner waits 300 s, then exports the manifest's CloudWatch series. A run folder moves from `evidence/experiment-runs/ATTEMPT_ID/` to `experiments/raw/MANIFEST_ID/ATTEMPT_ID/` only at the end, after the identifier check.
++- Exit codes: 0 succeeded (metrics exported); 2 usage; 3 prerequisite or Terraform output missing; 4 refused (no folder); 5 the action failed (folder with status `failed`; remote work may still run); 6 succeeded but metrics failed or partial; 7 the runner's own time limit or TERM (remote work may still run); 8 an identifier (account ID, bucket name, API host, queue or DLQ URL, ALB or Neptune host) in the record or folder: the folder stays under `evidence/experiment-runs/`. The full table is in `experiments/README.md`.
++- Ctrl-C reaches the runner but not the action (the action runs in its own process group under `timeout`): after a Ctrl-C, check for a running collector, nested pipeline, ops task or EMR cluster before the next step.
++
++### Evening EMR runs and the D21 fallback
++
++- Every EMR run is attended in the evening: `p15-a-hadoop` (D7a, right after D7 started), then `p15-a-spark` (D11a, after E's raw folder is committed, because E's collector starts a nested `run-bounded-pipeline.sh`, which also refuses a dirty tree) and `p15-b-spark-burst` (D11b, right after D11a). At most three EMR clusters at once. Concurrency rule: every run starts on a clean tree; a running run writes only under its own `evidence/experiment-runs/ATTEMPT_ID/` and temporary folder; each finished folder is committed alone (`git add experiments/raw/MANIFEST_ID/ATTEMPT_ID`, never a parent folder, never a folder of a run still going); if a commit fails, no new run starts.
++- A run that is still going well past its expected end: read-only status lines first; then, with the human's go only, `aws stepfunctions stop-execution` for that execution (the state machine ends its own cluster on a caught failure; the EMR idle auto-termination is the backstop).
++- D21, the overnight fallback, is used only if an EMR run could not run or finish in the evening and no other session works on this repository that night (its uncommitted files would make every script refuse). The orchestrator writes one `caffeinate -i zsh -c '...'` line; each run logs to `/tmp/p15-D21-ID.log` with its `exit=` line. After each run: continue only on runner exit 0, 5 or 6 with the final folder present (any other code stops the chain, fail closed); no remote work left (active EMR clusters and `RUNNING` executions of the pipeline state machine both 0, read twice 60 s apart; else stop); stage only that attempt's folder, check the staged names and the secret scan, then commit (a failed run's folder is committed too); a run whose upper-bound cost (state-machine timeout plus the EMR idle end at its maximum units) does not fit waits for the morning. The chain ends with `CHAIN: a-hadoop=STATUS b-spark=STATUS stopped-by=REASON|none` in `/tmp/p15-D21-chain.log`.
++
++## Cleanup order (D24 to D28)
++
++1. D24: the human sends the instructor one line on where the grading evidence lives (the repository and the local archive with its sha256).
++2. D25: inventory first (`evidence-inventory.md`, orchestrator; anything needed for grading that exists only in AWS is a stop); copy and commit every report, `runbook-log.md` and the inventory; then `bash scripts/archive-evidence.sh` (S3 mode; the identifier check now includes the API host, G-29); check that the tar reads and lists the expected paths; copy the tar and its JSON record to `~/scholarchain-evidence-p15` with equal `shasum -a 256`; then `bash scripts/cleanup.sh --evidence-archive PATH --list` (the "before" inventory) with 0 active EMR clusters. **Expected at D25 (R-2 finding J-06):** the Phase 14 smoke records under `evidence/runs/` still hold the field `api_host` (written before G-29); archive-evidence.sh copies them into the archive's `repo/` folder, so its record says `byte_copies_hold_identifiers: true` and it prints a warning. This is expected and correct, not a new problem; the Phase 15 smoke records hold only `api_url: "{api-url}"`.
++3. D26: sign the removal plan (`APPROVED-PLAN-SHA256: HEX64` in `approvals.md`, commit).
++4. D27: `bash scripts/cleanup.sh --evidence-archive PATH --remove --plan-sha256 HEX64`; the human types the confirmation. If it stops partway: never a second `--remove` with the same plan; a new `--list`, a new plan and a new signature.
++5. D28: copy the post-archive cleanup records (masked forms only) into `docs/agent-runs/phase-15/` and commit; read-only checks that no EMR cluster, `emr-service-vpce` endpoint, NAT gateway, ALB, Neptune cluster or S3 Vectors bucket is left; Billing numbers once more.
++
++## Executable bits (human step)
++
++New collectors and load generators (`experiments/collectors/*.sh`, `load-tests/*.sh`) must be executable and tracked before run-experiment.sh accepts them (exit 4 otherwise). No agent runs `chmod`: the human runs one `chmod +x` line with the literal file names from experiment-engineer's report, before `git add` of the session 2 commit, and checks with `ls -l`.
++
+ ## DBLP DTD (Phase 14 decision 7)
+ 
+ The release declares no entities itself and writes non-ASCII characters as DTD named entities (`&eacute;`), so the Hadoop parse needs `dblp.dtd`. Without it the Hadoop stage still SUCCEEDS but rejects every record with a named entity as `undefined_entity`. The driver option `--dblp-dtd PATH` (modules/hadoop, `ScholarChainHadoop`) sets `scholarchain.dblp.dtdPath`; it goes through two `--hadoop-extra-arg` values, in this order: `'--dblp-dtd'`, then `'s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp.dtd'`. Do not pass `-D scholarchain.dblp.dtdPath=...` that way: the state machine appends the extra arguments after the application options, and the driver refuses a trailing `-D`. The D6 check: the J01 counter `scholarchain.reject-reason:undefined_entity` is 0. The run record's `configuration.note` and `configuration.extra_args` name the options passed.
+diff --git a/scripts/run-bounded-pipeline.sh b/scripts/run-bounded-pipeline.sh
+index 47ea7f5..e2cf204 100644
+--- a/scripts/run-bounded-pipeline.sh
++++ b/scripts/run-bounded-pipeline.sh
+@@ -8,7 +8,12 @@
+ #
+ # Status (Phase 13): static: shellcheck clean; runtime: untested; human
+ # execution required. Phase 14 G-07: uploads above 64 MiB are multipart
+-# (mpu_upload); runtime: untested.
++# (mpu_upload); runtime: untested. Phase 15 decision 9.3: --emr-max-units
++# and --spark-shuffle-partitions (execution-input fields
++# cluster.managedScalingMaxUnits and spark.shufflePartitions); runtime:
++# untested (first live use: p15-a-hadoop, D7a). Phase 15 decision 9.4: load
++# options --max-documents (rag-ingest) and the loader rag-retrieval-eval
++# (RetrievalEvalJob); runtime: untested (first live use: D7 probe and E, D11).
+ 
+ set -Eeuo pipefail
+ umask 077
+@@ -133,8 +138,17 @@ incomplete upload left behind after one day.
+                         '--dblp-dtd' 's3://{data-bucket}/raw/dblp/SNAPSHOT/dblp.dtd'
+                         (scripts/README.md "DBLP DTD"); recorded in
+                         configuration.extra_args
++  --emr-max-units N     (Phase 15) the EMR managed-scaling maximum of this
++                        execution's cluster: execution-input field
++                        cluster.managedScalingMaxUnits. Integer 1..64 here;
++                        the state machine refuses (fails before any cluster)
++                        unless emr_managed_scaling_min_units <= N <=
++                        emr_managed_scaling_max_units (Terraform; today 2..4).
++                        Absent: today's maximum (Terraform). One unit is one
++                        EC2 instance (core and task nodes only).
+   Recorded: execution name, EMR cluster IDs (execution history), the J09
+-  export runs (curated/.../j09-graph-export/run=HEX) under the output root.
++  export runs (curated/.../j09-graph-export/run=HEX) under the output root,
++  configuration.execution_settings (emr_max_units, null when absent).
+ 
+ --stage er (entity resolution on THIS machine; no AWS compute):
+   --hadoop-export s3://{data-bucket}/curated/.../run=HEX  (required)
+@@ -194,11 +208,19 @@ incomplete upload left behind after one day.
+                         PREFIX/ATTEMPT_ID/run=HEX. Give the same Spark
+                         inputs and out-root as the run being exported, so
+                         the graph job reuses that verified run.
++  --emr-max-units N     (Phase 15) as for --stage hadoop
++  --spark-shuffle-partitions N
++                        (Phase 15) spark.sql.shuffle.partitions of both Spark
++                        steps: execution-input field spark.shufflePartitions,
++                        integer 8..512 (checked here and by the state
++                        machine). Absent: 32 (today's value).
+   Recorded: execution name, EMR cluster IDs, the graph runs
+-  (run=HEX/_run_manifest.json) under the out-root and the export run.
++  (run=HEX/_run_manifest.json) under the out-root and the export run,
++  configuration.execution_settings (emr_max_units and
++  spark_shuffle_partitions, null when absent).
+ 
+ --stage load (one ops task on ECS Fargate; one at a time):
+-  --loader dynamodb-load|neptune-csv-build|neptune-bulk-start|neptune-bulk-status|rag-ingest
++  --loader dynamodb-load|neptune-csv-build|neptune-bulk-start|neptune-bulk-status|rag-ingest|rag-retrieval-eval
+   --export s3://{data-bucket}/graph/.../run=HEX   (dynamodb-load,
+                         neptune-csv-build, rag-ingest)
+   --dataset-id ID       (neptune-csv-build; --snapshot is its snapshot ID)
+@@ -208,13 +230,35 @@ incomplete upload left behind after one day.
+                         never recorded)
+   --load-id ID          (neptune-bulk-status)
+   --wait-seconds N      (neptune-bulk-status, 0..3600, passed on)
++  --max-documents N     (rag-ingest, optional; Phase 15 G-27 probe) passed
++                        on as RagIngestJob --max-documents: every run and the
++                        retrieval smoke use only the first N rendered
++                        documents; integer 1..10000000. Recorded in
++                        inputs.loader_options.max_documents (null = all).
++  rag-retrieval-eval (Phase 15 experiment E; RetrievalEvalJob, no LLM call):
++  --graph-run-id run:v1:HEX32  (required) the Spark graph run the runtime
++                        serves (the plan's --graph-run-id), passed on as
++                        RetrievalEvalJob --graph-run
++  --modes LIST          (optional) comma list of graph-only, vector-only,
++                        fused, without spaces (fused needs the other two);
++                        absent: all three (the job's default)
++  --max-seconds N       (optional) the job's total time limit, 60..3600
++                        (absent: the job's default 1200)
++  --question-timeout-seconds N  (optional) per question and mode, 5..300
++                        (absent: the job's default 60)
++  The job's --attempt-id is this run's ATTEMPT_ID, so its report goes to
++  s3://{data-bucket}/rag/retrieval-eval/ATTEMPT_ID/report.json (put-if-absent;
++  the prefix is objectStore.semanticContextPrefix of config/course.json);
++  recorded in outputs.retrieval_eval_report (logical location and the copy
++  outcome from the job's "report copy:" line). --wait-timeout must be at
++  least the job's total time limit plus 300 s (task start and the copy).
+   Refuses unless the ops task definition's image tag is the build commit
+   and no ops task of this family is running. Runs aws ecs run-task (Fargate,
+   app subnets, ops security group, no public IP) with the command of
+-  StorageLoadMain SUBCOMMAND or RagIngestJob built from their option
+-  constants, waits for the task to stop, and records the task ID, the
+-  container exit code and the log stream (logical). A non-zero exit code is
+-  a failed stage.
++  StorageLoadMain SUBCOMMAND, RagIngestJob or RetrievalEvalJob built from
++  their option constants, waits for the task to stop, and records the task
++  ID, the container exit code and the log stream (logical). A non-zero exit
++  code is a failed stage (exit 6).
+ 
+ Every stage: refuses a dirty tree (tracked changes or untracked files
+ outside .gitignore); the code version passed to every job is the BUILD
+@@ -350,6 +394,31 @@ A_DATASET_ID=""
+ A_GRAPH_RUN=""
+ A_LOAD_ID=""
+ A_WAIT_SECONDS=""
++A_EMR_MAX_UNITS=""
++A_SHUFFLE_PARTITIONS=""
++A_MAX_DOCUMENTS=""
++A_GRAPH_RUN_ID=""
++A_MODES=""
++A_MAX_SECONDS=""
++A_QUESTION_TIMEOUT=""
++# Phase 15 decision 9.4: the job bounds, copied from the rag contract
++# (RagIngestJob.MaxDocumentsBound; RetrievalEvalJob DefaultMaxSeconds,
++# MaxMaxSeconds, MaxQuestionTimeoutSeconds and their minimums).
++readonly RAG_MAX_DOCUMENTS_HI=10000000
++readonly EVAL_MAX_SECONDS_LO=60
++readonly EVAL_MAX_SECONDS_HI=3600
++readonly EVAL_MAX_SECONDS_DEFAULT=1200
++readonly EVAL_QUESTION_TIMEOUT_LO=5
++readonly EVAL_QUESTION_TIMEOUT_HI=300
++# The wait must cover the job's own limit plus task start and the report copy.
++readonly EVAL_WAIT_MARGIN_SECONDS=300
++readonly EVAL_REPORT_FOLDER="retrieval-eval"
++# Phase 15 decision 9.3: the script's own bounds (the state machine checks
++# the Terraform min..max of the units again and refuses before any cluster).
++readonly EMR_MAX_UNITS_LO=1
++readonly EMR_MAX_UNITS_HI=64
++readonly SHUFFLE_PARTITIONS_LO=8
++readonly SHUFFLE_PARTITIONS_HI=512
+ 
+ need_value() {
+   [ "$1" -ge 2 ] || die 2 "$2 needs a value"
+@@ -400,6 +469,13 @@ parse_args() {
+       --graph-run) need_value "$#" "$1"; mark_given graph-run; A_GRAPH_RUN="$2"; shift 2 ;;
+       --load-id) need_value "$#" "$1"; mark_given load-id; A_LOAD_ID="$2"; shift 2 ;;
+       --wait-seconds) need_value "$#" "$1"; mark_given wait-seconds; A_WAIT_SECONDS="$2"; shift 2 ;;
++      --emr-max-units) need_value "$#" "$1"; mark_given emr-max-units; A_EMR_MAX_UNITS="$2"; shift 2 ;;
++      --spark-shuffle-partitions) need_value "$#" "$1"; mark_given spark-shuffle-partitions; A_SHUFFLE_PARTITIONS="$2"; shift 2 ;;
++      --max-documents) need_value "$#" "$1"; mark_given max-documents; A_MAX_DOCUMENTS="$2"; shift 2 ;;
++      --graph-run-id) need_value "$#" "$1"; mark_given graph-run-id; A_GRAPH_RUN_ID="$2"; shift 2 ;;
++      --modes) need_value "$#" "$1"; mark_given modes; A_MODES="$2"; shift 2 ;;
++      --max-seconds) need_value "$#" "$1"; mark_given max-seconds; A_MAX_SECONDS="$2"; shift 2 ;;
++      --question-timeout-seconds) need_value "$#" "$1"; mark_given question-timeout-seconds; A_QUESTION_TIMEOUT="$2"; shift 2 ;;
+       *)
+         usage >&2
+         die 2 "unknown argument: $1"
+@@ -441,6 +517,46 @@ int_in() {
+   [[ "$1" =~ ^[0-9]+$ ]] && [ "$1" -ge "$2" ] && [ "$1" -le "$3" ]
+ }
+ 
++# Phase 15 decision 9.3: --emr-max-units and --spark-shuffle-partitions are
++# plain integers in the script's bounds (no leading zero, so jq reads the
++# same number); allow_only has already refused them for other stages.
++check_execution_settings() {
++  if is_given emr-max-units; then
++    if [[ ! "${A_EMR_MAX_UNITS}" =~ ^[1-9][0-9]{0,2}$ ]] ||
++      ! int_in "${A_EMR_MAX_UNITS}" "${EMR_MAX_UNITS_LO}" "${EMR_MAX_UNITS_HI}"; then
++      die 2 "--emr-max-units must be an integer ${EMR_MAX_UNITS_LO}..${EMR_MAX_UNITS_HI} (the state machine also refuses values outside the Terraform managed-scaling min..max)"
++    fi
++  fi
++  if is_given spark-shuffle-partitions; then
++    if [[ ! "${A_SHUFFLE_PARTITIONS}" =~ ^[1-9][0-9]{0,3}$ ]] ||
++      ! int_in "${A_SHUFFLE_PARTITIONS}" "${SHUFFLE_PARTITIONS_LO}" "${SHUFFLE_PARTITIONS_HI}"; then
++      die 2 "--spark-shuffle-partitions must be an integer ${SHUFFLE_PARTITIONS_LO}..${SHUFFLE_PARTITIONS_HI}"
++    fi
++  fi
++}
++
++# execution_settings_json: the Phase 15 execution-input settings for
++# configuration.execution_settings (null when the option was not given, so
++# the state machine used its default).
++execution_settings_json() {
++  jq -n --arg u "${A_EMR_MAX_UNITS}" --arg p "${A_SHUFFLE_PARTITIONS}" \
++    '{emr_max_units: (if $u == "" then null else ($u | tonumber) end),
++      spark_shuffle_partitions: (if $p == "" then null else ($p | tonumber) end),
++      note: "null = absent from the execution input: the state machine uses its defaults (the Terraform managed-scaling maximum; 32 shuffle partitions)"}'
++}
++
++# add_execution_settings INPUT_FILE: adds cluster.managedScalingMaxUnits and
++# spark.shufflePartitions to the execution input when given (numbers); absent
++# options add nothing, so the input is byte-for-byte what Phase 14 sent.
++add_execution_settings() {
++  local f="$1" tmp="${1}.settings"
++  jq --arg u "${A_EMR_MAX_UNITS}" --arg p "${A_SHUFFLE_PARTITIONS}" \
++    '(if $u == "" then . else .cluster = {managedScalingMaxUnits: ($u | tonumber)} end)
++     | (if $p == "" or (.spark | not) then . else .spark.shufflePartitions = ($p | tonumber) end)' \
++    "${f}" >"${tmp}" || die 5 "could not add the execution settings to the input"
++  mv -- "${tmp}" "${f}" || die 5 "could not write the execution input"
++}
++
+ check_args() {
+   [ -n "${STAGE}" ] || {
+     usage >&2
+@@ -456,8 +572,9 @@ check_args() {
+       int_in "${A_MAX_UPLOAD_MB}" 1 "${HARD_MAX_UPLOAD_MB}" || die 2 "--max-upload-mb must be 1..${HARD_MAX_UPLOAD_MB}"
+       ;;
+     hadoop)
+-      allow_only dblp hadoop-output hadoop-jar hadoop-extra-arg
++      allow_only dblp hadoop-output hadoop-jar hadoop-extra-arg emr-max-units
+       require_given dblp
++      check_execution_settings
+       ;;
+     er)
+       allow_only hadoop-export decision-time seed max-download-mb er-heap-gb llm-model-id upload
+@@ -474,20 +591,54 @@ check_args() {
+       [[ "${A_LLM_MODEL_ID}" =~ ^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$ ]] || die 2 "--llm-model-id has unexpected characters"
+       ;;
+     spark)
+-      allow_only hadoop-export identity-assignments out-root spark-jar spark-config export-source-run export-root
++      allow_only hadoop-export identity-assignments out-root spark-jar spark-config export-source-run export-root \
++        emr-max-units spark-shuffle-partitions
+       require_given hadoop-export identity-assignments out-root
+       if is_given export-source-run || is_given export-root; then
+         require_given export-source-run export-root
+       fi
++      check_execution_settings
+       ;;
+     load)
+-      allow_only loader export dataset-id graph-run load-id wait-seconds
++      allow_only loader export dataset-id graph-run load-id wait-seconds max-documents \
++        graph-run-id modes max-seconds question-timeout-seconds
+       require_given loader
+       case "${A_LOADER}" in
+-        dynamodb-load | rag-ingest)
++        dynamodb-load)
+           allow_only loader export
+           require_given export
+           ;;
++        rag-ingest)
++          allow_only loader export max-documents
++          require_given export
++          if is_given max-documents; then
++            if [[ ! "${A_MAX_DOCUMENTS}" =~ ^[1-9][0-9]{0,7}$ ]] ||
++              ! int_in "${A_MAX_DOCUMENTS}" 1 "${RAG_MAX_DOCUMENTS_HI}"; then
++              die 2 "--max-documents must be an integer 1..${RAG_MAX_DOCUMENTS_HI}"
++            fi
++          fi
++          ;;
++        rag-retrieval-eval)
++          allow_only loader graph-run-id modes max-seconds question-timeout-seconds
++          require_given graph-run-id
++          [[ "${A_GRAPH_RUN_ID}" =~ ^run:v1:[0-9a-f]{32}$ ]] || die 2 "--graph-run-id must be run:v1:<32 lowercase hex>"
++          if is_given modes; then
++            [[ "${A_MODES}" =~ ^(graph-only|vector-only|fused)(,(graph-only|vector-only|fused)){0,2}$ ]] ||
++              die 2 "--modes must be a comma list (no spaces) of graph-only, vector-only, fused"
++          fi
++          if is_given max-seconds; then
++            if [[ ! "${A_MAX_SECONDS}" =~ ^[1-9][0-9]{0,3}$ ]] ||
++              ! int_in "${A_MAX_SECONDS}" "${EVAL_MAX_SECONDS_LO}" "${EVAL_MAX_SECONDS_HI}"; then
++              die 2 "--max-seconds must be an integer ${EVAL_MAX_SECONDS_LO}..${EVAL_MAX_SECONDS_HI}"
++            fi
++          fi
++          if is_given question-timeout-seconds; then
++            if [[ ! "${A_QUESTION_TIMEOUT}" =~ ^[1-9][0-9]{0,2}$ ]] ||
++              ! int_in "${A_QUESTION_TIMEOUT}" "${EVAL_QUESTION_TIMEOUT_LO}" "${EVAL_QUESTION_TIMEOUT_HI}"; then
++              die 2 "--question-timeout-seconds must be an integer ${EVAL_QUESTION_TIMEOUT_LO}..${EVAL_QUESTION_TIMEOUT_HI}"
++            fi
++          fi
++          ;;
+         neptune-csv-build)
+           allow_only loader export dataset-id
+           require_given export dataset-id
+@@ -505,7 +656,7 @@ check_args() {
+             int_in "${A_WAIT_SECONDS}" 0 3600 || die 2 "--wait-seconds must be 0..3600"
+           fi
+           ;;
+-        *) die 2 "--loader must be dynamodb-load, neptune-csv-build, neptune-bulk-start, neptune-bulk-status or rag-ingest" ;;
++        *) die 2 "--loader must be dynamodb-load, neptune-csv-build, neptune-bulk-start, neptune-bulk-status, rag-ingest or rag-retrieval-eval" ;;
+       esac
+       ;;
+     *) die 2 "--stage must be upload-input, hadoop, er, spark or load" ;;
+@@ -522,6 +673,13 @@ check_args() {
+       *) WAIT_TIMEOUT="${DEFAULT_EXEC_WAIT}" ;;
+     esac
+   fi
++  # rag-retrieval-eval: the wait covers the job's own total limit, so a
++  # healthy run never ends as timed-out while the task still works.
++  if [ "${STAGE}" = "load" ] && [ "${A_LOADER}" = "rag-retrieval-eval" ]; then
++    local eval_limit="${A_MAX_SECONDS:-${EVAL_MAX_SECONDS_DEFAULT}}"
++    [ "${WAIT_TIMEOUT}" -ge $((eval_limit + EVAL_WAIT_MARGIN_SECONDS)) ] ||
++      die 2 "--wait-timeout must be at least the job's total limit (${eval_limit} s) plus ${EVAL_WAIT_MARGIN_SECONDS} s"
++  fi
+ }
+ 
+ enter_repo_root() {
+@@ -1265,6 +1423,7 @@ stage_hadoop() {
+     --arg snap "${SNAPSHOT}" --argjson extra "${extra}" \
+     '{codeVersion: $cv, hadoop: ({jar: $jar, output: $out, dblp: $dblp, dblpSnapshot: $snap}
+        + (if ($extra | length) > 0 then {extraArgs: $extra} else {} end))}' >"${input}"
++  add_execution_settings "${input}"
+   logical="$(jq -c --arg jar "$(logical_s3 "${jar}")" --arg out "$(logical_s3 "${output}")" \
+     --arg dblp "$(logical_s3 "${dblp}")" --argjson extra "${extra_logical}" \
+     '.hadoop.jar = $jar | .hadoop.output = $out | .hadoop.dblp = $dblp
+@@ -1272,11 +1431,11 @@ stage_hadoop() {
+   add_str INPUTS_JSON dblp_sha256 "${dblp_sha}"
+   # Phase 14 (R-1 note): the note names the driver options given with
+   # --hadoop-extra-arg (for example --dblp-dtd), so it stays true.
+-  CONFIG_JSON="$(jq -n --argjson extra "${extra_logical}" '{file: null, sha256: null,
++  CONFIG_JSON="$(jq -n --argjson extra "${extra_logical}" --argjson settings "$(execution_settings_json)" '{file: null, sha256: null,
+     note: (if ($extra | length) > 0
+            then "the Hadoop jobs use their built-in defaults plus -D scholarchain.code.version and the driver options in extra_args (for example --dblp-dtd, which sets scholarchain.dblp.dtdPath)"
+            else "the Hadoop jobs use their built-in defaults (-D scholarchain.code.version only)" end),
+-    extra_args: $extra}')"
++    extra_args: $extra, execution_settings: $settings}')"
+   printf 'INPUT: %s\n' "${logical}"
+ 
+   run_execution "${input}" "${logical}"
+@@ -1511,7 +1670,8 @@ stage_spark() {
+   check_artifact_commit "${jar}" "the Spark jar" >/dev/null
+   # I-24: a refusal (die 4) inside the substitution keeps its own exit code.
+   conf_sha="$(check_artifact_commit "${conf}" "the Spark job config")" || exit "$?"
+-  CONFIG_JSON="$(jq -n --arg f "$(logical_s3 "${conf}")" --arg s "${conf_sha}" '{file: $f, sha256: $s}')"
++  CONFIG_JSON="$(jq -n --arg f "$(logical_s3 "${conf}")" --arg s "${conf_sha}" \
++    --argjson settings "$(execution_settings_json)" '{file: $f, sha256: $s, execution_settings: $settings}')"
+   if is_given export-source-run; then
+     src="$(resolve_location "${A_EXPORT_SOURCE_RUN}" --export-source-run "${P_GRAPH}")" || exit "$?"
+     [[ "${src}" =~ /run=[0-9a-f]{32}$ ]] || die 4 "refusing: --export-source-run must end in /run=<32 hex>"
+@@ -1525,6 +1685,7 @@ stage_spark() {
+     '{codeVersion: $cv, spark: ({jar: $jar, config: $cfg, hadoopExport: $exp,
+        identityAssignments: $ids, outRoot: $out}
+        + (if $eroot != "" then {exportSourceRun: $src, exportRoot: $eroot} else {} end))}' >"${input}"
++  add_execution_settings "${input}"
+   logical="$(jq -c --arg jar "$(logical_s3 "${jar}")" --arg cfg "$(logical_s3 "${conf}")" \
+     --arg exp "$(logical_s3 "${export_uri}")" --arg ids "$(logical_s3 "${ids}")" \
+     --arg out "$(logical_s3 "${out_root}")" --arg src "$(logical_s3 "${src}")" --arg eroot "$(logical_s3 "${eroot}")" \
+@@ -1587,8 +1748,43 @@ check_ops_task() {
+     die 4 "refusing: an ops task of ${OPS_FAMILY} is already running (one loader at a time, Phase 7 m3)"
+ }
+ 
++# rag-retrieval-eval: the logical location of the job's report copy
++# (RetrievalEvalJob.reportKey: <semantic-context prefix>/retrieval-eval/
++# <attempt-id>/report.json; the prefix is the one baked into the image with
++# config/course.json, which equals HEAD's on a clean tree at the build
++# commit). Recorded before the task starts, so a failed run names it too.
++EVAL_REPORT_LOGICAL=""
++
++eval_report_location() {
++  local prefix
++  prefix="$(jq -r '.objectStore.semanticContextPrefix // empty' config/course.json 2>/dev/null)" ||
++    die 3 "cannot read objectStore.semanticContextPrefix from config/course.json"
++  [[ "${prefix}" =~ ^[a-z0-9][a-z0-9-]{0,62}$ ]] ||
++    die 3 "config/course.json objectStore.semanticContextPrefix is missing or unexpected"
++  EVAL_REPORT_LOGICAL="${LOGICAL_DATA_PREFIX}${prefix}/${EVAL_REPORT_FOLDER}/${ATTEMPT_ID}/report.json"
++  add_json OUTPUTS_JSON retrieval_eval_report "$(jq -n --arg l "${EVAL_REPORT_LOGICAL}" \
++    '{location: $l, copy_outcome: null, note: "copy_outcome from the job line \"[rag-retrieval-eval] report copy: OUTCOME OBJECT\"; null = line not seen"}')"
++  printf 'EVAL-REPORT: %s\n' "${EVAL_REPORT_LOGICAL}"
++}
++
++# eval_copy_outcome LINES: sets outputs.retrieval_eval_report.copy_outcome
++# from the job's "report copy:" line (the outcome may be two words, for
++# example "already present"; the object is the last word); best effort.
++eval_copy_outcome() {
++  local line outcome
++  line="$(printf '%s\n' "$1" | grep -E '^\[rag-retrieval-eval\] report copy: ' | tail -n 1 || true)"
++  [ -n "${line}" ] || return 0
++  line="${line#*report copy: }"
++  outcome="${line% *}"
++  [ "${outcome}" != "${line}" ] || return 0
++  add_json OUTPUTS_JSON retrieval_eval_report "$(jq -n --arg l "${EVAL_REPORT_LOGICAL}" --arg o "${outcome}" \
++    '{location: $l, copy_outcome: $o, note: "copy_outcome from the job line \"[rag-retrieval-eval] report copy: OUTCOME OBJECT\""}')"
++  printf 'EVAL-REPORT-COPY: %s %s\n' "${outcome}" "${EVAL_REPORT_LOGICAL}"
++}
++
+ # The loader command, from the option constants (StorageLoadMain.Options,
+-# RagIngestJob.Required/Optional). Real locations go to the task only.
++# RagIngestJob.Required/Optional, RetrievalEvalJob.Required/Optional). Real
++# locations go to the task only.
+ OPS_CMD=()
+ 
+ build_ops_command() {
+@@ -1623,8 +1819,37 @@ build_ops_command() {
+       ;;
+     rag-ingest)
+       OPS_CMD=(org.scholarchain.rag.ingest.RagIngestJob --config "${OPS_CONFIG}" --export "${export_real}" --out "${out}" --code-version "${BUILD_SHA}" --stores aws) # contract: RagIngestJob
++      if [ -n "${A_MAX_DOCUMENTS}" ]; then
++        OPS_CMD+=(--max-documents "${A_MAX_DOCUMENTS}") # contract: RagIngestJob.Optional max-documents
++      fi
++      add_json INPUTS_JSON loader_options "$(jq -n --arg m "${A_MAX_DOCUMENTS}" \
++        '{max_documents: (if $m == "" then null else ($m | tonumber) end),
++          note: "null = every rendered document (no --max-documents)"}')"
++      ;;
++    rag-retrieval-eval)
++      # contract: RetrievalEvalJob.Required (config out code-version attempt-id graph-run)
++      OPS_CMD=(org.scholarchain.rag.eval.RetrievalEvalJob --config "${OPS_CONFIG}" --out "${out}" --code-version "${BUILD_SHA}" --attempt-id "${ATTEMPT_ID}" --graph-run "${A_GRAPH_RUN_ID}")
++      # contract: RetrievalEvalJob.Optional (modes max-seconds question-timeout-seconds)
++      if [ -n "${A_MODES}" ]; then
++        OPS_CMD+=(--modes "${A_MODES}")
++      fi
++      if [ -n "${A_MAX_SECONDS}" ]; then
++        OPS_CMD+=(--max-seconds "${A_MAX_SECONDS}")
++      fi
++      if [ -n "${A_QUESTION_TIMEOUT}" ]; then
++        OPS_CMD+=(--question-timeout-seconds "${A_QUESTION_TIMEOUT}")
++      fi
++      add_json INPUTS_JSON loader_options "$(jq -n --arg g "${A_GRAPH_RUN_ID}" --arg a "${ATTEMPT_ID}" \
++        --arg m "${A_MODES}" --arg s "${A_MAX_SECONDS}" --arg q "${A_QUESTION_TIMEOUT}" \
++        '{graph_run_id: $g, eval_attempt_id: $a,
++          modes: (if $m == "" then null else ($m | split(",")) end),
++          max_seconds: (if $s == "" then null else ($s | tonumber) end),
++          question_timeout_seconds: (if $q == "" then null else ($q | tonumber) end),
++          note: "null = the job default (modes: graph-only, vector-only, fused; max_seconds 1200; question_timeout_seconds 60)"}')"
++      eval_report_location
+       ;;
+   esac
++  add_str INPUTS_JSON loader "${A_LOADER}"
+   # The recorded command: logical locations; the loader role ARN (it holds
+   # the account ID) is replaced by the name of its Terraform output.
+   local a logical_cmd='[]' shown
+@@ -1712,8 +1937,9 @@ stage_load() {
+ }
+ 
+ # collect_program_lines GROUP STREAM: the program's own summary lines
+-# ([storage-load] and [rag-ingest], already masked by the programs and masked
+-# again here) from the last 200 log events; best effort.
++# ([storage-load], [rag-ingest] and [rag-retrieval-eval], already masked by
++# the programs and masked again here) from the last 200 log events; best
++# effort.
+ collect_program_lines() {
+   local group="$1" stream="$2" ev lines
+   [ -n "${group}" ] || return 0
+@@ -1722,11 +1948,14 @@ collect_program_lines() {
+     warn "could not read the task's log events (see the log stream yourself)"
+     return 0
+   }
+-  lines="$(jq -r '.events[]?.message' <<<"${ev}" | grep -E '^\[(storage-load|rag-ingest)\]' | tail -n 20 | cut -c 1-2000 || true)"
++  lines="$(jq -r '.events[]?.message' <<<"${ev}" | grep -E '^\[(storage-load|rag-ingest|rag-retrieval-eval)\]' | tail -n 20 | cut -c 1-2000 || true)"
+   if [ -n "${lines}" ]; then
+     lines="$(mask_text "${lines}")"
+     printf '%s\n' "${lines}"
+     add_json OUTPUTS_JSON program_lines "$(jq -R -s -c 'split("\n") | map(select(length > 0))' <<<"${lines}")"
++    if [ "${A_LOADER}" = "rag-retrieval-eval" ]; then
++      eval_copy_outcome "${lines}"
++    fi
+   fi
+ }
+ 

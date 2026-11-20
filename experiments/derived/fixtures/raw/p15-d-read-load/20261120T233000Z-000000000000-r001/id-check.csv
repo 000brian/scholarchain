@@ -1,0 +1,4 @@
+route,item,start_epoch_s,http_status,curl_exit,time_total_s,class,error_code
+neighbors,researcher:v1:00000000000000000000000000000001,1795217402,200,0,0.300000,ok,-
+evidence,evidence:v1:00000000000000000000000000000002,1795217403,200,0,0.100000,ok,-
+neighbors,researcher:v1:00000000000000000000000000000003,1795217403,404,0,0.140000,not-found,NODE_NOT_FOUND

@@ -217,6 +217,36 @@ data "aws_iam_policy_document" "service_task" {
       resources = [var.job_queue_arn]
     }
   }
+
+  # Phase 15 decision 9.1: the worker's second loop receives, acknowledges
+  # (DeleteMessage) and releases (ChangeMessageVisibility) embedding-task-v1
+  # messages. It never sends (no sqs:SendMessage). The project boundary
+  # (identity/boundary.tf ProjectQueueMessages) allows these on
+  # NAME_PREFIX-* queues.
+  dynamic "statement" {
+    for_each = each.key == "worker" ? [1] : []
+    content {
+      sid       = "EmbeddingQueueConsume"
+      actions   = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:ChangeMessageVisibility"]
+      resources = [var.embedding_queue_arn]
+    }
+  }
+
+  # Phase 15 decision 9.1 (step 5b permission matrix): the re-embed path
+  # (storage VectorReembedder) rewrites one existing vector under its key with
+  # its existing metadata (PutVectors). Its other calls are granted above:
+  # GetVectors (VectorQueries), the text GetObject (SemanticTextRead), the
+  # completion record GetItem and PutItem on QuerySession (TablesReadWrite).
+  # Worker only; the boundary allows it (ProjectVectorData). The vector
+  # bucket is SSE-S3 (vectors module), so no KMS permission is needed.
+  dynamic "statement" {
+    for_each = each.key == "worker" ? [1] : []
+    content {
+      sid       = "VectorReembedWrite"
+      actions   = ["s3vectors:PutVectors"]
+      resources = local.index_arns
+    }
+  }
 }
 
 resource "aws_iam_role_policy" "service_task" {
@@ -227,7 +257,8 @@ resource "aws_iam_role_policy" "service_task" {
   policy = data.aws_iam_policy_document.service_task[each.key].json
 }
 
-# ops: storage loaders and the rag embedding ingest (decision 6 area 10).
+# ops: storage loaders, the rag embedding ingest (decision 6 area 10) and,
+# from Phase 15, the rag retrieval evaluation (rag-retrieval-eval).
 data "aws_iam_policy_document" "ops_task" {
   statement {
     sid       = "DataLakeList"
@@ -296,6 +327,16 @@ data "aws_iam_policy_document" "ops_task" {
       "neptune-db:StartLoaderJob",
       "neptune-db:GetLoaderJobStatus",
     ]
+    resources = [local.neptune_db]
+  }
+
+  # Phase 15 decision 9.4: rag-retrieval-eval (RetrievalEvalJob, experiment
+  # E) runs the graph-only mode's openCypher reads from the ops task
+  # (NeptuneAdapters executeOpenCypherQuery). Read only, the same cluster
+  # resource; the boundary allows it (NeptuneData).
+  statement {
+    sid       = "NeptuneReadForEval"
+    actions   = ["neptune-db:ReadDataViaQuery"]
     resources = [local.neptune_db]
   }
 

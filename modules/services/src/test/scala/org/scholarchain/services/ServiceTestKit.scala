@@ -153,7 +153,8 @@ object ServiceTestKit {
       clock: ManualClock = new ManualClock(),
       keys: Map[String, String] = env,
       closeRuntime: Boolean = true,
-      wrapStores: ServiceStores => ServiceStores = identity
+      wrapStores: ServiceStores => ServiceStores = identity,
+      embedding: Option[EmbeddingWork] = None
   ): Harness = {
     val (w, flaky, slow, rt) = runtimeOver(cfg, model)
     val settings = cfg.service.get
@@ -178,7 +179,8 @@ object ServiceTestKit {
           env = keys.get,
           startWorker = startWorker,
           closeRuntime = closeRuntime,
-          name = "test"
+          name = "test",
+          embedding = embedding
         )
       )
       .fold(e => { rt.close(); sys.error(e) }, identity)

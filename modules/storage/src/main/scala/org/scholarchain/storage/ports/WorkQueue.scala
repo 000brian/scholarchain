@@ -10,6 +10,18 @@ final case class WorkItem(id: String, payload: String)
   */
 final case class ReceivedWork(item: WorkItem, receipt: String, receiveCount: Int)
 
+/** The consuming side of a queue: receive, acknowledge, release. A worker that only consumes (the
+  * services' re-embed worker on the embedding queue) holds this type and cannot send.
+  *
+  *   - `receive` returns at most `max` items and hides them until `ack` or `release`.
+  *   - `ack` marks an item done. `release` makes it visible again at once.
+  */
+trait ReceiveQueue {
+  def receive(max: Int): List[ReceivedWork]
+  def ack(work: ReceivedWork): Unit
+  def release(work: ReceivedWork): Unit
+}
+
 /** A bounded embedding work queue (manifest-driven locally, SQS in AWS).
   *
   *   - `enqueue` is idempotent for the manifest queue (same IDs) and de-duplicated by consumers
@@ -18,7 +30,7 @@ final case class ReceivedWork(item: WorkItem, receipt: String, receiveCount: Int
   *   - `ack` marks an item done. `release` makes it visible again (a failed attempt).
   *   - An item delivered more than the queue's receive limit is moved aside as poison and reported.
   */
-trait WorkQueue {
+trait WorkQueue extends ReceiveQueue {
   def enqueue(items: Seq[WorkItem]): Int
   def receive(max: Int): List[ReceivedWork]
   def ack(work: ReceivedWork): Unit

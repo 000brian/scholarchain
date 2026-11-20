@@ -51,6 +51,7 @@
     "circuitFailureThreshold": 5,
     "circuitOpenMillis": 30000,
     "requestsPerMinute": 120,
-    "jobQueueUrl": "https://queue.example.invalid/example-jobs"
+    "jobQueueUrl": "https://queue.example.invalid/example-jobs",
+    "embeddingQueueUrl": "https://queue.example.invalid/example-embedding-tasks"
   }
 }

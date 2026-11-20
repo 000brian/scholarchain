@@ -234,7 +234,11 @@ object ConfigLoader {
         ConfigKey("service.circuitOpenMillis", WholeNumber),
         ConfigKey("service.requestsPerMinute", WholeNumber)
       ),
-      List(ConfigKey("service.jobQueueUrl", Text))
+      List(
+        ConfigKey("service.jobQueueUrl", Text),
+        // Phase 15 decision 5 (additive, optional).
+        ConfigKey("service.embeddingQueueUrl", Text)
+      )
     )
   )
 
@@ -543,7 +547,8 @@ object ConfigLoader {
           circuitFailureThreshold = i("service.circuitFailureThreshold"),
           circuitOpenMillis = i("service.circuitOpenMillis"),
           requestsPerMinute = i("service.requestsPerMinute"),
-          jobQueueUrl = v.get("service.jobQueueUrl").map(_.asInstanceOf[String])
+          jobQueueUrl = v.get("service.jobQueueUrl").map(_.asInstanceOf[String]),
+          embeddingQueueUrl = v.get("service.embeddingQueueUrl").map(_.asInstanceOf[String])
         )
       )
     )
@@ -885,6 +890,9 @@ object ConfigValidator {
       positive("service.requestsPerMinute", s.requestsPerMinute) ++
       s.jobQueueUrl.toList.flatMap(u =>
         check(isHttpsUrl(u), "service.jobQueueUrl: must be an https:// URL with a host")
+      ) ++
+      s.embeddingQueueUrl.toList.flatMap(u =>
+        check(isHttpsUrl(u), "service.embeddingQueueUrl: must be an https:// URL with a host")
       )
   }
 

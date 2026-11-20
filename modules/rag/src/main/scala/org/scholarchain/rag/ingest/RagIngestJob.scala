@@ -63,11 +63,13 @@ import org.scholarchain.storage.source.{ExportSources, RejectLog, S3ExportSource
   * build commit) and the jar's [[BuildIdentity]]; [[CodeVersion]] stays the run-ID input. Bucket
   * names and the account ID are masked in every report and printed line ([[Masking]]).
   *
-  * Bounds: `<out>` must not exist (a new root per attempt); a step longer than 60 minutes or free
-  * disk below 15 GiB ([[MinFreeBytes]]) stops the run.
+  * Bounds: `<out>` must not exist (a new root per attempt); a step longer than [[MaxStepMillis]]
+  * (120 minutes since Phase 15) or free disk below 15 GiB ([[MinFreeBytes]]) stops the run.
+  * `--max-documents N` (Phase 15) limits every run and the retrieval smoke to the first N rendered
+  * documents.
   *
   * {{{
-  * java -cp app.jar org.scholarchain.rag.ingest.RagIngestJob --config FILE --export RUN_DIR|s3://... --out DIR --code-version SHA40 [--stores local|aws] [--runs 2] [--samples-per-index 25]
+  * java -cp app.jar org.scholarchain.rag.ingest.RagIngestJob --config FILE --export RUN_DIR|s3://... --out DIR --code-version SHA40 [--stores local|aws] [--runs 2] [--samples-per-index 25] [--max-documents N]
   * }}}
   */
 object RagIngestJob {
@@ -82,13 +84,23 @@ object RagIngestJob {
 
   /** Free disk the job needs under `--out` at the start of every step (15 GiB). */
   val MinFreeBytes: Long = 15L * 1024 * 1024 * 1024
-  private val MaxStepMillis = 60L * 60 * 1000
+
+  /** A step that took longer than this stops the run (checked when the step ends). 120 minutes
+    * since Phase 15 (G-27; was 60): storage's estimate of a full 251,094-document first pass at the
+    * new write settings is about 31 min low, 36 central, 50 to 54 high (estimate, agent-report-
+    * storage.md "ESTIMATE"), so the cap is about twice the high estimate; a skip-only pass is about
+    * 25 to 100 s (estimate). Phase 14 measured 3.61 h for the old single-writer first pass.
+    */
+  val MaxStepMillis: Long = 120L * 60 * 1000
+
+  /** Bounds of `--max-documents` (Phase 15, G-27 probe): at most this many rendered documents. */
+  val MaxDocumentsBound: Int = 10000000
 
   /** The contract (decision 7): the option names, without `--`. The parser accepts exactly these;
     * scripts are written from this constant.
     */
   val Required: List[String] = List("config", "export", "out", "code-version")
-  val Optional: List[String] = List("stores", "runs", "samples-per-index")
+  val Optional: List[String] = List("stores", "runs", "samples-per-index", "max-documents")
 
   val ReportFormat = "scholarchain.rag.ingest-run-report"
   val ReportCopyFormat = "scholarchain.rag.ingest-report-copy"
@@ -102,6 +114,12 @@ object RagIngestJob {
 
   /** @param exportLocation
     *   a local export directory (absolute) or an `s3://` export URI
+    * @param maxDocuments
+    *   `--max-documents N` (Phase 15, G-27): every run ingests only the first N rendered documents
+    *   (render order, which is deterministic), and the retrieval smoke samples only those. The
+    *   whole export is still read and rendered. On unchanged data the probe writes nothing (every
+    *   document is skipped), so D7 can measure the skip rate on 5,000 documents before the full
+    *   pass. None: every document.
     */
   final case class Options(
       config: Path,
@@ -110,7 +128,8 @@ object RagIngestJob {
       runs: Int,
       samplesPerIndex: Int,
       stores: String,
-      codeVersion: String
+      codeVersion: String,
+      maxDocuments: Option[Int] = None
   )
 
   /** Parses `--name value` pairs; exactly the names of [[Required]] and [[Optional]] are accepted
@@ -154,6 +173,14 @@ object RagIngestJob {
         )
         runs <- int("runs", 2, 1, 3)
         samples <- int("samples-per-index", 25, 1, 500)
+        maxDocs <- m.get("max-documents") match {
+          case None    => Right(None)
+          case Some(v) =>
+            v.toIntOption
+              .filter(x => x >= 1 && x <= MaxDocumentsBound)
+              .map(Some(_))
+              .toRight(s"--max-documents must be in 1..$MaxDocumentsBound")
+        }
         stores <- Right(m.getOrElse("stores", "local"))
           .filterOrElse(Set("local", "aws"), "--stores must be local or aws")
         _ <- Either.cond(
@@ -168,7 +195,8 @@ object RagIngestJob {
         runs,
         samples,
         stores,
-        code
+        code,
+        maxDocs
       )
     }
   }
@@ -373,7 +401,13 @@ object RagIngestJob {
       "label" -> Label,
       "codeVersion" -> opts.codeVersion,
       "jobCodeVersion" -> CodeVersion,
-      "build" -> hooks.buildIdentity().toJson
+      "build" -> hooks.buildIdentity().toJson,
+      "limits" -> ujson.Obj(
+        "maxStepMillis" -> MaxStepMillis.toDouble,
+        "maxDocuments" -> opts.maxDocuments.map(n => ujson.Num(n.toDouble)).getOrElse(ujson.Null),
+        "runs" -> opts.runs,
+        "samplesPerIndex" -> opts.samplesPerIndex
+      )
     )
     val steps = ujson.Obj()
     report("steps") = steps
@@ -388,7 +422,8 @@ object RagIngestJob {
       val ms = (System.nanoTime() - t0) / 1000000L
       say(s"[rag-ingest] step $name finished in $ms ms")
       steps(name) = ujson.Obj("millis" -> ms.toDouble, "freeDiskBytesAfter" -> disk().toDouble)
-      if (ms > MaxStepMillis) throw new StopRun(s"step $name took $ms ms (> 60 minutes)")
+      if (ms > MaxStepMillis)
+        throw new StopRun(s"step $name took $ms ms (> ${MaxStepMillis / 60000L} minutes)")
       a
     }
     def write(): Array[Byte] = {
@@ -488,15 +523,18 @@ object RagIngestJob {
       report("runs") = runs
       var reports = List.empty[IngestReport]
       var digests = List.empty[String]
+      // --max-documents: the first N rendered documents (render order is deterministic)
+      def selected(c: RenderedCorpus) = opts.maxDocuments.fold(c.documents)(c.documents.take)
       (1 to opts.runs).foreach { n =>
         corpus = null
         corpus = step(s"render-run-$n")(builder.renderAll())
         digests :+= corpus.digest
-        val docsPerIndex = corpus.documents.groupMapReduce(_.indexName)(_ => 1L)(_ + _)
+        val docs = selected(corpus)
+        val docsPerIndex = docs.groupMapReduce(_.indexName)(_ => 1L)(_ + _)
         val usageBefore = doc.usage.requests
         val r = step(s"ingest-run-$n") {
           val s = pipeline.open(runId, s"rag-ingest run $n")
-          s.ingest(corpus.documents.iterator)
+          s.ingest(docs.iterator)
           s.finish()
         }
         reports :+= r
@@ -505,6 +543,7 @@ object RagIngestJob {
           "run" -> n,
           "corpusDigest" -> corpus.digest,
           "documents" -> corpus.documents.size.toDouble,
+          "documentsIngested" -> docs.size.toDouble,
           "documentsPerIndex" -> ujson.Obj.from(
             cfg.vectors.indexNames.map(i => i -> ujson.Num(docsPerIndex.getOrElse(i, 0L).toDouble))
           ),
@@ -526,7 +565,7 @@ object RagIngestJob {
       // ---- retrieval smoke samples on the real corpus (fake provider: lexical, not semantic) ----
       val retriever = new SemanticRetriever(query.port, query.spec, env.vectors, cfg.vectors)
       val smoke = step("retrieval-smoke") {
-        val byIndex = corpus.documents.groupBy(_.indexName)
+        val byIndex = selected(corpus).groupBy(_.indexName)
         ujson.Obj.from(cfg.vectors.indexNames.flatMap { idx =>
           byIndex.get(idx).map { docs =>
             val sorted = docs.sortBy(_.vectorKey)

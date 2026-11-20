@@ -395,7 +395,9 @@ class RuntimeRepairsSuite extends munit.FunSuite {
   test("QueryAudit v2: template IDs, indexes, filter keys, model calls and cache hits are filled") {
     val p = run(workflow(), Path)
     val a = p.audit
-    assertEquals(a.schemaVersion, 2)
+    // Phase 15 G-28: the workflow writes QueryAudit v3 (v2 fields unchanged, plus abstentionCodes)
+    assertEquals(a.schemaVersion, 3)
+    assertEquals(a.abstentionCodes, Nil)
     assert(a.queryTemplateIds.contains("coauthor_edge_between"), a.queryTemplateIds.toString)
     assert(
       a.indexesQueried.contains(storageConfig.vectors.collaborationPathIndex),

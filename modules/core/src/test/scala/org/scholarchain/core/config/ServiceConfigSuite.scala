@@ -58,7 +58,8 @@ class ServiceConfigSuite extends munit.FunSuite {
     circuitFailureThreshold = 5,
     circuitOpenMillis = 30000,
     requestsPerMinute = 120,
-    jobQueueUrl = Some("https://queue.example.invalid/example-jobs")
+    jobQueueUrl = Some("https://queue.example.invalid/example-jobs"),
+    embeddingQueueUrl = Some("https://queue.example.invalid/example-embedding-tasks")
   )
 
   test("without service the config is None and serializes and fingerprints as before") {
@@ -74,7 +75,7 @@ class ServiceConfigSuite extends munit.FunSuite {
     val c = loaded()
     assertEquals(c.config.service, Some(Expected))
     val paths = ConfigLoader.allKeys.map(_.path).filter(_.startsWith("service."))
-    assertEquals(paths.size, 14)
+    assertEquals(paths.size, 15)
     paths.foreach(p => assertEquals(c.origins.get(p), Some(ConfigOrigin.File(ServiceFile)), p))
     // The other optional sections stay absent.
     val cfg = c.config
@@ -169,7 +170,10 @@ class ServiceConfigSuite extends munit.FunSuite {
       "requestsPerMinute" -> "120"
     ).map { case (k, v) => ConfigKey.envVarFor(s"service.$k") -> v }
     val c = ConfigLoader.load(baseText, BaseFile, env).fold(e => fail(e.message), identity)
-    assertEquals(c.config.service, Some(Expected.copy(jobQueueUrl = None)))
+    assertEquals(
+      c.config.service,
+      Some(Expected.copy(jobQueueUrl = None, embeddingQueueUrl = None))
+    )
   }
 
   test("the loader stores only the API-key variable NAMES and never reads their values") {
@@ -360,6 +364,101 @@ class ServiceConfigSuite extends munit.FunSuite {
       "https://queue.example.invalid:8443/a/b",
       "https://sqs.us-east-1.example.invalid/000000000000/example-jobs"
     ).foreach(u => loaded(editService("jobQueueUrl", u)))
+  }
+
+  // Phase 15 decision 5: optional embedding-task queue for the worker's second loop.
+  val EmbeddingUrlError = "service.embeddingQueueUrl: must be an https:// URL with a host"
+
+  test("decision 5: embeddingQueueUrl valid in the file loads with a file origin") {
+    val c = loaded(editService("embeddingQueueUrl", "https://queue.example.invalid:8443/a/b"))
+    assertEquals(
+      c.config.service.flatMap(_.embeddingQueueUrl),
+      Some("https://queue.example.invalid:8443/a/b")
+    )
+    assertEquals(
+      c.origins.get("service.embeddingQueueUrl"),
+      Some(ConfigOrigin.File(ServiceFile))
+    )
+    // jobQueueUrl is independent of it.
+    assertEquals(c.config.service.flatMap(_.jobQueueUrl), Expected.jobQueueUrl)
+  }
+
+  test(
+    "decision 5: embeddingQueueUrl absent resolves to None, keeps the job queue, and does not fail"
+  ) {
+    val c = loaded(edit(_("service").obj.remove("embeddingQueueUrl")))
+    assertEquals(c.config.service, Some(Expected.copy(embeddingQueueUrl = None)))
+    assert(!c.origins.contains("service.embeddingQueueUrl"))
+    // Absent, the field is not serialized: configs without it keep their JSON and fingerprint.
+    val json = ujson.read(upickle.default.write(c.config))
+    assert(!json("service").obj.contains("embeddingQueueUrl"), json("service"))
+    assertEquals(
+      upickle.default.read[ScholarChainConfig](upickle.default.write(c.config)),
+      c.config
+    )
+    // A ServiceSettings JSON written before the field existed still reads, as None.
+    val old = ujson.read(upickle.default.write(Expected))
+    old.obj.remove("embeddingQueueUrl")
+    assertEquals(
+      upickle.default.read[ServiceSettings](old.render()),
+      Expected.copy(embeddingQueueUrl = None)
+    )
+  }
+
+  test("decision 5: SCHOLARCHAIN_CFG_SERVICE_EMBEDDING_QUEUE_URL overrides the file") {
+    assertEquals(
+      ConfigKey.envVarFor("service.embeddingQueueUrl"),
+      "SCHOLARCHAIN_CFG_SERVICE_EMBEDDING_QUEUE_URL"
+    )
+    val c = loaded(env =
+      Map("SCHOLARCHAIN_CFG_SERVICE_EMBEDDING_QUEUE_URL" -> "https://queue.example.invalid/other")
+    )
+    assertEquals(
+      c.config.service,
+      Some(Expected.copy(embeddingQueueUrl = Some("https://queue.example.invalid/other")))
+    )
+    assertEquals(
+      c.origins("service.embeddingQueueUrl"),
+      ConfigOrigin.Environment("SCHOLARCHAIN_CFG_SERVICE_EMBEDDING_QUEUE_URL")
+    )
+    // Through the environment alone it activates the section: the 13 required keys are reported.
+    val onlyUrl = ConfigLoader.load(
+      baseText,
+      BaseFile,
+      Map("SCHOLARCHAIN_CFG_SERVICE_EMBEDDING_QUEUE_URL" -> "https://queue.example.invalid/q")
+    )
+    assertEquals(onlyUrl.left.map(_.messages.size), Left(13))
+  }
+
+  test("decision 5: a malformed embeddingQueueUrl is refused naming the key, never the value") {
+    val refused = List(
+      "http://queue.example.invalid/embed-marker",
+      "queue.example.invalid/embed-marker",
+      "https://",
+      "https:///embed-marker",
+      "https://queue.example.invalid/embed marker",
+      "https://user:pass@queue.example.invalid/embed-marker",
+      "HTTPS://queue.example.invalid/embed-marker",
+      "ftp://queue.example.invalid/embed-marker"
+    )
+    refused.foreach { u =>
+      val fromFile = load(editService("embeddingQueueUrl", u))
+      val fromEnv = load(env = Map("SCHOLARCHAIN_CFG_SERVICE_EMBEDDING_QUEUE_URL" -> u))
+      List(fromFile, fromEnv).foreach { r =>
+        assertEquals(r.left.map(_.messages), Left(List(EmbeddingUrlError)), u)
+        val all = r.left.toOption.map(_.messages.mkString("; ")).getOrElse("")
+        assert(!all.contains("embed-marker") && !all.contains("embed marker"), all)
+        assert(!all.contains("queue.example.invalid"), all)
+      }
+    }
+    assertError(
+      load(editService("embeddingQueueUrl", 1)),
+      "service.embeddingQueueUrl: expected a string"
+    )
+    List(
+      "https://queue.example.invalid",
+      "https://sqs.us-east-1.example.invalid/000000000000/example-embedding-tasks"
+    ).foreach(u => loaded(editService("embeddingQueueUrl", u)))
   }
 
   test("service environment variable names follow the rule") {

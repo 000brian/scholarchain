@@ -33,13 +33,24 @@ final case class PlannedStep(
 )
 
 /** Facts, notes and abstentions of one retrieval stage. `abstentions` are reasons why a step could
-  * not be answered (they are stated in the answer).
+  * not be answered (their texts are stated in the answer; their fixed codes go into the audit,
+  * Phase 15 G-28).
   */
-final case class StageOutput(facts: List[Fact], notes: List[String], abstentions: List[String]) {
+final case class StageOutput(
+    facts: List[Fact],
+    notes: List[String],
+    abstentions: List[Abstention]
+) {
   def ++(o: StageOutput): StageOutput =
     StageOutput(facts ++ o.facts, notes ++ o.notes, abstentions ++ o.abstentions)
 }
-object StageOutput { val empty: StageOutput = StageOutput(Nil, Nil, Nil) }
+object StageOutput {
+  val empty: StageOutput = StageOutput(Nil, Nil, Nil)
+
+  /** A stage output with one coded abstention and nothing else. */
+  def abstain(code: String, text: String): StageOutput =
+    StageOutput(Nil, Nil, List(Abstention(code, text)))
+}
 
 /** Fixed texts of store and retrieval failures (C-02): a stage never puts a store, SDK or provider
   * message into a note or an abstention, because both reach the answer. Names and window labels
@@ -192,12 +203,21 @@ final class CollaborationMetrics(
   def run(steps: List[PlannedStep]): StageOutput =
     steps.map(step).foldLeft(StageOutput.empty)(_ ++ _)
 
-  private def entry(r: ResearcherRef, w: String): Either[String, MetricCacheEntry] =
+  private def entry(r: ResearcherRef, w: String): Either[Abstention, MetricCacheEntry] =
     stores.metrics
       .get(r.id, w)
       .left
-      .map(_ => StageFailures.metrics(r.displayName, w))
-      .flatMap(_.toRight(s"${r.displayName} has no stored metrics in window $w"))
+      .map(_ =>
+        Abstention(AbstentionCodes.MetricsReadFailed, StageFailures.metrics(r.displayName, w))
+      )
+      .flatMap(
+        _.toRight(
+          Abstention(
+            AbstentionCodes.MetricsMissing,
+            s"${r.displayName} has no stored metrics in window $w"
+          )
+        )
+      )
 
   private def step(s: PlannedStep): StageOutput = s.operation match {
     case QueryOperation.CollaborationBreadth | QueryOperation.ResearcherLookup =>
@@ -261,7 +281,13 @@ final class CollaborationMetrics(
               StageOutput(
                 m ++ works,
                 notes,
-                if (m.isEmpty) List(s"${r.displayName} has no stored M in ${s.windowLabel}")
+                if (m.isEmpty)
+                  List(
+                    Abstention(
+                      AbstentionCodes.MetricsMissing,
+                      s"${r.displayName} has no stored M in ${s.windowLabel}"
+                    )
+                  )
                 else Nil
               )
           }
@@ -272,7 +298,11 @@ final class CollaborationMetrics(
       s.researchers.zipWithIndex
         .map { case (r, i) =>
           stores.metrics.allWindows(r.id) match {
-            case Left(_) => StageOutput(Nil, Nil, List(StageFailures.allWindows(r.displayName)))
+            case Left(_) =>
+              StageOutput.abstain(
+                AbstentionCodes.MetricsReadFailed,
+                StageFailures.allWindows(r.displayName)
+              )
             case Right(entries) =>
               val wanted =
                 if (s.comparisonWindows.nonEmpty) s.comparisonWindows
@@ -286,7 +316,12 @@ final class CollaborationMetrics(
                   s"${r.displayName} has no stored metrics in window $w (no publications in that window)."
                 ),
                 if (chosen.isEmpty)
-                  List(s"${r.displayName} has no stored metrics in the compared windows")
+                  List(
+                    Abstention(
+                      AbstentionCodes.MetricsMissing,
+                      s"${r.displayName} has no stored metrics in the compared windows"
+                    )
+                  )
                 else Nil
               )
           }
@@ -299,7 +334,10 @@ final class CollaborationMetrics(
         case None =>
           stores.metrics.ranking(s.windowLabel, metric, s.limit) match {
             case Left(_) =>
-              StageOutput(Nil, Nil, List(StageFailures.ranking(metric.wire, s.windowLabel)))
+              StageOutput.abstain(
+                AbstentionCodes.RankingReadFailed,
+                StageFailures.ranking(metric.wire, s.windowLabel)
+              )
             case Right(rows) =>
               StageOutput(
                 rows.map(x =>
@@ -317,7 +355,12 @@ final class CollaborationMetrics(
                 ),
                 Nil,
                 if (rows.isEmpty)
-                  List(s"no ranking is stored for ${metric.wire} in ${s.windowLabel}")
+                  List(
+                    Abstention(
+                      AbstentionCodes.RankingMissing,
+                      s"no ranking is stored for ${metric.wire} in ${s.windowLabel}"
+                    )
+                  )
                 else Nil
               )
           }
@@ -337,7 +380,8 @@ final class CollaborationMetrics(
       topic: String
   ): StageOutput =
     semantic.profileCandidates(topic, s.windowLabel) match {
-      case Left(_)      => StageOutput(Nil, Nil, List(StageFailures.TopicCandidates))
+      case Left(_) =>
+        StageOutput.abstain(AbstentionCodes.TopicCandidatesFailed, StageFailures.TopicCandidates)
       case Right(cands) =>
         val ids = cands.flatMap(_.researcherId).distinct
         val reads = ids.map(id => stores.metrics.get(id, s.windowLabel))
@@ -381,14 +425,24 @@ final class CollaborationMetrics(
           )
         }
         val _ = names
-        if (failed > 0) StageOutput(Nil, Nil, List(StageFailures.topicMetrics(failed)))
+        if (failed > 0)
+          StageOutput.abstain(
+            AbstentionCodes.TopicMetricsFailed,
+            StageFailures.topicMetrics(failed)
+          )
         else
           StageOutput(
             facts,
             List(
               s"Topic filter: researchers were matched to the topic by researcher-profile similarity within ${s.windowLabel} (top ${ctx.vectorTopK} profiles), not by topic labels; ranks are positions among those candidates."
             ),
-            if (facts.isEmpty) List(s"no researcher profile in ${s.windowLabel} matched the topic")
+            if (facts.isEmpty)
+              List(
+                Abstention(
+                  AbstentionCodes.TopicNoMatch,
+                  s"no researcher profile in ${s.windowLabel} matched the topic"
+                )
+              )
             else Nil
           )
     }
@@ -427,10 +481,9 @@ final class PathFinder(
     if (ctx.graphWindowLabels.contains(s.windowLabel)) None
     else
       Some(
-        StageOutput(
-          Nil,
-          Nil,
-          List(s"coauthor edges for window ${s.windowLabel} are not loaded in this environment")
+        StageOutput.abstain(
+          AbstentionCodes.WindowNotLoaded,
+          s"coauthor edges for window ${s.windowLabel} are not loaded in this environment"
         )
       )
 
@@ -529,7 +582,10 @@ final class PathFinder(
 
   private def shortestPath(s: PlannedStep): StageOutput = s.researchers match {
     case List(a, b) if a.id == b.id =>
-      StageOutput(Nil, Nil, List("a path needs two different researchers"))
+      StageOutput.abstain(
+        AbstentionCodes.PathSameResearcher,
+        "a path needs two different researchers"
+      )
     case List(a, b) =>
       val window = ctx.yearWindow(s.windowLabel).get
       val fromSpark = precomputed(a.id, b.id, s.windowLabel)
@@ -600,7 +656,8 @@ final class PathFinder(
             }
         }
       pathIds match {
-        case Left(_)             => StageOutput(Nil, Nil, List(StageFailures.PathSearch))
+        case Left(_) =>
+          StageOutput.abstain(AbstentionCodes.PathQueryFailed, StageFailures.PathSearch)
         case Right(Left(absent)) =>
           val note =
             if (absent.complete)
@@ -610,7 +667,10 @@ final class PathFinder(
           StageOutput(List(absent), List(note), Nil)
         case Right(Right((ids, origin, sparkId, truncated, src))) =>
           if (ids.size < 2 || ids.exists(!_.isWellFormed) || ids.head != a.id || ids.last != b.id)
-            StageOutput(Nil, Nil, List("the stored path does not connect the two researchers"))
+            StageOutput.abstain(
+              AbstentionCodes.PathResultInvalid,
+              "the stored path does not connect the two researchers"
+            )
           else {
             val refs = ids.map(ref(_, s.researchers))
             val hops = refs.zip(refs.tail).take(MaxHopEdges).zipWithIndex.map { case ((x, y), i) =>
@@ -627,13 +687,18 @@ final class PathFinder(
             )
           }
       }
-    case _ => StageOutput(Nil, Nil, List("a shortest path needs exactly two resolved researchers"))
+    case _ =>
+      StageOutput.abstain(
+        AbstentionCodes.PathNeedsTwoResearchers,
+        "a shortest path needs exactly two resolved researchers"
+      )
   }
 
   private def neighbors(s: PlannedStep): StageOutput = s.researchers match {
     case List(a, b) =>
       edge(a, b, s.windowLabel, 20) match {
-        case Left(_)        => StageOutput(Nil, Nil, List(StageFailures.EdgeLookup))
+        case Left(_) =>
+          StageOutput.abstain(AbstentionCodes.EdgeLookupFailed, StageFailures.EdgeLookup)
         case Right(Some(e)) => StageOutput(List(e), Nil, Nil)
         case Right(None)    =>
           StageOutput(
@@ -661,7 +726,8 @@ final class PathFinder(
     case a :: Nil =>
       val limit = math.min(s.limit, ctx.runtime.graphResultLimit)
       stores.graph.run(GraphQuery.CoauthorNeighbors(a.id, s.windowLabel, limit)) match {
-        case Left(_)  => StageOutput(Nil, Nil, List(StageFailures.NeighborLookup))
+        case Left(_) =>
+          StageOutput.abstain(AbstentionCodes.NeighborLookupFailed, StageFailures.NeighborLookup)
         case Right(r) =>
           val refs = r.rows.flatMap { row =>
             GraphRows
@@ -689,7 +755,10 @@ final class PathFinder(
           )
       }
     case _ =>
-      StageOutput(Nil, Nil, List("direct collaboration needs one or two resolved researchers"))
+      StageOutput.abstain(
+        AbstentionCodes.CollaborationNeedsResearchers,
+        "direct collaboration needs one or two resolved researchers"
+      )
   }
 }
 
@@ -717,14 +786,8 @@ final class CommunityAnalyst(stores: RuntimeStores, ctx: RuntimeContext, paths: 
           stores.metrics.get(r.id, s.windowLabel) match {
             case Right(Some(e)) =>
               StageOutput(metricFact(r, e, ComponentSize, 30 + i).toList, Nil, Nil)
-            case Right(None) =>
-              StageOutput(
-                Nil,
-                Nil,
-                List(s"${r.displayName} has no stored metrics in window ${s.windowLabel}")
-              )
-            case Left(_) =>
-              StageOutput(Nil, Nil, List(StageFailures.metrics(r.displayName, s.windowLabel)))
+            case Right(None) => noMetrics(r, s.windowLabel)
+            case Left(_)     => metricsFailed(r, s.windowLabel)
           }
         }
         .foldLeft(StageOutput.empty)(_ ++ _)
@@ -752,14 +815,8 @@ final class CommunityAnalyst(stores: RuntimeStores, ctx: RuntimeContext, paths: 
                    else Nil),
                 Nil
               )
-            case Right(None) =>
-              StageOutput(
-                Nil,
-                Nil,
-                List(s"${r.displayName} has no stored metrics in window ${s.windowLabel}")
-              )
-            case Left(_) =>
-              StageOutput(Nil, Nil, List(StageFailures.metrics(r.displayName, s.windowLabel)))
+            case Right(None) => noMetrics(r, s.windowLabel)
+            case Left(_)     => metricsFailed(r, s.windowLabel)
           }
         }
         .foldLeft(StageOutput.empty)(_ ++ _)
@@ -767,10 +824,9 @@ final class CommunityAnalyst(stores: RuntimeStores, ctx: RuntimeContext, paths: 
     case QueryOperation.BridgeResearchers =>
       stores.metrics.ranking(s.windowLabel, CommunitiesConnected, s.limit) match {
         case Left(_) =>
-          StageOutput(
-            Nil,
-            Nil,
-            List(StageFailures.ranking(CommunitiesConnected.wire, s.windowLabel))
+          StageOutput.abstain(
+            AbstentionCodes.RankingReadFailed,
+            StageFailures.ranking(CommunitiesConnected.wire, s.windowLabel)
           )
         case Right(rows) =>
           var ccdFailed = 0
@@ -798,11 +854,27 @@ final class CommunityAnalyst(stores: RuntimeStores, ctx: RuntimeContext, paths: 
             facts,
             List(Caveat) ++
               (if (ccdFailed > 0) List(StageFailures.bridgeCcd(ccdFailed)) else Nil),
-            if (rows.isEmpty) List(s"no bridge ranking is stored for ${s.windowLabel}") else Nil
+            if (rows.isEmpty)
+              List(
+                Abstention(
+                  AbstentionCodes.RankingMissing,
+                  s"no bridge ranking is stored for ${s.windowLabel}"
+                )
+              )
+            else Nil
           )
       }
     case _ => StageOutput.empty
   }
+
+  private def noMetrics(r: ResearcherRef, w: String): StageOutput =
+    StageOutput.abstain(
+      AbstentionCodes.MetricsMissing,
+      s"${r.displayName} has no stored metrics in window $w"
+    )
+
+  private def metricsFailed(r: ResearcherRef, w: String): StageOutput =
+    StageOutput.abstain(AbstentionCodes.MetricsReadFailed, StageFailures.metrics(r.displayName, w))
 
   /** Community of up to five top coauthors (by edge weight) that sit in another community, and the
     * number of reads that failed (C-05: stated in a note, never silently dropped).
@@ -912,7 +984,10 @@ final class SemanticContextStage(
           )
           text match {
             case None =>
-              StageOutput(Nil, Nil, List("semantic context needs a topic or a researcher name"))
+              StageOutput.abstain(
+                AbstentionCodes.SemanticNeedsTopicOrName,
+                "semantic context needs a topic or a researcher name"
+              )
             case Some(q) =>
               profileCandidates(q.take(SemanticRetriever.MaxQueryChars), s.windowLabel) match {
                 case Left(_)     => StageOutput(Nil, List(StageFailures.SemanticUnavailable), Nil)

@@ -292,7 +292,11 @@ class RagIngestJobSuite extends munit.FunSuite {
 
   test("decision 7: the option constant has exactly these names") {
     assertEquals(RagIngestJob.Required, List("config", "export", "out", "code-version"))
-    assertEquals(RagIngestJob.Optional, List("stores", "runs", "samples-per-index"))
+    // Phase 15 (G-27): --max-documents added for the D7 probe
+    assertEquals(
+      RagIngestJob.Optional,
+      List("stores", "runs", "samples-per-index", "max-documents")
+    )
   }
 
   test("decision 7: the parser accepts exactly the constant's names and refuses the rest") {
@@ -303,6 +307,7 @@ class RagIngestJobSuite extends munit.FunSuite {
           case "stores"            => "aws"
           case "runs"              => "1"
           case "samples-per-index" => "3"
+          case "max-documents"     => "5000"
           case "code-version"      => "0123456789abcdef0123456789abcdef01234567"
           case "export"            => "s3://example-graph-bucket/graph/exports/run=" + "0" * 32
           case other               => other

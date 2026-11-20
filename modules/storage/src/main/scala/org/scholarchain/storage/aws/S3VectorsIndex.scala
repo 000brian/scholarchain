@@ -83,16 +83,7 @@ final class S3VectorsIndex(
     require(keys.size <= S3VectorsLimits.MaxGetVectorsBatch, s"${keys.size} keys per GetVectors")
     val nf = nonFilterable(index)
     val r = AwsErrors.guard(
-      client.getVectors(
-        GetVectorsRequest
-          .builder()
-          .vectorBucketName(vectorBucket)
-          .indexName(index)
-          .keys(keys.asJava)
-          .returnData(returnData)
-          .returnMetadata(true)
-          .build()
-      )
+      client.getVectors(S3VectorsIndex.getVectorsRequest(vectorBucket, index, keys, returnData))
     )
     r.vectors().asScala.toList.map { v =>
       val d =
@@ -161,6 +152,25 @@ final class S3VectorsIndex(
 }
 
 object S3VectorsIndex {
+
+  /** The GetVectors request. `returnMetadata` is always true: the API default is false, and the
+    * ingest skip check and the re-embed path both read the stored metadata (Phase 15).
+    */
+  def getVectorsRequest(
+      vectorBucket: String,
+      index: String,
+      keys: Seq[String],
+      returnData: Boolean
+  ): GetVectorsRequest =
+    GetVectorsRequest
+      .builder()
+      .vectorBucketName(vectorBucket)
+      .indexName(index)
+      .keys(keys.asJava)
+      .returnData(returnData)
+      .returnMetadata(true)
+      .build()
+
   def create(
       settings: AwsClientSettings,
       vectorBucket: String,

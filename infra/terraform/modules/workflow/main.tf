@@ -83,6 +83,12 @@ locals {
         principals = var.embedding_role_arns
         actions    = ["sqs:SendMessage", "sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:ChangeMessageVisibility"]
       },
+      # Phase 15 decision 9.1: the worker consumes embedding tasks; it never sends.
+      {
+        sid        = "WorkerConsumesEmbeddingTasks"
+        principals = var.embedding_consumer_role_arns
+        actions    = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:ChangeMessageVisibility"]
+      },
     ]
   }
 }

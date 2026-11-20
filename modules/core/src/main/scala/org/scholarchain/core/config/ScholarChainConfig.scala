@@ -383,6 +383,12 @@ object RuntimeSettings {
   * @param jobQueueUrl
   *   optional `https://` URL of the job queue; whether it is required (for example by the AWS store
   *   wiring) is decided by the services module, not by core
+  * @param embeddingQueueUrl
+  *   optional `https://` URL of the embedding-task queue (Phase 15 decision 5; environment override
+  *   `SCHOLARCHAIN_CFG_SERVICE_EMBEDDING_QUEUE_URL`), validated like `jobQueueUrl` and never
+  *   repeated in a refusal. Absent: the worker runs only the job loop. Additive: defaults to
+  *   `None`, and `None` is not serialized, so configurations without it keep their JSON and
+  *   fingerprint
   */
 final case class ServiceSettings(
     port: Int,
@@ -398,7 +404,8 @@ final case class ServiceSettings(
     circuitFailureThreshold: Int,
     circuitOpenMillis: Int,
     requestsPerMinute: Int,
-    jobQueueUrl: Option[String]
+    jobQueueUrl: Option[String],
+    embeddingQueueUrl: Option[String] = None
 )
 object ServiceSettings {
   implicit val readWriter: ReadWriter[ServiceSettings] = macroRW

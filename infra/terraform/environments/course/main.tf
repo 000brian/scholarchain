@@ -179,6 +179,8 @@ module "runtime" {
   job_queue_url               = module.workflow.queue_urls["jobs"]
   job_queue_arn               = module.workflow.queue_arns["jobs"]
   embedding_queue_arn         = module.workflow.queue_arns["embedding"]
+  # Phase 15 decision 9.1: the worker task's SCHOLARCHAIN_CFG_SERVICE_EMBEDDING_QUEUE_URL.
+  embedding_queue_url = module.workflow.queue_urls["embedding"]
 
   # Repair I-01: every runtime role carries the project permissions boundary.
   permissions_boundary_arn = module.identity.role_boundary_arn
@@ -210,6 +212,8 @@ module "workflow" {
   job_producer_role_arns = [module.runtime.task_role_arns["query"]]
   job_consumer_role_arns = [module.runtime.task_role_arns["worker"]]
   embedding_role_arns    = [module.runtime.task_role_arns["ops"]]
+  # Phase 15 decision 9.1: the worker consumes embedding tasks (no send).
+  embedding_consumer_role_arns = [module.runtime.task_role_arns["worker"]]
 
   # Repair I-01: the Step Functions role carries the project permissions boundary.
   permissions_boundary_arn = module.identity.role_boundary_arn

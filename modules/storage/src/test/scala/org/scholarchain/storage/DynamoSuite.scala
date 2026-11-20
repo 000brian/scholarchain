@@ -146,7 +146,12 @@ class DynamoSuite extends munit.FunSuite {
 
   test("QuerySession: QS4 jobs and QS5 idempotency records share the table and its TTL") {
     val qs = TableSpecs.QuerySession
-    assertEquals(qs.accessPatterns.map(_.id), List("QS1", "QS2", "QS3", "QS4", "QS5"))
+    // QS6 (Phase 15): re-embed completion records, create-only under their own prefix
+    assertEquals(qs.accessPatterns.map(_.id), List("QS1", "QS2", "QS3", "QS4", "QS5", "QS6"))
+    val qs6 = qs.accessPatterns.find(_.id == "QS6").get
+    assert(qs6.keyCondition.startsWith("pk = reembed#<sha256"), qs6.keyCondition)
+    assert(qs6.operation.contains("attribute_not_exists(pk)"), qs6.operation)
+    assert(!qs6.operation.contains("version = :read"), "completion records are never updated")
     assertEquals(qs.ttlAttribute, Some("expiresAt"))
     assert(!qs.appendOnly)
     val qs4 = qs.accessPatterns.find(_.id == "QS4").get

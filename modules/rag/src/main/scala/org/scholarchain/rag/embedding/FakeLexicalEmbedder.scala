@@ -27,9 +27,9 @@ final class FakeLexicalEmbedder(val spec: EmbeddingModelSpec, val maxBatchSize: 
     if (texts.size > maxBatchSize)
       Left(EmbeddingFailure(s"batch of ${texts.size} exceeds $maxBatchSize", 0))
     else {
-      usage.requests += 1
-      usage.texts += texts.size
-      usage.characters += texts.map(_.length.toLong).sum
+      usage.addRequests(1L)
+      usage.addTexts(texts.size.toLong)
+      usage.addCharacters(texts.map(_.length.toLong).sum)
       Right(EmbeddingBatch(texts.map(FakeLexicalEmbedder.vector(_, dimensions)), 0))
     }
 }

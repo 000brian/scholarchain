@@ -10,6 +10,11 @@ output "queue_arns" {
   value       = { for k, q in aws_sqs_queue.this : k => q.arn }
 }
 
+output "dlq_urls" {
+  description = "SQS dead-letter queue URLs by source queue: jobs and embedding (Phase 15: run-experiment.sh registers them as identifiers; never printed)."
+  value       = { for k, q in aws_sqs_queue.dlq : k => q.url }
+}
+
 output "queue_names" {
   description = "SQS queue names: jobs, embedding, jobs_dlq, embedding_dlq."
   value = merge(

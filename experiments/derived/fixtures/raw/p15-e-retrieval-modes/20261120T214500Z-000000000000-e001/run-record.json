@@ -1,0 +1,21 @@
+{
+  "kind": "scholarchain-experiment-run-record",
+  "version": 1,
+  "status": "succeeded",
+  "attempt_id": "20261120T214500Z-000000000000-e001",
+  "exit_code": 0,
+  "failed_step": null,
+  "signal": null,
+  "head": "0000000000000000000000000000000000000000",
+  "build_commit": "0000000000000000000000000000000000000000",
+  "region": "us-east-1",
+  "manifest": {"path": "experiments/manifests/p15-e-retrieval-modes.json", "manifest_id": "p15-e-retrieval-modes", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "experiment": "E", "dataset_snapshot": "dblp-2026-11-01"},
+  "declared_not_enforced": {"costBoundUsd": 0.5, "maxDurationSeconds": 3600, "resourceLimits": {}},
+  "started_utc": "2026-11-20T21:44:50Z",
+  "ended_utc": "2026-11-20T22:00:00Z",
+  "action": {"kind": "command", "path": "experiments/collectors/e-retrieval-modes.sh", "args": [], "exit_code": 0, "window_epoch": {"start": 1795211100, "end": 1795211700}},
+  "nested_run_records": [],
+  "remote_ids": {"execution_names": [], "emr_cluster_ids": []},
+  "metrics": {"status": "none-declared", "files": [], "unresolved": []},
+  "raw_results_location": "experiments/raw/p15-e-retrieval-modes/20261120T214500Z-000000000000-e001"
+}

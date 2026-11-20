@@ -194,6 +194,7 @@ final class StubSqsClient extends SqsClient {
 
   override def deleteMessage(r: DeleteMessageRequest): DeleteMessageResponse = synchronized {
     acks.incrementAndGet()
+    deletedReceipts += r.receiptHandle()
     queue.remove(r.receiptHandle().takeWhile(_ != ':'))
     DeleteMessageResponse.builder().build()
   }
@@ -202,12 +203,29 @@ final class StubSqsClient extends SqsClient {
       r: ChangeMessageVisibilityRequest
   ): ChangeMessageVisibilityResponse = synchronized {
     visibilityChanges.incrementAndGet()
+    visibilityTimeouts += r.visibilityTimeout().intValue
     if (r.visibilityTimeout().intValue == 0)
       queue.get(r.receiptHandle().takeWhile(_ != ':')).foreach(_.hidden = false)
     ChangeMessageVisibilityResponse.builder().build()
   }
 
   def size: Int = synchronized(queue.size)
+
+  /** Puts one message with `body` exactly as given (a producer outside storage sending raw);
+    * returns its message ID.
+    */
+  def putRaw(body: String): String = synchronized {
+    seq += 1
+    val id = s"m$seq"
+    queue.update(id, Msg(id, body, 0, hidden = false))
+    id
+  }
+
+  /** The visibility timeouts of every ChangeMessageVisibility call, in order. */
+  val visibilityTimeouts: mutable.Buffer[Int] = mutable.ArrayBuffer.empty
+
+  /** The receipt handles of every DeleteMessage call, in order. */
+  val deletedReceipts: mutable.Buffer[String] = mutable.ArrayBuffer.empty
 }
 
 /** In-memory service stores and the parts behind them, for tests. */

@@ -38,9 +38,39 @@
 #     "identityAssignments": "s3://.../curated/.../identity_assignment",
 #     "outRoot": "s3://.../graph/...",
 #     "exportSourceRun": "s3://.../graph/.../run=<32 hex>",  (optional, Phase 13)
-#     "exportRoot": "s3://.../graph/exports/<attempt>"       (optional, Phase 13)
+#     "exportRoot": "s3://.../graph/exports/<attempt>",      (optional, Phase 13)
+#     "shufflePartitions": 128                               (optional, Phase 15)
+#   },
+#   "cluster": {                                    (optional section, Phase 15)
+#     "managedScalingMaxUnits": 2
 #   }
 # }
+#
+# Phase 15 decision 9.3, execution-input settings (resolved in ONE place, the
+# first state ReadInput, from $states.input; absent fields keep today's values
+# exactly):
+#   spark.shufflePartitions        integer 8..512, default
+#     var.spark_shuffle_partitions_default (32); becomes the
+#     --conf spark.sql.shuffle.partitions=N of BOTH Spark steps
+#     (variable sparkShuffleConf).
+#   cluster.managedScalingMaxUnits integer, emr_managed_scaling_min_units ..
+#     emr_managed_scaling_max_units (Terraform), default the Terraform maximum;
+#     becomes MaximumCapacityUnits, MaximumOnDemandCapacityUnits and
+#     MaximumCoreCapacityUnits of whichever cluster the execution creates
+#     (variable clusterComputeLimits). UnitType Instances: one unit is one EC2
+#     instance; the limits apply to core and task nodes only, never the
+#     primary node (EMR API Reference, ComputeLimits:
+#     https://docs.aws.amazon.com/emr/latest/APIReference/API_ComputeLimits.html;
+#     Management Guide, "Using managed scaling":
+#     https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-managed-scaling.html).
+#     Since the value is at least the minimum, the three maxima are never
+#     below MinimumCapacityUnits.
+# A present but invalid value (not a number, not an integer, out of range)
+# makes ReadInput fail with States.QueryEvaluationError ($error), so the
+# execution fails before any cluster exists (Step Functions developer guide,
+# "Transforming data with JSONata", "Handling expression errors":
+# https://docs.aws.amazon.com/step-functions/latest/dg/transforming-data.html).
+# A Pass state has no Catch, so nothing runs after it.
 #
 # Optional JSON Lines export (Phase 13 decision 8.3): when spark.exportRoot is
 # present, a second step on the Spark cluster runs
@@ -104,14 +134,9 @@ locals {
     }]
     Instances            = local.cluster_instances
     StepConcurrencyLevel = local.cs.step_concurrency_level
+    # Phase 15 decision 9.3: resolved in ReadInput (clusterComputeLimits).
     ManagedScalingPolicy = {
-      ComputeLimits = {
-        UnitType                     = local.cs.managed_scaling.unit_type
-        MinimumCapacityUnits         = local.cs.managed_scaling.minimum_capacity_units
-        MaximumCapacityUnits         = local.cs.managed_scaling.maximum_capacity_units
-        MaximumOnDemandCapacityUnits = local.cs.managed_scaling.maximum_on_demand_capacity_units
-        MaximumCoreCapacityUnits     = local.cs.managed_scaling.maximum_core_capacity_units
-      }
+      ComputeLimits = "{% $clusterComputeLimits %}"
     }
     AutoTerminationPolicy = { IdleTimeout = local.cs.idle_timeout_seconds }
     Tags                  = local.cluster_tags
@@ -127,16 +152,52 @@ locals {
   # the application, so spark.driver.memory set in code has no effect. 6g fits
   # the m5.xlarge primary node (16 GiB); shuffle partitions match Phase 6; the
   # UI retention limits bound the driver's retained job, stage and SQL state.
-  # The values contain no quote, so each is safe inside a JSONata '...' string.
-  spark_submit_runtime_args = [
-    "--driver-memory", "6g",
-    "--conf", "spark.sql.shuffle.partitions=32",
-    "--conf", "spark.ui.retainedJobs=200",
-    "--conf", "spark.ui.retainedStages=200",
-    "--conf", "spark.ui.retainedTasks=10000",
-    "--conf", "spark.sql.ui.retainedExecutions=50",
+  # Each entry is a JSONata term: a quoted literal (no quote inside) or, for
+  # the shuffle partitions (Phase 15 decision 9.3), the variable
+  # $sparkShuffleConf resolved in ReadInput; absent input gives exactly the
+  # former literal 'spark.sql.shuffle.partitions=32'.
+  spark_submit_runtime_terms = [
+    "'--driver-memory'", "'6g'",
+    "'--conf'", "$sparkShuffleConf",
+    "'--conf'", "'spark.ui.retainedJobs=200'",
+    "'--conf'", "'spark.ui.retainedStages=200'",
+    "'--conf'", "'spark.ui.retainedTasks=10000'",
+    "'--conf'", "'spark.sql.ui.retainedExecutions=50'",
   ]
-  spark_submit_runtime_jsonata = join(", ", [for a in local.spark_submit_runtime_args : "'${a}'"])
+  spark_submit_runtime_jsonata = join(", ", local.spark_submit_runtime_terms)
+
+  # ---- Phase 15 decision 9.3: execution-input settings (ReadInput) ----------
+  ms           = local.cs.managed_scaling
+  in_max_units = "$states.input.cluster.managedScalingMaxUnits"
+  in_shuffle   = "$states.input.spark.shufflePartitions"
+  shuffle_min  = 8
+  shuffle_max  = 512
+
+  units_error   = "$error('InvalidExecutionSettings: cluster.managedScalingMaxUnits must be an integer in ${local.ms.minimum_capacity_units}..${local.ms.maximum_capacity_units}')"
+  shuffle_error = "$error('InvalidExecutionSettings: spark.shufflePartitions must be an integer in ${local.shuffle_min}..${local.shuffle_max}')"
+
+  # Absent: exactly the Terraform ComputeLimits of Phases 13-14. Present and
+  # valid: the three maxima take the given value. Nested conditionals, so a
+  # non-number never reaches $floor.
+  compute_limits_default = "{'UnitType': '${local.ms.unit_type}', 'MinimumCapacityUnits': ${local.ms.minimum_capacity_units}, 'MaximumCapacityUnits': ${local.ms.maximum_capacity_units}, 'MaximumOnDemandCapacityUnits': ${local.ms.maximum_on_demand_capacity_units}, 'MaximumCoreCapacityUnits': ${local.ms.maximum_core_capacity_units}}"
+  compute_limits_given   = "{'UnitType': '${local.ms.unit_type}', 'MinimumCapacityUnits': ${local.ms.minimum_capacity_units}, 'MaximumCapacityUnits': ${local.in_max_units}, 'MaximumOnDemandCapacityUnits': ${local.in_max_units}, 'MaximumCoreCapacityUnits': ${local.in_max_units}}"
+  resolve_compute_limits = join("", [
+    "{% $exists(${local.in_max_units}) ? (",
+    "$type(${local.in_max_units}) = 'number' ? (",
+    "(${local.in_max_units} = $floor(${local.in_max_units}) and ${local.in_max_units} >= ${local.ms.minimum_capacity_units} and ${local.in_max_units} <= ${local.ms.maximum_capacity_units})",
+    " ? ${local.compute_limits_given} : ${local.units_error}",
+    ") : ${local.units_error}",
+    ") : ${local.compute_limits_default} %}",
+  ])
+  resolve_shuffle_conf = join("", [
+    "{% 'spark.sql.shuffle.partitions=' & $string(",
+    "$exists(${local.in_shuffle}) ? (",
+    "$type(${local.in_shuffle}) = 'number' ? (",
+    "(${local.in_shuffle} = $floor(${local.in_shuffle}) and ${local.in_shuffle} >= ${local.shuffle_min} and ${local.in_shuffle} <= ${local.shuffle_max})",
+    " ? ${local.in_shuffle} : ${local.shuffle_error}",
+    ") : ${local.shuffle_error}",
+    ") : ${var.spark_shuffle_partitions_default}) %}",
+  ])
 
   # ExportInputCheck conditions (JSONata). The prefix is a bucket URI, which
   # never contains a quote.
@@ -183,13 +244,18 @@ locals {
     TimeoutSeconds = var.pipeline_timeout_seconds
     StartAt        = "ReadInput"
     States = {
+      # Phase 15 decision 9.3: also resolves the execution-input settings
+      # (the one place; all from $states.input, because every Assign of one
+      # state sees the variables as they were before the state).
       ReadInput = {
         Type = "Pass"
         Assign = {
-          pipelineInput = "{% $states.input %}"
-          failError     = "none"
-          failCause     = "none"
-          cleanupError  = "none"
+          pipelineInput        = "{% $states.input %}"
+          failError            = "none"
+          failCause            = "none"
+          cleanupError         = "none"
+          clusterComputeLimits = local.resolve_compute_limits
+          sparkShuffleConf     = local.resolve_shuffle_conf
         }
         Next = "ExportInputCheck"
       }

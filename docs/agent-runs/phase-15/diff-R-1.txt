@@ -1,0 +1,3039 @@
+diff --git a/modules/core/src/main/scala/org/scholarchain/core/Records.scala b/modules/core/src/main/scala/org/scholarchain/core/Records.scala
+index a2ba449..d1a9b09 100644
+--- a/modules/core/src/main/scala/org/scholarchain/core/Records.scala
++++ b/modules/core/src/main/scala/org/scholarchain/core/Records.scala
+@@ -695,6 +695,17 @@ object ModelCallCounts {
+   *   - `cacheHits`: reads served from a cache, by cache name (key: [[QueryAudit.NamePattern]]),
+   *     values >= 0; names are the producer's fixed vocabulary.
+   *
++  * Version 3 field (Phase 15, additive, decision 7.5; optional in the constructor, required on the
++  * v3 wire, absent from the v1 and v2 wires):
++  *   - `abstentionCodes`: why the answer abstained, as fixed codes from the producer's vocabulary
++  *     (for example `no-path-within-depth`, `path-query-timeout`, `graph-store-failure`,
++  *     `researcher-not-resolved`; the code table and its texts belong to rag, not core). Codes
++  *     only, never prose: each matches [[QueryAudit.AbstentionCodePattern]] (lowercase kebab-case)
++  *     and is at most [[QueryAudit.MaxAbstentionCodeLength]] characters; at most
++  *     [[QueryAudit.MaxAbstentionCodes]] codes, distinct. In version 3 the list is non-empty
++  *     exactly when `abstained` is true. A version 1 or 2 record carries none (it reads with an
++  *     empty list, also when it abstained).
++  *
+   * A version 1 record carries every v2 field at its default (empty). Not recorded (no per-query
+   * source in the runtime today): HTTP attempts and retried HTTP attempts per task; they are counted
+   * only per process, in the run report.
+@@ -736,7 +747,9 @@ final case class QueryAudit(
+     indexesQueried: List[String] = Nil,
+     metadataFilterKeys: List[String] = Nil,
+     modelCalls: Map[String, ModelCallCounts] = Map.empty,
+-    cacheHits: Map[String, Long] = Map.empty
++    cacheHits: Map[String, Long] = Map.empty,
++    // ---- schema version 3 (Phase 15, additive): default is the v1/v2 meaning ("not recorded") ----
++    abstentionCodes: List[String] = Nil
+ )
+ object QueryAudit {
+ 
+@@ -744,6 +757,25 @@ object QueryAudit {
+   val V2Fields: List[String] =
+     List("queryTemplateIds", "indexesQueried", "metadataFilterKeys", "modelCalls", "cacheHits")
+ 
++  /** The fields added by schema version 3, in wire order. */
++  val V3Fields: List[String] = List("abstentionCodes")
++
++  /** Pattern of one `abstentionCodes` entry: lowercase kebab-case, starting with a letter (for
++    * example `no-path-within-depth`). Spaces, punctuation and capitals are refused, so no prose
++    * fits.
++    */
++  val AbstentionCodePattern: String = "[a-z][a-z0-9]*(-[a-z0-9]+)*"
++  private val compiledCode = AbstentionCodePattern.r.pattern
++
++  /** Longest allowed abstention code, in characters. */
++  val MaxAbstentionCodeLength: Int = 64
++
++  /** Most abstention codes one audit may carry. */
++  val MaxAbstentionCodes: Int = 8
++
++  def isValidAbstentionCode(s: String): Boolean =
++    s != null && s.length <= MaxAbstentionCodeLength && compiledCode.matcher(s).matches()
++
+   /** Pattern of a graph query-template ID and of a `modelCalls` / `cacheHits` key. */
+   val NamePattern: String = "[a-z0-9][a-z0-9_.-]*"
+   private val compiledName = NamePattern.r.pattern
+@@ -751,18 +783,22 @@ object QueryAudit {
+ 
+   private val base: ReadWriter[QueryAudit] = macroRW
+ 
+-  /** The JSON of a v2 field at its default: `[]` for the lists, `{}` for the maps. */
++  /** The JSON of a v2 or v3 field at its default: `[]` for the lists, `{}` for the maps. */
+   private def emptyJson(field: String): ujson.Value =
+     if (field == "modelCalls" || field == "cacheHits") ujson.Obj() else ujson.Arr()
+ 
+-  /** Version-aware wire form (Phase 11, reviewer advisory D-06).
++  /** The fields added after version 1, with the version that added them, in wire order. */
++  private val addedFields: List[(String, Int)] = V2Fields.map(_ -> 2) ++ V3Fields.map(_ -> 3)
++
++  /** Version-aware wire form (Phase 11, reviewer advisory D-06; Phase 15, version 3).
+     *
+-    *   - Writing: every field is written, including v2 fields at their defaults (uPickle would
+-    *     otherwise omit a field equal to its default). A record with `schemaVersion` 1 is written
+-    *     without the v2 fields, so a v1 record round-trips byte-for-byte to its v1 form.
+-    *   - Reading: a v1 record must not carry a v2 field; a record of version 2 or later must carry
+-    *     every v2 field (it is required on the wire, like every other field). An unsupported
+-    *     version still fails in `Validator`.
++    *   - Writing: every field of the record's version is written, including added fields at their
++    *     defaults (uPickle would otherwise omit a field equal to its default). A record is written
++    *     without the fields added after its `schemaVersion`, so a v1 or v2 record round-trips to
++    *     exactly its own wire form.
++    *   - Reading: a record must not carry a field added after its version, and must carry every
++    *     field added up to its version (required on the wire, like every other field). An
++    *     unsupported version still fails in `Validator`.
+     */
+   implicit val readWriter: ReadWriter[QueryAudit] =
+     upickle.default
+@@ -770,23 +806,24 @@ object QueryAudit {
+       .bimap[QueryAudit](
+         a => {
+           val obj = upickle.default.writeJs(a)(base).obj
+-          val head = obj.toList.filterNot { case (k, _) => V2Fields.contains(k) }
+-          // v2 fields in declared order; a field uPickle left out is at its default
+-          val tail =
+-            if (a.schemaVersion == 1) Nil
+-            else V2Fields.map(k => k -> obj.getOrElse(k, emptyJson(k)))
++          val head = obj.toList.filterNot { case (k, _) => addedFields.exists(_._1 == k) }
++          // added fields in declared order; a field uPickle left out is at its default
++          val tail = addedFields.collect {
++            case (k, since) if a.schemaVersion >= since => k -> obj.getOrElse(k, emptyJson(k))
++          }
+           ujson.Obj.from(head ++ tail)
+         },
+         js => {
+           val obj = js.obj
+           val version = obj.get("schemaVersion").collect { case ujson.Num(n) => n }
+-          if (version.contains(1.0)) {
+-            V2Fields.filter(obj.contains).foreach { k =>
+-              throw new upickle.core.Abort(s"$k: not a field of QueryAudit schema version 1")
+-            }
+-          } else if (version.exists(_ >= 2.0)) {
+-            V2Fields.filterNot(obj.contains).foreach { k =>
+-              throw new upickle.core.Abort(s"$k: required in QueryAudit schema version 2")
++          version.foreach { v =>
++            addedFields.foreach { case (k, since) =>
++              if (v >= 1.0 && v < since && obj.contains(k))
++                throw new upickle.core.Abort(
++                  s"$k: not a field of QueryAudit schema version ${v.toInt}"
++                )
++              if (v >= since && !obj.contains(k))
++                throw new upickle.core.Abort(s"$k: required in QueryAudit schema version $since")
+             }
+           }
+           upickle.default.read[QueryAudit](js)(base)
+diff --git a/modules/core/src/main/scala/org/scholarchain/core/SchemaVersions.scala b/modules/core/src/main/scala/org/scholarchain/core/SchemaVersions.scala
+index a7bcef2..6a274cb 100644
+--- a/modules/core/src/main/scala/org/scholarchain/core/SchemaVersions.scala
++++ b/modules/core/src/main/scala/org/scholarchain/core/SchemaVersions.scala
+@@ -40,6 +40,9 @@ object SchemaVersions {
+     *     the v1 wire). Readers accept versions 1 and 2 (see `supported`). Phase 11 also tightens
+     *     two rules without a version change: a `semantic_context` EvidenceItem carries no `metric`,
+     *     and configuration refusals no longer repeat the refused value.
++    *   - QueryAudit 3 (Phase 15, additive; decision 7.5): adds `abstentionCodes`, the fixed codes
++    *     of why the answer abstained (required on the v3 wire, absent from the v1 and v2 wires; a
++    *     v1 or v2 record reads with no codes). Readers accept versions 1, 2 and 3.
+     */
+   val current: ListMap[String, Int] = ListMap(
+     "Provenance" -> 1,
+@@ -69,11 +72,11 @@ object SchemaVersions {
+     "ScholarChainConfig" -> 1,
+     "SemanticDocument" -> 1,
+     "VectorMetadata" -> 1,
+-    "QueryAudit" -> 2
++    "QueryAudit" -> 3
+   )
+ 
+   /** Older versions readers still accept, per schema name (additive changes only). */
+-  val stillReadable: Map[String, Set[Int]] = Map("QueryAudit" -> Set(1))
++  val stillReadable: Map[String, Set[Int]] = Map("QueryAudit" -> Set(1, 2))
+ 
+   /** Versions readers accept, per schema name: the current version, plus `stillReadable`. */
+   val supported: Map[String, Set[Int]] = current.map { case (k, v) =>
+diff --git a/modules/core/src/main/scala/org/scholarchain/core/Validator.scala b/modules/core/src/main/scala/org/scholarchain/core/Validator.scala
+index 3ab8b4b..fc90fd7 100644
+--- a/modules/core/src/main/scala/org/scholarchain/core/Validator.scala
++++ b/modules/core/src/main/scala/org/scholarchain/core/Validator.scala
+@@ -1084,6 +1084,40 @@ object Validator {
+       } ++
+       a.cacheHits.toList.sortBy(_._1).flatMap { case (k, n) =>
+         name("cacheHits.<key>", k) ++ count(s"cacheHits[$k]", n)
+-      }
++      } ++
++      queryAuditV3(a)
++  }
++
++  /** Rules of the QueryAudit version 3 field (Phase 15, decision 7.5). A refused code is never
++    * repeated in the message (it may be prose).
++    */
++  private def queryAuditV3(a: QueryAudit): List[String] = {
++    val codes = a.abstentionCodes
++    if (a.schemaVersion < 3)
++      check(
++        codes.isEmpty,
++        s"schemaVersion: version ${a.schemaVersion} carries no abstentionCodes"
++      )
++    else
++      each("abstentionCodes", codes)((f, c) =>
++        check(
++          QueryAudit.isValidAbstentionCode(c),
++          s"$f: must match ${QueryAudit.AbstentionCodePattern} and be at most " +
++            s"${QueryAudit.MaxAbstentionCodeLength} characters (a code, never prose)"
++        )
++      ) ++
++        check(
++          codes.size <= QueryAudit.MaxAbstentionCodes,
++          s"abstentionCodes: at most ${QueryAudit.MaxAbstentionCodes} codes (got ${codes.size})"
++        ) ++
++        distinct("abstentionCodes", codes) ++
++        check(
++          !a.abstained || codes.nonEmpty,
++          "abstentionCodes: at least one code is required when abstained is true"
++        ) ++
++        check(
++          a.abstained || codes.isEmpty,
++          "abstentionCodes: must be empty when abstained is false"
++        )
+   }
+ }
+diff --git a/modules/core/src/main/scala/org/scholarchain/core/config/ConfigLoader.scala b/modules/core/src/main/scala/org/scholarchain/core/config/ConfigLoader.scala
+index 6941796..6072f9c 100644
+--- a/modules/core/src/main/scala/org/scholarchain/core/config/ConfigLoader.scala
++++ b/modules/core/src/main/scala/org/scholarchain/core/config/ConfigLoader.scala
+@@ -234,7 +234,11 @@ object ConfigLoader {
+         ConfigKey("service.circuitOpenMillis", WholeNumber),
+         ConfigKey("service.requestsPerMinute", WholeNumber)
+       ),
+-      List(ConfigKey("service.jobQueueUrl", Text))
++      List(
++        ConfigKey("service.jobQueueUrl", Text),
++        // Phase 15 decision 5 (additive, optional).
++        ConfigKey("service.embeddingQueueUrl", Text)
++      )
+     )
+   )
+ 
+@@ -543,7 +547,8 @@ object ConfigLoader {
+           circuitFailureThreshold = i("service.circuitFailureThreshold"),
+           circuitOpenMillis = i("service.circuitOpenMillis"),
+           requestsPerMinute = i("service.requestsPerMinute"),
+-          jobQueueUrl = v.get("service.jobQueueUrl").map(_.asInstanceOf[String])
++          jobQueueUrl = v.get("service.jobQueueUrl").map(_.asInstanceOf[String]),
++          embeddingQueueUrl = v.get("service.embeddingQueueUrl").map(_.asInstanceOf[String])
+         )
+       )
+     )
+@@ -885,6 +890,9 @@ object ConfigValidator {
+       positive("service.requestsPerMinute", s.requestsPerMinute) ++
+       s.jobQueueUrl.toList.flatMap(u =>
+         check(isHttpsUrl(u), "service.jobQueueUrl: must be an https:// URL with a host")
++      ) ++
++      s.embeddingQueueUrl.toList.flatMap(u =>
++        check(isHttpsUrl(u), "service.embeddingQueueUrl: must be an https:// URL with a host")
+       )
+   }
+ 
+diff --git a/modules/core/src/main/scala/org/scholarchain/core/config/ScholarChainConfig.scala b/modules/core/src/main/scala/org/scholarchain/core/config/ScholarChainConfig.scala
+index 948f935..0017792 100644
+--- a/modules/core/src/main/scala/org/scholarchain/core/config/ScholarChainConfig.scala
++++ b/modules/core/src/main/scala/org/scholarchain/core/config/ScholarChainConfig.scala
+@@ -383,6 +383,12 @@ object RuntimeSettings {
+   * @param jobQueueUrl
+   *   optional `https://` URL of the job queue; whether it is required (for example by the AWS store
+   *   wiring) is decided by the services module, not by core
++  * @param embeddingQueueUrl
++  *   optional `https://` URL of the embedding-task queue (Phase 15 decision 5; environment override
++  *   `SCHOLARCHAIN_CFG_SERVICE_EMBEDDING_QUEUE_URL`), validated like `jobQueueUrl` and never
++  *   repeated in a refusal. Absent: the worker runs only the job loop. Additive: defaults to
++  *   `None`, and `None` is not serialized, so configurations without it keep their JSON and
++  *   fingerprint
+   */
+ final case class ServiceSettings(
+     port: Int,
+@@ -398,7 +404,8 @@ final case class ServiceSettings(
+     circuitFailureThreshold: Int,
+     circuitOpenMillis: Int,
+     requestsPerMinute: Int,
+-    jobQueueUrl: Option[String]
++    jobQueueUrl: Option[String],
++    embeddingQueueUrl: Option[String] = None
+ )
+ object ServiceSettings {
+   implicit val readWriter: ReadWriter[ServiceSettings] = macroRW
+diff --git a/modules/core/src/test/resources/config/valid-v1-service.json b/modules/core/src/test/resources/config/valid-v1-service.json
+index 865ee46..d4db488 100644
+--- a/modules/core/src/test/resources/config/valid-v1-service.json
++++ b/modules/core/src/test/resources/config/valid-v1-service.json
+@@ -51,6 +51,7 @@
+     "circuitFailureThreshold": 5,
+     "circuitOpenMillis": 30000,
+     "requestsPerMinute": 120,
+-    "jobQueueUrl": "https://queue.example.invalid/example-jobs"
++    "jobQueueUrl": "https://queue.example.invalid/example-jobs",
++    "embeddingQueueUrl": "https://queue.example.invalid/example-embedding-tasks"
+   }
+ }
+diff --git a/modules/core/src/test/scala/org/scholarchain/core/Fixtures.scala b/modules/core/src/test/scala/org/scholarchain/core/Fixtures.scala
+index e2587fe..ab84c7a 100644
+--- a/modules/core/src/test/scala/org/scholarchain/core/Fixtures.scala
++++ b/modules/core/src/test/scala/org/scholarchain/core/Fixtures.scala
+@@ -806,4 +806,17 @@ object Fixtures {
+     ),
+     cacheHits = Map("researcher-metric-cache" -> 2L)
+   )
++
++  /** QueryAudit v3 (Phase 15, additive): the v2 fixture at version 3; it did not abstain, so its
++    * `abstentionCodes` is empty (written as `[]`).
++    */
++  val queryAuditV3: QueryAudit = queryAuditV2.copy(schemaVersion = 3)
++
++  /** QueryAudit v3 of an abstained answer: the codes say why (codes are examples of rag's fixed
++    * vocabulary, not part of the core contract).
++    */
++  val queryAuditV3Abstained: QueryAudit = queryAuditV3.copy(
++    abstained = true,
++    abstentionCodes = List("no-path-within-depth", "path-query-timeout")
++  )
+ }
+diff --git a/modules/core/src/test/scala/org/scholarchain/core/QueryAuditV2Suite.scala b/modules/core/src/test/scala/org/scholarchain/core/QueryAuditV2Suite.scala
+index 7e6a572..e44003b 100644
+--- a/modules/core/src/test/scala/org/scholarchain/core/QueryAuditV2Suite.scala
++++ b/modules/core/src/test/scala/org/scholarchain/core/QueryAuditV2Suite.scala
+@@ -33,8 +33,8 @@ class QueryAuditV2Suite extends munit.FunSuite {
+ 
+   val V1Keys: List[String] = ujson.read(frozen(1)).obj.keys.toList
+ 
+-  test("v2 is the current version and v1 stays readable") {
+-    assertEquals(SchemaVersions.currentOf("QueryAudit"), 2)
++  test("v2 and v1 stay readable (v3 is current since Phase 15, see QueryAuditV3Suite)") {
++    assert(SchemaVersions.isSupported("QueryAudit", 2))
+     assert(SchemaVersions.isSupported("QueryAudit", 1))
+   }
+ 
+diff --git a/modules/core/src/test/scala/org/scholarchain/core/SchemaVersionsSuite.scala b/modules/core/src/test/scala/org/scholarchain/core/SchemaVersionsSuite.scala
+index 206f5b3..ae1cd6f 100644
+--- a/modules/core/src/test/scala/org/scholarchain/core/SchemaVersionsSuite.scala
++++ b/modules/core/src/test/scala/org/scholarchain/core/SchemaVersionsSuite.scala
+@@ -36,14 +36,16 @@ class SchemaVersionsSuite extends munit.FunSuite {
+         "ScholarChainConfig" -> 1,
+         "SemanticDocument" -> 1, // new in Phase 7
+         "VectorMetadata" -> 1, // new in Phase 7
+-        "QueryAudit" -> 2 // v2 in Phase 11 (additive): explain fields; v1 still readable
++        // v2 in Phase 11 (additive): explain fields; v3 in Phase 15 (additive): abstentionCodes;
++        // v1 and v2 still readable
++        "QueryAudit" -> 3
+       )
+     )
+   }
+ 
+-  test("QueryAudit readers accept versions 1 and 2 only; other schemas only the current one") {
+-    assertEquals(SchemaVersions.supported("QueryAudit"), Set(1, 2))
+-    assert(!SchemaVersions.isSupported("QueryAudit", 3))
++  test("QueryAudit readers accept versions 1, 2 and 3 only; other schemas only the current one") {
++    assertEquals(SchemaVersions.supported("QueryAudit"), Set(1, 2, 3))
++    assert(!SchemaVersions.isSupported("QueryAudit", 4))
+     assert(!SchemaVersions.isSupported("QueryAudit", 0))
+     assertEquals(SchemaVersions.stillReadable.keySet, Set("QueryAudit"))
+     SchemaVersions.current.foreach { case (k, v) =>
+diff --git a/modules/core/src/test/scala/org/scholarchain/core/WireContractSuite.scala b/modules/core/src/test/scala/org/scholarchain/core/WireContractSuite.scala
+index 5eae8c5..a18dea6 100644
+--- a/modules/core/src/test/scala/org/scholarchain/core/WireContractSuite.scala
++++ b/modules/core/src/test/scala/org/scholarchain/core/WireContractSuite.scala
+@@ -52,7 +52,7 @@ class WireContractSuite extends munit.FunSuite {
+       Example("AnswerResponse", answerResponse),
+       Example("SemanticDocument", semanticDocument),
+       Example("VectorMetadata", vectorMetadata),
+-      Example("QueryAudit", queryAuditV2)
++      Example("QueryAudit", queryAuditV3)
+     )
+   }
+ 
+diff --git a/modules/core/src/test/scala/org/scholarchain/core/config/ConfigLoaderSuite.scala b/modules/core/src/test/scala/org/scholarchain/core/config/ConfigLoaderSuite.scala
+index d46e226..a7b389b 100644
+--- a/modules/core/src/test/scala/org/scholarchain/core/config/ConfigLoaderSuite.scala
++++ b/modules/core/src/test/scala/org/scholarchain/core/config/ConfigLoaderSuite.scala
+@@ -524,8 +524,8 @@ class ConfigLoaderSuite extends munit.FunSuite {
+     val names = ConfigLoader.allKeys.map(_.envVar)
+     assertEquals(names.distinct.size, names.size)
+     // 37 Phase 7 section keys + 10 llm keys + 7 runtime keys (Phase 9) + 14 service keys
+-    // (Phase 10).
+-    assertEquals(ConfigLoader.allKeys.size, ConfigLoader.keys.size + 37 + 10 + 7 + 14)
++    // (Phase 10) + 1 service key (Phase 15 decision 5, service.embeddingQueueUrl).
++    assertEquals(ConfigLoader.allKeys.size, ConfigLoader.keys.size + 37 + 10 + 7 + 14 + 1)
+   }
+ 
+   // ---- Phase 9 optional sections (llm, runtime) --------------------------------------------
+diff --git a/modules/core/src/test/scala/org/scholarchain/core/config/ConfigRefusalSuite.scala b/modules/core/src/test/scala/org/scholarchain/core/config/ConfigRefusalSuite.scala
+index 5a3a94a..967731e 100644
+--- a/modules/core/src/test/scala/org/scholarchain/core/config/ConfigRefusalSuite.scala
++++ b/modules/core/src/test/scala/org/scholarchain/core/config/ConfigRefusalSuite.scala
+@@ -79,6 +79,7 @@ class ConfigRefusalSuite extends munit.FunSuite {
+       "llm.apiKeyEnvVar",
+       "embedding.apiKeyEnvVar",
+       "service.jobQueueUrl",
++      "service.embeddingQueueUrl",
+       "environment",
+       "aws.region",
+       "storage.rawBucket",
+@@ -109,6 +110,19 @@ class ConfigRefusalSuite extends munit.FunSuite {
+     )
+   }
+ 
++  test(
++    "U-6 (Phase 15 decision 5): an invalid service.embeddingQueueUrl is refused by field and rule only"
++  ) {
++    assertEquals(
++      messages(load(edit(_("service")("embeddingQueueUrl") = Sentinel))),
++      List("service.embeddingQueueUrl: must be an https:// URL with a host")
++    )
++    val viaEnv =
++      messages(load(env = Map("SCHOLARCHAIN_CFG_SERVICE_EMBEDDING_QUEUE_URL" -> Sentinel)))
++    assert(viaEnv.forall(!_.contains("SENTINEL")), viaEnv)
++    assert(viaEnv.exists(_.startsWith("service.embeddingQueueUrl")), viaEnv)
++  }
++
+   test("D-03: a graph window label and a configVersion are refused without their value") {
+     val label = messages(load(edit(_("graph")("windows")(0)("label") = Sentinel)))
+     assert(label.exists(_.startsWith("graph.windows[0].label: must match")), label)
+diff --git a/modules/core/src/test/scala/org/scholarchain/core/config/ServiceConfigSuite.scala b/modules/core/src/test/scala/org/scholarchain/core/config/ServiceConfigSuite.scala
+index 5cb3648..de53915 100644
+--- a/modules/core/src/test/scala/org/scholarchain/core/config/ServiceConfigSuite.scala
++++ b/modules/core/src/test/scala/org/scholarchain/core/config/ServiceConfigSuite.scala
+@@ -58,7 +58,8 @@ class ServiceConfigSuite extends munit.FunSuite {
+     circuitFailureThreshold = 5,
+     circuitOpenMillis = 30000,
+     requestsPerMinute = 120,
+-    jobQueueUrl = Some("https://queue.example.invalid/example-jobs")
++    jobQueueUrl = Some("https://queue.example.invalid/example-jobs"),
++    embeddingQueueUrl = Some("https://queue.example.invalid/example-embedding-tasks")
+   )
+ 
+   test("without service the config is None and serializes and fingerprints as before") {
+@@ -74,7 +75,7 @@ class ServiceConfigSuite extends munit.FunSuite {
+     val c = loaded()
+     assertEquals(c.config.service, Some(Expected))
+     val paths = ConfigLoader.allKeys.map(_.path).filter(_.startsWith("service."))
+-    assertEquals(paths.size, 14)
++    assertEquals(paths.size, 15)
+     paths.foreach(p => assertEquals(c.origins.get(p), Some(ConfigOrigin.File(ServiceFile)), p))
+     // The other optional sections stay absent.
+     val cfg = c.config
+@@ -169,7 +170,10 @@ class ServiceConfigSuite extends munit.FunSuite {
+       "requestsPerMinute" -> "120"
+     ).map { case (k, v) => ConfigKey.envVarFor(s"service.$k") -> v }
+     val c = ConfigLoader.load(baseText, BaseFile, env).fold(e => fail(e.message), identity)
+-    assertEquals(c.config.service, Some(Expected.copy(jobQueueUrl = None)))
++    assertEquals(
++      c.config.service,
++      Some(Expected.copy(jobQueueUrl = None, embeddingQueueUrl = None))
++    )
+   }
+ 
+   test("the loader stores only the API-key variable NAMES and never reads their values") {
+@@ -362,6 +366,101 @@ class ServiceConfigSuite extends munit.FunSuite {
+     ).foreach(u => loaded(editService("jobQueueUrl", u)))
+   }
+ 
++  // Phase 15 decision 5: optional embedding-task queue for the worker's second loop.
++  val EmbeddingUrlError = "service.embeddingQueueUrl: must be an https:// URL with a host"
++
++  test("decision 5: embeddingQueueUrl valid in the file loads with a file origin") {
++    val c = loaded(editService("embeddingQueueUrl", "https://queue.example.invalid:8443/a/b"))
++    assertEquals(
++      c.config.service.flatMap(_.embeddingQueueUrl),
++      Some("https://queue.example.invalid:8443/a/b")
++    )
++    assertEquals(
++      c.origins.get("service.embeddingQueueUrl"),
++      Some(ConfigOrigin.File(ServiceFile))
++    )
++    // jobQueueUrl is independent of it.
++    assertEquals(c.config.service.flatMap(_.jobQueueUrl), Expected.jobQueueUrl)
++  }
++
++  test(
++    "decision 5: embeddingQueueUrl absent resolves to None, keeps the job queue, and does not fail"
++  ) {
++    val c = loaded(edit(_("service").obj.remove("embeddingQueueUrl")))
++    assertEquals(c.config.service, Some(Expected.copy(embeddingQueueUrl = None)))
++    assert(!c.origins.contains("service.embeddingQueueUrl"))
++    // Absent, the field is not serialized: configs without it keep their JSON and fingerprint.
++    val json = ujson.read(upickle.default.write(c.config))
++    assert(!json("service").obj.contains("embeddingQueueUrl"), json("service"))
++    assertEquals(
++      upickle.default.read[ScholarChainConfig](upickle.default.write(c.config)),
++      c.config
++    )
++    // A ServiceSettings JSON written before the field existed still reads, as None.
++    val old = ujson.read(upickle.default.write(Expected))
++    old.obj.remove("embeddingQueueUrl")
++    assertEquals(
++      upickle.default.read[ServiceSettings](old.render()),
++      Expected.copy(embeddingQueueUrl = None)
++    )
++  }
++
++  test("decision 5: SCHOLARCHAIN_CFG_SERVICE_EMBEDDING_QUEUE_URL overrides the file") {
++    assertEquals(
++      ConfigKey.envVarFor("service.embeddingQueueUrl"),
++      "SCHOLARCHAIN_CFG_SERVICE_EMBEDDING_QUEUE_URL"
++    )
++    val c = loaded(env =
++      Map("SCHOLARCHAIN_CFG_SERVICE_EMBEDDING_QUEUE_URL" -> "https://queue.example.invalid/other")
++    )
++    assertEquals(
++      c.config.service,
++      Some(Expected.copy(embeddingQueueUrl = Some("https://queue.example.invalid/other")))
++    )
++    assertEquals(
++      c.origins("service.embeddingQueueUrl"),
++      ConfigOrigin.Environment("SCHOLARCHAIN_CFG_SERVICE_EMBEDDING_QUEUE_URL")
++    )
++    // Through the environment alone it activates the section: the 13 required keys are reported.
++    val onlyUrl = ConfigLoader.load(
++      baseText,
++      BaseFile,
++      Map("SCHOLARCHAIN_CFG_SERVICE_EMBEDDING_QUEUE_URL" -> "https://queue.example.invalid/q")
++    )
++    assertEquals(onlyUrl.left.map(_.messages.size), Left(13))
++  }
++
++  test("decision 5: a malformed embeddingQueueUrl is refused naming the key, never the value") {
++    val refused = List(
++      "http://queue.example.invalid/embed-marker",
++      "queue.example.invalid/embed-marker",
++      "https://",
++      "https:///embed-marker",
++      "https://queue.example.invalid/embed marker",
++      "https://user:pass@queue.example.invalid/embed-marker",
++      "HTTPS://queue.example.invalid/embed-marker",
++      "ftp://queue.example.invalid/embed-marker"
++    )
++    refused.foreach { u =>
++      val fromFile = load(editService("embeddingQueueUrl", u))
++      val fromEnv = load(env = Map("SCHOLARCHAIN_CFG_SERVICE_EMBEDDING_QUEUE_URL" -> u))
++      List(fromFile, fromEnv).foreach { r =>
++        assertEquals(r.left.map(_.messages), Left(List(EmbeddingUrlError)), u)
++        val all = r.left.toOption.map(_.messages.mkString("; ")).getOrElse("")
++        assert(!all.contains("embed-marker") && !all.contains("embed marker"), all)
++        assert(!all.contains("queue.example.invalid"), all)
++      }
++    }
++    assertError(
++      load(editService("embeddingQueueUrl", 1)),
++      "service.embeddingQueueUrl: expected a string"
++    )
++    List(
++      "https://queue.example.invalid",
++      "https://sqs.us-east-1.example.invalid/000000000000/example-embedding-tasks"
++    ).foreach(u => loaded(editService("embeddingQueueUrl", u)))
++  }
++
+   test("service environment variable names follow the rule") {
+     assertEquals(ConfigKey.envVarFor("service.port"), "SCHOLARCHAIN_CFG_SERVICE_PORT")
+     assertEquals(
+diff --git a/modules/rag/src/main/scala/org/scholarchain/rag/embedding/BedrockTitanEmbedder.scala b/modules/rag/src/main/scala/org/scholarchain/rag/embedding/BedrockTitanEmbedder.scala
+index 8594d02..794325c 100644
+--- a/modules/rag/src/main/scala/org/scholarchain/rag/embedding/BedrockTitanEmbedder.scala
++++ b/modules/rag/src/main/scala/org/scholarchain/rag/embedding/BedrockTitanEmbedder.scala
+@@ -92,7 +92,7 @@ final class BedrockTitanEmbedder(
+         val est = EmbeddingRetry.estimateTokens(t)
+         val r = Retry.run(policy, sleeper) {
+           limiter.acquire(est)
+-          usage.requests += 1
++          usage.addRequests(1L)
+           invoker.invoke(spec.model, body)
+         }
+         retries += r.retries
+@@ -101,14 +101,14 @@ final class BedrockTitanEmbedder(
+         ) match {
+           case Right((v, tokens)) =>
+             out += v
+-            usage.texts += 1
+-            usage.characters += t.length.toLong
+-            usage.estimatedTokens += est
+-            tokens.foreach(n => usage.reportedTokens += n)
++            usage.addTexts(1L)
++            usage.addCharacters(t.length.toLong)
++            usage.addEstimatedTokens(est)
++            tokens.foreach(n => usage.addReportedTokens(n))
+           case Left(e) => failure = Some(s"bedrock: ${e.getMessage}".take(300))
+         }
+       }
+-      usage.retries += retries
++      usage.addRetries(retries.toLong)
+       failure match {
+         case Some(m) => Left(EmbeddingFailure(m, retries))
+         case None    => Right(EmbeddingBatch(out.result(), retries))
+diff --git a/modules/rag/src/main/scala/org/scholarchain/rag/embedding/FakeLexicalEmbedder.scala b/modules/rag/src/main/scala/org/scholarchain/rag/embedding/FakeLexicalEmbedder.scala
+index 9954446..e7889ba 100644
+--- a/modules/rag/src/main/scala/org/scholarchain/rag/embedding/FakeLexicalEmbedder.scala
++++ b/modules/rag/src/main/scala/org/scholarchain/rag/embedding/FakeLexicalEmbedder.scala
+@@ -27,9 +27,9 @@ final class FakeLexicalEmbedder(val spec: EmbeddingModelSpec, val maxBatchSize:
+     if (texts.size > maxBatchSize)
+       Left(EmbeddingFailure(s"batch of ${texts.size} exceeds $maxBatchSize", 0))
+     else {
+-      usage.requests += 1
+-      usage.texts += texts.size
+-      usage.characters += texts.map(_.length.toLong).sum
++      usage.addRequests(1L)
++      usage.addTexts(texts.size.toLong)
++      usage.addCharacters(texts.map(_.length.toLong).sum)
+       Right(EmbeddingBatch(texts.map(FakeLexicalEmbedder.vector(_, dimensions)), 0))
+     }
+ }
+diff --git a/modules/rag/src/main/scala/org/scholarchain/rag/embedding/RateLimiter.scala b/modules/rag/src/main/scala/org/scholarchain/rag/embedding/RateLimiter.scala
+index b518003..d45f386 100644
+--- a/modules/rag/src/main/scala/org/scholarchain/rag/embedding/RateLimiter.scala
++++ b/modules/rag/src/main/scala/org/scholarchain/rag/embedding/RateLimiter.scala
+@@ -1,5 +1,7 @@
+ package org.scholarchain.rag.embedding
+ 
++import java.util.concurrent.atomic.AtomicLong
++
+ import org.scholarchain.core.config.EmbeddingSettings
+ import org.scholarchain.storage.{RetryPolicy, Sleeper}
+ 
+@@ -71,14 +73,35 @@ object EmbeddingRetry {
+   def estimateTokens(text: String): Long = text.length / 3L + 1L
+ }
+ 
+-/** Usage counters of one embedder, for run reports and cost estimates. Never holds text. */
++/** Usage counters of one embedder, for run reports and cost estimates. Never holds text.
++  *
++  * U-11 (Phase 15): exact under concurrent callers. Each counter is an [[AtomicLong]] updated only
++  * through the `add*` methods (one atomic add per update; the former `@volatile var += n` lost
++  * updates when the ingest's `embedConcurrency` calls or the worker's re-embed loop called one
++  * embedder from several threads). Reads are per counter; [[toJson]] is a set of per-counter reads,
++  * not one atomic snapshot of all six.
++  */
+ final class EmbeddingUsage {
+-  @volatile var requests: Long = 0L
+-  @volatile var texts: Long = 0L
+-  @volatile var estimatedTokens: Long = 0L
+-  @volatile var reportedTokens: Long = 0L
+-  @volatile var retries: Long = 0L
+-  @volatile var characters: Long = 0L
++  private val requestsC = new AtomicLong()
++  private val textsC = new AtomicLong()
++  private val estimatedTokensC = new AtomicLong()
++  private val reportedTokensC = new AtomicLong()
++  private val retriesC = new AtomicLong()
++  private val charactersC = new AtomicLong()
++
++  def requests: Long = requestsC.get
++  def texts: Long = textsC.get
++  def estimatedTokens: Long = estimatedTokensC.get
++  def reportedTokens: Long = reportedTokensC.get
++  def retries: Long = retriesC.get
++  def characters: Long = charactersC.get
++
++  def addRequests(n: Long): Unit = { requestsC.addAndGet(n); () }
++  def addTexts(n: Long): Unit = { textsC.addAndGet(n); () }
++  def addEstimatedTokens(n: Long): Unit = { estimatedTokensC.addAndGet(n); () }
++  def addReportedTokens(n: Long): Unit = { reportedTokensC.addAndGet(n); () }
++  def addRetries(n: Long): Unit = { retriesC.addAndGet(n); () }
++  def addCharacters(n: Long): Unit = { charactersC.addAndGet(n); () }
+ 
+   def toJson: ujson.Obj = ujson.Obj(
+     "requests" -> requests.toDouble,
+diff --git a/modules/rag/src/main/scala/org/scholarchain/rag/embedding/VoyageEmbedder.scala b/modules/rag/src/main/scala/org/scholarchain/rag/embedding/VoyageEmbedder.scala
+index 93b18da..5ffa258 100644
+--- a/modules/rag/src/main/scala/org/scholarchain/rag/embedding/VoyageEmbedder.scala
++++ b/modules/rag/src/main/scala/org/scholarchain/rag/embedding/VoyageEmbedder.scala
+@@ -99,7 +99,7 @@ final class VoyageEmbedder private (
+           case Left((msg, r)) => failure = Some(msg); retries += r
+         }
+       }
+-      usage.retries += retries
++      usage.addRetries(retries.toLong)
+       failure match {
+         case Some(m) => Left(EmbeddingFailure(m, retries))
+         case None    => Right(EmbeddingBatch(out.result(), retries))
+@@ -128,7 +128,7 @@ final class VoyageEmbedder private (
+     var result: Option[Either[(String, Int), (Vector[Array[Float]], Int)]] = None
+     while (result.isEmpty) {
+       limiter.acquire(estimate)
+-      usage.requests += 1
++      usage.addRequests(1L)
+       val attempt: Either[(Boolean, String, Option[Long]), HttpResult] =
+         try Right(transport.postJson(endpoint, List("Authorization" -> s"Bearer $apiKey"), body))
+         catch {
+@@ -144,7 +144,7 @@ final class VoyageEmbedder private (
+             VoyageEmbedder
+               .parse(r.body, group.size, spec.dimensions)
+               .map { case (vs, tokens) =>
+-                tokens.foreach(t => usage.reportedTokens += t)
++                tokens.foreach(t => usage.addReportedTokens(t))
+                 vs
+               }
+               .left
+@@ -156,9 +156,9 @@ final class VoyageEmbedder private (
+         }
+       outcome match {
+         case Right(vs) =>
+-          usage.texts += group.size
+-          usage.characters += group.map(_.length.toLong).sum
+-          usage.estimatedTokens += estimate
++          usage.addTexts(group.size.toLong)
++          usage.addCharacters(group.map(_.length.toLong).sum)
++          usage.addEstimatedTokens(estimate)
+           result = Some(Right((vs, retries)))
+         case Left((true, _, retryAfter)) if retries < policy.maxRetries =>
+           retries += 1
+diff --git a/modules/rag/src/main/scala/org/scholarchain/rag/ingest/RagIngestJob.scala b/modules/rag/src/main/scala/org/scholarchain/rag/ingest/RagIngestJob.scala
+index 0f73a93..131ad27 100644
+--- a/modules/rag/src/main/scala/org/scholarchain/rag/ingest/RagIngestJob.scala
++++ b/modules/rag/src/main/scala/org/scholarchain/rag/ingest/RagIngestJob.scala
+@@ -63,11 +63,13 @@ import org.scholarchain.storage.source.{ExportSources, RejectLog, S3ExportSource
+   * build commit) and the jar's [[BuildIdentity]]; [[CodeVersion]] stays the run-ID input. Bucket
+   * names and the account ID are masked in every report and printed line ([[Masking]]).
+   *
+-  * Bounds: `<out>` must not exist (a new root per attempt); a step longer than 60 minutes or free
+-  * disk below 15 GiB ([[MinFreeBytes]]) stops the run.
++  * Bounds: `<out>` must not exist (a new root per attempt); a step longer than [[MaxStepMillis]]
++  * (120 minutes since Phase 15) or free disk below 15 GiB ([[MinFreeBytes]]) stops the run.
++  * `--max-documents N` (Phase 15) limits every run and the retrieval smoke to the first N rendered
++  * documents.
+   *
+   * {{{
+-  * java -cp app.jar org.scholarchain.rag.ingest.RagIngestJob --config FILE --export RUN_DIR|s3://... --out DIR --code-version SHA40 [--stores local|aws] [--runs 2] [--samples-per-index 25]
++  * java -cp app.jar org.scholarchain.rag.ingest.RagIngestJob --config FILE --export RUN_DIR|s3://... --out DIR --code-version SHA40 [--stores local|aws] [--runs 2] [--samples-per-index 25] [--max-documents N]
+   * }}}
+   */
+ object RagIngestJob {
+@@ -82,13 +84,23 @@ object RagIngestJob {
+ 
+   /** Free disk the job needs under `--out` at the start of every step (15 GiB). */
+   val MinFreeBytes: Long = 15L * 1024 * 1024 * 1024
+-  private val MaxStepMillis = 60L * 60 * 1000
++
++  /** A step that took longer than this stops the run (checked when the step ends). 120 minutes
++    * since Phase 15 (G-27; was 60): storage's estimate of a full 251,094-document first pass at the
++    * new write settings is about 31 min low, 36 central, 50 to 54 high (estimate, agent-report-
++    * storage.md "ESTIMATE"), so the cap is about twice the high estimate; a skip-only pass is about
++    * 25 to 100 s (estimate). Phase 14 measured 3.61 h for the old single-writer first pass.
++    */
++  val MaxStepMillis: Long = 120L * 60 * 1000
++
++  /** Bounds of `--max-documents` (Phase 15, G-27 probe): at most this many rendered documents. */
++  val MaxDocumentsBound: Int = 10000000
+ 
+   /** The contract (decision 7): the option names, without `--`. The parser accepts exactly these;
+     * scripts are written from this constant.
+     */
+   val Required: List[String] = List("config", "export", "out", "code-version")
+-  val Optional: List[String] = List("stores", "runs", "samples-per-index")
++  val Optional: List[String] = List("stores", "runs", "samples-per-index", "max-documents")
+ 
+   val ReportFormat = "scholarchain.rag.ingest-run-report"
+   val ReportCopyFormat = "scholarchain.rag.ingest-report-copy"
+@@ -102,6 +114,12 @@ object RagIngestJob {
+ 
+   /** @param exportLocation
+     *   a local export directory (absolute) or an `s3://` export URI
++    * @param maxDocuments
++    *   `--max-documents N` (Phase 15, G-27): every run ingests only the first N rendered documents
++    *   (render order, which is deterministic), and the retrieval smoke samples only those. The
++    *   whole export is still read and rendered. On unchanged data the probe writes nothing (every
++    *   document is skipped), so D7 can measure the skip rate on 5,000 documents before the full
++    *   pass. None: every document.
+     */
+   final case class Options(
+       config: Path,
+@@ -110,7 +128,8 @@ object RagIngestJob {
+       runs: Int,
+       samplesPerIndex: Int,
+       stores: String,
+-      codeVersion: String
++      codeVersion: String,
++      maxDocuments: Option[Int] = None
+   )
+ 
+   /** Parses `--name value` pairs; exactly the names of [[Required]] and [[Optional]] are accepted
+@@ -154,6 +173,14 @@ object RagIngestJob {
+         )
+         runs <- int("runs", 2, 1, 3)
+         samples <- int("samples-per-index", 25, 1, 500)
++        maxDocs <- m.get("max-documents") match {
++          case None    => Right(None)
++          case Some(v) =>
++            v.toIntOption
++              .filter(x => x >= 1 && x <= MaxDocumentsBound)
++              .map(Some(_))
++              .toRight(s"--max-documents must be in 1..$MaxDocumentsBound")
++        }
+         stores <- Right(m.getOrElse("stores", "local"))
+           .filterOrElse(Set("local", "aws"), "--stores must be local or aws")
+         _ <- Either.cond(
+@@ -168,7 +195,8 @@ object RagIngestJob {
+         runs,
+         samples,
+         stores,
+-        code
++        code,
++        maxDocs
+       )
+     }
+   }
+@@ -373,7 +401,13 @@ object RagIngestJob {
+       "label" -> Label,
+       "codeVersion" -> opts.codeVersion,
+       "jobCodeVersion" -> CodeVersion,
+-      "build" -> hooks.buildIdentity().toJson
++      "build" -> hooks.buildIdentity().toJson,
++      "limits" -> ujson.Obj(
++        "maxStepMillis" -> MaxStepMillis.toDouble,
++        "maxDocuments" -> opts.maxDocuments.map(n => ujson.Num(n.toDouble)).getOrElse(ujson.Null),
++        "runs" -> opts.runs,
++        "samplesPerIndex" -> opts.samplesPerIndex
++      )
+     )
+     val steps = ujson.Obj()
+     report("steps") = steps
+@@ -388,7 +422,8 @@ object RagIngestJob {
+       val ms = (System.nanoTime() - t0) / 1000000L
+       say(s"[rag-ingest] step $name finished in $ms ms")
+       steps(name) = ujson.Obj("millis" -> ms.toDouble, "freeDiskBytesAfter" -> disk().toDouble)
+-      if (ms > MaxStepMillis) throw new StopRun(s"step $name took $ms ms (> 60 minutes)")
++      if (ms > MaxStepMillis)
++        throw new StopRun(s"step $name took $ms ms (> ${MaxStepMillis / 60000L} minutes)")
+       a
+     }
+     def write(): Array[Byte] = {
+@@ -488,15 +523,18 @@ object RagIngestJob {
+       report("runs") = runs
+       var reports = List.empty[IngestReport]
+       var digests = List.empty[String]
++      // --max-documents: the first N rendered documents (render order is deterministic)
++      def selected(c: RenderedCorpus) = opts.maxDocuments.fold(c.documents)(c.documents.take)
+       (1 to opts.runs).foreach { n =>
+         corpus = null
+         corpus = step(s"render-run-$n")(builder.renderAll())
+         digests :+= corpus.digest
+-        val docsPerIndex = corpus.documents.groupMapReduce(_.indexName)(_ => 1L)(_ + _)
++        val docs = selected(corpus)
++        val docsPerIndex = docs.groupMapReduce(_.indexName)(_ => 1L)(_ + _)
+         val usageBefore = doc.usage.requests
+         val r = step(s"ingest-run-$n") {
+           val s = pipeline.open(runId, s"rag-ingest run $n")
+-          s.ingest(corpus.documents.iterator)
++          s.ingest(docs.iterator)
+           s.finish()
+         }
+         reports :+= r
+@@ -505,6 +543,7 @@ object RagIngestJob {
+           "run" -> n,
+           "corpusDigest" -> corpus.digest,
+           "documents" -> corpus.documents.size.toDouble,
++          "documentsIngested" -> docs.size.toDouble,
+           "documentsPerIndex" -> ujson.Obj.from(
+             cfg.vectors.indexNames.map(i => i -> ujson.Num(docsPerIndex.getOrElse(i, 0L).toDouble))
+           ),
+@@ -526,7 +565,7 @@ object RagIngestJob {
+       // ---- retrieval smoke samples on the real corpus (fake provider: lexical, not semantic) ----
+       val retriever = new SemanticRetriever(query.port, query.spec, env.vectors, cfg.vectors)
+       val smoke = step("retrieval-smoke") {
+-        val byIndex = corpus.documents.groupBy(_.indexName)
++        val byIndex = selected(corpus).groupBy(_.indexName)
+         ujson.Obj.from(cfg.vectors.indexNames.flatMap { idx =>
+           byIndex.get(idx).map { docs =>
+             val sorted = docs.sortBy(_.vectorKey)
+diff --git a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/QueryWorkflow.scala b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/QueryWorkflow.scala
+index 6bbea2b..2e1e3fb 100644
+--- a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/QueryWorkflow.scala
++++ b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/QueryWorkflow.scala
+@@ -60,9 +60,10 @@ final class AuditStage(stores: RuntimeStores) {
+   * graphRunId, prompt versions), config fingerprint)`: the same question, constraints, graph run,
+   * prompt set and configuration give the same run ID.
+   *
+-  * The audit is QueryAudit schema version 2: it also records the graph query-template IDs, the
++  * The audit is QueryAudit schema version 3: it also records the graph query-template IDs, the
+   * vector indexes and metadata filter keys, per-task model-call counters and cache hits of the
+-  * query ([[QueryTrace]], [[QueryWorkflow.callCounts]]).
++  * query ([[QueryTrace]], [[QueryWorkflow.callCounts]]) and, for an abstained answer, its fixed
++  * abstention codes ([[AbstentionCodes]], Phase 15 G-28).
+   *
+   * Thread safety: one instance may run queries on several threads at once when its stores, model
+   * and retriever are thread-safe (storage's runtime stores, the model clients and the retriever of
+@@ -211,6 +212,7 @@ final class QueryWorkflow(
+            )
+          else Nil)
+       abstentions = assembled.abstentions ++ retrieved.abstentions
++      pathContext = QueryWorkflow.pathContextCodes(retrieved.facts)
+       synthOut = timed("synthesis")(
+         synthesis.run(
+           SynthesisInput(
+@@ -241,6 +243,7 @@ final class QueryWorkflow(
+           verified,
+           baseNotes,
+           abstentions,
++          pathContext,
+           identity,
+           peopleOf,
+           t0,
+@@ -262,7 +265,8 @@ final class QueryWorkflow(
+       synthOut: SynthesisOutput,
+       verified: List[VerifiedClaim],
+       baseNotes: List[String],
+-      abstentions: List[String],
++      abstentions: List[Abstention],
++      pathContext: List[String],
+       identity: IdentityOutcomes,
+       peopleOf: Map[EvidenceId, List[ResearcherId]],
+       t0: Long,
+@@ -372,18 +376,24 @@ final class QueryWorkflow(
+       _.validEvidence.flatMap(itemsById.get).exists(_.evidenceType != EvidenceType.MatchDecision)
+     )
+     val abstained = substantive.isEmpty || assembled.abstainAll.nonEmpty
++    // G-28: every reason carries a fixed code; the texts form the answer's prose (unchanged), the
++    // codes go into the audit (QueryAudit v3)
++    val coded: List[Abstention] = {
++      val all = assembled.abstainAll ++ abstentions ++
++        (if (substantive.isEmpty && verified.exists(!_.kept))
++           List(Abstention(AbstentionCodes.NoVerifiedClaim, QueryWorkflow.NoVerifiedClaimText))
++         else Nil)
++      if (all.isEmpty)
++        List(Abstention(AbstentionCodes.NoSubstantiveEvidence, QueryWorkflow.NoEvidenceText))
++      else all
++    }
+     val abstentionReason =
+       if (!abstained) None
+-      else
+-        Some {
+-          val reasons = (assembled.abstainAll ++ abstentions ++
+-            (if (substantive.isEmpty && verified.exists(!_.kept))
+-               List("no claim could be verified against the evidence")
+-             else Nil)).distinct
+-          (if (reasons.isEmpty) List("no graph evidence answered the question") else reasons)
+-            .mkString("; ")
+-            .take(1000)
+-        }
++      else Some(coded.map(_.text).distinct.mkString("; ").take(1000))
++    val abstentionCodes = AbstentionCodes.forAudit(
++      abstained,
++      QueryWorkflow.orderedCodes(assembled.abstainAll, pathContext, coded)
++    )
+     val answerText = {
+       val sb = new StringBuilder
+       if (abstained) sb.append(s"No answer: ${abstentionReason.get}.\n")
+@@ -403,7 +413,7 @@ final class QueryWorkflow(
+       }
+       if (!abstained && abstentions.nonEmpty)
+         sb.append("\nNot answered:\n")
+-          .append(abstentions.distinct.map(a => s"- $a").mkString("\n"))
++          .append(abstentions.map(_.text).distinct.map(a => s"- $a").mkString("\n"))
+           .append("\n")
+       if (removed.nonEmpty) {
+         sb.append("\nRemoved claims:\n")
+@@ -463,7 +473,7 @@ final class QueryWorkflow(
+       plannerOut.attempts.flatMap(_.outputTokens) ++ synthOut.attempts.flatMap(_.outputTokens)
+     )
+     val audit = QueryAudit(
+-      2,
++      QueryWorkflow.AuditSchemaVersion,
+       runId,
+       ContentHash.of(question),
+       plan,
+@@ -504,7 +514,9 @@ final class QueryWorkflow(
+         ModelTask.Synthesis.wire -> QueryWorkflow
+           .callCounts(synthOut.attempts, synthOut.fallbackReason.isDefined)
+       ),
+-      cacheHits = trace.cacheHits
++      cacheHits = trace.cacheHits,
++      // QueryAudit v3 (Phase 15, G-28): fixed codes only, non-empty exactly when abstained
++      abstentionCodes = abstentionCodes
+     )
+     for {
+       // a failed bundle write is a workflow failure (Phase 10 U-1): the answer's evidence links
+@@ -541,7 +553,7 @@ final class QueryWorkflow(
+         Right(aw),
+         stageSoFar,
+         notes,
+-        abstentions,
++        abstentions.map(_.text),
+         storeConflicts
+       )
+     }
+@@ -556,10 +568,26 @@ final class QueryWorkflow(
+       request: QueryRequest,
+       d: PlanDraft,
+       res: ResolverOutput
++  ): Assembled = PlanAssembly.assemble(ctx, question, request, d, res)
++}
++
++/** Plan assembly of one question (moved out of [[QueryWorkflow]] in Phase 15 unchanged, so the
++  * retrieval evaluation's graph-only mode runs the workflow's own step rules without a model).
++  */
++private[runtime] object PlanAssembly {
++  import QueryWorkflow.DefaultLimit
++
++  def assemble(
++      ctx: RuntimeContext,
++      question: String,
++      request: QueryRequest,
++      d: PlanDraft,
++      res: ResolverOutput
+   ): Assembled = {
++    val _ = question
+     val notes = List.newBuilder[String]
+-    val abstainAll = List.newBuilder[String]
+-    val abstain = List.newBuilder[String]
++    val abstainAll = List.newBuilder[Abstention]
++    val abstain = List.newBuilder[Abstention]
+     val windowLabel = request.windowLabel.orElse(d.windowLabel).getOrElse {
+       if (
+         d.comparisonWindowLabels.isEmpty && !d.operations.forall(
+@@ -572,11 +600,20 @@ final class QueryWorkflow(
+     d.unsupportedConstraints.foreach { c =>
+       c.kind match {
+         case "venue" =>
+-          abstainAll += s"venue filters are not supported yet (no venue metrics exist): ${c.text}"
++          abstainAll += Abstention(
++            AbstentionCodes.UnsupportedVenueFilter,
++            s"venue filters are not supported yet (no venue metrics exist): ${c.text}"
++          )
+         case "institution" =>
+-          abstainAll += s"institution filters are not supported yet (no institution data exists): ${c.text}"
++          abstainAll += Abstention(
++            AbstentionCodes.UnsupportedInstitutionFilter,
++            s"institution filters are not supported yet (no institution data exists): ${c.text}"
++          )
+         case "window" =>
+-          abstainAll += s"the requested years are not a configured window: ${c.text} (windows: ${ctx.windows.map(w => s"${w.startYear}-${w.endYear}").mkString(", ")})"
++          abstainAll += Abstention(
++            AbstentionCodes.WindowNotConfigured,
++            s"the requested years are not a configured window: ${c.text} (windows: ${ctx.windows.map(w => s"${w.startYear}-${w.endYear}").mkString(", ")})"
++          )
+         case _ => notes += s"Not supported: ${c.text}"
+       }
+     }
+@@ -614,10 +651,20 @@ final class QueryWorkflow(
+       if (!ok) {
+         val why =
+           if (anyUnresolved)
+-            s"${s.operation.wire} was not run because a researcher name could not be resolved to exactly one researcher"
++            Abstention(
++              AbstentionCodes.ResearcherNotResolved,
++              s"${s.operation.wire} was not run because a researcher name could not be resolved to exactly one researcher"
++            )
+           else if (s.operation == QueryOperation.ShortestPath)
+-            "a shortest path needs exactly two researcher names"
+-          else s"${s.operation.wire} needs a researcher name"
++            Abstention(
++              AbstentionCodes.PathNeedsTwoResearchers,
++              "a shortest path needs exactly two researcher names"
++            )
++          else
++            Abstention(
++              AbstentionCodes.ResearcherNameMissing,
++              s"${s.operation.wire} needs a researcher name"
++            )
+         abstain += why
+       }
+       ok
+@@ -638,8 +685,8 @@ private[runtime] final case class Assembled(
+     planned: List[PlannedStep],
+     executable: List[PlannedStep],
+     notes: List[String],
+-    abstentions: List[String],
+-    abstainAll: List[String],
++    abstentions: List[Abstention],
++    abstainAll: List[Abstention],
+     resolution: ResolverOutput
+ ) {
+ 
+@@ -727,6 +774,36 @@ object QueryWorkflow {
+     */
+   val CodeVersion = "rag-runtime/3"
+ 
++  /** The QueryAudit schema version this workflow writes: 3 since Phase 15 (G-28,
++    * `abstentionCodes`). The run-ID inputs are unchanged, so [[CodeVersion]] stays.
++    */
++  val AuditSchemaVersion = 3
++
++  /** Answer text of the verification abstention (unchanged since Phase 9). */
++  val NoVerifiedClaimText = "no claim could be verified against the evidence"
++
++  /** Answer text when an abstained answer has no other reason (unchanged since Phase 9). */
++  val NoEvidenceText = "no graph evidence answered the question"
++
++  /** Context codes of shortest-path steps that found no path: `no-path-within-depth` for a complete
++    * search, `path-query-timeout` for one stopped at its time budget (Stages PathFinder).
++    */
++  def pathContextCodes(facts: List[Fact]): List[String] =
++    facts.collect {
++      case p: PathAbsentFact if p.complete  => AbstentionCodes.NoPathWithinDepth
++      case p: PathAbsentFact if !p.complete => AbstentionCodes.PathQueryTimeout
++    }.distinct
++
++  /** Audit code order: whole-question refusals, then path context, then step and verification
++    * reasons (so the most specific codes survive the eight-code bound).
++    */
++  def orderedCodes(
++      abstainAll: List[Abstention],
++      pathContext: List[String],
++      coded: List[Abstention]
++  ): List[String] =
++    (abstainAll.map(_.code) ++ pathContext ++ coded.map(_.code)).distinct
++
+   /** The QueryAudit v2 counters of one model task in one query, from its attempt records: logical
+     * calls (attempts), invalid and truncated outputs, bound numbers dropped (answer-claims v3,
+     * summed over the attempts) and fallbacks (0 or 1).
+diff --git a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/Stages.scala b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/Stages.scala
+index a02e168..287454a 100644
+--- a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/Stages.scala
++++ b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/Stages.scala
+@@ -33,13 +33,24 @@ final case class PlannedStep(
+ )
+ 
+ /** Facts, notes and abstentions of one retrieval stage. `abstentions` are reasons why a step could
+-  * not be answered (they are stated in the answer).
++  * not be answered (their texts are stated in the answer; their fixed codes go into the audit,
++  * Phase 15 G-28).
+   */
+-final case class StageOutput(facts: List[Fact], notes: List[String], abstentions: List[String]) {
++final case class StageOutput(
++    facts: List[Fact],
++    notes: List[String],
++    abstentions: List[Abstention]
++) {
+   def ++(o: StageOutput): StageOutput =
+     StageOutput(facts ++ o.facts, notes ++ o.notes, abstentions ++ o.abstentions)
+ }
+-object StageOutput { val empty: StageOutput = StageOutput(Nil, Nil, Nil) }
++object StageOutput {
++  val empty: StageOutput = StageOutput(Nil, Nil, Nil)
++
++  /** A stage output with one coded abstention and nothing else. */
++  def abstain(code: String, text: String): StageOutput =
++    StageOutput(Nil, Nil, List(Abstention(code, text)))
++}
+ 
+ /** Fixed texts of store and retrieval failures (C-02): a stage never puts a store, SDK or provider
+   * message into a note or an abstention, because both reach the answer. Names and window labels
+@@ -192,12 +203,21 @@ final class CollaborationMetrics(
+   def run(steps: List[PlannedStep]): StageOutput =
+     steps.map(step).foldLeft(StageOutput.empty)(_ ++ _)
+ 
+-  private def entry(r: ResearcherRef, w: String): Either[String, MetricCacheEntry] =
++  private def entry(r: ResearcherRef, w: String): Either[Abstention, MetricCacheEntry] =
+     stores.metrics
+       .get(r.id, w)
+       .left
+-      .map(_ => StageFailures.metrics(r.displayName, w))
+-      .flatMap(_.toRight(s"${r.displayName} has no stored metrics in window $w"))
++      .map(_ =>
++        Abstention(AbstentionCodes.MetricsReadFailed, StageFailures.metrics(r.displayName, w))
++      )
++      .flatMap(
++        _.toRight(
++          Abstention(
++            AbstentionCodes.MetricsMissing,
++            s"${r.displayName} has no stored metrics in window $w"
++          )
++        )
++      )
+ 
+   private def step(s: PlannedStep): StageOutput = s.operation match {
+     case QueryOperation.CollaborationBreadth | QueryOperation.ResearcherLookup =>
+@@ -261,7 +281,13 @@ final class CollaborationMetrics(
+               StageOutput(
+                 m ++ works,
+                 notes,
+-                if (m.isEmpty) List(s"${r.displayName} has no stored M in ${s.windowLabel}")
++                if (m.isEmpty)
++                  List(
++                    Abstention(
++                      AbstentionCodes.MetricsMissing,
++                      s"${r.displayName} has no stored M in ${s.windowLabel}"
++                    )
++                  )
+                 else Nil
+               )
+           }
+@@ -272,7 +298,11 @@ final class CollaborationMetrics(
+       s.researchers.zipWithIndex
+         .map { case (r, i) =>
+           stores.metrics.allWindows(r.id) match {
+-            case Left(_) => StageOutput(Nil, Nil, List(StageFailures.allWindows(r.displayName)))
++            case Left(_) =>
++              StageOutput.abstain(
++                AbstentionCodes.MetricsReadFailed,
++                StageFailures.allWindows(r.displayName)
++              )
+             case Right(entries) =>
+               val wanted =
+                 if (s.comparisonWindows.nonEmpty) s.comparisonWindows
+@@ -286,7 +316,12 @@ final class CollaborationMetrics(
+                   s"${r.displayName} has no stored metrics in window $w (no publications in that window)."
+                 ),
+                 if (chosen.isEmpty)
+-                  List(s"${r.displayName} has no stored metrics in the compared windows")
++                  List(
++                    Abstention(
++                      AbstentionCodes.MetricsMissing,
++                      s"${r.displayName} has no stored metrics in the compared windows"
++                    )
++                  )
+                 else Nil
+               )
+           }
+@@ -299,7 +334,10 @@ final class CollaborationMetrics(
+         case None =>
+           stores.metrics.ranking(s.windowLabel, metric, s.limit) match {
+             case Left(_) =>
+-              StageOutput(Nil, Nil, List(StageFailures.ranking(metric.wire, s.windowLabel)))
++              StageOutput.abstain(
++                AbstentionCodes.RankingReadFailed,
++                StageFailures.ranking(metric.wire, s.windowLabel)
++              )
+             case Right(rows) =>
+               StageOutput(
+                 rows.map(x =>
+@@ -317,7 +355,12 @@ final class CollaborationMetrics(
+                 ),
+                 Nil,
+                 if (rows.isEmpty)
+-                  List(s"no ranking is stored for ${metric.wire} in ${s.windowLabel}")
++                  List(
++                    Abstention(
++                      AbstentionCodes.RankingMissing,
++                      s"no ranking is stored for ${metric.wire} in ${s.windowLabel}"
++                    )
++                  )
+                 else Nil
+               )
+           }
+@@ -337,7 +380,8 @@ final class CollaborationMetrics(
+       topic: String
+   ): StageOutput =
+     semantic.profileCandidates(topic, s.windowLabel) match {
+-      case Left(_)      => StageOutput(Nil, Nil, List(StageFailures.TopicCandidates))
++      case Left(_) =>
++        StageOutput.abstain(AbstentionCodes.TopicCandidatesFailed, StageFailures.TopicCandidates)
+       case Right(cands) =>
+         val ids = cands.flatMap(_.researcherId).distinct
+         val reads = ids.map(id => stores.metrics.get(id, s.windowLabel))
+@@ -381,14 +425,24 @@ final class CollaborationMetrics(
+           )
+         }
+         val _ = names
+-        if (failed > 0) StageOutput(Nil, Nil, List(StageFailures.topicMetrics(failed)))
++        if (failed > 0)
++          StageOutput.abstain(
++            AbstentionCodes.TopicMetricsFailed,
++            StageFailures.topicMetrics(failed)
++          )
+         else
+           StageOutput(
+             facts,
+             List(
+               s"Topic filter: researchers were matched to the topic by researcher-profile similarity within ${s.windowLabel} (top ${ctx.vectorTopK} profiles), not by topic labels; ranks are positions among those candidates."
+             ),
+-            if (facts.isEmpty) List(s"no researcher profile in ${s.windowLabel} matched the topic")
++            if (facts.isEmpty)
++              List(
++                Abstention(
++                  AbstentionCodes.TopicNoMatch,
++                  s"no researcher profile in ${s.windowLabel} matched the topic"
++                )
++              )
+             else Nil
+           )
+     }
+@@ -427,10 +481,9 @@ final class PathFinder(
+     if (ctx.graphWindowLabels.contains(s.windowLabel)) None
+     else
+       Some(
+-        StageOutput(
+-          Nil,
+-          Nil,
+-          List(s"coauthor edges for window ${s.windowLabel} are not loaded in this environment")
++        StageOutput.abstain(
++          AbstentionCodes.WindowNotLoaded,
++          s"coauthor edges for window ${s.windowLabel} are not loaded in this environment"
+         )
+       )
+ 
+@@ -529,7 +582,10 @@ final class PathFinder(
+ 
+   private def shortestPath(s: PlannedStep): StageOutput = s.researchers match {
+     case List(a, b) if a.id == b.id =>
+-      StageOutput(Nil, Nil, List("a path needs two different researchers"))
++      StageOutput.abstain(
++        AbstentionCodes.PathSameResearcher,
++        "a path needs two different researchers"
++      )
+     case List(a, b) =>
+       val window = ctx.yearWindow(s.windowLabel).get
+       val fromSpark = precomputed(a.id, b.id, s.windowLabel)
+@@ -600,7 +656,8 @@ final class PathFinder(
+             }
+         }
+       pathIds match {
+-        case Left(_)             => StageOutput(Nil, Nil, List(StageFailures.PathSearch))
++        case Left(_) =>
++          StageOutput.abstain(AbstentionCodes.PathQueryFailed, StageFailures.PathSearch)
+         case Right(Left(absent)) =>
+           val note =
+             if (absent.complete)
+@@ -610,7 +667,10 @@ final class PathFinder(
+           StageOutput(List(absent), List(note), Nil)
+         case Right(Right((ids, origin, sparkId, truncated, src))) =>
+           if (ids.size < 2 || ids.exists(!_.isWellFormed) || ids.head != a.id || ids.last != b.id)
+-            StageOutput(Nil, Nil, List("the stored path does not connect the two researchers"))
++            StageOutput.abstain(
++              AbstentionCodes.PathResultInvalid,
++              "the stored path does not connect the two researchers"
++            )
+           else {
+             val refs = ids.map(ref(_, s.researchers))
+             val hops = refs.zip(refs.tail).take(MaxHopEdges).zipWithIndex.map { case ((x, y), i) =>
+@@ -627,13 +687,18 @@ final class PathFinder(
+             )
+           }
+       }
+-    case _ => StageOutput(Nil, Nil, List("a shortest path needs exactly two resolved researchers"))
++    case _ =>
++      StageOutput.abstain(
++        AbstentionCodes.PathNeedsTwoResearchers,
++        "a shortest path needs exactly two resolved researchers"
++      )
+   }
+ 
+   private def neighbors(s: PlannedStep): StageOutput = s.researchers match {
+     case List(a, b) =>
+       edge(a, b, s.windowLabel, 20) match {
+-        case Left(_)        => StageOutput(Nil, Nil, List(StageFailures.EdgeLookup))
++        case Left(_) =>
++          StageOutput.abstain(AbstentionCodes.EdgeLookupFailed, StageFailures.EdgeLookup)
+         case Right(Some(e)) => StageOutput(List(e), Nil, Nil)
+         case Right(None)    =>
+           StageOutput(
+@@ -661,7 +726,8 @@ final class PathFinder(
+     case a :: Nil =>
+       val limit = math.min(s.limit, ctx.runtime.graphResultLimit)
+       stores.graph.run(GraphQuery.CoauthorNeighbors(a.id, s.windowLabel, limit)) match {
+-        case Left(_)  => StageOutput(Nil, Nil, List(StageFailures.NeighborLookup))
++        case Left(_) =>
++          StageOutput.abstain(AbstentionCodes.NeighborLookupFailed, StageFailures.NeighborLookup)
+         case Right(r) =>
+           val refs = r.rows.flatMap { row =>
+             GraphRows
+@@ -689,7 +755,10 @@ final class PathFinder(
+           )
+       }
+     case _ =>
+-      StageOutput(Nil, Nil, List("direct collaboration needs one or two resolved researchers"))
++      StageOutput.abstain(
++        AbstentionCodes.CollaborationNeedsResearchers,
++        "direct collaboration needs one or two resolved researchers"
++      )
+   }
+ }
+ 
+@@ -717,14 +786,8 @@ final class CommunityAnalyst(stores: RuntimeStores, ctx: RuntimeContext, paths:
+           stores.metrics.get(r.id, s.windowLabel) match {
+             case Right(Some(e)) =>
+               StageOutput(metricFact(r, e, ComponentSize, 30 + i).toList, Nil, Nil)
+-            case Right(None) =>
+-              StageOutput(
+-                Nil,
+-                Nil,
+-                List(s"${r.displayName} has no stored metrics in window ${s.windowLabel}")
+-              )
+-            case Left(_) =>
+-              StageOutput(Nil, Nil, List(StageFailures.metrics(r.displayName, s.windowLabel)))
++            case Right(None) => noMetrics(r, s.windowLabel)
++            case Left(_)     => metricsFailed(r, s.windowLabel)
+           }
+         }
+         .foldLeft(StageOutput.empty)(_ ++ _)
+@@ -752,14 +815,8 @@ final class CommunityAnalyst(stores: RuntimeStores, ctx: RuntimeContext, paths:
+                    else Nil),
+                 Nil
+               )
+-            case Right(None) =>
+-              StageOutput(
+-                Nil,
+-                Nil,
+-                List(s"${r.displayName} has no stored metrics in window ${s.windowLabel}")
+-              )
+-            case Left(_) =>
+-              StageOutput(Nil, Nil, List(StageFailures.metrics(r.displayName, s.windowLabel)))
++            case Right(None) => noMetrics(r, s.windowLabel)
++            case Left(_)     => metricsFailed(r, s.windowLabel)
+           }
+         }
+         .foldLeft(StageOutput.empty)(_ ++ _)
+@@ -767,10 +824,9 @@ final class CommunityAnalyst(stores: RuntimeStores, ctx: RuntimeContext, paths:
+     case QueryOperation.BridgeResearchers =>
+       stores.metrics.ranking(s.windowLabel, CommunitiesConnected, s.limit) match {
+         case Left(_) =>
+-          StageOutput(
+-            Nil,
+-            Nil,
+-            List(StageFailures.ranking(CommunitiesConnected.wire, s.windowLabel))
++          StageOutput.abstain(
++            AbstentionCodes.RankingReadFailed,
++            StageFailures.ranking(CommunitiesConnected.wire, s.windowLabel)
+           )
+         case Right(rows) =>
+           var ccdFailed = 0
+@@ -798,12 +854,28 @@ final class CommunityAnalyst(stores: RuntimeStores, ctx: RuntimeContext, paths:
+             facts,
+             List(Caveat) ++
+               (if (ccdFailed > 0) List(StageFailures.bridgeCcd(ccdFailed)) else Nil),
+-            if (rows.isEmpty) List(s"no bridge ranking is stored for ${s.windowLabel}") else Nil
++            if (rows.isEmpty)
++              List(
++                Abstention(
++                  AbstentionCodes.RankingMissing,
++                  s"no bridge ranking is stored for ${s.windowLabel}"
++                )
++              )
++            else Nil
+           )
+       }
+     case _ => StageOutput.empty
+   }
+ 
++  private def noMetrics(r: ResearcherRef, w: String): StageOutput =
++    StageOutput.abstain(
++      AbstentionCodes.MetricsMissing,
++      s"${r.displayName} has no stored metrics in window $w"
++    )
++
++  private def metricsFailed(r: ResearcherRef, w: String): StageOutput =
++    StageOutput.abstain(AbstentionCodes.MetricsReadFailed, StageFailures.metrics(r.displayName, w))
++
+   /** Community of up to five top coauthors (by edge weight) that sit in another community, and the
+     * number of reads that failed (C-05: stated in a note, never silently dropped).
+     */
+@@ -912,7 +984,10 @@ final class SemanticContextStage(
+           )
+           text match {
+             case None =>
+-              StageOutput(Nil, Nil, List("semantic context needs a topic or a researcher name"))
++              StageOutput.abstain(
++                AbstentionCodes.SemanticNeedsTopicOrName,
++                "semantic context needs a topic or a researcher name"
++              )
+             case Some(q) =>
+               profileCandidates(q.take(SemanticRetriever.MaxQueryChars), s.windowLabel) match {
+                 case Left(_)     => StageOutput(Nil, List(StageFailures.SemanticUnavailable), Nil)
+diff --git a/modules/rag/src/test/scala/org/scholarchain/rag/RagIngestJobSuite.scala b/modules/rag/src/test/scala/org/scholarchain/rag/RagIngestJobSuite.scala
+index 6945b75..fdc9f52 100644
+--- a/modules/rag/src/test/scala/org/scholarchain/rag/RagIngestJobSuite.scala
++++ b/modules/rag/src/test/scala/org/scholarchain/rag/RagIngestJobSuite.scala
+@@ -292,7 +292,11 @@ class RagIngestJobSuite extends munit.FunSuite {
+ 
+   test("decision 7: the option constant has exactly these names") {
+     assertEquals(RagIngestJob.Required, List("config", "export", "out", "code-version"))
+-    assertEquals(RagIngestJob.Optional, List("stores", "runs", "samples-per-index"))
++    // Phase 15 (G-27): --max-documents added for the D7 probe
++    assertEquals(
++      RagIngestJob.Optional,
++      List("stores", "runs", "samples-per-index", "max-documents")
++    )
+   }
+ 
+   test("decision 7: the parser accepts exactly the constant's names and refuses the rest") {
+@@ -303,6 +307,7 @@ class RagIngestJobSuite extends munit.FunSuite {
+           case "stores"            => "aws"
+           case "runs"              => "1"
+           case "samples-per-index" => "3"
++          case "max-documents"     => "5000"
+           case "code-version"      => "0123456789abcdef0123456789abcdef01234567"
+           case "export"            => "s3://example-graph-bucket/graph/exports/run=" + "0" * 32
+           case other               => other
+diff --git a/modules/rag/src/test/scala/org/scholarchain/rag/runtime/RuntimeRepairsSuite.scala b/modules/rag/src/test/scala/org/scholarchain/rag/runtime/RuntimeRepairsSuite.scala
+index c7efe80..2686efd 100644
+--- a/modules/rag/src/test/scala/org/scholarchain/rag/runtime/RuntimeRepairsSuite.scala
++++ b/modules/rag/src/test/scala/org/scholarchain/rag/runtime/RuntimeRepairsSuite.scala
+@@ -395,7 +395,9 @@ class RuntimeRepairsSuite extends munit.FunSuite {
+   test("QueryAudit v2: template IDs, indexes, filter keys, model calls and cache hits are filled") {
+     val p = run(workflow(), Path)
+     val a = p.audit
+-    assertEquals(a.schemaVersion, 2)
++    // Phase 15 G-28: the workflow writes QueryAudit v3 (v2 fields unchanged, plus abstentionCodes)
++    assertEquals(a.schemaVersion, 3)
++    assertEquals(a.abstentionCodes, Nil)
+     assert(a.queryTemplateIds.contains("coauthor_edge_between"), a.queryTemplateIds.toString)
+     assert(
+       a.indexesQueried.contains(storageConfig.vectors.collaborationPathIndex),
+diff --git a/modules/services/src/main/scala/org/scholarchain/services/Main.scala b/modules/services/src/main/scala/org/scholarchain/services/Main.scala
+index 6fa9631..5be10e2 100644
+--- a/modules/services/src/main/scala/org/scholarchain/services/Main.scala
++++ b/modules/services/src/main/scala/org/scholarchain/services/Main.scala
+@@ -9,6 +9,8 @@ import scala.util.control.NonFatal
+ 
+ import org.scholarchain.core.RunId
+ import org.scholarchain.core.config.{ConfigLoader, ScholarChainConfig}
++import org.scholarchain.rag.embedding.EmbeddingProviders
++import org.scholarchain.rag.reembed.ReembedHandler
+ import org.scholarchain.rag.runtime.RuntimeService
+ import org.scholarchain.storage.jobs.ServiceStores
+ 
+@@ -74,6 +76,38 @@ object Composition {
+         case r           => r
+       }
+     } yield (runtime, stores)
++
++  /** AWS, roles `worker` and `all` (Phase 15 decision 8.1): the embedding queue at
++    * `service.embeddingQueueUrl` (storage's `ServiceStores.embeddingQueue`, raw bodies, no send)
++    * and a factory of rag's re-embed handler (`ReembedHandler.fromConfig` with the configured
++    * document embedder and storage's re-embed path `AwsStorageEnvironment.reembedder`). Right(None)
++    * when the URL is not set (the worker runs the job loop only). Left when the runtime has no AWS
++    * environment or the URL is refused (the message never names the URL). Building makes no network
++    * call; the handler is built when the server starts.
++    */
++  def embeddingWork(
++      config: ScholarChainConfig,
++      runtime: RuntimeService,
++      wiring: EmbeddingProviders.Wiring = EmbeddingProviders.Wiring()
++  ): Either[String, Option[EmbeddingWork]] =
++    config.service.flatMap(_.embeddingQueueUrl) match {
++      case None      => Right(None)
++      case Some(url) =>
++        for {
++          env <- runtime.awsEnvironment.toRight(
++            "service.embeddingQueueUrl needs the AWS stores (--stores aws)"
++          )
++          queue <- ServiceStores.embeddingQueue(env, url)
++        } yield Some(
++          EmbeddingWork(
++            queue,
++            log =>
++              ReembedHandler
++                .fromConfig(config, embedder => env.reembedder(embedder), wiring, log)
++                .map(_.handler)
++          )
++        )
++    }
+ }
+ 
+ /** The one entry point (decision 7a):
+@@ -86,7 +120,9 @@ object Composition {
+   *   - `--stores local` allows only `--role all` and needs `--export` and `--neptune-csv`; it binds
+   *     127.0.0.1.
+   *   - `--stores aws` needs `--graph-run` (the Spark graph run loaded into Neptune and DynamoDB)
+-  *     and `service.jobQueueUrl`; it binds 0.0.0.0 (the container network).
++  *     and `service.jobQueueUrl`; it binds 0.0.0.0 (the container network). With
++  *     `service.embeddingQueueUrl` set, roles `worker` and `all` also consume the embedding queue
++  *     ([[Composition.embeddingWork]]); `--stores local` ignores that key (no SQS locally).
+   *
+   * The API keys are read from the environment variables named by the `service` section; the process
+   * refuses to start when either is unset or blank, or both hold the same value.
+@@ -193,6 +229,14 @@ object Main {
+         case _       => Composition.aws(cfg, a.graphRun.get)
+       }
+       (runtime, stores) = built
++      // the embedding queue: AWS stores and the roles that run a worker only
++      embedding <-
++        if (a.stores == "aws" && (a.role == Role.Worker || a.role == Role.All))
++          Composition.embeddingWork(cfg, runtime) match {
++            case l @ Left(_) => runtime.close(); l
++            case r           => r
++          }
++        else Right(None)
+       server <- ServiceServer.start(
+         runtime,
+         stores,
+@@ -200,7 +244,8 @@ object Main {
+           role = a.role,
+           bindHost = if (a.stores == "local") "127.0.0.1" else "0.0.0.0",
+           clock = clock,
+-          env = env.get
++          env = env.get,
++          embedding = embedding
+         )
+       ) match {
+         case l @ Left(_) => runtime.close(); l
+diff --git a/modules/services/src/main/scala/org/scholarchain/services/Models.scala b/modules/services/src/main/scala/org/scholarchain/services/Models.scala
+index 5729f7d..af69641 100644
+--- a/modules/services/src/main/scala/org/scholarchain/services/Models.scala
++++ b/modules/services/src/main/scala/org/scholarchain/services/Models.scala
+@@ -3,6 +3,7 @@ package org.scholarchain.services
+ import upickle.default.{macroRW, ReadWriter}
+ 
+ import org.scholarchain.core._
++import org.scholarchain.rag.runtime.AbstentionCodes
+ 
+ // REST response models (decision 7j). Encoded only with Json.encode (sorted keys, indent 2); the
+ // frozen examples under src/test/resources/api/v1/ decode into them and re-encode unchanged.
+@@ -229,6 +230,11 @@ object NeighborsPage { implicit val rw: ReadWriter[NeighborsPage] = macroRW }
+   * task: logical calls, invalid and truncated outputs, dropped bound numbers, fallbacks) and
+   * `cacheHits` (per cache) come from the record. A version 1 record did not record them: they are
+   * empty and a note says so.
++  *
++  * QueryAudit v3 (Phase 15, G-28): `abstentionReasons` lists the stored abstention codes, each with
++  * rag's fixed short text ([[org.scholarchain.rag.runtime.AbstentionCodes]]; an unknown code reads
++  * as the `unclassified` text). Always present: `[]` when the answer did not abstain or the record
++  * is older than version 3 (which stored no codes). Never model prose.
+   */
+ final case class ExplainView(
+     queryId: String,
+@@ -250,6 +256,7 @@ final case class ExplainView(
+     outputTokens: Option[Long],
+     verificationCounts: Map[String, Int],
+     abstained: Boolean,
++    abstentionReasons: List[AbstentionReason],
+     queryTemplateIds: List[String],
+     indexesQueried: List[String],
+     metadataFilterKeys: List[String],
+@@ -258,6 +265,13 @@ final case class ExplainView(
+     scoreComponents: List[String],
+     notes: List[String]
+ )
++
++/** One entry of `abstentionReasons` in `GET /v1/explain/{queryId}`: a stored abstention code and
++  * its fixed short text.
++  */
++final case class AbstentionReason(code: String, text: String)
++object AbstentionReason { implicit val rw: ReadWriter[AbstentionReason] = macroRW }
++
+ object ExplainView {
+   implicit val rw: ReadWriter[ExplainView] = macroRW
+ 
+@@ -293,6 +307,9 @@ object ExplainView {
+       latest.outputTokens,
+       latest.verificationCounts,
+       latest.abstained,
++      AbstentionCodes.reasons(latest.abstentionCodes).map { case (c, t) =>
++        AbstentionReason(c, t)
++      },
+       latest.queryTemplateIds,
+       latest.indexesQueried,
+       latest.metadataFilterKeys,
+diff --git a/modules/services/src/main/scala/org/scholarchain/services/ServiceLimits.scala b/modules/services/src/main/scala/org/scholarchain/services/ServiceLimits.scala
+index 34c3bc8..3329704 100644
+--- a/modules/services/src/main/scala/org/scholarchain/services/ServiceLimits.scala
++++ b/modules/services/src/main/scala/org/scholarchain/services/ServiceLimits.scala
+@@ -91,6 +91,35 @@ object ServiceLimits {
+     */
+   val WorkerIdleMillis: Long = 200L
+ 
++  /** Default threads of the embedding-queue loop (Phase 15 decision 8.1; `ServerOptions`
++    * `embeddingConcurrency`). Each thread makes at most one rag handler call at a time, and one
++    * call of up to [[EmbeddingReceiveMax]] messages makes one Voyage request (`embedding.batchSize`
++    * 64 is above 10), taking about 1-4 s (estimate, rag report). Two threads send at most about 2
++    * requests per second, under `embedding.requestsPerMinute` 300 (5 per second; the embedder's own
++    * rate limiter enforces it in any case) with room for retries; and the worker task (1 vCPU, 2
++    * GB, Terraform `task_sizes.worker`) also runs `service.workerConcurrency` 2 job threads, so two
++    * more mostly-waiting threads keep its CPU free for the job loop.
++    */
++  val EmbeddingWorkerConcurrency: Int = 2
++
++  /** Upper bound of `embeddingConcurrency` (the setting is refused above it): 300 requests per
++    * minute is 5 per second, so more than 8 threads could only wait on the rate limiter.
++    */
++  val MaxEmbeddingWorkerConcurrency: Int = 8
++
++  /** Messages per embedding-queue receive: the SQS ReceiveMessage maximum. */
++  val EmbeddingReceiveMax: Int = 10
++
++  /** How long `close()` waits for in-flight embedding-queue calls (one receive, one handler call,
++    * its acks and releases) before interrupting them. Below the ECS container `stopTimeout` (120 s,
++    * Terraform `stop_timeout_seconds`, Fargate maximum) with room for the other pools, which drain
++    * at the same time; long enough for one Voyage request with a few retries. A message whose call
++    * is cut off is neither acknowledged nor released: it returns after the queue's visibility
++    * timeout and is handled again (a replay, acknowledged without a second write, when its write
++    * and completion record had finished).
++    */
++  val EmbeddingDrainMillis: Long = 60000L
++
+   /** Visibility timeout of the local in-memory job queue, beyond `jobLeaseMillis`: a message must
+     * stay hidden longer than a lease so a live lease is never seen twice (decision 6; on SQS this
+     * is the queue's own setting, Terraform in Phase 12).
+diff --git a/modules/services/src/main/scala/org/scholarchain/services/ServiceServer.scala b/modules/services/src/main/scala/org/scholarchain/services/ServiceServer.scala
+index 8572672..0204999 100644
+--- a/modules/services/src/main/scala/org/scholarchain/services/ServiceServer.scala
++++ b/modules/services/src/main/scala/org/scholarchain/services/ServiceServer.scala
+@@ -25,6 +25,13 @@ import org.scholarchain.storage.ports.GraphQuery
+   *   run the worker loop for roles `worker` and `all` (tests may drive [[Worker.processOne]])
+   * @param closeRuntime
+   *   `close()` also closes the [[RuntimeService]] handle (decision 7i); a restart test keeps it
++  * @param embedding
++  *   the embedding queue and rag's handler (Phase 15 decision 8.1; `Composition.embeddingWork`);
++  *   roles `worker` and `all` then run a second loop on it next to the job loop; other roles ignore
++  *   it. None: the job loop only
++  * @param embeddingConcurrency
++  *   threads of the embedding-queue loop, 1..[[ServiceLimits.MaxEmbeddingWorkerConcurrency]]
++  *   (default [[ServiceLimits.EmbeddingWorkerConcurrency]])
+   */
+ final case class ServerOptions(
+     role: Role,
+@@ -36,7 +43,9 @@ final case class ServerOptions(
+     env: String => Option[String] = sys.env.get,
+     startWorker: Boolean = true,
+     closeRuntime: Boolean = true,
+-    name: String = "srv"
++    name: String = "srv",
++    embedding: Option[EmbeddingWork] = None,
++    embeddingConcurrency: Int = ServiceLimits.EmbeddingWorkerConcurrency
+ )
+ 
+ /** One running services process: the JDK HTTP server, the route table of its role, the bounded
+@@ -48,11 +57,15 @@ final case class ServerOptions(
+   *   - `query`: `maxConcurrentQueries` workflow threads; admission is a permit taken before submit
+   *     (no waiting queue: a request without a permit gets 503 OVERLOADED);
+   *   - `worker`: `workerConcurrency` worker loop threads;
++  *   - `embedding` (roles `worker` and `all` with [[ServerOptions.embedding]]):
++  *     `embeddingConcurrency` embedding-queue loop threads;
+   *   - `ready`: 3 readiness check threads, queue 9.
+   *
+-  * `close()` stops accepting, stops the worker loop, shuts every pool down waiting at most
+-  * `syncDeadlineMillis`, waits for its threads, then closes the RuntimeService handle. Thread-safe;
+-  * idempotent.
++  * `close()` stops accepting, stops both worker loops, shuts every pool down at once and waits for
++  * them together (each at most `syncDeadlineMillis`, the embedding pool at most
++  * [[ServiceLimits.EmbeddingDrainMillis]], all measured from the same start, so the drain stays
++  * inside the ECS stop timeout), waits for its threads, then closes the RuntimeService handle.
++  * Thread-safe; idempotent.
+   */
+ final class ServiceServer private (
+     val settings: ServiceSettings,
+@@ -65,7 +78,10 @@ final class ServiceServer private (
+     http: HttpServer,
+     pools: List[(ThreadPoolExecutor, NamedThreadFactory)],
+     loop: Option[WorkerLoop],
+-    val threadPrefix: String
++    val threadPrefix: String,
++    val embeddingWorker: Option[EmbeddingWorker],
++    embeddingLoop: Option[EmbeddingLoop],
++    embeddingPool: Option[ThreadPoolExecutor]
+ ) extends AutoCloseable {
+   private val closed = new AtomicBoolean(false)
+ 
+@@ -77,13 +93,25 @@ final class ServiceServer private (
+ 
+   def isClosed: Boolean = closed.get
+ 
++  /** True while the embedding-queue loop runs (tests). */
++  def embeddingLoopRunning: Boolean = embeddingLoop.exists(_.isRunning)
++
+   def close(): Unit =
+     if (closed.compareAndSet(false, true)) {
+       loop.foreach(_.stop())
++      embeddingLoop.foreach(_.stop())
+       try http.stop(0)
+       catch { case NonFatal(_) => () }
+-      val wait = settings.syncDeadlineMillis.toLong
+-      pools.foreach { case (p, _) => Pools.shutdown(p, wait) }
++      val start = System.nanoTime()
++      def waitOf(p: ThreadPoolExecutor): Long =
++        if (embeddingPool.exists(_ eq p)) ServiceLimits.EmbeddingDrainMillis
++        else settings.syncDeadlineMillis.toLong
++      // every pool stops taking work now; the waits below overlap instead of adding up
++      pools.foreach { case (p, _) => p.shutdown() }
++      pools.foreach { case (p, _) =>
++        val left = waitOf(p) - (System.nanoTime() - start) / 1000000L
++        Pools.shutdown(p, math.max(0L, left))
++      }
+       val deadline = System.nanoTime() + 2000L * 1000000L
+       threads.foreach { t =>
+         val left = (deadline - System.nanoTime()) / 1000000L
+@@ -108,6 +136,12 @@ object ServiceServer {
+     for {
+       settings <- runtime.config.service.toRight("the service section is not configured")
+       keys <- ApiKeys.load(settings, options.env)
++      _ <- Either.cond(
++        options.embeddingConcurrency >= 1 &&
++          options.embeddingConcurrency <= ServiceLimits.MaxEmbeddingWorkerConcurrency,
++        (),
++        s"embeddingConcurrency must be in 1..${ServiceLimits.MaxEmbeddingWorkerConcurrency}"
++      )
+       server <- build(runtime, stores, options, settings, keys)
+     } yield server
+ 
+@@ -140,7 +174,29 @@ object ServiceServer {
+     val workerPool = pool("worker", settings.workerConcurrency, settings.workerConcurrency)
+     val readyPool =
+       pool("ready", ServiceLimits.ReadinessThreads, ServiceLimits.ReadinessQueueCapacity)
+-    val pools = List(httpPool, queryPool, workerPool, readyPool)
++    val workerRole = options.role == Role.Worker || options.role == Role.All
++    // rag's handler, built once with this server's log (its one line per delivery)
++    val handler
++        : Either[String, Option[(EmbeddingWork, org.scholarchain.rag.reembed.ReembedHandler)]] =
++      options.embedding.filter(_ => workerRole) match {
++        case None    => Right(None)
++        case Some(e) =>
++          try
++            e.handlerOf(line => log.external(line, "reembed-delivery"))
++              .map(h => Some(e -> h))
++          catch {
++            case NonFatal(x) =>
++              Left(s"the re-embed handler did not build: ${x.getClass.getSimpleName}")
++          }
++      }
++    val embeddingPool = handler.toOption.flatten.map(_ =>
++      pool("embedding", options.embeddingConcurrency, options.embeddingConcurrency)
++    )
++    val pools = List(httpPool, queryPool, workerPool, readyPool) ++ embeddingPool.toList
++    if (handler.isLeft) {
++      pools.foreach { case (p, _) => p.shutdownNow() }
++      return Left(handler.left.getOrElse(""))
++    }
+     try {
+       val breakers = new Breakers(settings, clock)
+       val ctx = new AppContext(runtime, stores, settings, clock, options.ids, log, breakers)
+@@ -181,15 +237,28 @@ object ServiceServer {
+       http.createContext("/", adapter)
+       http.setExecutor(httpPool._1)
+       val loop =
+-        if (options.startWorker && (options.role == Role.Worker || options.role == Role.All))
++        if (options.startWorker && workerRole)
+           Some(new WorkerLoop(worker, workerPool._1, settings.workerConcurrency, log))
+         else None
++      val embeddingWorker = handler.toOption.flatten.map { case (e, h) =>
++        new EmbeddingWorker(e.queue, h, log)
++      }
++      val embeddingLoop =
++        for {
++          w <- embeddingWorker if options.startWorker
++          p <- embeddingPool
++        } yield new EmbeddingLoop(w, p._1, options.embeddingConcurrency, log)
+       http.start()
+       loop.foreach(_.start())
++      embeddingLoop.foreach(_.start())
+       log.event(
+         "started",
+         None,
+-        List("port" -> ujson.Num(http.getAddress.getPort), "worker" -> ujson.Bool(loop.nonEmpty))
++        List(
++          "port" -> ujson.Num(http.getAddress.getPort),
++          "worker" -> ujson.Bool(loop.nonEmpty),
++          "embeddingWorker" -> ujson.Bool(embeddingLoop.nonEmpty)
++        )
+       )
+       Right(
+         new ServiceServer(
+@@ -203,7 +272,10 @@ object ServiceServer {
+           http,
+           pools,
+           loop,
+-          prefix
++          prefix,
++          embeddingWorker,
++          embeddingLoop,
++          embeddingPool.map(_._1)
+         )
+       )
+     } catch {
+diff --git a/modules/services/src/main/scala/org/scholarchain/services/Support.scala b/modules/services/src/main/scala/org/scholarchain/services/Support.scala
+index 54461a4..ddcb3be 100644
+--- a/modules/services/src/main/scala/org/scholarchain/services/Support.scala
++++ b/modules/services/src/main/scala/org/scholarchain/services/Support.scala
+@@ -266,6 +266,25 @@ final class ServiceLog(sink: LogSink, role: String, clock: Clock, redactor: Reda
+     emit(o)
+   }
+ 
++  /** A structured line another module built (rag's `reembed-delivery` line, Phase 15 decision 8.1),
++    * written as one line of this log: `time` and `role` are added, the line's own fields (its
++    * `event` included) are kept unchanged. The line's fields are fixed vocabularies and validated
++    * IDs (rag's contract), so no redaction is applied: the redactor's 12-digit rule would mangle a
++    * task ID. A line that is not a JSON object is written as `{"event": "<event>", "code":
++    * "log-line-unreadable"}` so the one-line-per-delivery count holds.
++    */
++  def external(line: String, fallbackEvent: String): Unit = {
++    val o = base(fallbackEvent)
++    val parsed =
++      try ujson.read(line).objOpt
++      catch { case scala.util.control.NonFatal(_) => None }
++    parsed match {
++      case Some(fields) => fields.foreach { case (k, v) => o(k) = v }
++      case None         => o("code") = "log-line-unreadable"
++    }
++    emit(o)
++  }
++
+   /** An unexpected exception: the fixed cause `unexpected-exception` and the exception's class name
+     * only (never its message, which may hold downstream text). The class name passes the redactor
+     * as a last guard.
+diff --git a/modules/services/src/test/resources/api/v1/explain.json b/modules/services/src/test/resources/api/v1/explain.json
+index a482c80..5c0987a 100644
+--- a/modules/services/src/test/resources/api/v1/explain.json
++++ b/modules/services/src/test/resources/api/v1/explain.json
+@@ -1,7 +1,8 @@
+ {
+   "abstained": false,
++  "abstentionReasons": [],
+   "attemptCount": 2,
+-  "auditSchemaVersion": 2,
++  "auditSchemaVersion": 3,
+   "bundleId": "evidence:v1:d8dbecf52119e5fe5c3a1d9ea95aee47",
+   "cacheHits": {},
+   "evidenceIds": [
+diff --git a/modules/services/src/test/scala/org/scholarchain/services/CompositionSuite.scala b/modules/services/src/test/scala/org/scholarchain/services/CompositionSuite.scala
+index 15379c8..5143877 100644
+--- a/modules/services/src/test/scala/org/scholarchain/services/CompositionSuite.scala
++++ b/modules/services/src/test/scala/org/scholarchain/services/CompositionSuite.scala
+@@ -261,6 +261,76 @@ class CompositionSuite extends munit.FunSuite {
+     assertEquals(http.calls.get, 0)
+   }
+ 
++  test(
++    "decision 8.1: --stores aws with service.embeddingQueueUrl builds the embedding worker for " +
++      "the worker role from stub clients with zero HTTP calls"
++  ) {
++    val url = "https://queue.example.invalid/example-embedding-tasks"
++    val withQueue =
++      awsConfig.copy(service = awsConfig.service.map(_.copy(embeddingQueueUrl = Some(url))))
++    val http = new CountingHttp
++    val llm = new CountingTransport
++    val emb = new CountingTransport
++    val opts = awsOptions(http, llm, emb)
++    val (rt, stores) = Composition
++      .aws(withQueue, RuntimeFixtures.sparkRun, opts)
++      .fold(e => fail(e), identity)
++    try {
++      val work = Composition
++        .embeddingWork(withQueue, rt, opts.embeddingWiring)
++        .fold(e => fail(e), identity)
++        .getOrElse(fail("no embedding work"))
++      val log = new MemoryLogSink
++      val server = ServiceServer
++        .start(
++          rt,
++          stores,
++          ServerOptions(
++            role = Role.Worker,
++            port = Some(0),
++            env = env.get,
++            logSink = log,
++            startWorker = false,
++            closeRuntime = false,
++            name = "aws-emb",
++            embedding = Some(work)
++          )
++        )
++        .fold(e => fail(e), identity)
++      try {
++        val w = server.embeddingWorker.getOrElse(fail("no embedding worker"))
++        // embedding.batchSize 64: one receive (at most 10 messages) is one Voyage request
++        assertEquals(w.handler.batchLimit, 64)
++        assert(server.embeddingWorker.nonEmpty && !server.embeddingLoopRunning)
++      } finally server.close()
++      // without the key: the job loop only
++      assertEquals(Composition.embeddingWork(awsConfig, rt, opts.embeddingWiring), Right(None))
++      // a refused URL: Left, never naming it
++      val bad = withQueue.copy(service =
++        withQueue.service.map(_.copy(embeddingQueueUrl = Some("http://example-bad-host/q")))
++      )
++      val refused = Composition.embeddingWork(bad, rt, opts.embeddingWiring)
++      assert(refused.left.exists(_.contains("embedding queue URL")), refused.toString)
++      assert(!refused.left.exists(_.contains("example-bad-host")))
++      assert(!log.rendered.exists(_.contains("example-embedding-tasks")))
++    } finally rt.close()
++    assertEquals((http.calls.get, llm.calls.get, emb.calls.get), (0, 0, 0))
++  }
++
++  test("decision 8.1: service.embeddingQueueUrl with a local runtime is refused by embeddingWork") {
++    val (exportDir, csv) = RuntimeFixtures.inputs()
++    val cfg = withService(config)(
++      _.copy(embeddingQueueUrl = Some("https://queue.example.invalid/example-embedding-tasks"))
++    )
++    val (rt, _) =
++      Composition.local(cfg, exportDir, csv, new ManualClock()).fold(e => fail(e), identity)
++    try {
++      val e = Composition.embeddingWork(cfg, rt)
++      assert(e.left.exists(_.contains("needs the AWS stores")), e.toString)
++      assertEquals(Composition.embeddingWork(config, rt), Right(None))
++    } finally rt.close()
++  }
++
+   test("live smoke: a deployed query role answers /healthz and /readyz".tag(RequiresAws)) {
+     // Phase 12 deploys the services; the base URL comes from the deployment, never from this file.
+     val base = sys.env.getOrElse(
+diff --git a/modules/services/src/test/scala/org/scholarchain/services/ReadRoutesSuite.scala b/modules/services/src/test/scala/org/scholarchain/services/ReadRoutesSuite.scala
+index d048e0a..06f9020 100644
+--- a/modules/services/src/test/scala/org/scholarchain/services/ReadRoutesSuite.scala
++++ b/modules/services/src/test/scala/org/scholarchain/services/ReadRoutesSuite.scala
+@@ -4,7 +4,7 @@ import java.nio.charset.StandardCharsets
+ import java.util.Base64
+ 
+ import org.scholarchain.core._
+-import org.scholarchain.rag.runtime.RuntimeFixtures
++import org.scholarchain.rag.runtime.{AbstentionCodes, RuntimeFixtures}
+ 
+ /** Evidence, explain and graph exploration routes (decisions 7g, 7h). */
+ class ReadRoutesSuite extends munit.FunSuite {
+@@ -123,8 +123,12 @@ class ReadRoutesSuite extends munit.FunSuite {
+     val res = answer(h)
+     val ex = get(h, s"/v1/explain/${res.queryId}").json
+     val stored = h.runtime.stores.audits.read(RunId(res.queryId), 10).toOption.get.last
+-    assertEquals(stored.schemaVersion, 2)
+-    assertEquals(ex("auditSchemaVersion").num.toInt, 2)
++    // Phase 15 (G-28): rag writes QueryAudit schema version 3
++    assertEquals(stored.schemaVersion, 3)
++    assertEquals(ex("auditSchemaVersion").num.toInt, 3)
++    // not abstained: the reasons field is present and empty
++    assert(!stored.abstained)
++    assertEquals(ex("abstentionReasons"), ujson.Arr())
+     assertEquals(ex("queryTemplateIds").arr.map(_.str).toList, stored.queryTemplateIds)
+     assert(stored.queryTemplateIds.nonEmpty, "the fixture query runs graph templates")
+     assertEquals(ex("indexesQueried").arr.map(_.str).toList, stored.indexesQueried)
+@@ -171,6 +175,36 @@ class ReadRoutesSuite extends munit.FunSuite {
+     assertEquals(ex("modelCalls"), ujson.Obj())
+     assertEquals(ex("cacheHits"), ujson.Obj())
+     assertEquals(ex("notes").arr.map(_.str).toList, List(ExplainView.ScoreNote, ExplainView.V1Note))
++    assertEquals(ex("abstentionReasons"), ujson.Arr())
++  }
++
++  h.test("explain of an abstained v3 audit lists each stored code with its fixed text (G-28)") {
++    h =>
++      val res = answer(h)
++      val v3 = h.runtime.stores.audits.read(RunId(res.queryId), 10).toOption.get.last
++      assertEquals(v3.schemaVersion, 3)
++      val codes = List(
++        AbstentionCodes.NoPathWithinDepth,
++        AbstentionCodes.NoVerifiedClaim,
++        "some-future-code" // well formed but not in rag's table: reads as unclassified
++      )
++      val abstained = v3.copy(abstained = true, abstentionCodes = codes)
++      assert(h.runtime.stores.audits.append(abstained).isRight)
++      val ex = get(h, s"/v1/explain/${res.queryId}").json
++      assertEquals(ex("abstained").bool, true)
++      val reasons = ex("abstentionReasons").arr.toList
++      assertEquals(reasons.map(_.obj.keySet.toSet), List.fill(3)(Set("code", "text")))
++      assertEquals(reasons.map(_("code").str), codes)
++      assertEquals(
++        reasons.map(_("text").str),
++        List(
++          AbstentionCodes.Table(AbstentionCodes.NoPathWithinDepth),
++          AbstentionCodes.Table(AbstentionCodes.NoVerifiedClaim),
++          AbstentionCodes.Table(AbstentionCodes.Unclassified)
++        )
++      )
++      val view = upickle.default.read[ExplainView](get(h, s"/v1/explain/${res.queryId}").body)
++      assertEquals(view.abstentionReasons.map(_.code), codes)
+   }
+ 
+   // ---- graph ---------------------------------------------------------------------------------
+diff --git a/modules/services/src/test/scala/org/scholarchain/services/ServiceTestKit.scala b/modules/services/src/test/scala/org/scholarchain/services/ServiceTestKit.scala
+index f03c202..0ecf23c 100644
+--- a/modules/services/src/test/scala/org/scholarchain/services/ServiceTestKit.scala
++++ b/modules/services/src/test/scala/org/scholarchain/services/ServiceTestKit.scala
+@@ -153,7 +153,8 @@ object ServiceTestKit {
+       clock: ManualClock = new ManualClock(),
+       keys: Map[String, String] = env,
+       closeRuntime: Boolean = true,
+-      wrapStores: ServiceStores => ServiceStores = identity
++      wrapStores: ServiceStores => ServiceStores = identity,
++      embedding: Option[EmbeddingWork] = None
+   ): Harness = {
+     val (w, flaky, slow, rt) = runtimeOver(cfg, model)
+     val settings = cfg.service.get
+@@ -178,7 +179,8 @@ object ServiceTestKit {
+           env = keys.get,
+           startWorker = startWorker,
+           closeRuntime = closeRuntime,
+-          name = "test"
++          name = "test",
++          embedding = embedding
+         )
+       )
+       .fold(e => { rt.close(); sys.error(e) }, identity)
+diff --git a/modules/storage/src/main/scala/org/scholarchain/storage/aws/AwsStorageEnvironment.scala b/modules/storage/src/main/scala/org/scholarchain/storage/aws/AwsStorageEnvironment.scala
+index 69e8101..9b1703c 100644
+--- a/modules/storage/src/main/scala/org/scholarchain/storage/aws/AwsStorageEnvironment.scala
++++ b/modules/storage/src/main/scala/org/scholarchain/storage/aws/AwsStorageEnvironment.scala
+@@ -9,7 +9,8 @@ import org.scholarchain.storage.ingest.{
+   DocumentExtras,
+   IngestSettings,
+   TextStore,
+-  VectorIngestPipeline
++  VectorIngestPipeline,
++  VectorReembedder
+ }
+ import org.scholarchain.storage.ports.{EmbeddingPort, GraphReadSettings}
+ import org.scholarchain.storage.runtime.RuntimeStores
+@@ -198,6 +199,22 @@ final class AwsStorageEnvironment private (
+       extrasOf
+     )
+ 
++  /** The re-embed write path (Phase 15) over these stores: GetVectors and PutVectors on the
++    * configured indexes, GetObject on the text objects, GetItem and PutItem on the QuerySession
++    * table (completion records, QS6).
++    */
++  def reembedder(embedder: EmbeddingPort, sleeper: Sleeper = this.sleeper): VectorReembedder =
++    new VectorReembedder(
++      embedder,
++      vectors,
++      textStore,
++      kv,
++      config.dynamoDb.querySessionTable,
++      spec,
++      policy,
++      sleeper
++    )
++
+   /** The SQS client for the job queue (see [[org.scholarchain.storage.jobs.ServiceStores.aws]]). */
+   private[storage] def sqsClient: Option[SqsClient] = clients.sqs
+ 
+diff --git a/modules/storage/src/main/scala/org/scholarchain/storage/aws/S3VectorsIndex.scala b/modules/storage/src/main/scala/org/scholarchain/storage/aws/S3VectorsIndex.scala
+index eaeb7a7..ea8ad91 100644
+--- a/modules/storage/src/main/scala/org/scholarchain/storage/aws/S3VectorsIndex.scala
++++ b/modules/storage/src/main/scala/org/scholarchain/storage/aws/S3VectorsIndex.scala
+@@ -83,16 +83,7 @@ final class S3VectorsIndex(
+     require(keys.size <= S3VectorsLimits.MaxGetVectorsBatch, s"${keys.size} keys per GetVectors")
+     val nf = nonFilterable(index)
+     val r = AwsErrors.guard(
+-      client.getVectors(
+-        GetVectorsRequest
+-          .builder()
+-          .vectorBucketName(vectorBucket)
+-          .indexName(index)
+-          .keys(keys.asJava)
+-          .returnData(returnData)
+-          .returnMetadata(true)
+-          .build()
+-      )
++      client.getVectors(S3VectorsIndex.getVectorsRequest(vectorBucket, index, keys, returnData))
+     )
+     r.vectors().asScala.toList.map { v =>
+       val d =
+@@ -161,6 +152,25 @@ final class S3VectorsIndex(
+ }
+ 
+ object S3VectorsIndex {
++
++  /** The GetVectors request. `returnMetadata` is always true: the API default is false, and the
++    * ingest skip check and the re-embed path both read the stored metadata (Phase 15).
++    */
++  def getVectorsRequest(
++      vectorBucket: String,
++      index: String,
++      keys: Seq[String],
++      returnData: Boolean
++  ): GetVectorsRequest =
++    GetVectorsRequest
++      .builder()
++      .vectorBucketName(vectorBucket)
++      .indexName(index)
++      .keys(keys.asJava)
++      .returnData(returnData)
++      .returnMetadata(true)
++      .build()
++
+   def create(
+       settings: AwsClientSettings,
+       vectorBucket: String,
+diff --git a/modules/storage/src/main/scala/org/scholarchain/storage/dynamo/TableSpecs.scala b/modules/storage/src/main/scala/org/scholarchain/storage/dynamo/TableSpecs.scala
+index 5a42f76..bc15e80 100644
+--- a/modules/storage/src/main/scala/org/scholarchain/storage/dynamo/TableSpecs.scala
++++ b/modules/storage/src/main/scala/org/scholarchain/storage/dynamo/TableSpecs.scala
+@@ -87,8 +87,9 @@ object TableSpecs {
+ 
+   val QuerySession: TableSpec = TableSpec(
+     "QuerySession",
+-    "session#<sessionId> | job#<jobId> (QS4) | idempotency#<sha256 hex of (scope, key)> (QS5)",
+-    "turn#<NNNNNN> | job (QS4) | idempotency (QS5)",
++    "session#<sessionId> | job#<jobId> (QS4) | idempotency#<sha256 hex of (scope, key)> (QS5) | " +
++      "reembed#<sha256 hex of (taskId, textHash)> (QS6)",
++    "turn#<NNNNNN> | job (QS4) | idempotency (QS5) | reembed (QS6)",
+     appendOnly = false,
+     ttlAttribute = Some("expiresAt"),
+     List(
+@@ -119,6 +120,14 @@ object TableSpecs {
+           "existing record; an expired record is replaced at its version); read it",
+         "GetItem; PutItem attribute_not_exists(pk); PutItem attribute_exists(pk) AND version = :read",
+         "pk = idempotency#<sha256 hex of canonical (scope, Idempotency-Key)>, sk = idempotency"
++      ),
++      AccessPattern(
++        "QS6",
++        "One re-embed completion record (Phase 15): checked before the embedding call, created " +
++          "put-if-absent after the vector write, never updated (a changed text has a new key); " +
++          "disposable, with expiresAt",
++        "GetItem; PutItem attribute_not_exists(pk)",
++        "pk = reembed#<sha256 hex of canonical (taskId, textHash)>, sk = reembed"
+       )
+     ),
+     _.querySessionTable
+@@ -247,6 +256,13 @@ object TableSpecs {
+   def idempotencyPk(scope: String, idempotencyKey: String): String =
+     "idempotency#" + Hashing.sha256Hex(Hashing.canonicalEncoding(Seq(scope, idempotencyKey)))
+   val IdempotencySk = "idempotency"
++
++  /** QS6 partition key: the sha256 of the canonical encoding of (taskId, textHash), so a changed
++    * text gets a new key and no record is ever updated.
++    */
++  def reembedPk(taskId: String, textHash: String): String =
++    "reembed#" + Hashing.sha256Hex(Hashing.canonicalEncoding(Seq(taskId, textHash)))
++  val ReembedSk = "reembed"
+   def evidencePk(evidenceId: String): String = s"evidence#$evidenceId"
+   def windowSk(start: Int, end: Int): String = s"window#$start-$end"
+   val NoWindowSk = "window#none"
+diff --git a/modules/storage/src/main/scala/org/scholarchain/storage/ingest/VectorIngestPipeline.scala b/modules/storage/src/main/scala/org/scholarchain/storage/ingest/VectorIngestPipeline.scala
+index a8b28bc..12f9026 100644
+--- a/modules/storage/src/main/scala/org/scholarchain/storage/ingest/VectorIngestPipeline.scala
++++ b/modules/storage/src/main/scala/org/scholarchain/storage/ingest/VectorIngestPipeline.scala
+@@ -2,6 +2,7 @@ package org.scholarchain.storage.ingest
+ 
+ import scala.collection.immutable.ListMap
+ import scala.collection.mutable
++import scala.util.control.NonFatal
+ 
+ import org.scholarchain.core.{
+   ContentHash,
+@@ -19,7 +20,7 @@ import org.scholarchain.core.{
+   YearWindow
+ }
+ import org.scholarchain.core.config.{DynamoDbSettings, NamedWindow}
+-import org.scholarchain.storage.{RetryPolicy, S3VectorsLimits, Sleeper}
++import org.scholarchain.storage.{RetryPolicy, S3VectorsLimits, Sleeper, StoreException}
+ import org.scholarchain.storage.dynamo.{ArtifactRegistry, ArtifactVersion, Change, RunLedger}
+ import org.scholarchain.storage.ports._
+ import org.scholarchain.storage.source.{Reject, RejectLog}
+@@ -31,16 +32,69 @@ import org.scholarchain.storage.vectors._
+ final case class DocumentExtras(year: Option[Int], venueKey: Option[String])
+ object DocumentExtras { val none: DocumentExtras = DocumentExtras(None, None) }
+ 
++/** Ingest settings. The three G-27 bounds have defaults (named constants below); every one is
++  * bounded.
++  *
++  * @param writeParallelism
++  *   store calls in flight at once for the per-document writes and reads that cannot be batched:
++  *   text puts (S3 `If-None-Match`), the registry's latest-version read and the conditional
++  *   registry puts (DynamoDB `attribute_not_exists`; conditional writes cannot be batched)
++  * @param embedConcurrency
++  *   embedding calls in flight at once (the provider's own rate limiter still applies)
++  * @param windowDocuments
++  *   documents read ahead per skip-check window; the skip check reads the index metadata of a
++  *   window in GetVectors calls of at most 100 keys
++  */
+ final case class IngestSettings(
+     putBatchSize: Int,
+     retry: RetryPolicy,
+     sourceDataset: String,
+-    jobName: String = VectorIngestPipeline.JobName
++    jobName: String = VectorIngestPipeline.JobName,
++    writeParallelism: Int = IngestSettings.DefaultWriteParallelism,
++    embedConcurrency: Int = IngestSettings.DefaultEmbedConcurrency,
++    windowDocuments: Int = IngestSettings.DefaultWindowDocuments
+ ) {
+   require(putBatchSize >= 1 && putBatchSize <= S3VectorsLimits.MaxPutVectorsBatch, "putBatchSize")
++  require(
++    writeParallelism >= 1 && writeParallelism <= IngestSettings.MaxWriteParallelism,
++    s"writeParallelism must be in 1..${IngestSettings.MaxWriteParallelism}"
++  )
++  require(
++    embedConcurrency >= 1 && embedConcurrency <= IngestSettings.MaxEmbedConcurrency,
++    s"embedConcurrency must be in 1..${IngestSettings.MaxEmbedConcurrency}"
++  )
++  require(
++    windowDocuments >= 1 && windowDocuments <= IngestSettings.MaxWindowDocuments,
++    s"windowDocuments must be in 1..${IngestSettings.MaxWindowDocuments}"
++  )
+ }
+ 
+-/** Counters of one index in one ingest run. */
++object IngestSettings {
++
++  /** 16 calls in flight: S3 allows 3,500 PUT/s per prefix and on-demand DynamoDB about 1,000 write
++    * units/s per partition (registry keys spread over partitions), so 16 synchronous calls of about
++    * 10 to 60 ms each (at most about 1,600 calls/s) stay well under both, while turning the
++    * per-document latency of Phase 14 (about 52 ms per document, single writer) into about 1/16 of
++    * it. The ECS task is I/O bound; 16 threads cost little memory.
++    */
++  val DefaultWriteParallelism: Int = 16
++  val MaxWriteParallelism: Int = 64
++
++  /** 4 embedding calls in flight: with `embedding.requestsPerMinute` 300 (5 requests/s) and about 1
++    * s per call (estimate), 4 in flight stays under the request limit; the token limit (1 M/min) is
++    * enforced by rag's rate limiter, which every call passes.
++    */
++  val DefaultEmbedConcurrency: Int = 4
++  val MaxEmbedConcurrency: Int = 16
++
++  /** 500 documents per window: exactly 5 GetVectors calls of 100 keys when a window holds one index
++    * (documents arrive grouped by index), and at most 8 embedding batches of 64.
++    */
++  val DefaultWindowDocuments: Int = 500
++  val MaxWindowDocuments: Int = 5000
++}
++
++/** Counters of one index in one ingest run. Updated only on the session's thread. */
+ final class IndexStats {
+   var input = 0L
+   var skippedUnchanged = 0L
+@@ -73,7 +127,10 @@ final case class IngestReport(
+     putRetries: Long,
+     registryConflicts: Long,
+     ledgerEvents: Long,
+-    millis: ListMap[String, Long]
++    millis: ListMap[String, Long],
++    skipReadCalls: Long = 0L,
++    registryReads: Long = 0L,
++    registryWrites: Long = 0L
+ ) {
+   def total(f: IndexStats => Long): Long = perIndex.values.map(f).sum
+   def input: Long = total(_.input)
+@@ -97,26 +154,36 @@ final case class IngestReport(
+     "embedRetries" -> embedRetries.toDouble,
+     "putCalls" -> putCalls.toDouble,
+     "putRetries" -> putRetries.toDouble,
++    "skipReadCalls" -> skipReadCalls.toDouble,
++    "registryReads" -> registryReads.toDouble,
++    "registryWrites" -> registryWrites.toDouble,
+     "registryConflicts" -> registryConflicts.toDouble,
+     "ledgerEvents" -> ledgerEvents.toDouble,
+     "millis" -> ujson.Obj.from(millis.map { case (k, v) => k -> ujson.Num(v.toDouble) })
+   )
+ }
+ 
+-/** The embedding ingest pipeline (spec Phase 8, storage work). For each [[SemanticDocument]]:
++/** The embedding ingest pipeline (spec Phase 8, storage work; G-27 batched and parallel in Phase
++  * 15). Documents are taken in windows of `windowDocuments`; for each window:
+   *
+-  *   1. write the text to the text store (S3 key containing the text hash, put-if-absent);
+-  *   2. look up the vector key in ArtifactRegistry;
+-  *   3. if it holds the same textHash, embeddingModel and dimensions, skip it;
+-  *   4. if the text or model differs, re-embed and overwrite, and record the old and new hash (and
+-  *      model) in RunLedger; never overwrite silently;
+-  *   5. put the vector with its metadata (batches of at most `putBatchSize` <= 500, under 20 MiB,
+-  *      bounded retries on throttling and 5xx), then register the new version in ArtifactRegistry
+-  *      (after the put, so the registry never claims a vector that was not written).
++  *   1. validate every document and drop in-run duplicates (same text counted, different text
++  *      rejected);
++  *   2. skip check, batched: read the index metadata of the window's keys with GetVectors (at most
++  *      100 keys per call, no vector data); a key whose stored `textHash`, `embeddingModel` and
++  *      `embeddingDimensions` equal the document's is skipped. A skipped document makes no
++  *      per-document call at all (no text put, no registry read, no write);
++  *   3. for every other document, in parallel (`writeParallelism`): write the text (S3 key holding
++  *      the text hash, put-if-absent) and read the latest ArtifactRegistry version;
++  *   4. embed in batches of the embedder's `maxBatchSize`, `embedConcurrency` calls at once;
++  *   5. put the vectors with their metadata (batches of at most `putBatchSize` <= 500, under 20
++  *      MiB, bounded retries), then register the new versions in ArtifactRegistry in parallel
++  *      conditional puts (after the put, so the registry never claims a vector that was not
++  *      written). A changed text or model is re-embedded and its old and new hash (and model) are
++  *      recorded in RunLedger; never overwritten silently.
+   *
+   * Rejected documents and vectors go to the reject file and RunLedger; failures and retry counts go
+-  * to RunLedger. Duplicate vector keys inside one run: the same text is counted and skipped;
+-  * different text is rejected (never written silently).
++  * to RunLedger. Every counter is updated on the session's thread from the results of the parallel
++  * calls, so counts are exact. An [[IngestSession]] is used from one thread.
+   */
+ final class VectorIngestPipeline(
+     embedder: EmbeddingPort,
+@@ -160,18 +227,33 @@ final class VectorIngestPipeline(
+       prior: Option[ArtifactVersion]
+   )
+ 
++  private final case class Accepted(doc: SemanticDocument, index: String, hash: String)
++
++  private final case class ToEmbed(
++      doc: SemanticDocument,
++      put: TextPut,
++      prior: Option[ArtifactVersion]
++  )
++
+   final class IngestSession private[VectorIngestPipeline] (val runId: RunId, label: String) {
+     val ledger: RunLedger = RunLedger.open(kv, tables.runLedgerTable, runId, label)
+     private val registry = new ArtifactRegistry(kv, tables.artifactRegistryTable)
+     private val writer = new VectorWriter(vectors, settings.retry, sleeper)
++    private val writePool = new BoundedPool("ingest-write", settings.writeParallelism)
++    private val embedPool = new BoundedPool("ingest-embed", settings.embedConcurrency)
+     private val stats = ListMap(spec.indexes.map(i => i.name -> new IndexStats): _*)
+     private val seen = mutable.HashMap.empty[(String, String), String]
+     private val pending =
+       mutable.LinkedHashMap(spec.indexes.map(i => i.name -> mutable.ArrayBuffer.empty[Pending]): _*)
+-    private var textCreated, textPresent, embedCalls, embedRetries, putCalls, putRetries,
+-        conflicts = 0L
+-    private val nanos =
+-      mutable.LinkedHashMap("text" -> 0L, "registry" -> 0L, "embed" -> 0L, "put" -> 0L)
++    private var textCreated, textPresent, embedCalls, embedRetries, putCalls, putRetries, conflicts,
++        skipReadCalls, registryReads, registryWrites = 0L
++    private val nanos = mutable.LinkedHashMap(
++      "skipRead" -> 0L,
++      "text" -> 0L,
++      "embed" -> 0L,
++      "put" -> 0L,
++      "registry" -> 0L
++    )
+     private val started = System.nanoTime()
+     private var docNo = 0L
+ 
+@@ -195,70 +277,156 @@ final class VectorIngestPipeline(
+     }
+ 
+     def ingest(documents: Iterator[SemanticDocument]): Unit =
+-      documents.grouped(embedder.maxBatchSize).foreach(chunk => processChunk(chunk.toVector))
+-
+-    private def processChunk(chunk: Vector[SemanticDocument]): Unit = {
+-      val toEmbed = mutable.ArrayBuffer.empty[(SemanticDocument, TextPut, Option[ArtifactVersion])]
+-      chunk.foreach { doc =>
+-        docNo += 1
+-        val entry = spec.forType(doc.documentType)
+-        val st = stats(entry.name)
+-        st.input += 1
+-        val windowLabel = doc.window.flatMap(labelOf.get)
+-        val problems: List[String] =
+-          Contract.validate(doc) ++
+-            (if (doc.indexName != entry.name)
+-               List(
+-                 s"indexName '${doc.indexName}' is not the ${doc.documentType.wire} index '${entry.name}'"
+-               )
+-             else Nil) ++
+-            (if (doc.window.isDefined && windowLabel.isEmpty)
+-               List(s"window ${doc.window.get} is not a configured graph window")
+-             else Nil) ++
+-            (if (doc.window.isEmpty || windowLabel.isDefined)
+-               VectorKeys.check(doc, windowLabel).left.toSeq
+-             else Nil)
+-        if (problems.nonEmpty) reject(Some(doc), entry.name, problems.mkString("; "))
+-        else {
+-          val hash = ContentHash.of(doc.text)
+-          seen.get((entry.name, doc.vectorKey)) match {
+-            case Some(h) if h == hash => st.duplicatesSameText += 1
+-            case Some(_)              =>
+-              reject(Some(doc), entry.name, "duplicate vector key with different text in one run")
+-            case None =>
+-              seen.update((entry.name, doc.vectorKey), hash)
+-              val put = timed("text")(textStore.put(entry.name, doc.text))
+-              put.outcome match {
+-                case PutOutcome.Conflict(_) =>
+-                  reject(Some(doc), entry.name, s"text object conflict at ${put.ref.key}")
+-                case o =>
+-                  if (o == PutOutcome.Created) textCreated += 1 else textPresent += 1
+-                  val prior = timed("registry")(
+-                    registry.latest(
+-                      VectorIngestPipeline.ArtifactKind,
+-                      artifactKey(entry.name, doc.vectorKey)
+-                    )
+-                  )
+-                  val unchanged = prior.exists { p =>
+-                    p.item.strOpt("textHash").contains(hash) &&
+-                    p.item.strOpt("embeddingModel").contains(embedder.modelId) &&
+-                    p.item.long("embeddingDimensions").contains(embedder.dimensions.toLong)
+-                  }
+-                  if (unchanged) st.skippedUnchanged += 1
+-                  else toEmbed += ((doc, put, prior))
+-              }
++      documents.grouped(settings.windowDocuments).foreach(w => processWindow(w.toVector))
++
++    private def processWindow(window: Vector[SemanticDocument]): Unit = {
++      val accepted = window.flatMap(accept)
++      val toWrite = skipCheck(accepted)
++      if (toWrite.nonEmpty) {
++        val toEmbed = prepare(toWrite)
++        if (toEmbed.nonEmpty) embedAndQueue(toEmbed)
++      }
++      flush(force = false)
++    }
++
++    /** Validation and in-run duplicates (no store call). */
++    private def accept(doc: SemanticDocument): Option[Accepted] = {
++      docNo += 1
++      val entry = spec.forType(doc.documentType)
++      val st = stats(entry.name)
++      st.input += 1
++      val windowLabel = doc.window.flatMap(labelOf.get)
++      val problems: List[String] =
++        Contract.validate(doc) ++
++          (if (doc.indexName != entry.name)
++             List(
++               s"indexName '${doc.indexName}' is not the ${doc.documentType.wire} index '${entry.name}'"
++             )
++           else Nil) ++
++          (if (doc.window.isDefined && windowLabel.isEmpty)
++             List(s"window ${doc.window.get} is not a configured graph window")
++           else Nil) ++
++          (if (doc.window.isEmpty || windowLabel.isDefined)
++             VectorKeys.check(doc, windowLabel).left.toSeq
++           else Nil)
++      if (problems.nonEmpty) {
++        reject(Some(doc), entry.name, problems.mkString("; "))
++        None
++      } else {
++        val hash = ContentHash.of(doc.text)
++        seen.get((entry.name, doc.vectorKey)) match {
++          case Some(h) if h == hash =>
++            st.duplicatesSameText += 1
++            None
++          case Some(_) =>
++            reject(Some(doc), entry.name, "duplicate vector key with different text in one run")
++            None
++          case None =>
++            seen.update((entry.name, doc.vectorKey), hash)
++            Some(Accepted(doc, entry.name, hash))
++        }
++      }
++    }
++
++    /** The batched skip check: GetVectors of at most 100 keys per call (metadata only), at most
++      * `writeParallelism` calls at once. Returns the documents to write. A read that fails (after
++      * the port's bounded retries) rejects the documents of that call; they are retried by the next
++      * run.
++      */
++    private def skipCheck(accepted: Vector[Accepted]): Vector[Accepted] = {
++      val calls: Vector[(String, Vector[Accepted])] =
++        accepted
++          .groupBy(_.index)
++          .toVector
++          .sortBy(_._1)
++          .flatMap { case (index, as) =>
++            as.grouped(S3VectorsLimits.MaxGetVectorsBatch).map(index -> _)
++          }
++      val results = timed("skipRead")(writePool.map(calls) { case (index, as) =>
++        try Right(vectors.getVectors(index, as.map(_.doc.vectorKey), returnData = false))
++        catch { case NonFatal(e) => Left(e) }
++      })
++      skipReadCalls += calls.size
++      val unchanged = mutable.HashSet.empty[(String, String)]
++      val failed = mutable.HashMap.empty[(String, String), String]
++      calls.zip(results).foreach {
++        case ((index, as), Left(e)) =>
++          val transient = e match {
++            case s: StoreException => s.transient
++            case _                 => false
+           }
++          ledger.record(
++            "skip-read-failure",
++            "indexName" -> AttrValue.S(index),
++            "vectors" -> AttrValue.n(as.size.toLong),
++            "transient" -> AttrValue.Bool(transient),
++            "reason" -> AttrValue.S(e.getClass.getSimpleName)
++          )
++          as.foreach(a => failed.update((index, a.doc.vectorKey), e.getClass.getSimpleName))
++        case ((index, as), Right(stored)) =>
++          val byKey = stored.map(v => v.key -> v.metadata).toMap
++          as.foreach { a =>
++            if (
++              byKey
++                .get(a.doc.vectorKey)
++                .exists(m => VectorIngestPipeline.sameVector(m, a.hash, embedder))
++            )
++              unchanged += ((index, a.doc.vectorKey))
++          }
++      }
++      accepted.filter { a =>
++        val k = (a.index, a.doc.vectorKey)
++        failed.get(k) match {
++          case Some(cls) =>
++            reject(Some(a.doc), a.index, s"skip check failed: GetVectors $cls")
++            false
++          case None if unchanged(k) =>
++            stats(a.index).skippedUnchanged += 1
++            false
++          case None => true
++        }
++      }
++    }
++
++    /** Text puts and latest-version reads of the documents to write, in parallel. */
++    private def prepare(toWrite: Vector[Accepted]): Vector[ToEmbed] = {
++      val results = timed("text")(writePool.map(toWrite) { a =>
++        val put = textStore.put(a.index, a.doc.text)
++        val prior = put.outcome match {
++          case PutOutcome.Conflict(_) => None
++          case _                      =>
++            registry.latest(
++              VectorIngestPipeline.ArtifactKind,
++              artifactKey(a.index, a.doc.vectorKey)
++            )
++        }
++        (put, prior)
++      })
++      toWrite.zip(results).flatMap { case (a, (put, prior)) =>
++        put.outcome match {
++          case PutOutcome.Conflict(_) =>
++            reject(Some(a.doc), a.index, s"text object conflict at ${put.ref.key}")
++            None
++          case o =>
++            if (o == PutOutcome.Created) textCreated += 1 else textPresent += 1
++            registryReads += 1
++            Some(ToEmbed(a.doc, put, prior))
+         }
+       }
+-      if (toEmbed.nonEmpty) embedAndQueue(toEmbed.toVector)
+-      flush(force = false)
+     }
+ 
+-    private def embedAndQueue(
+-        batch: Vector[(SemanticDocument, TextPut, Option[ArtifactVersion])]
++    private def embedAndQueue(all: Vector[ToEmbed]): Unit = {
++      val batches = all.grouped(embedder.maxBatchSize).toVector
++      // an embedder that throws (a defect: the port returns Left) fails the run, as before
++      val results = timed("embed")(embedPool.map(batches)(b => embedder.embed(b.map(_.doc.text))))
++      embedCalls += batches.size
++      batches.zip(results).foreach { case (b, r) => queueBatch(b, r) }
++    }
++
++    private def queueBatch(
++        batch: Vector[ToEmbed],
++        result: Either[EmbeddingFailure, EmbeddingBatch]
+     ): Unit = {
+-      embedCalls += 1
+-      val result = timed("embed")(embedder.embed(batch.map(_._1.text)))
+       val checked: Either[(String, Int), IndexedSeq[Array[Float]]] = result match {
+         case Left(f)  => Left((f.message, f.retries))
+         case Right(b) =>
+@@ -295,25 +463,24 @@ final class VectorIngestPipeline(
+             "retries" -> AttrValue.n(retries.toLong),
+             "texts" -> AttrValue.n(batch.size.toLong)
+           )
+-          batch.foreach { case (doc, _, _) =>
+-            reject(Some(doc), doc.indexName, s"embedding failed: $msg")
+-          }
++          batch.foreach(t => reject(Some(t.doc), t.doc.indexName, s"embedding failed: $msg"))
+         case Right(vs) =>
+-          batch.zip(vs).foreach { case ((doc, put, prior), v) =>
+-            val entry = spec.forType(doc.documentType)
+-            val meta = metadataFor(doc, put)
++          batch.zip(vs).foreach { case (t, v) =>
++            val entry = spec.forType(t.doc.documentType)
++            val meta = metadataFor(t.doc, t.put)
+             VectorMetadataCodec.encode(meta, entry) match {
+-              case Left(errs) => reject(Some(doc), entry.name, s"metadata: ${errs.mkString("; ")}")
++              case Left(errs) =>
++                reject(Some(t.doc), entry.name, s"metadata: ${errs.mkString("; ")}")
+               case Right(stored) =>
+-                VectorMetadataCodec.checkLimits(stored, entry, Some(doc.text)) match {
++                VectorMetadataCodec.checkLimits(stored, entry, Some(t.doc.text)) match {
+                   case Nil =>
+                     pending(entry.name) += Pending(
+-                      doc,
++                      t.doc,
+                       meta,
+-                      VectorRecord(doc.vectorKey, v, stored),
+-                      prior
++                      VectorRecord(t.doc.vectorKey, v, stored),
++                      t.prior
+                     )
+-                  case errs => reject(Some(doc), entry.name, s"metadata: ${errs.mkString("; ")}")
++                  case errs => reject(Some(t.doc), entry.name, s"metadata: ${errs.mkString("; ")}")
+                 }
+             }
+           }
+@@ -399,28 +566,30 @@ final class VectorIngestPipeline(
+                     "indexName" -> AttrValue.S(index),
+                     "retries" -> AttrValue.n(r.retries.toLong)
+                   )
+-                batch.foreach(v => registerWritten(index, byKey(v.key)))
++                registerWritten(index, batch.map(v => byKey(v.key)))
+             }
+           }
+         }
+       }
+ 
+-    private def registerWritten(index: String, p: Pending): Unit = {
+-      val st = stats(index)
+-      st.written += 1
+-      val previousVersion = p.prior.map(_.version).getOrElse(0L)
+-      val prevAttrs = p.prior.toList.flatMap { pr =>
++    private def prevAttrs(p: Pending): List[(String, AttrValue)] =
++      p.prior.toList.flatMap { pr =>
+         List(
+           pr.item.strOpt("textHash").map("previousTextHash" -> AttrValue.S(_)),
+           pr.item.strOpt("embeddingModel").map("previousEmbeddingModel" -> AttrValue.S(_)),
+           pr.item.long("embeddingDimensions").map("previousEmbeddingDimensions" -> AttrValue.n(_))
+         ).flatten
+       }
+-      val change = timed("registry")(
++
++    /** Conditional registry puts of one written batch, in parallel; counters and ledger events
++      * afterwards, on this thread.
++      */
++    private def registerWritten(index: String, written: Vector[Pending]): Unit = {
++      val changes = timed("registry")(writePool.map(written) { p =>
+         registry.register(
+           VectorIngestPipeline.ArtifactKind,
+           artifactKey(index, p.meta.vectorKey),
+-          previousVersion,
++          p.prior.map(_.version).getOrElse(0L),
+           (List(
+             "indexName" -> AttrValue.S(index),
+             "vectorKey" -> AttrValue.S(p.meta.vectorKey),
+@@ -430,64 +599,76 @@ final class VectorIngestPipeline(
+             "embeddingModel" -> AttrValue.S(p.meta.embeddingModel),
+             "embeddingDimensions" -> AttrValue.n(p.meta.embeddingDimensions.toLong),
+             "runId" -> AttrValue.S(runId.value)
+-          ) ++ prevAttrs): _*
++          ) ++ prevAttrs(p)): _*
+         )
+-      )
+-      if (change == Change.Conflict) {
+-        conflicts += 1
+-        ledger.record(
+-          "registry-conflict",
+-          "indexName" -> AttrValue.S(index),
+-          "vectorKey" -> AttrValue.S(p.meta.vectorKey)
+-        )
+-      }
+-      p.prior match {
+-        case None     => st.embeddedNew += 1
+-        case Some(pr) =>
+-          st.reembeddedChanged += 1
++      })
++      registryWrites += written.size
++      written.zip(changes).foreach { case (p, change) =>
++        val st = stats(index)
++        st.written += 1
++        if (change == Change.Conflict) {
++          conflicts += 1
+           ledger.record(
+-            "vector-overwrite",
+-            (List(
+-              "indexName" -> AttrValue.S(index),
+-              "vectorKey" -> AttrValue.S(p.meta.vectorKey),
+-              "newTextHash" -> AttrValue.S(p.meta.textHash),
+-              "newEmbeddingModel" -> AttrValue.S(p.meta.embeddingModel),
+-              "newEmbeddingDimensions" -> AttrValue.n(p.meta.embeddingDimensions.toLong),
+-              "previousVersion" -> AttrValue.n(pr.version)
+-            ) ++ prevAttrs.map { case (k, v) => k.replace("previous", "old") -> v }): _*
++            "registry-conflict",
++            "indexName" -> AttrValue.S(index),
++            "vectorKey" -> AttrValue.S(p.meta.vectorKey)
+           )
++        }
++        p.prior match {
++          case None     => st.embeddedNew += 1
++          case Some(pr) =>
++            st.reembeddedChanged += 1
++            ledger.record(
++              "vector-overwrite",
++              (List(
++                "indexName" -> AttrValue.S(index),
++                "vectorKey" -> AttrValue.S(p.meta.vectorKey),
++                "newTextHash" -> AttrValue.S(p.meta.textHash),
++                "newEmbeddingModel" -> AttrValue.S(p.meta.embeddingModel),
++                "newEmbeddingDimensions" -> AttrValue.n(p.meta.embeddingDimensions.toLong),
++                "previousVersion" -> AttrValue.n(pr.version)
++              ) ++ prevAttrs(p).map { case (k, v) => k.replace("previous", "old") -> v }): _*
++            )
++        }
+       }
+     }
+ 
+-    def finish(): IngestReport = {
+-      flush(force = true)
+-      val millis = ListMap.from(nanos.map { case (k, v) => k -> v / 1000000L }) +
+-        ("total" -> (System.nanoTime() - started) / 1000000L)
+-      val report = IngestReport(
+-        runId,
+-        ledger.attempt,
+-        stats,
+-        textCreated,
+-        textPresent,
+-        embedCalls,
+-        embedRetries,
+-        putCalls,
+-        putRetries,
+-        conflicts,
+-        0L,
+-        millis
+-      )
+-      ledger.record(
+-        "ingest-summary",
+-        "input" -> AttrValue.n(report.input),
+-        "skippedUnchanged" -> AttrValue.n(report.skipped),
+-        "written" -> AttrValue.n(report.written),
+-        "rejected" -> AttrValue.n(report.rejected),
+-        "embedRetries" -> AttrValue.n(embedRetries),
+-        "putRetries" -> AttrValue.n(putRetries)
+-      )
+-      report.copy(ledgerEvents = ledger.eventsAppended)
+-    }
++    def finish(): IngestReport =
++      try {
++        flush(force = true)
++        val millis = ListMap.from(nanos.map { case (k, v) => k -> v / 1000000L }) +
++          ("total" -> (System.nanoTime() - started) / 1000000L)
++        val report = IngestReport(
++          runId,
++          ledger.attempt,
++          stats,
++          textCreated,
++          textPresent,
++          embedCalls,
++          embedRetries,
++          putCalls,
++          putRetries,
++          conflicts,
++          0L,
++          millis,
++          skipReadCalls,
++          registryReads,
++          registryWrites
++        )
++        ledger.record(
++          "ingest-summary",
++          "input" -> AttrValue.n(report.input),
++          "skippedUnchanged" -> AttrValue.n(report.skipped),
++          "written" -> AttrValue.n(report.written),
++          "rejected" -> AttrValue.n(report.rejected),
++          "embedRetries" -> AttrValue.n(embedRetries),
++          "putRetries" -> AttrValue.n(putRetries)
++        )
++        report.copy(ledgerEvents = ledger.eventsAppended)
++      } finally {
++        writePool.close()
++        embedPool.close()
++      }
+   }
+ 
+   private def artifactKey(index: String, vectorKey: String) = s"$index/$vectorKey"
+@@ -496,4 +677,15 @@ final class VectorIngestPipeline(
+ object VectorIngestPipeline {
+   val JobName = "storage.vector-ingest"
+   val ArtifactKind = "vector"
++
++  /** The skip rule: the stored vector's metadata holds the document's `textHash` and the embedder's
++    * `embeddingModel` and `embeddingDimensions`. Nothing else is compared (not the run ID, code
++    * version or job), so a new build alone never forces re-embedding.
++    */
++  def sameVector(stored: StoredMetadata, textHash: String, embedder: EmbeddingPort): Boolean = {
++    val m = stored.all
++    m.get("textHash").contains(MetaValue.Str(textHash)) &&
++    m.get("embeddingModel").contains(MetaValue.Str(embedder.modelId)) &&
++    m.get("embeddingDimensions").contains(MetaValue.Num(embedder.dimensions.toLong))
++  }
+ }
+diff --git a/modules/storage/src/main/scala/org/scholarchain/storage/jobs/ServiceStores.scala b/modules/storage/src/main/scala/org/scholarchain/storage/jobs/ServiceStores.scala
+index b8e093f..f07c0b2 100644
+--- a/modules/storage/src/main/scala/org/scholarchain/storage/jobs/ServiceStores.scala
++++ b/modules/storage/src/main/scala/org/scholarchain/storage/jobs/ServiceStores.scala
+@@ -6,9 +6,15 @@ import java.time.Clock
+ import scala.util.Try
+ 
+ import org.scholarchain.storage.StoreException
+-import org.scholarchain.storage.aws.{AwsStorageEnvironment, SqsWorkQueue}
++import org.scholarchain.storage.aws.{AwsStorageEnvironment, SqsRawReceiveQueue, SqsWorkQueue}
+ import org.scholarchain.storage.local.{InMemoryWorkQueue, LocalRuntimeEnvironment}
+-import org.scholarchain.storage.ports.{KeyValueStore, ReceivedWork, WorkItem, WorkQueue}
++import org.scholarchain.storage.ports.{
++  KeyValueStore,
++  ReceiveQueue,
++  ReceivedWork,
++  WorkItem,
++  WorkQueue
++}
+ 
+ /** The stores of the REST services beyond [[org.scholarchain.storage.runtime.RuntimeStores]]: jobs
+   * (QS4), idempotency records (QS5) and the job queue. Services reach them only through this bundle
+@@ -99,11 +105,33 @@ object ServiceStores {
+       new SqsWorkQueue(client, url, waitSeconds, None)
+     )
+ 
+-  private def validQueueUrl(u: String): Either[String, String] =
++  /** AWS: the consuming side of the SQS embedding queue at `queueUrl` (from
++    * `service.embeddingQueueUrl`), for the services' re-embed worker. Bodies are delivered raw and
++    * never parsed ([[SqsRawReceiveQueue]]): `WorkItem.id` is the SQS MessageId, `WorkItem.payload`
++    * the message body unchanged. `ack` = DeleteMessage, `release` = ChangeMessageVisibility 0; no
++    * send. Receives use the queue's own visibility timeout (Terraform). No network call.
++    *
++    * Left when the URL is not an `https://` URL with a host, `waitSeconds` is outside 0..20, or
++    * `env` has no SQS client. No Left message names the URL. Local runs need no factory: an
++    * [[InMemoryWorkQueue]] is a [[ReceiveQueue]] whose payload is the raw body.
++    */
++  def embeddingQueue(
++      env: AwsStorageEnvironment,
++      queueUrl: String,
++      waitSeconds: Int = SqsWaitSeconds
++  ): Either[String, ReceiveQueue] =
++    for {
++      _ <- Either.cond(env != null, (), "no AWS storage environment")
++      url <- validQueueUrl(queueUrl, "embedding queue")
++      _ <- Either.cond(waitSeconds >= 0 && waitSeconds <= 20, (), "waitSeconds must be in 0..20")
++      client <- env.sqsClient.toRight("the AWS storage environment has no SQS client")
++    } yield new SqsRawReceiveQueue(client, url, waitSeconds)
++
++  private def validQueueUrl(u: String, name: String = "job queue"): Either[String, String] =
+     Option(u)
+       .filter(s => s.startsWith("https://") && !s.exists(_.isWhitespace))
+       .flatMap(s => Try(URI.create(s)).toOption.filter(x => x.getHost != null).map(_ => s))
+-      .toRight("the job queue URL must be an https:// URL with a host")
++      .toRight(s"the $name URL must be an https:// URL with a host")
+ 
+   private[jobs] def guardQueue[A](f: => A): Either[String, A] =
+     try Right(f)
+diff --git a/modules/storage/src/main/scala/org/scholarchain/storage/local/LocalStorageEnvironment.scala b/modules/storage/src/main/scala/org/scholarchain/storage/local/LocalStorageEnvironment.scala
+index 39e85ed..0a06404 100644
+--- a/modules/storage/src/main/scala/org/scholarchain/storage/local/LocalStorageEnvironment.scala
++++ b/modules/storage/src/main/scala/org/scholarchain/storage/local/LocalStorageEnvironment.scala
+@@ -8,7 +8,8 @@ import org.scholarchain.storage.ingest.{
+   DocumentExtras,
+   IngestSettings,
+   TextStore,
+-  VectorIngestPipeline
++  VectorIngestPipeline,
++  VectorReembedder
+ }
+ import org.scholarchain.storage.ports.EmbeddingPort
+ import org.scholarchain.storage.s3.S3KeyLayout
+@@ -62,6 +63,24 @@ final class LocalStorageEnvironment private (val config: StorageConfig, rejectFi
+       extrasOf
+     )
+ 
++  /** The re-embed write path over the in-memory stores (completion records in QuerySession). */
++  def reembedder(
++      embedder: EmbeddingPort,
++      sleeper: Sleeper = Sleeper.none,
++      nowSeconds: () => Long = () => System.currentTimeMillis() / 1000L
++  ): VectorReembedder =
++    new VectorReembedder(
++      embedder,
++      vectors,
++      textStore,
++      kv,
++      config.dynamoDb.querySessionTable,
++      spec,
++      config.retryPolicy,
++      sleeper,
++      nowSeconds
++    )
++
+   def close(): Unit = rejects.close()
+ }
+ 
+diff --git a/modules/storage/src/main/scala/org/scholarchain/storage/local/StubEmbedder.scala b/modules/storage/src/main/scala/org/scholarchain/storage/local/StubEmbedder.scala
+index 231347f..dc79400 100644
+--- a/modules/storage/src/main/scala/org/scholarchain/storage/local/StubEmbedder.scala
++++ b/modules/storage/src/main/scala/org/scholarchain/storage/local/StubEmbedder.scala
+@@ -2,6 +2,7 @@ package org.scholarchain.storage.local
+ 
+ import java.nio.charset.StandardCharsets
+ import java.security.MessageDigest
++import java.util.concurrent.atomic.AtomicLong
+ 
+ import org.scholarchain.storage.ports.{EmbeddingBatch, EmbeddingFailure, EmbeddingPort}
+ 
+@@ -13,15 +14,19 @@ import org.scholarchain.storage.ports.{EmbeddingBatch, EmbeddingFailure, Embeddi
+ final class StubEmbedder(val modelId: String, val dimensions: Int, val maxBatchSize: Int)
+     extends EmbeddingPort {
+   require(dimensions >= 1 && dimensions <= 4096, "dimensions must be in 1..4096")
+-  @volatile var calls: Long = 0L
+-  @volatile var texts: Long = 0L
++  private val callCount = new AtomicLong()
++  private val textCount = new AtomicLong()
++
++  /** Calls and texts so far; exact under concurrent callers (the ingest embeds in parallel). */
++  def calls: Long = callCount.get
++  def texts: Long = textCount.get
+ 
+   def embed(batch: IndexedSeq[String]): Either[EmbeddingFailure, EmbeddingBatch] = {
+     if (batch.size > maxBatchSize)
+       Left(EmbeddingFailure(s"batch of ${batch.size} exceeds $maxBatchSize", 0))
+     else {
+-      calls += 1
+-      texts += batch.size
++      callCount.incrementAndGet()
++      textCount.addAndGet(batch.size.toLong)
+       Right(EmbeddingBatch(batch.map(StubEmbedder.vector(_, dimensions)), 0))
+     }
+   }
+diff --git a/modules/storage/src/main/scala/org/scholarchain/storage/ports/WorkQueue.scala b/modules/storage/src/main/scala/org/scholarchain/storage/ports/WorkQueue.scala
+index fe865b9..e91a995 100644
+--- a/modules/storage/src/main/scala/org/scholarchain/storage/ports/WorkQueue.scala
++++ b/modules/storage/src/main/scala/org/scholarchain/storage/ports/WorkQueue.scala
+@@ -10,6 +10,18 @@ final case class WorkItem(id: String, payload: String)
+   */
+ final case class ReceivedWork(item: WorkItem, receipt: String, receiveCount: Int)
+ 
++/** The consuming side of a queue: receive, acknowledge, release. A worker that only consumes (the
++  * services' re-embed worker on the embedding queue) holds this type and cannot send.
++  *
++  *   - `receive` returns at most `max` items and hides them until `ack` or `release`.
++  *   - `ack` marks an item done. `release` makes it visible again at once.
++  */
++trait ReceiveQueue {
++  def receive(max: Int): List[ReceivedWork]
++  def ack(work: ReceivedWork): Unit
++  def release(work: ReceivedWork): Unit
++}
++
+ /** A bounded embedding work queue (manifest-driven locally, SQS in AWS).
+   *
+   *   - `enqueue` is idempotent for the manifest queue (same IDs) and de-duplicated by consumers
+@@ -18,7 +30,7 @@ final case class ReceivedWork(item: WorkItem, receipt: String, receiveCount: Int
+   *   - `ack` marks an item done. `release` makes it visible again (a failed attempt).
+   *   - An item delivered more than the queue's receive limit is moved aside as poison and reported.
+   */
+-trait WorkQueue {
++trait WorkQueue extends ReceiveQueue {
+   def enqueue(items: Seq[WorkItem]): Int
+   def receive(max: Int): List[ReceivedWork]
+   def ack(work: ReceivedWork): Unit
+diff --git a/modules/storage/src/test/scala/org/scholarchain/storage/DynamoSuite.scala b/modules/storage/src/test/scala/org/scholarchain/storage/DynamoSuite.scala
+index 33d0883..6ad2050 100644
+--- a/modules/storage/src/test/scala/org/scholarchain/storage/DynamoSuite.scala
++++ b/modules/storage/src/test/scala/org/scholarchain/storage/DynamoSuite.scala
+@@ -146,7 +146,12 @@ class DynamoSuite extends munit.FunSuite {
+ 
+   test("QuerySession: QS4 jobs and QS5 idempotency records share the table and its TTL") {
+     val qs = TableSpecs.QuerySession
+-    assertEquals(qs.accessPatterns.map(_.id), List("QS1", "QS2", "QS3", "QS4", "QS5"))
++    // QS6 (Phase 15): re-embed completion records, create-only under their own prefix
++    assertEquals(qs.accessPatterns.map(_.id), List("QS1", "QS2", "QS3", "QS4", "QS5", "QS6"))
++    val qs6 = qs.accessPatterns.find(_.id == "QS6").get
++    assert(qs6.keyCondition.startsWith("pk = reembed#<sha256"), qs6.keyCondition)
++    assert(qs6.operation.contains("attribute_not_exists(pk)"), qs6.operation)
++    assert(!qs6.operation.contains("version = :read"), "completion records are never updated")
+     assertEquals(qs.ttlAttribute, Some("expiresAt"))
+     assert(!qs.appendOnly)
+     val qs4 = qs.accessPatterns.find(_.id == "QS4").get
+diff --git a/modules/storage/src/test/scala/org/scholarchain/storage/IngestPipelineSuite.scala b/modules/storage/src/test/scala/org/scholarchain/storage/IngestPipelineSuite.scala
+index 731976d..d8bbae1 100644
+--- a/modules/storage/src/test/scala/org/scholarchain/storage/IngestPipelineSuite.scala
++++ b/modules/storage/src/test/scala/org/scholarchain/storage/IngestPipelineSuite.scala
+@@ -71,9 +71,10 @@ class IngestPipelineSuite extends munit.FunSuite {
+     val r2 = p.run(run, docs.iterator)
+     assertEquals(r2.skipped, 6L)
+     assertEquals(r2.skipRatio, 1.0)
++    // G-27: a skipped document makes no text put (before Phase 15 it re-put all 6 texts)
+     assertEquals(
+       (r2.written, r2.embedCalls, r2.textCreated, r2.textAlreadyPresent),
+-      (0L, 0L, 0L, 6L)
++      (0L, 0L, 0L, 0L)
+     )
+     assertEquals(e.vectors.putCalls.get, puts)
+     assertEquals(e.objects.objectCount, objects)
+diff --git a/modules/storage/src/test/scala/org/scholarchain/storage/jobs/ServiceStoreFixtures.scala b/modules/storage/src/test/scala/org/scholarchain/storage/jobs/ServiceStoreFixtures.scala
+index 1e28d2f..9c21798 100644
+--- a/modules/storage/src/test/scala/org/scholarchain/storage/jobs/ServiceStoreFixtures.scala
++++ b/modules/storage/src/test/scala/org/scholarchain/storage/jobs/ServiceStoreFixtures.scala
+@@ -194,6 +194,7 @@ final class StubSqsClient extends SqsClient {
+ 
+   override def deleteMessage(r: DeleteMessageRequest): DeleteMessageResponse = synchronized {
+     acks.incrementAndGet()
++    deletedReceipts += r.receiptHandle()
+     queue.remove(r.receiptHandle().takeWhile(_ != ':'))
+     DeleteMessageResponse.builder().build()
+   }
+@@ -202,12 +203,29 @@ final class StubSqsClient extends SqsClient {
+       r: ChangeMessageVisibilityRequest
+   ): ChangeMessageVisibilityResponse = synchronized {
+     visibilityChanges.incrementAndGet()
++    visibilityTimeouts += r.visibilityTimeout().intValue
+     if (r.visibilityTimeout().intValue == 0)
+       queue.get(r.receiptHandle().takeWhile(_ != ':')).foreach(_.hidden = false)
+     ChangeMessageVisibilityResponse.builder().build()
+   }
+ 
+   def size: Int = synchronized(queue.size)
++
++  /** Puts one message with `body` exactly as given (a producer outside storage sending raw);
++    * returns its message ID.
++    */
++  def putRaw(body: String): String = synchronized {
++    seq += 1
++    val id = s"m$seq"
++    queue.update(id, Msg(id, body, 0, hidden = false))
++    id
++  }
++
++  /** The visibility timeouts of every ChangeMessageVisibility call, in order. */
++  val visibilityTimeouts: mutable.Buffer[Int] = mutable.ArrayBuffer.empty
++
++  /** The receipt handles of every DeleteMessage call, in order. */
++  val deletedReceipts: mutable.Buffer[String] = mutable.ArrayBuffer.empty
+ }
+ 
+ /** In-memory service stores and the parts behind them, for tests. */
