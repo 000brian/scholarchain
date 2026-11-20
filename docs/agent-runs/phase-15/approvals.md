@@ -55,3 +55,11 @@ APPROVED-MANIFEST-SHA256: be3868dff8802e0cf2a2b60c5838444a3ec4bafb9cf7e9f15c2cab
 I approve experiment manifest p15-f-poison-replay (F, poison message, replay, API idempotency), cost bound $0.10, maximum duration 4800 s, run with my own admin profile (default). Signed: Brian, Nov 20, 2026
 
 APPROVED-MANIFEST-SHA256: a39c7e453f3c9264092fc22640e2c56465e06ff947bf031291ee9112a5b5fbaf
+
+## Runtime-on plan after repair L-01 (Phase 15)
+
+Repair L-01 (EMR refused managed-scaling max = min in D7a attempt 1). This plan was made at e94df52 (build commit 684636ef unchanged) with the default profile in us-east-1: 0 create, 1 in-place update (the pipeline state machine definition), 0 delete, 0 replace; no IAM, network or stateful change. D4a: definition valid; test-state results for absent, A (2/32), 3, B (4/128) and invalid inputs as expected, with the rest of each cluster request unchanged.
+
+I approve this plan to be applied with my own admin profile (default). Signed: Brian, Nov 20, 2026
+
+APPROVED-PLAN-SHA256: 235b56f540bdc237ae511230736bbe184e420123609098ca809bac27b067de6d
