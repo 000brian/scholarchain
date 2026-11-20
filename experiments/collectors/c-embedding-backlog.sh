@@ -30,6 +30,22 @@ readonly WAIT_POLL_SECONDS=15
 readonly SEND_RETRIES=2
 readonly LOG_COUNT_LIMIT_SECONDS=300
 
+# ---- expected stored embedding model ID (repair-D10, finding L-02) --------------------------
+# The registry's embeddingModel is the full spec ID, not models.embeddingModelId.
+# rag EmbeddingModelSpec.id (modules/rag/src/main/scala/org/scholarchain/rag/embedding/
+# EmbeddingModelSpec.scala:35) is "<provider.wire>/<model>/<dimensions>/<inputType.wire>/<specVersion>",
+# for example voyage/voyage-4/1024/document/emb-v1 (:18-19). Built from config by fromConfig
+# (:113-118): provider.wire = embedding.provider (core ScholarChainConfig.scala:191-195, exact
+# match, Enums.scala:19-22), model = models.embeddingModelId, dimensions = embedding.dimensions.
+# Stored vectors are document-side (:25; InputType.Document.wire "document" at :11; the ingest
+# and the re-embed handler create the embedder with InputType.Document: RagIngestJob.scala:453,
+# ReembedHandler.scala:347). specVersion is the code constant EmbeddingModelSpec.SpecVersion
+# "emb-v1" (:52), not a config value: it must change here when rag bumps it. Storage records
+# embedder.modelId = spec.id (VoyageEmbedder.scala:78, BedrockTitanEmbedder.scala:75,
+# FakeLexicalEmbedder.scala:23; VectorIngestPipeline.scala:518, VectorReembedder.scala:367).
+readonly EMB_INPUT_TYPE="document"
+readonly EMB_SPEC_VERSION="emb-v1"
+
 COUNT=""
 INDEX="researcher-profile-v1"
 WAIT_LIMIT=""
@@ -41,6 +57,8 @@ EMB_DLQ_URL=""
 JOB_DLQ_URL=""
 REGISTRY_TABLE=""
 LOG_GROUP=""
+EMB_PROVIDER=""
+EMB_MODEL_NAME=""
 MODEL=""
 DIMS=""
 ALARM_DLQ=""
@@ -147,6 +165,25 @@ parse_args() {
   [[ "${INDEX}" =~ ${re_index} ]] || cc_die 2 "--index must be an index name"
 }
 
+# expected_model_id (L-02): sets EMB_PROVIDER, EMB_MODEL_NAME, DIMS and MODEL,
+# the document-side spec ID storage writes as embeddingModel (see the
+# EMB_SPEC_VERSION comment above); exit 3 when config/course.json lacks a part.
+expected_model_id() {
+  local re_dims='^[1-9][0-9]*$'
+  EMB_PROVIDER="$(jq -r '.embedding.provider // empty' config/course.json)"
+  EMB_MODEL_NAME="$(jq -r '.models.embeddingModelId // empty' config/course.json)"
+  DIMS="$(jq -r '.embedding.dimensions // empty' config/course.json)"
+  [ -n "${EMB_PROVIDER}" ] && [ -n "${EMB_MODEL_NAME}" ] && [ -n "${DIMS}" ] ||
+    cc_die 3 "config/course.json lacks embedding.provider, models.embeddingModelId or embedding.dimensions"
+  case "${EMB_PROVIDER}" in
+    voyage | bedrock | fake) ;;
+    *) cc_die 3 "config/course.json embedding.provider '${EMB_PROVIDER}' is not voyage, bedrock or fake" ;;
+  esac
+  [[ "${DIMS}" =~ ${re_dims} ]] || cc_die 3 "config/course.json embedding.dimensions is not a positive integer"
+  MODEL="${EMB_PROVIDER}/${EMB_MODEL_NAME}/${DIMS}/${EMB_INPUT_TYPE}/${EMB_SPEC_VERSION}"
+  cc_info "expected stored embeddingModel ${MODEL}, embeddingDimensions ${DIMS} (config/course.json + EmbeddingModelSpec.id)"
+}
+
 read_names() {
   cc_step "names"
   cc_tf_required CLUSTER '.ecs_cluster_name.value' "ecs_cluster_name"
@@ -157,9 +194,7 @@ read_names() {
   cc_tf_required JOB_DLQ_URL '.dlq_urls.value.jobs' "dlq_urls.jobs (Phase 15 output)"
   cc_tf_required REGISTRY_TABLE '.dynamodb_table_names.value.ArtifactRegistry' "dynamodb_table_names.ArtifactRegistry"
   cc_tf_required LOG_GROUP '.log_group_names.value.ecs' "log_group_names.ecs"
-  MODEL="$(jq -r '.models.embeddingModelId // empty' config/course.json)"
-  DIMS="$(jq -r '.embedding.dimensions // empty' config/course.json)"
-  [ -n "${MODEL}" ] && [ -n "${DIMS}" ] || cc_die 3 "config/course.json lacks models.embeddingModelId or embedding.dimensions"
+  expected_model_id
   ALARM_DLQ="${CC_NAME_PREFIX}-embedding-dlq-not-empty"
   ALARM_OUT="${CC_NAME_PREFIX}-worker-scale-out"
   ALARM_OUT_EMB="${CC_NAME_PREFIX}-worker-scale-out-embedding"
@@ -298,7 +333,8 @@ select_keys() {
 # check_sample (M-01, repair-01): for 20 evenly spaced selected keys, the
 # latest registry version (lib cc_registry_latest, one Query each: AR1,
 # ScanIndexForward=false, Limit 1) must hold textHash, embeddingModel and
-# embeddingDimensions, with model and dimensions equal to config/course.json;
+# embeddingDimensions, with embeddingModel equal to MODEL, the spec ID of
+# expected_model_id (L-02), and dimensions equal to config/course.json;
 # any miss: exit 3, nothing sent. The vector metadata itself (the handler's
 # RequiredKeys) is checked by the handler, which fails a task permanently on
 # a missing field; such failures are counted as workload failures
@@ -328,13 +364,16 @@ check_sample() {
   CC_SELECTION_JSON="$(jq -n --arg i "${INDEX}" --argjson n "${COUNT}" --argjson k "${#keys[@]}" --argjson ok "${ok}" \
     --argjson bad "${bad}" --argjson step "${step}" --arg sha "$(cc_sha256 "${KEYS_FILE}")" \
     --argjson calls "${CC_REGISTRY_CALLS}" --argjson scanned "${CC_REGISTRY_SCANNED}" \
-    --argjson matched "${CC_REGISTRY_MATCHED}" --argjson uniq "${CC_REGISTRY_UNIQUE}" '
+    --argjson matched "${CC_REGISTRY_MATCHED}" --argjson uniq "${CC_REGISTRY_UNIQUE}" \
+    --arg model "${MODEL}" --arg dims "${DIMS}" '
     {index: $i, source: "DynamoDB ArtifactRegistry (M-01: the vector bucket policy denies the S3 Vectors data plane to this principal)",
      rule: "the first N unique pk artifact#vector#INDEX/KEY in scan order (read-only Scan, FilterExpression begins_with(pk), projection pk, eventually consistent, page size 1000, duplicates of one key dropped keeping the first)",
      count: $n, keys_sha256: $sha, scan: {calls: $calls, items_scanned: $scanned, items_matched: $matched, unique_keys_seen: $uniq},
      registry_sample: {keys: $k, every_nth: $step, eligible: $ok, not_eligible: $bad,
-     checked: "latest registry version (Query ScanIndexForward=false Limit 1): textHash, embeddingModel, embeddingDimensions present; model and dimensions equal to config/course.json. The vector metadata is checked by the handler (permanent failure on a missing field, counted as a workload failure)"}}')"
-  printf 'SAMPLE: keys=%s eligible=%s not_eligible=%s (latest registry versions)\n' "${#keys[@]}" "${ok}" "${bad}"
+     expected_embedding_model: $model, expected_embedding_dimensions: ($dims | tonumber),
+     checked: "latest registry version (Query ScanIndexForward=false Limit 1): textHash, embeddingModel, embeddingDimensions present; embeddingModel equal to expected_embedding_model (the document-side EmbeddingModelSpec.id built from config/course.json embedding.provider, models.embeddingModelId, embedding.dimensions and the rag spec version, L-02) and embeddingDimensions equal to config/course.json. The vector metadata is checked by the handler (permanent failure on a missing field, counted as a workload failure)"}}')"
+  printf 'SAMPLE: keys=%s eligible=%s not_eligible=%s (latest registry versions; expected embeddingModel %s, embeddingDimensions %s)\n' \
+    "${#keys[@]}" "${ok}" "${bad}" "${MODEL}" "${DIMS}"
   if [ "${bad}" -gt 0 ]; then
     cc_set_str CC_OBS_JSON result "not run: ${bad} of ${#keys[@]} sampled keys have a latest registry version without textHash, embeddingModel or embeddingDimensions, or with another model"
     CC_STATUS="prerequisite-not-met"

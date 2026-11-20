@@ -1,0 +1,183 @@
+diff --git a/infra/terraform/modules/workflow/sfn.tf b/infra/terraform/modules/workflow/sfn.tf
+index dc0f4f7..7515900 100644
+--- a/infra/terraform/modules/workflow/sfn.tf
++++ b/infra/terraform/modules/workflow/sfn.tf
+@@ -55,16 +55,33 @@
+ #     (variable sparkShuffleConf).
+ #   cluster.managedScalingMaxUnits integer, emr_managed_scaling_min_units ..
+ #     emr_managed_scaling_max_units (Terraform), default the Terraform maximum;
+-#     becomes MaximumCapacityUnits, MaximumOnDemandCapacityUnits and
+-#     MaximumCoreCapacityUnits of whichever cluster the execution creates
+-#     (variable clusterComputeLimits). UnitType Instances: one unit is one EC2
++#     a value ABOVE the minimum becomes MaximumCapacityUnits,
++#     MaximumOnDemandCapacityUnits and MaximumCoreCapacityUnits of whichever
++#     cluster the execution creates. UnitType Instances: one unit is one EC2
+ #     instance; the limits apply to core and task nodes only, never the
+ #     primary node (EMR API Reference, ComputeLimits:
+ #     https://docs.aws.amazon.com/emr/latest/APIReference/API_ComputeLimits.html;
+ #     Management Guide, "Using managed scaling":
+ #     https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-managed-scaling.html).
+-#     Since the value is at least the minimum, the three maxima are never
+-#     below MinimumCapacityUnits.
++#     Repair L-01 (Phase 15 session 3, human-approved): EMR refuses a policy
++#     whose maximum equals its minimum (D7a, RunJobFlow ValidationException
++#     "The specified max capacity must be greater than min capacity"). A value
++#     EQUAL to the minimum therefore creates the cluster WITHOUT a
++#     ManagedScalingPolicy (RunJobFlow: ManagedScalingPolicy "Required: No",
++#     https://docs.aws.amazon.com/emr/latest/APIReference/API_RunJobFlow.html):
++#     a fixed cluster at its start size, the core instance group's
++#     InstanceCount (cluster_settings.core_instance_count, 2 today, equal to
++#     the minimum). The same rule applies to the Terraform default.
++#     JSONata cannot leave a field out of an Arguments object (a field whose
++#     expression is undefined fails with States.QueryEvaluationError,
++#     "Handling expression errors", below), but Arguments may be ONE JSONata
++#     expression ("Arguments and Output Fields" on the same page). So ReadInput
++#     builds each complete createCluster request with $merge (variables
++#     hadoopClusterRequest and sparkClusterRequest): static Terraform fields,
++#     cluster name, release and application, plus either
++#     {ManagedScalingPolicy: {ComputeLimits: ...}} or {}; the two create
++#     states pass that variable unchanged. Absent input and any value above
++#     the minimum give the same request as before the repair.
+ # A present but invalid value (not a number, not an integer, out of range)
+ # makes ReadInput fail with States.QueryEvaluationError ($error), so the
+ # execution fails before any cluster exists (Step Functions developer guide,
+@@ -122,7 +139,11 @@ locals {
+     ]
+   }
+ 
+-  # Common createCluster arguments (RunJobFlow request syntax).
++  # Common createCluster arguments (RunJobFlow request syntax). Repair L-01:
++  # ManagedScalingPolicy is no longer here; ReadInput adds it, or leaves it
++  # out when the resolved maximum equals the minimum (cluster_request below).
++  # These fields reach the request through jsonencode, as a JSON object
++  # literal inside a JSONata expression, so their values are unchanged.
+   cluster_common = {
+     LogUri            = local.cs.log_uri
+     ServiceRole       = local.cs.service_role_arn
+@@ -132,16 +153,26 @@ locals {
+       Name                  = "scholarchain-bootstrap"
+       ScriptBootstrapAction = { Path = local.cs.bootstrap_script_uri, Args = [] }
+     }]
+-    Instances            = local.cluster_instances
+-    StepConcurrencyLevel = local.cs.step_concurrency_level
+-    # Phase 15 decision 9.3: resolved in ReadInput (clusterComputeLimits).
+-    ManagedScalingPolicy = {
+-      ComputeLimits = "{% $clusterComputeLimits %}"
+-    }
++    Instances             = local.cluster_instances
++    StepConcurrencyLevel  = local.cs.step_concurrency_level
+     AutoTerminationPolicy = { IdleTimeout = local.cs.idle_timeout_seconds }
+     Tags                  = local.cluster_tags
+   }
+ 
++  # The per-cluster fields of the two create states (unchanged values).
++  cluster_kinds = {
++    hadoop = {
++      Name         = "${var.name_prefix}-hadoop"
++      ReleaseLabel = local.cs.hadoop_release_label
++      Applications = [{ Name = "Hadoop" }]
++    }
++    spark = {
++      Name         = "${var.name_prefix}-spark"
++      ReleaseLabel = local.cs.spark_release_label
++      Applications = [{ Name = "Spark" }]
++    }
++  }
++
+   spark_config_local = "/home/hadoop/scholarchain-spark-job-config.json"
+ 
+   # Phase 14 G-21 (human-approved values): spark-submit runtime options for
+@@ -181,14 +212,28 @@ locals {
+   # non-number never reaches $floor.
+   compute_limits_default = "{'UnitType': '${local.ms.unit_type}', 'MinimumCapacityUnits': ${local.ms.minimum_capacity_units}, 'MaximumCapacityUnits': ${local.ms.maximum_capacity_units}, 'MaximumOnDemandCapacityUnits': ${local.ms.maximum_on_demand_capacity_units}, 'MaximumCoreCapacityUnits': ${local.ms.maximum_core_capacity_units}}"
+   compute_limits_given   = "{'UnitType': '${local.ms.unit_type}', 'MinimumCapacityUnits': ${local.ms.minimum_capacity_units}, 'MaximumCapacityUnits': ${local.in_max_units}, 'MaximumOnDemandCapacityUnits': ${local.in_max_units}, 'MaximumCoreCapacityUnits': ${local.in_max_units}}"
+-  resolve_compute_limits = join("", [
+-    "{% $exists(${local.in_max_units}) ? (",
++
++  # Repair L-01: the scaling part of the request, a JSONata object. A
++  # maximum equal to the minimum gives {} (no ManagedScalingPolicy: EMR
++  # refuses max = min); otherwise {ManagedScalingPolicy: {ComputeLimits}}.
++  scaling_policy_given   = "{'ManagedScalingPolicy': {'ComputeLimits': ${local.compute_limits_given}}}"
++  scaling_policy_default = local.ms.maximum_capacity_units > local.ms.minimum_capacity_units ? "{'ManagedScalingPolicy': {'ComputeLimits': ${local.compute_limits_default}}}" : "{}"
++  resolve_cluster_scaling = join("", [
++    "($exists(${local.in_max_units}) ? (",
+     "$type(${local.in_max_units}) = 'number' ? (",
+     "(${local.in_max_units} = $floor(${local.in_max_units}) and ${local.in_max_units} >= ${local.ms.minimum_capacity_units} and ${local.in_max_units} <= ${local.ms.maximum_capacity_units})",
+-    " ? ${local.compute_limits_given} : ${local.units_error}",
++    " ? (${local.in_max_units} = ${local.ms.minimum_capacity_units} ? {} : ${local.scaling_policy_given}) : ${local.units_error}",
+     ") : ${local.units_error}",
+-    ") : ${local.compute_limits_default} %}",
++    ") : ${local.scaling_policy_default})",
+   ])
++
++  # The complete createCluster request of each cluster (ReadInput variables
++  # hadoopClusterRequest, sparkClusterRequest): $merge of the common fields,
++  # the per-cluster fields and the scaling part. jsonencode yields JSON
++  # object literals, which JSONata reads as object constructors.
++  cluster_request = {
++    for kind, fields in local.cluster_kinds : kind => "{% $merge([${jsonencode(local.cluster_common)}, ${jsonencode(fields)}, ${local.resolve_cluster_scaling}]) %}"
++  }
+   resolve_shuffle_conf = join("", [
+     "{% 'spark.sql.shuffle.partitions=' & $string(",
+     "$exists(${local.in_shuffle}) ? (",
+@@ -246,7 +291,9 @@ locals {
+     States = {
+       # Phase 15 decision 9.3: also resolves the execution-input settings
+       # (the one place; all from $states.input, because every Assign of one
+-      # state sees the variables as they were before the state).
++      # state sees the variables as they were before the state). Repair L-01:
++      # it builds both complete createCluster requests, with or without
++      # ManagedScalingPolicy, so TestState on ReadInput shows them.
+       ReadInput = {
+         Type = "Pass"
+         Assign = {
+@@ -254,7 +301,8 @@ locals {
+           failError            = "none"
+           failCause            = "none"
+           cleanupError         = "none"
+-          clusterComputeLimits = local.resolve_compute_limits
++          hadoopClusterRequest = local.cluster_request["hadoop"]
++          sparkClusterRequest  = local.cluster_request["spark"]
+           sparkShuffleConf     = local.resolve_shuffle_conf
+         }
+         Next = "ExportInputCheck"
+@@ -289,14 +337,11 @@ locals {
+       CreateHadoopCluster = {
+         Type     = "Task"
+         Resource = "arn:${var.partition}:states:::elasticmapreduce:createCluster.sync"
+-        Arguments = merge(local.cluster_common, {
+-          Name         = "${var.name_prefix}-hadoop"
+-          ReleaseLabel = local.cs.hadoop_release_label
+-          Applications = [{ Name = "Hadoop" }]
+-        })
+-        Assign = { hadoopClusterId = "{% $states.result.ClusterId %}" }
+-        Catch  = local.catch_to["FailPipeline"]
+-        Next   = "HadoopPipelineStep"
++        # Repair L-01: the whole request comes from ReadInput.
++        Arguments = "{% $hadoopClusterRequest %}"
++        Assign    = { hadoopClusterId = "{% $states.result.ClusterId %}" }
++        Catch     = local.catch_to["FailPipeline"]
++        Next      = "HadoopPipelineStep"
+       }
+ 
+       HadoopPipelineStep = {
+@@ -345,14 +390,11 @@ locals {
+       CreateSparkCluster = {
+         Type     = "Task"
+         Resource = "arn:${var.partition}:states:::elasticmapreduce:createCluster.sync"
+-        Arguments = merge(local.cluster_common, {
+-          Name         = "${var.name_prefix}-spark"
+-          ReleaseLabel = local.cs.spark_release_label
+-          Applications = [{ Name = "Spark" }]
+-        })
+-        Assign = { sparkClusterId = "{% $states.result.ClusterId %}" }
+-        Catch  = local.catch_to["FailPipeline"]
+-        Next   = "CopySparkJobConfig"
++        # Repair L-01: the whole request comes from ReadInput.
++        Arguments = "{% $sparkClusterRequest %}"
++        Assign    = { sparkClusterId = "{% $states.result.ClusterId %}" }
++        Catch     = local.catch_to["FailPipeline"]
++        Next      = "CopySparkJobConfig"
+       }
+ 
+       # GraphAnalyticsJob reads --config from the driver's local disk
