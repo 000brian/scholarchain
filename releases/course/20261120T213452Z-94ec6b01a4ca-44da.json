@@ -1,0 +1,56 @@
+{
+  "kind": "scholarchain-release",
+  "version": 2,
+  "environment": "course",
+  "attempt_id": "20261120T213452Z-94ec6b01a4ca-44da",
+  "commit": "94ec6b01a4cad9dca013a95d56dfe2fbc315ad4f",
+  "head": "94ec6b01a4cad9dca013a95d56dfe2fbc315ad4f",
+  "plan_commit": "85dacb447057cbb33c982dbb49cb2cf83a95e0aa",
+  "build_commit": "684636ef997ee041912e2b57d1c597ded8e9778d",
+  "plan_id": "20261120T211840Z-85dacb447057-8820",
+  "plan_sha256": "934d78c312a363ac02ee330db02372a20ab9226416f05e923041178b2d814480",
+  "region": "us-east-1",
+  "applied_utc": "2026-11-20T21:34:52Z",
+  "runtime_enabled": true,
+  "image": {
+    "repository": "scholarchain-course-services",
+    "tag": "684636ef997ee041912e2b57d1c597ded8e9778d",
+    "digest": "sha256:abb0be8094004494217b593dc22f760e27edc7b2d831911db7b89608bde364a3"
+  },
+  "ecs_cluster": "scholarchain-course-runtime",
+  "services": {
+    "query": {
+      "task_definition": "scholarchain-course-query:3",
+      "previous_task_definition": "scholarchain-course-query:2",
+      "desired_count": 1,
+      "running_count": 1,
+      "image_tag": "684636ef997ee041912e2b57d1c597ded8e9778d",
+      "digest_check": "verified (1 running task(s) on sha256:abb0be8094004494217b593dc22f760e27edc7b2d831911db7b89608bde364a3)"
+    },
+    "evidence": {
+      "task_definition": "scholarchain-course-evidence:3",
+      "previous_task_definition": "scholarchain-course-evidence:2",
+      "desired_count": 1,
+      "running_count": 1,
+      "image_tag": "684636ef997ee041912e2b57d1c597ded8e9778d",
+      "digest_check": "verified (1 running task(s) on sha256:abb0be8094004494217b593dc22f760e27edc7b2d831911db7b89608bde364a3)"
+    },
+    "graph": {
+      "task_definition": "scholarchain-course-graph:3",
+      "previous_task_definition": "scholarchain-course-graph:2",
+      "desired_count": 1,
+      "running_count": 1,
+      "image_tag": "684636ef997ee041912e2b57d1c597ded8e9778d",
+      "digest_check": "verified (1 running task(s) on sha256:abb0be8094004494217b593dc22f760e27edc7b2d831911db7b89608bde364a3)"
+    },
+    "worker": {
+      "task_definition": "scholarchain-course-worker:3",
+      "previous_task_definition": "scholarchain-course-worker:2",
+      "desired_count": 0,
+      "running_count": 0,
+      "image_tag": "684636ef997ee041912e2b57d1c597ded8e9778d",
+      "digest_check": "no running task (desired 0)"
+    }
+  },
+  "verified": true
+}
