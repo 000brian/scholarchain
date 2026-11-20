@@ -1,0 +1,138 @@
+{
+  "kind": "scholarchain-collector-tool-record",
+  "version": 1,
+  "tool": "e-retrieval-modes.sh",
+  "tool_path": "experiments/collectors/e-retrieval-modes.sh",
+  "tool_sha256": "cb15ece70ca0b0652119732ffbad9f7c32bd99fc1e5e1d075d2e435f29ad4387",
+  "arguments": [
+    "--stage",
+    "load",
+    "--snapshot",
+    "dblp-2026-11-01",
+    "--loader",
+    "rag-retrieval-eval",
+    "--graph-run-id",
+    "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+    "--modes",
+    "graph-only,vector-only,fused",
+    "--max-seconds",
+    "1200",
+    "--question-timeout-seconds",
+    "60",
+    "--wait-timeout",
+    "2400"
+  ],
+  "attempt_id": "20261120T221402Z-6a6c31a06d60-b6c7",
+  "manifest_id": "p15-e-retrieval-modes",
+  "region": "us-east-1",
+  "start_epoch_s": 1795212842,
+  "end_epoch_s": 1795212913,
+  "status": "completed",
+  "exit_code": 0,
+  "exit_meaning": "ran (observation recorded)",
+  "limits": {
+    "graph_run_id": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+    "modes_arg": "graph-only,vector-only,fused",
+    "max_seconds_arg": 1200,
+    "question_timeout_seconds_arg": 60,
+    "wait_timeout_s": 2400,
+    "outer_limit_s": 3000,
+    "overrun_allowance_s": 720,
+    "max_report_bytes": 16777216,
+    "remote_bounds": "the job total limit (--max-seconds, checked when a question starts) and per-call limit; one ops task at a time (run-bounded-pipeline.sh)"
+  },
+  "baseline": {
+    "running_ops_tasks": "0"
+  },
+  "selection": null,
+  "counts": {
+    "nested_attempt_id": "20261120T221406Z-6a6c31a06d60-2968",
+    "job_copy_outcome": "created",
+    "report_location": "s3://{data-bucket}/rag/retrieval-eval/20261120T221406Z-6a6c31a06d60-2968/report.json",
+    "modes_rows": 12,
+    "report_summary": {
+      "report_status": "completed",
+      "llm_calls": 0,
+      "total_millis": 11390,
+      "exploratory": true,
+      "label": "EXPLORATORY: 11 questions in the universe (fewer than 15)",
+      "universe_questions": 11,
+      "labels": 100,
+      "not_comparable": 19,
+      "modes_requested": [
+        "graph-only",
+        "vector-only",
+        "fused"
+      ],
+      "modes": {
+        "graph-only": {
+          "scored": 11,
+          "errors": 0,
+          "empty": 2,
+          "abstentions": 2,
+          "mrr": 0.8181818181818182,
+          "recall_at": {
+            "1": 0.09999999999999999,
+            "5": 0.5,
+            "10": 0.8181818181818182,
+            "30": 0.8181818181818182
+          }
+        },
+        "vector-only": {
+          "scored": 11,
+          "errors": 0,
+          "empty": 5,
+          "abstentions": 0,
+          "mrr": 0.0032467532467532465,
+          "recall_at": {
+            "1": 0,
+            "5": 0,
+            "10": 0,
+            "30": 0.009090909090909092
+          }
+        },
+        "fused": {
+          "scored": 11,
+          "errors": 0,
+          "empty": 0,
+          "abstentions": 0,
+          "mrr": 0.7759740259740259,
+          "recall_at": {
+            "1": 0.09090909090909091,
+            "5": 0.4090909090909091,
+            "10": 0.6363636363636364,
+            "30": 0.8272727272727273
+          }
+        }
+      },
+      "modes_missing": []
+    },
+    "pipeline_exit": 0,
+    "pipeline_started_epoch_s": 1795212844,
+    "nested_run_record": "evidence/runs/20261120T221406Z-6a6c31a06d60-2968-load.json",
+    "nested_status": "succeeded"
+  },
+  "observation": {
+    "result": "pipeline exit 0; report copy: true; EXPLORATORY (11 questions in the universe); quality and latency per mode are in retrieval-modes.csv; no scaling evidence is expected from E"
+  },
+  "evidence": {
+    "report_copy": "found: retrieval-eval-report.json (byte copy of the S3 object; 123562 bytes)",
+    "modes_table": "found: retrieval-modes.csv (12 rows)",
+    "metrics": "exported by the runner (AWS/Neptune, AWS/DynamoDB); the ops task has no AWS/ECS series (not a service; Container Insights off): its lifecycle is in the nested record"
+  },
+  "errors": [],
+  "files": [
+    {
+      "name": "clock.csv",
+      "sha256": "de2adb1db713d4b770a15076e014b5948ffa50f2c3bedf5a7cac9219ae8a89a6"
+    },
+    {
+      "name": "retrieval-eval-report.json",
+      "sha256": "cadd90b82da7fa8c53ac9f2452897f31f04079c21b225805803a0061c8b15cff"
+    },
+    {
+      "name": "retrieval-modes.csv",
+      "sha256": "28ee57ea03d7e91e1ff9c17be8d94ed618d61e07e7b4cfed326a40cee55fe299"
+    }
+  ]
+}

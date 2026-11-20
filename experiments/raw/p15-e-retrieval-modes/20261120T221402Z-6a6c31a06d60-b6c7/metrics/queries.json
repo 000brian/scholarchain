@@ -1,0 +1,154 @@
+[
+  {
+    "Id": "m0_0",
+    "Label": "AWS/Neptune CPUUtilization Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/Neptune",
+        "MetricName": "CPUUtilization",
+        "Dimensions": [
+          {
+            "Name": "DBClusterIdentifier",
+            "Value": "scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m1_0",
+    "Label": "AWS/Neptune OpenCypherRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/Neptune",
+        "MetricName": "OpenCypherRequestsPerSec",
+        "Dimensions": [
+          {
+            "Name": "DBClusterIdentifier",
+            "Value": "scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Average"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m2_0",
+    "Label": "AWS/Neptune TotalRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/Neptune",
+        "MetricName": "TotalRequestsPerSec",
+        "Dimensions": [
+          {
+            "Name": "DBClusterIdentifier",
+            "Value": "scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Average"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m3_0",
+    "Label": "AWS/Neptune TotalServerErrorsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/Neptune",
+        "MetricName": "TotalServerErrorsPerSec",
+        "Dimensions": [
+          {
+            "Name": "DBClusterIdentifier",
+            "Value": "scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Average"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m4_0",
+    "Label": "AWS/Neptune MainRequestQueuePendingRequests Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/Neptune",
+        "MetricName": "MainRequestQueuePendingRequests",
+        "Dimensions": [
+          {
+            "Name": "DBClusterIdentifier",
+            "Value": "scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m5_0",
+    "Label": "AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-researcher-metric-cache",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ConsumedReadCapacityUnits",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-researcher-metric-cache"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m6_0",
+    "Label": "AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-entity-link-cache",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ConsumedReadCapacityUnits",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-entity-link-cache"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m7_0",
+    "Label": "AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-evidence-bundle",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ConsumedReadCapacityUnits",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-evidence-bundle"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  }
+]

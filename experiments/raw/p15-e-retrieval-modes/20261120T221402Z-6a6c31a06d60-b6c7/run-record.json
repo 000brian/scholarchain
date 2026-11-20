@@ -1,0 +1,104 @@
+{
+  "kind": "scholarchain-experiment-run-record",
+  "version": 1,
+  "status": "succeeded",
+  "attempt_id": "20261120T221402Z-6a6c31a06d60-b6c7",
+  "exit_code": 0,
+  "failed_step": null,
+  "signal": null,
+  "head": "6a6c31a06d604bc1c3b598c1071688d5af57cdff",
+  "build_commit": "684636ef997ee041912e2b57d1c597ded8e9778d",
+  "region": "us-east-1",
+  "manifest": {
+    "path": "experiments/manifests/p15-e-retrieval-modes.json",
+    "manifest_id": "p15-e-retrieval-modes",
+    "sha256": "be3868dff8802e0cf2a2b60c5838444a3ec4bafb9cf7e9f15c2cab30ef1b8019",
+    "experiment": "E",
+    "dataset_snapshot": "dblp-2026-11-01 (DBLP XML with dblp.dtd), subset rule dblp-subset-v1 (datasets/dataset-manifest.yaml); the Phase 14 graph run:v1:f2625d504b12749389cf4f5b1a26aed4 in Neptune and DynamoDB, the researcher-profile-v1 vectors of the Phase 14 export run=f2625d504b12749389cf4f5b1a26aed4, and the question set benchmark-v1 (packaged evaluation set derived by RetrievalEvalSet)"
+  },
+  "declared_not_enforced": {
+    "costBoundUsd": 0.2,
+    "maxDurationSeconds": 3600,
+    "resourceLimits": {
+      "ecsMaxTasks": 1,
+      "evalQuestions": 11,
+      "evalModes": 3,
+      "jobMaxSeconds": 1200,
+      "jobQuestionTimeoutSeconds": 60,
+      "jobOverrunAllowanceSeconds": 720,
+      "pipelineWaitTimeoutSeconds": 2400,
+      "collectorOuterLimitSeconds": 3000,
+      "llmCalls": 0,
+      "terraformSource": "infra/terraform/modules/runtime/variables.tf task_sizes.ops (1 vCPU, 4 GB) and the ops task definition (main.tf); scripts/run-bounded-pipeline.sh (one ops task at a time; --wait-timeout 60..14400 and at least the job limit + 300 s); RetrievalEvalJob bounds (--max-seconds 60..3600, --question-timeout-seconds 5..300)"
+    }
+  },
+  "started_utc": "2026-11-20T22:14:02Z",
+  "ended_utc": "2026-11-20T22:20:15Z",
+  "metrics_export_of": null,
+  "action": {
+    "kind": "command",
+    "path": "experiments/collectors/e-retrieval-modes.sh",
+    "args": [
+      "--stage",
+      "load",
+      "--snapshot",
+      "dblp-2026-11-01",
+      "--loader",
+      "rag-retrieval-eval",
+      "--graph-run-id",
+      "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+      "--modes",
+      "graph-only,vector-only,fused",
+      "--max-seconds",
+      "1200",
+      "--question-timeout-seconds",
+      "60",
+      "--wait-timeout",
+      "2400"
+    ],
+    "resolved_args": [
+      "--stage",
+      "load",
+      "--snapshot",
+      "dblp-2026-11-01",
+      "--loader",
+      "rag-retrieval-eval",
+      "--graph-run-id",
+      "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+      "--modes",
+      "graph-only,vector-only,fused",
+      "--max-seconds",
+      "1200",
+      "--question-timeout-seconds",
+      "60",
+      "--wait-timeout",
+      "2400"
+    ],
+    "run": true,
+    "exit_code": 0,
+    "window_epoch": {
+      "start": 1795212842,
+      "end": 1795212914
+    }
+  },
+  "nested_run_records": [
+    {
+      "path": "evidence/runs/20261120T221406Z-6a6c31a06d60-2968-load.json",
+      "copy": "nested/20261120T221406Z-6a6c31a06d60-2968-load.json",
+      "sha256": "9b78f1cbdf22db7ca9cafc77749c7564902dc05f10352967ddef07cf735a14a9"
+    }
+  ],
+  "remote_ids": {
+    "execution_names": [],
+    "emr_cluster_ids": []
+  },
+  "metrics": {
+    "status": "exported",
+    "files": [
+      "experiments/raw/p15-e-retrieval-modes/20261120T221402Z-6a6c31a06d60-b6c7/metrics/queries.json",
+      "experiments/raw/p15-e-retrieval-modes/20261120T221402Z-6a6c31a06d60-b6c7/metrics/metric-data.json"
+    ],
+    "unresolved": []
+  },
+  "raw_results_location": "experiments/raw/p15-e-retrieval-modes/20261120T221402Z-6a6c31a06d60-b6c7"
+}

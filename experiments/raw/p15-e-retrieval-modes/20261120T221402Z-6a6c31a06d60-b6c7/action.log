@@ -1,0 +1,45 @@
+STEP: e-retrieval-modes.sh prerequisites
+INFO: e-retrieval-modes.sh tool sha256 cb15ece70ca0b0652119732ffbad9f7c32bd99fc1e5e1d075d2e435f29ad4387; attempt 20261120T221402Z-6a6c31a06d60-b6c7; preflight false
+STEP: e-retrieval-modes.sh out-dir
+STEP: e-retrieval-modes.sh terraform-outputs
+INFO: e-retrieval-modes.sh terraform outputs read (values kept in memory, not shown)
+STEP: e-retrieval-modes.sh baseline
+STEP: e-retrieval-modes.sh pipeline
+STEP: run-bounded-pipeline.sh prerequisites
+STEP: run-bounded-pipeline.sh clean-tree
+INFO: run-bounded-pipeline.sh HEAD 6a6c31a06d604bc1c3b598c1071688d5af57cdff; code version (build commit) 684636ef997ee041912e2b57d1c597ded8e9778d
+STEP: run-bounded-pipeline.sh terraform-outputs
+INFO: run-bounded-pipeline.sh account ********2972, Region us-east-1, data-lake bucket <data-bucket> (from terraform output)
+STEP: run-bounded-pipeline.sh record
+ATTEMPT: 20261120T221406Z-6a6c31a06d60-2968
+STEP: run-bounded-pipeline.sh ops-task-definition
+INFO: run-bounded-pipeline.sh ops task definition scholarchain-course-ops:3, image tag = build commit
+STEP: run-bounded-pipeline.sh one-ops-task
+STEP: run-bounded-pipeline.sh ops-command
+EVAL-REPORT: s3://{data-bucket}/rag/retrieval-eval/20261120T221406Z-6a6c31a06d60-2968/report.json
+OPS-COMMAND: org.scholarchain.rag.eval.RetrievalEvalJob --config /opt/scholarchain/config/course.json --out /tmp/scholarchain-rag-retrieval-eval-20261120T221406Z-6a6c31a06d60-2968 --code-version 684636ef997ee041912e2b57d1c597ded8e9778d --attempt-id 20261120T221406Z-6a6c31a06d60-2968 --graph-run run:v1:f2625d504b12749389cf4f5b1a26aed4 --modes graph-only,vector-only,fused --max-seconds 1200 --question-timeout-seconds 60
+STEP: run-bounded-pipeline.sh run-task
+OPS-TASK: id=e8d365d8fdf3401c8ee32a5010d64e70 log_group=/scholarchain/course/ecs/ops log_stream=ops/ops/e8d365d8fdf3401c8ee32a5010d64e70
+STEP: run-bounded-pipeline.sh wait-task
+POLL: task=e8d365d8fdf3401c8ee32a5010d64e70 lastStatus=PROVISIONING elapsed_wait=0s
+POLL: task=e8d365d8fdf3401c8ee32a5010d64e70 lastStatus=RUNNING elapsed_wait=31s
+POLL: task=e8d365d8fdf3401c8ee32a5010d64e70 lastStatus=STOPPED elapsed_wait=62s
+STEP: run-bounded-pipeline.sh task-result
+[rag-retrieval-eval] summary mode=graph-only questions=11 exploratory=true recall@1=0.1000 recall@5=0.5000 recall@10=0.8182 recall@30=0.8182 mrr=0.8182 errors=0 empty=2 abstentions=2 latencyMedianMillis=31
+[rag-retrieval-eval] summary mode=vector-only questions=11 exploratory=true recall@1=0.0000 recall@5=0.0000 recall@10=0.0000 recall@30=0.0091 mrr=0.0032 errors=0 empty=5 abstentions=0 latencyMedianMillis=204
+[rag-retrieval-eval] summary mode=fused questions=11 exploratory=true recall@1=0.0909 recall@5=0.4091 recall@10=0.6364 recall@30=0.8273 mrr=0.7760 errors=0 empty=0 abstentions=0 latencyMedianMillis=246
+[rag-retrieval-eval] report copy: created s3://{data-bucket}/rag/retrieval-eval/20261120T221406Z-6a6c31a06d60-2968/report.json
+[rag-retrieval-eval] completed; report: /tmp/scholarchain-rag-retrieval-eval-20261120T221406Z-6a6c31a06d60-2968/report.json
+EVAL-REPORT-COPY: created s3://{data-bucket}/rag/retrieval-eval/20261120T221406Z-6a6c31a06d60-2968/report.json
+TASK-RESULT: exit_code=0 stop_code=EssentialContainerExited reason=Essential container in task exited
+STEP: run-bounded-pipeline.sh done
+RUN-RECORD: evidence/runs/20261120T221406Z-6a6c31a06d60-2968-load.json
+RESULT: run-bounded-pipeline.sh ok
+INFO: e-retrieval-modes.sh the pipeline ended with exit 0
+STEP: e-retrieval-modes.sh nested-record
+INFO: e-retrieval-modes.sh nested record evidence/runs/20261120T221406Z-6a6c31a06d60-2968-load.json (status succeeded)
+STEP: e-retrieval-modes.sh report-copy
+REPORT: s3://{data-bucket}/rag/retrieval-eval/20261120T221406Z-6a6c31a06d60-2968/report.json (job copy outcome: created)
+STEP: e-retrieval-modes.sh extract
+MODES: rows=12 report_status=completed
+RESULT: e-retrieval-modes.sh ok

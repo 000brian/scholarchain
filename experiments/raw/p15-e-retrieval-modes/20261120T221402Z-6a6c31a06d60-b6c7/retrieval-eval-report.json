@@ -1,0 +1,4167 @@
+{
+  "format": "scholarchain.rag.retrieval-eval-report",
+  "formatVersion": 1,
+  "job": "rag.retrieval-eval",
+  "codeVersion": "684636ef997ee041912e2b57d1c597ded8e9778d",
+  "build": {
+    "buildCommit": "684636ef997ee041912e2b57d1c597ded8e9778d",
+    "buildDirty": "false",
+    "module": "services",
+    "version": "0.1.0-SNAPSHOT",
+    "status": "resource"
+  },
+  "attemptId": "20261120T221406Z-6a6c31a06d60-2968",
+  "graphRunId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+  "llmCalls": 0,
+  "limits": {
+    "maxSeconds": 1200,
+    "questionTimeoutSeconds": 60,
+    "topK": 30,
+    "ks": [
+      1,
+      5,
+      10,
+      30
+    ]
+  },
+  "modesRequested": [
+    "graph-only",
+    "vector-only",
+    "fused"
+  ],
+  "fusion": {
+    "version": "fusion-exp-v1",
+    "k": 60,
+    "label": "experiment only; the production workflow has no fused ranking"
+  },
+  "label": "EXPLORATORY: 11 questions in the universe (fewer than 15)",
+  "exploratory": true,
+  "evalSet": {
+    "benchmarkId": "benchmark-v1",
+    "benchmarkSha256": "b58c5e1a6cb29e192035ce77308c20e2597d2d1dbaf8d136761ae5c3316ff3ac",
+    "rule": [
+      "unit: canonical researcher ID",
+      "answer targets: the researchers of the expected values of kind 'ranking' (by rank), 'edge' (both endpoints, in order) and 'topicRanked' (the top expected.limit of the labelled pool, value descending then researcher ID by code point: the benchmark's own ranking rule), minus the researchers the question names (expected.researcherIds); distinct, in that order",
+      "a question is in the universe when it has at least one answer target; every other question is not-comparable (labelled only with works, paths, numbers or groups, or an expected abstention), listed with its reason, never scored",
+      "by design weak: vector-only on 'ranking' and 'edge' targets (a similarity search cannot rank by a stored metric or read an edge); graph-only on 'topicRanked' targets (its topic filter needs semantic candidates, which graph-only does not use)"
+    ],
+    "questions": 11,
+    "labels": 100,
+    "notComparableCount": 19,
+    "notComparable": [
+      {
+        "id": "q04",
+        "category": "max_team_size",
+        "reason": "labelled only with metric, work values"
+      },
+      {
+        "id": "q05",
+        "category": "max_team_size",
+        "reason": "labelled only with metric, work values"
+      },
+      {
+        "id": "q06",
+        "category": "max_team_size",
+        "reason": "labelled only with metric, work values"
+      },
+      {
+        "id": "q09",
+        "category": "direct_collaboration",
+        "reason": "only the named subjects are labelled"
+      },
+      {
+        "id": "q10",
+        "category": "shortest_path_precomputed",
+        "reason": "labelled with a path only (no answer-target researcher)"
+      },
+      {
+        "id": "q11",
+        "category": "shortest_path_precomputed",
+        "reason": "labelled with a path only (no answer-target researcher)"
+      },
+      {
+        "id": "q12",
+        "category": "shortest_path_no_path",
+        "reason": "labelled with a path only (no answer-target researcher)"
+      },
+      {
+        "id": "q13",
+        "category": "shortest_path_computed",
+        "reason": "labelled with a path only (no answer-target researcher)"
+      },
+      {
+        "id": "q14",
+        "category": "component",
+        "reason": "labelled only with group values"
+      },
+      {
+        "id": "q15",
+        "category": "component",
+        "reason": "labelled only with group values"
+      },
+      {
+        "id": "q16",
+        "category": "community",
+        "reason": "labelled only with group, metric values"
+      },
+      {
+        "id": "q17",
+        "category": "community",
+        "reason": "labelled only with group, metric values"
+      },
+      {
+        "id": "q18",
+        "category": "community",
+        "reason": "labelled only with group, metric values"
+      },
+      {
+        "id": "q22",
+        "category": "temporal_change",
+        "reason": "labelled only with metric values"
+      },
+      {
+        "id": "q23",
+        "category": "temporal_change",
+        "reason": "labelled only with metric values"
+      },
+      {
+        "id": "q24",
+        "category": "temporal_change",
+        "reason": "labelled only with metric values"
+      },
+      {
+        "id": "q27",
+        "category": "institution_filter",
+        "reason": "abstention expected; no researcher label"
+      },
+      {
+        "id": "q28",
+        "category": "ambiguous_name",
+        "reason": "abstention expected; no researcher label"
+      },
+      {
+        "id": "q29",
+        "category": "unknown_name",
+        "reason": "abstention expected; no researcher label"
+      }
+    ]
+  },
+  "embedding": {
+    "queryModelSpec": "voyage/voyage-4/1024/query/emb-v1"
+  },
+  "stores": "aws",
+  "questions": [
+    {
+      "id": "q01",
+      "category": "coauthor_breadth_ranking",
+      "windowLabel": "full-2015-2025",
+      "targets": 10,
+      "byDesignWeak": [
+        "vector-only"
+      ],
+      "drift": {
+        "checked": true,
+        "labelsNotInGraph": [],
+        "labelsUnchecked": 0
+      },
+      "modes": {
+        "graph-only": {
+          "listLength": 10,
+          "latencyMillis": 725,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": false,
+          "recallAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 1,
+          "targetRanks": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:32ad9abca8538109a54a81cef181dd6d",
+              "rank": 1,
+              "score": 3290
+            },
+            {
+              "researcherId": "researcher:v1:df6166236603a3e56028f86b2f9c5c93",
+              "rank": 2,
+              "score": 1124
+            },
+            {
+              "researcherId": "researcher:v1:924dfc3bc7074d5395b24fe76fd9118c",
+              "rank": 3,
+              "score": 1058
+            },
+            {
+              "researcherId": "researcher:v1:21a1b7de436b7edbfbbcc30dc8a90c62",
+              "rank": 4,
+              "score": 1053
+            },
+            {
+              "researcherId": "researcher:v1:c8e08951bf2e63c585e77de4a76470e3",
+              "rank": 5,
+              "score": 1011
+            },
+            {
+              "researcherId": "researcher:v1:cefd47dcc2331282908add7aa906eb71",
+              "rank": 6,
+              "score": 997
+            },
+            {
+              "researcherId": "researcher:v1:a5d6a7f5513a147d737a05f719856a52",
+              "rank": 7,
+              "score": 984
+            },
+            {
+              "researcherId": "researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7",
+              "rank": 8,
+              "score": 950
+            },
+            {
+              "researcherId": "researcher:v1:7eb30133d981fcfeb607628fae4f1c49",
+              "rank": 9,
+              "score": 947
+            },
+            {
+              "researcherId": "researcher:v1:0b483e06c74206594317cf2cd77e891f",
+              "rank": 10,
+              "score": 891
+            }
+          ],
+          "detail": {
+            "operations": [
+              "researcher_ranking"
+            ],
+            "windowLabel": "full-2015-2025"
+          }
+        },
+        "vector-only": {
+          "listLength": 30,
+          "latencyMillis": 879,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": true,
+          "recallAt": {
+            "1": 0,
+            "5": 0,
+            "10": 0,
+            "30": 0
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 0,
+          "targetRanks": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:d9fbae3280000e67a62a506a3c1b2944",
+              "rank": 1,
+              "score": 0.680353045463562
+            },
+            {
+              "researcherId": "researcher:v1:af1696e40a8d45e9222ef4d11525e00d",
+              "rank": 2,
+              "score": 0.6799191832542419
+            },
+            {
+              "researcherId": "researcher:v1:5289cd911c5c68fd18f196bc5a23857f",
+              "rank": 3,
+              "score": 0.6790270805358887
+            },
+            {
+              "researcherId": "researcher:v1:c27ccefef04d70ff9cf520b4e3ae7b03",
+              "rank": 4,
+              "score": 0.6766337156295776
+            },
+            {
+              "researcherId": "researcher:v1:26f1fb4b632bbc255057822f91d34588",
+              "rank": 5,
+              "score": 0.6765037178993225
+            },
+            {
+              "researcherId": "researcher:v1:9e68910f214a662bdff7ebefc2e2d416",
+              "rank": 6,
+              "score": 0.6756942868232727
+            },
+            {
+              "researcherId": "researcher:v1:fd9772481d44cd7ef05228bec8864adf",
+              "rank": 7,
+              "score": 0.6753433346748352
+            },
+            {
+              "researcherId": "researcher:v1:3b5213c97048a724f22fd1e86707ab17",
+              "rank": 8,
+              "score": 0.6752145290374756
+            },
+            {
+              "researcherId": "researcher:v1:5d830435636e59371920966809b92f14",
+              "rank": 9,
+              "score": 0.6741205453872681
+            },
+            {
+              "researcherId": "researcher:v1:085f50fdc2b08b1931ae0a518dd71463",
+              "rank": 10,
+              "score": 0.6738535761833191
+            },
+            {
+              "researcherId": "researcher:v1:8e5c56d1c2de584c4a1067fbe8815628",
+              "rank": 11,
+              "score": 0.6738355159759521
+            },
+            {
+              "researcherId": "researcher:v1:3a260b26b8f74600d5f70f14d7d37cbc",
+              "rank": 12,
+              "score": 0.6737639904022217
+            },
+            {
+              "researcherId": "researcher:v1:d59f09c69e35cae46eaeb1c456081dfb",
+              "rank": 13,
+              "score": 0.6735597252845764
+            },
+            {
+              "researcherId": "researcher:v1:2a61ff9b2bd454f6af1b2e31a8784ef4",
+              "rank": 14,
+              "score": 0.6733166575431824
+            },
+            {
+              "researcherId": "researcher:v1:d9dcbe98f5104c77073b103a86478260",
+              "rank": 15,
+              "score": 0.6729748249053955
+            },
+            {
+              "researcherId": "researcher:v1:f7b6f3c67c5fbf139d5ea6c3e0830016",
+              "rank": 16,
+              "score": 0.672879159450531
+            },
+            {
+              "researcherId": "researcher:v1:6d4269ef2bb0f6ab6906430ccda86e22",
+              "rank": 17,
+              "score": 0.6727322936058044
+            },
+            {
+              "researcherId": "researcher:v1:14c1cf456efa23f250c22e5063196a25",
+              "rank": 18,
+              "score": 0.6725438833236694
+            },
+            {
+              "researcherId": "researcher:v1:fe8c136b331afd666121926fa678c92b",
+              "rank": 19,
+              "score": 0.6725172996520996
+            },
+            {
+              "researcherId": "researcher:v1:c643f7a20bbedffa7de29bc36592c2bd",
+              "rank": 20,
+              "score": 0.6723148226737976
+            },
+            {
+              "researcherId": "researcher:v1:478c63ed2719b60e8b3e58fa434b7cc4",
+              "rank": 21,
+              "score": 0.6722500324249268
+            },
+            {
+              "researcherId": "researcher:v1:016e5cb1ade614fe842b0821486d4ec8",
+              "rank": 22,
+              "score": 0.672014057636261
+            },
+            {
+              "researcherId": "researcher:v1:d4c56a8a5af57e7b58247d75f6601023",
+              "rank": 23,
+              "score": 0.671877384185791
+            },
+            {
+              "researcherId": "researcher:v1:af6a00acb1be2d6177f70007bfeeed56",
+              "rank": 24,
+              "score": 0.671562910079956
+            },
+            {
+              "researcherId": "researcher:v1:d118091381ab124ebe5d7889d18c1358",
+              "rank": 25,
+              "score": 0.6712659001350403
+            },
+            {
+              "researcherId": "researcher:v1:05c57a2778411c13b5116872c6231a72",
+              "rank": 26,
+              "score": 0.6712541580200195
+            },
+            {
+              "researcherId": "researcher:v1:47305bae1de769cc6826c740e1f4027b",
+              "rank": 27,
+              "score": 0.6707176566123962
+            },
+            {
+              "researcherId": "researcher:v1:a15fccc337a7f4af0700d025e97dd8c9",
+              "rank": 28,
+              "score": 0.6707050204277039
+            },
+            {
+              "researcherId": "researcher:v1:91f3b2e3860f812bcaf1430ead98ee14",
+              "rank": 29,
+              "score": 0.6705052256584167
+            },
+            {
+              "researcherId": "researcher:v1:530d4a9643d48e2451081bef41d6134e",
+              "rank": 30,
+              "score": 0.6704551577568054
+            }
+          ],
+          "detail": {
+            "hits": 30,
+            "windowLabel": "full-2015-2025",
+            "droppedIncompatibleModel": 0,
+            "droppedMalformedMetadata": 0
+          }
+        },
+        "fused": {
+          "listLength": 40,
+          "latencyMillis": 1608,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": false,
+          "recallAt": {
+            "1": 0.1,
+            "5": 0.2,
+            "10": 0.5,
+            "30": 1
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 1,
+          "targetRanks": [
+            1,
+            4,
+            6,
+            7,
+            10,
+            12,
+            13,
+            15,
+            18,
+            20
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:32ad9abca8538109a54a81cef181dd6d",
+              "rank": 1,
+              "score": 0.01639344262295082
+            },
+            {
+              "researcherId": "researcher:v1:d9fbae3280000e67a62a506a3c1b2944",
+              "rank": 2,
+              "score": 0.01639344262295082
+            },
+            {
+              "researcherId": "researcher:v1:af1696e40a8d45e9222ef4d11525e00d",
+              "rank": 3,
+              "score": 0.016129032258064516
+            },
+            {
+              "researcherId": "researcher:v1:df6166236603a3e56028f86b2f9c5c93",
+              "rank": 4,
+              "score": 0.016129032258064516
+            },
+            {
+              "researcherId": "researcher:v1:5289cd911c5c68fd18f196bc5a23857f",
+              "rank": 5,
+              "score": 0.015873015873015872
+            },
+            {
+              "researcherId": "researcher:v1:924dfc3bc7074d5395b24fe76fd9118c",
+              "rank": 6,
+              "score": 0.015873015873015872
+            },
+            {
+              "researcherId": "researcher:v1:21a1b7de436b7edbfbbcc30dc8a90c62",
+              "rank": 7,
+              "score": 0.015625
+            },
+            {
+              "researcherId": "researcher:v1:c27ccefef04d70ff9cf520b4e3ae7b03",
+              "rank": 8,
+              "score": 0.015625
+            },
+            {
+              "researcherId": "researcher:v1:26f1fb4b632bbc255057822f91d34588",
+              "rank": 9,
+              "score": 0.015384615384615385
+            },
+            {
+              "researcherId": "researcher:v1:c8e08951bf2e63c585e77de4a76470e3",
+              "rank": 10,
+              "score": 0.015384615384615385
+            },
+            {
+              "researcherId": "researcher:v1:9e68910f214a662bdff7ebefc2e2d416",
+              "rank": 11,
+              "score": 0.015151515151515152
+            },
+            {
+              "researcherId": "researcher:v1:cefd47dcc2331282908add7aa906eb71",
+              "rank": 12,
+              "score": 0.015151515151515152
+            },
+            {
+              "researcherId": "researcher:v1:a5d6a7f5513a147d737a05f719856a52",
+              "rank": 13,
+              "score": 0.014925373134328358
+            },
+            {
+              "researcherId": "researcher:v1:fd9772481d44cd7ef05228bec8864adf",
+              "rank": 14,
+              "score": 0.014925373134328358
+            },
+            {
+              "researcherId": "researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7",
+              "rank": 15,
+              "score": 0.014705882352941176
+            },
+            {
+              "researcherId": "researcher:v1:3b5213c97048a724f22fd1e86707ab17",
+              "rank": 16,
+              "score": 0.014705882352941176
+            },
+            {
+              "researcherId": "researcher:v1:5d830435636e59371920966809b92f14",
+              "rank": 17,
+              "score": 0.014492753623188406
+            },
+            {
+              "researcherId": "researcher:v1:7eb30133d981fcfeb607628fae4f1c49",
+              "rank": 18,
+              "score": 0.014492753623188406
+            },
+            {
+              "researcherId": "researcher:v1:085f50fdc2b08b1931ae0a518dd71463",
+              "rank": 19,
+              "score": 0.014285714285714285
+            },
+            {
+              "researcherId": "researcher:v1:0b483e06c74206594317cf2cd77e891f",
+              "rank": 20,
+              "score": 0.014285714285714285
+            },
+            {
+              "researcherId": "researcher:v1:8e5c56d1c2de584c4a1067fbe8815628",
+              "rank": 21,
+              "score": 0.014084507042253521
+            },
+            {
+              "researcherId": "researcher:v1:3a260b26b8f74600d5f70f14d7d37cbc",
+              "rank": 22,
+              "score": 0.013888888888888888
+            },
+            {
+              "researcherId": "researcher:v1:d59f09c69e35cae46eaeb1c456081dfb",
+              "rank": 23,
+              "score": 0.0136986301369863
+            },
+            {
+              "researcherId": "researcher:v1:2a61ff9b2bd454f6af1b2e31a8784ef4",
+              "rank": 24,
+              "score": 0.013513513513513514
+            },
+            {
+              "researcherId": "researcher:v1:d9dcbe98f5104c77073b103a86478260",
+              "rank": 25,
+              "score": 0.013333333333333334
+            },
+            {
+              "researcherId": "researcher:v1:f7b6f3c67c5fbf139d5ea6c3e0830016",
+              "rank": 26,
+              "score": 0.013157894736842105
+            },
+            {
+              "researcherId": "researcher:v1:6d4269ef2bb0f6ab6906430ccda86e22",
+              "rank": 27,
+              "score": 0.012987012987012988
+            },
+            {
+              "researcherId": "researcher:v1:14c1cf456efa23f250c22e5063196a25",
+              "rank": 28,
+              "score": 0.01282051282051282
+            },
+            {
+              "researcherId": "researcher:v1:fe8c136b331afd666121926fa678c92b",
+              "rank": 29,
+              "score": 0.012658227848101266
+            },
+            {
+              "researcherId": "researcher:v1:c643f7a20bbedffa7de29bc36592c2bd",
+              "rank": 30,
+              "score": 0.0125
+            }
+          ],
+          "detail": {
+            "fusionMillis": 4,
+            "inputErrors": []
+          }
+        }
+      }
+    },
+    {
+      "id": "q02",
+      "category": "coauthor_breadth_ranking",
+      "windowLabel": "w2018-2020",
+      "targets": 5,
+      "byDesignWeak": [
+        "vector-only"
+      ],
+      "drift": {
+        "checked": true,
+        "labelsNotInGraph": [],
+        "labelsUnchecked": 0
+      },
+      "modes": {
+        "graph-only": {
+          "listLength": 5,
+          "latencyMillis": 9,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": false,
+          "recallAt": {
+            "1": 0.2,
+            "5": 1,
+            "10": 1,
+            "30": 1
+          },
+          "recallCeilingAt": {
+            "1": 0.2,
+            "5": 1,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 1,
+          "targetRanks": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:32ad9abca8538109a54a81cef181dd6d",
+              "rank": 1,
+              "score": 594
+            },
+            {
+              "researcherId": "researcher:v1:f632417f6dca3b02c691c6fd06c6c36c",
+              "rank": 2,
+              "score": 389
+            },
+            {
+              "researcherId": "researcher:v1:4eedb2569673a02288f55e0b85725f74",
+              "rank": 3,
+              "score": 357
+            },
+            {
+              "researcherId": "researcher:v1:c8e08951bf2e63c585e77de4a76470e3",
+              "rank": 4,
+              "score": 315
+            },
+            {
+              "researcherId": "researcher:v1:1d33c40b431fb3a1c59aeb173868595c",
+              "rank": 5,
+              "score": 307
+            }
+          ],
+          "detail": {
+            "operations": [
+              "researcher_ranking"
+            ],
+            "windowLabel": "w2018-2020"
+          }
+        },
+        "vector-only": {
+          "listLength": 0,
+          "latencyMillis": 172,
+          "error": null,
+          "empty": true,
+          "abstentionCodes": [],
+          "byDesignWeak": true,
+          "recallAt": {
+            "1": 0,
+            "5": 0,
+            "10": 0,
+            "30": 0
+          },
+          "recallCeilingAt": {
+            "1": 0.2,
+            "5": 1,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 0,
+          "targetRanks": [
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "top": [],
+          "detail": {
+            "hits": 0,
+            "windowLabel": "w2018-2020",
+            "droppedIncompatibleModel": 0,
+            "droppedMalformedMetadata": 0
+          }
+        },
+        "fused": {
+          "listLength": 5,
+          "latencyMillis": 181,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": false,
+          "recallAt": {
+            "1": 0.2,
+            "5": 1,
+            "10": 1,
+            "30": 1
+          },
+          "recallCeilingAt": {
+            "1": 0.2,
+            "5": 1,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 1,
+          "targetRanks": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:32ad9abca8538109a54a81cef181dd6d",
+              "rank": 1,
+              "score": 0.01639344262295082
+            },
+            {
+              "researcherId": "researcher:v1:f632417f6dca3b02c691c6fd06c6c36c",
+              "rank": 2,
+              "score": 0.016129032258064516
+            },
+            {
+              "researcherId": "researcher:v1:4eedb2569673a02288f55e0b85725f74",
+              "rank": 3,
+              "score": 0.015873015873015872
+            },
+            {
+              "researcherId": "researcher:v1:c8e08951bf2e63c585e77de4a76470e3",
+              "rank": 4,
+              "score": 0.015625
+            },
+            {
+              "researcherId": "researcher:v1:1d33c40b431fb3a1c59aeb173868595c",
+              "rank": 5,
+              "score": 0.015384615384615385
+            }
+          ],
+          "detail": {
+            "fusionMillis": 0,
+            "inputErrors": []
+          }
+        }
+      }
+    },
+    {
+      "id": "q03",
+      "category": "coauthor_breadth_ranking",
+      "windowLabel": "w2024-2025",
+      "targets": 10,
+      "byDesignWeak": [
+        "vector-only"
+      ],
+      "drift": {
+        "checked": true,
+        "labelsNotInGraph": [],
+        "labelsUnchecked": 0
+      },
+      "modes": {
+        "graph-only": {
+          "listLength": 10,
+          "latencyMillis": 12,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": false,
+          "recallAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 1,
+          "targetRanks": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:32ad9abca8538109a54a81cef181dd6d",
+              "rank": 1,
+              "score": 1895
+            },
+            {
+              "researcherId": "researcher:v1:0b483e06c74206594317cf2cd77e891f",
+              "rank": 2,
+              "score": 814
+            },
+            {
+              "researcherId": "researcher:v1:2dd100a916bcbf343384359301697d00",
+              "rank": 3,
+              "score": 747
+            },
+            {
+              "researcherId": "researcher:v1:fea4c698a65975a983d14459ae870111",
+              "rank": 4,
+              "score": 744
+            },
+            {
+              "researcherId": "researcher:v1:54290b7dd6fd77d423ee0db3ec27f6e3",
+              "rank": 5,
+              "score": 723
+            },
+            {
+              "researcherId": "researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7",
+              "rank": 6,
+              "score": 713
+            },
+            {
+              "researcherId": "researcher:v1:37b139fcba2cb05240caf213d7c6ed85",
+              "rank": 7,
+              "score": 699
+            },
+            {
+              "researcherId": "researcher:v1:4dfef6d587a850a9c40c13c5b0aac11c",
+              "rank": 8,
+              "score": 609
+            },
+            {
+              "researcherId": "researcher:v1:d2d8cbb55d9114cf234433f13962e342",
+              "rank": 9,
+              "score": 595
+            },
+            {
+              "researcherId": "researcher:v1:b4b40bfd8fd27fd1258f6d8ef37d8428",
+              "rank": 10,
+              "score": 591
+            }
+          ],
+          "detail": {
+            "operations": [
+              "researcher_ranking"
+            ],
+            "windowLabel": "w2024-2025"
+          }
+        },
+        "vector-only": {
+          "listLength": 0,
+          "latencyMillis": 204,
+          "error": null,
+          "empty": true,
+          "abstentionCodes": [],
+          "byDesignWeak": true,
+          "recallAt": {
+            "1": 0,
+            "5": 0,
+            "10": 0,
+            "30": 0
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 0,
+          "targetRanks": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "top": [],
+          "detail": {
+            "hits": 0,
+            "windowLabel": "w2024-2025",
+            "droppedIncompatibleModel": 0,
+            "droppedMalformedMetadata": 0
+          }
+        },
+        "fused": {
+          "listLength": 10,
+          "latencyMillis": 216,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": false,
+          "recallAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 1,
+          "targetRanks": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:32ad9abca8538109a54a81cef181dd6d",
+              "rank": 1,
+              "score": 0.01639344262295082
+            },
+            {
+              "researcherId": "researcher:v1:0b483e06c74206594317cf2cd77e891f",
+              "rank": 2,
+              "score": 0.016129032258064516
+            },
+            {
+              "researcherId": "researcher:v1:2dd100a916bcbf343384359301697d00",
+              "rank": 3,
+              "score": 0.015873015873015872
+            },
+            {
+              "researcherId": "researcher:v1:fea4c698a65975a983d14459ae870111",
+              "rank": 4,
+              "score": 0.015625
+            },
+            {
+              "researcherId": "researcher:v1:54290b7dd6fd77d423ee0db3ec27f6e3",
+              "rank": 5,
+              "score": 0.015384615384615385
+            },
+            {
+              "researcherId": "researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7",
+              "rank": 6,
+              "score": 0.015151515151515152
+            },
+            {
+              "researcherId": "researcher:v1:37b139fcba2cb05240caf213d7c6ed85",
+              "rank": 7,
+              "score": 0.014925373134328358
+            },
+            {
+              "researcherId": "researcher:v1:4dfef6d587a850a9c40c13c5b0aac11c",
+              "rank": 8,
+              "score": 0.014705882352941176
+            },
+            {
+              "researcherId": "researcher:v1:d2d8cbb55d9114cf234433f13962e342",
+              "rank": 9,
+              "score": 0.014492753623188406
+            },
+            {
+              "researcherId": "researcher:v1:b4b40bfd8fd27fd1258f6d8ef37d8428",
+              "rank": 10,
+              "score": 0.014285714285714285
+            }
+          ],
+          "detail": {
+            "fusionMillis": 0,
+            "inputErrors": []
+          }
+        }
+      }
+    },
+    {
+      "id": "q07",
+      "category": "direct_collaboration",
+      "windowLabel": "full-2015-2025",
+      "targets": 10,
+      "byDesignWeak": [
+        "vector-only"
+      ],
+      "drift": {
+        "checked": true,
+        "labelsNotInGraph": [],
+        "labelsUnchecked": 0
+      },
+      "modes": {
+        "graph-only": {
+          "listLength": 10,
+          "latencyMillis": 970,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": false,
+          "recallAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 1,
+          "targetRanks": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:bd0d53d206d7a1f2ff04aeeb7ce534fe",
+              "rank": 1,
+              "score": 8
+            },
+            {
+              "researcherId": "researcher:v1:a96ace26c8cce7e06ac4b1ddff318496",
+              "rank": 2,
+              "score": 7
+            },
+            {
+              "researcherId": "researcher:v1:57624ac51218e2c95c5225b412b42555",
+              "rank": 3,
+              "score": 6
+            },
+            {
+              "researcherId": "researcher:v1:5e417f0bbe7e618df59c46d3d18c236a",
+              "rank": 4,
+              "score": 6
+            },
+            {
+              "researcherId": "researcher:v1:bd21457f140d2d214134b382cf2f0a50",
+              "rank": 5,
+              "score": 4
+            },
+            {
+              "researcherId": "researcher:v1:e215f4482dac01eb2be371567e85503d",
+              "rank": 6,
+              "score": 3
+            },
+            {
+              "researcherId": "researcher:v1:6a2f3424bbc76ff26d73913be7a7dfd9",
+              "rank": 7,
+              "score": 2
+            },
+            {
+              "researcherId": "researcher:v1:c924aa6516eaff158cf7ec69b76e8c41",
+              "rank": 8,
+              "score": 2
+            },
+            {
+              "researcherId": "researcher:v1:ec3b3b3b366159198dedc055f4adf1c4",
+              "rank": 9,
+              "score": 2
+            },
+            {
+              "researcherId": "researcher:v1:04461ed1d52d9374eac4f4f0c6e91c34",
+              "rank": 10,
+              "score": 1
+            }
+          ],
+          "detail": {
+            "operations": [
+              "coauthor_neighborhood"
+            ],
+            "windowLabel": "full-2015-2025"
+          }
+        },
+        "vector-only": {
+          "listLength": 30,
+          "latencyMillis": 349,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": true,
+          "recallAt": {
+            "1": 0,
+            "5": 0,
+            "10": 0,
+            "30": 0
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 0,
+          "targetRanks": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:fc5401717ee0bed6c0f5d2930f4e0558",
+              "rank": 1,
+              "score": 0.5677565336227417
+            },
+            {
+              "researcherId": "researcher:v1:05a6c1cb56a8260f04b7ec7ad3ee03e2",
+              "rank": 2,
+              "score": 0.5666166543960571
+            },
+            {
+              "researcherId": "researcher:v1:943dce8e7806326d531a6694d77998b0",
+              "rank": 3,
+              "score": 0.555763304233551
+            },
+            {
+              "researcherId": "researcher:v1:3c2f0fe90a09304554b45f1a9af9eff7",
+              "rank": 4,
+              "score": 0.5531116127967834
+            },
+            {
+              "researcherId": "researcher:v1:04da40b1242756eae8fbe33b8ae7f251",
+              "rank": 5,
+              "score": 0.552904486656189
+            },
+            {
+              "researcherId": "researcher:v1:00b7c1b012cd8743bbfbfc97c7f79ea7",
+              "rank": 6,
+              "score": 0.5524998903274536
+            },
+            {
+              "researcherId": "researcher:v1:2fb0a14d1e8486c78151bc482a8326f3",
+              "rank": 7,
+              "score": 0.5517410635948181
+            },
+            {
+              "researcherId": "researcher:v1:b25504d10c42d93bb80346018e9130c4",
+              "rank": 8,
+              "score": 0.5515668392181396
+            },
+            {
+              "researcherId": "researcher:v1:dd530b79d759f7c3c833adac324e1d80",
+              "rank": 9,
+              "score": 0.550777792930603
+            },
+            {
+              "researcherId": "researcher:v1:f18436822faef6d95e178806a4b59d4f",
+              "rank": 10,
+              "score": 0.5499945878982544
+            },
+            {
+              "researcherId": "researcher:v1:f8b30b2f95843e66227dd7aa85cc65b9",
+              "rank": 11,
+              "score": 0.5499053597450256
+            },
+            {
+              "researcherId": "researcher:v1:9e47bf9fcfd9dbccd05ec18536ecdf71",
+              "rank": 12,
+              "score": 0.548957109451294
+            },
+            {
+              "researcherId": "researcher:v1:58b498967926a3d33aeafebc64df08ac",
+              "rank": 13,
+              "score": 0.5468815565109253
+            },
+            {
+              "researcherId": "researcher:v1:23f38066ebe9681617dddf6ad495f1a2",
+              "rank": 14,
+              "score": 0.546257734298706
+            },
+            {
+              "researcherId": "researcher:v1:29fcd861d520b8cf69f37b968e224305",
+              "rank": 15,
+              "score": 0.545116662979126
+            },
+            {
+              "researcherId": "researcher:v1:a4be4a37d78b7d4ad9fdd6f6bbe421f2",
+              "rank": 16,
+              "score": 0.5451115965843201
+            },
+            {
+              "researcherId": "researcher:v1:2a70c826b01a930413ad91ebe4ece900",
+              "rank": 17,
+              "score": 0.5447542071342468
+            },
+            {
+              "researcherId": "researcher:v1:739df79583753b6cf9e6f7f448eec192",
+              "rank": 18,
+              "score": 0.5447531342506409
+            },
+            {
+              "researcherId": "researcher:v1:7171fff46d37a8deea3a96090b9677df",
+              "rank": 19,
+              "score": 0.5443707704544067
+            },
+            {
+              "researcherId": "researcher:v1:8053109d338e2490757acf3f80c053ad",
+              "rank": 20,
+              "score": 0.544343113899231
+            },
+            {
+              "researcherId": "researcher:v1:2c1e9cf4f8acdc12158464305028f11e",
+              "rank": 21,
+              "score": 0.5440489649772644
+            },
+            {
+              "researcherId": "researcher:v1:70ec41e47f0b22d6ab864886922e1259",
+              "rank": 22,
+              "score": 0.5423641800880432
+            },
+            {
+              "researcherId": "researcher:v1:22a5def67f66ff6c8121f2f650a1d5eb",
+              "rank": 23,
+              "score": 0.5423638224601746
+            },
+            {
+              "researcherId": "researcher:v1:089b517382db2aa075d3a6c43d8257f7",
+              "rank": 24,
+              "score": 0.5419054627418518
+            },
+            {
+              "researcherId": "researcher:v1:a6e79ee60717dd7579618f096339fcc9",
+              "rank": 25,
+              "score": 0.5409225225448608
+            },
+            {
+              "researcherId": "researcher:v1:0ba1887f5a9c6156f0fa1ea5ed3fb119",
+              "rank": 26,
+              "score": 0.5408890843391418
+            },
+            {
+              "researcherId": "researcher:v1:0c6fe0913e965f893f2db7420616da7f",
+              "rank": 27,
+              "score": 0.5404799580574036
+            },
+            {
+              "researcherId": "researcher:v1:52867ff0d219ffffb0ae31a58e4983f1",
+              "rank": 28,
+              "score": 0.5400111675262451
+            },
+            {
+              "researcherId": "researcher:v1:48fc1b0f929ea67b5a6238375548680b",
+              "rank": 29,
+              "score": 0.5395050644874573
+            },
+            {
+              "researcherId": "researcher:v1:355089be10f6ad1035e49c441e2d3719",
+              "rank": 30,
+              "score": 0.5394563674926758
+            }
+          ],
+          "detail": {
+            "hits": 30,
+            "windowLabel": "full-2015-2025",
+            "droppedIncompatibleModel": 0,
+            "droppedMalformedMetadata": 0
+          }
+        },
+        "fused": {
+          "listLength": 40,
+          "latencyMillis": 1319,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": false,
+          "recallAt": {
+            "1": 0.1,
+            "5": 0.3,
+            "10": 0.5,
+            "30": 1
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 1,
+          "targetRanks": [
+            1,
+            4,
+            5,
+            8,
+            10,
+            12,
+            14,
+            16,
+            18,
+            19
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:bd0d53d206d7a1f2ff04aeeb7ce534fe",
+              "rank": 1,
+              "score": 0.01639344262295082
+            },
+            {
+              "researcherId": "researcher:v1:fc5401717ee0bed6c0f5d2930f4e0558",
+              "rank": 2,
+              "score": 0.01639344262295082
+            },
+            {
+              "researcherId": "researcher:v1:05a6c1cb56a8260f04b7ec7ad3ee03e2",
+              "rank": 3,
+              "score": 0.016129032258064516
+            },
+            {
+              "researcherId": "researcher:v1:a96ace26c8cce7e06ac4b1ddff318496",
+              "rank": 4,
+              "score": 0.016129032258064516
+            },
+            {
+              "researcherId": "researcher:v1:57624ac51218e2c95c5225b412b42555",
+              "rank": 5,
+              "score": 0.015873015873015872
+            },
+            {
+              "researcherId": "researcher:v1:943dce8e7806326d531a6694d77998b0",
+              "rank": 6,
+              "score": 0.015873015873015872
+            },
+            {
+              "researcherId": "researcher:v1:3c2f0fe90a09304554b45f1a9af9eff7",
+              "rank": 7,
+              "score": 0.015625
+            },
+            {
+              "researcherId": "researcher:v1:5e417f0bbe7e618df59c46d3d18c236a",
+              "rank": 8,
+              "score": 0.015625
+            },
+            {
+              "researcherId": "researcher:v1:04da40b1242756eae8fbe33b8ae7f251",
+              "rank": 9,
+              "score": 0.015384615384615385
+            },
+            {
+              "researcherId": "researcher:v1:bd21457f140d2d214134b382cf2f0a50",
+              "rank": 10,
+              "score": 0.015384615384615385
+            },
+            {
+              "researcherId": "researcher:v1:00b7c1b012cd8743bbfbfc97c7f79ea7",
+              "rank": 11,
+              "score": 0.015151515151515152
+            },
+            {
+              "researcherId": "researcher:v1:e215f4482dac01eb2be371567e85503d",
+              "rank": 12,
+              "score": 0.015151515151515152
+            },
+            {
+              "researcherId": "researcher:v1:2fb0a14d1e8486c78151bc482a8326f3",
+              "rank": 13,
+              "score": 0.014925373134328358
+            },
+            {
+              "researcherId": "researcher:v1:6a2f3424bbc76ff26d73913be7a7dfd9",
+              "rank": 14,
+              "score": 0.014925373134328358
+            },
+            {
+              "researcherId": "researcher:v1:b25504d10c42d93bb80346018e9130c4",
+              "rank": 15,
+              "score": 0.014705882352941176
+            },
+            {
+              "researcherId": "researcher:v1:c924aa6516eaff158cf7ec69b76e8c41",
+              "rank": 16,
+              "score": 0.014705882352941176
+            },
+            {
+              "researcherId": "researcher:v1:dd530b79d759f7c3c833adac324e1d80",
+              "rank": 17,
+              "score": 0.014492753623188406
+            },
+            {
+              "researcherId": "researcher:v1:ec3b3b3b366159198dedc055f4adf1c4",
+              "rank": 18,
+              "score": 0.014492753623188406
+            },
+            {
+              "researcherId": "researcher:v1:04461ed1d52d9374eac4f4f0c6e91c34",
+              "rank": 19,
+              "score": 0.014285714285714285
+            },
+            {
+              "researcherId": "researcher:v1:f18436822faef6d95e178806a4b59d4f",
+              "rank": 20,
+              "score": 0.014285714285714285
+            },
+            {
+              "researcherId": "researcher:v1:f8b30b2f95843e66227dd7aa85cc65b9",
+              "rank": 21,
+              "score": 0.014084507042253521
+            },
+            {
+              "researcherId": "researcher:v1:9e47bf9fcfd9dbccd05ec18536ecdf71",
+              "rank": 22,
+              "score": 0.013888888888888888
+            },
+            {
+              "researcherId": "researcher:v1:58b498967926a3d33aeafebc64df08ac",
+              "rank": 23,
+              "score": 0.0136986301369863
+            },
+            {
+              "researcherId": "researcher:v1:23f38066ebe9681617dddf6ad495f1a2",
+              "rank": 24,
+              "score": 0.013513513513513514
+            },
+            {
+              "researcherId": "researcher:v1:29fcd861d520b8cf69f37b968e224305",
+              "rank": 25,
+              "score": 0.013333333333333334
+            },
+            {
+              "researcherId": "researcher:v1:a4be4a37d78b7d4ad9fdd6f6bbe421f2",
+              "rank": 26,
+              "score": 0.013157894736842105
+            },
+            {
+              "researcherId": "researcher:v1:2a70c826b01a930413ad91ebe4ece900",
+              "rank": 27,
+              "score": 0.012987012987012988
+            },
+            {
+              "researcherId": "researcher:v1:739df79583753b6cf9e6f7f448eec192",
+              "rank": 28,
+              "score": 0.01282051282051282
+            },
+            {
+              "researcherId": "researcher:v1:7171fff46d37a8deea3a96090b9677df",
+              "rank": 29,
+              "score": 0.012658227848101266
+            },
+            {
+              "researcherId": "researcher:v1:8053109d338e2490757acf3f80c053ad",
+              "rank": 30,
+              "score": 0.0125
+            }
+          ],
+          "detail": {
+            "fusionMillis": 0,
+            "inputErrors": []
+          }
+        }
+      }
+    },
+    {
+      "id": "q08",
+      "category": "direct_collaboration",
+      "windowLabel": "full-2015-2025",
+      "targets": 10,
+      "byDesignWeak": [
+        "vector-only"
+      ],
+      "drift": {
+        "checked": true,
+        "labelsNotInGraph": [],
+        "labelsUnchecked": 0
+      },
+      "modes": {
+        "graph-only": {
+          "listLength": 10,
+          "latencyMillis": 584,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": false,
+          "recallAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 1,
+          "targetRanks": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:d00807037bc74924b35ec1e70e78f261",
+              "rank": 1,
+              "score": 2
+            },
+            {
+              "researcherId": "researcher:v1:10247694dc557bd3c943ec86b7f8d0df",
+              "rank": 2,
+              "score": 1
+            },
+            {
+              "researcherId": "researcher:v1:1982d4e9662b09e9c70117d438232f58",
+              "rank": 3,
+              "score": 1
+            },
+            {
+              "researcherId": "researcher:v1:23a8d48597b0b0ee571365909b265785",
+              "rank": 4,
+              "score": 1
+            },
+            {
+              "researcherId": "researcher:v1:24542da1380d96ba26ec9d127f3a4be7",
+              "rank": 5,
+              "score": 1
+            },
+            {
+              "researcherId": "researcher:v1:2f4a5e069f373156b3f3060b5e034f50",
+              "rank": 6,
+              "score": 1
+            },
+            {
+              "researcherId": "researcher:v1:31a1e5511440bc207456e587aa7b27ed",
+              "rank": 7,
+              "score": 1
+            },
+            {
+              "researcherId": "researcher:v1:3af183672ba50ae45a38a75805185d69",
+              "rank": 8,
+              "score": 1
+            },
+            {
+              "researcherId": "researcher:v1:3cf16e23192da8d4b50894b78a09f6e0",
+              "rank": 9,
+              "score": 1
+            },
+            {
+              "researcherId": "researcher:v1:474799a1bcea6239ed3a1ce5db836c10",
+              "rank": 10,
+              "score": 1
+            }
+          ],
+          "detail": {
+            "operations": [
+              "coauthor_neighborhood"
+            ],
+            "windowLabel": "full-2015-2025"
+          }
+        },
+        "vector-only": {
+          "listLength": 30,
+          "latencyMillis": 616,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": true,
+          "recallAt": {
+            "1": 0,
+            "5": 0,
+            "10": 0,
+            "30": 0
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 0,
+          "targetRanks": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:731ad9af3f5b955112fc82f0e2525ef2",
+              "rank": 1,
+              "score": 0.5313337445259094
+            },
+            {
+              "researcherId": "researcher:v1:a35cc14207a6d6944a744163ca8865cb",
+              "rank": 2,
+              "score": 0.5187994241714478
+            },
+            {
+              "researcherId": "researcher:v1:4e95df681e03007573e3ec570d129c23",
+              "rank": 3,
+              "score": 0.5180220603942871
+            },
+            {
+              "researcherId": "researcher:v1:28a19ef3bab971a3bc0c9817d197b611",
+              "rank": 4,
+              "score": 0.5124728083610535
+            },
+            {
+              "researcherId": "researcher:v1:982754c9005afe31d0489b4dbd189443",
+              "rank": 5,
+              "score": 0.5105656981468201
+            },
+            {
+              "researcherId": "researcher:v1:5d78e6e3c596adbc2debb5f82be28ef3",
+              "rank": 6,
+              "score": 0.5066009759902954
+            },
+            {
+              "researcherId": "researcher:v1:3922e10a252efe24f0f423585e7e81f2",
+              "rank": 7,
+              "score": 0.502722978591919
+            },
+            {
+              "researcherId": "researcher:v1:85d1f76b83282333de03afb936c60cf5",
+              "rank": 8,
+              "score": 0.5015068054199219
+            },
+            {
+              "researcherId": "researcher:v1:683c79436008d73c5808f9dfacd402ce",
+              "rank": 9,
+              "score": 0.5000045895576477
+            },
+            {
+              "researcherId": "researcher:v1:028c198fe117f18b151f066967435ee9",
+              "rank": 10,
+              "score": 0.49979686737060547
+            },
+            {
+              "researcherId": "researcher:v1:4501c6c2ebd8d51b8684ce5bc3e2955a",
+              "rank": 11,
+              "score": 0.49959325790405273
+            },
+            {
+              "researcherId": "researcher:v1:86e3ae46f08ebaee08ebff88746f8a84",
+              "rank": 12,
+              "score": 0.4991273880004883
+            },
+            {
+              "researcherId": "researcher:v1:db197ea9973d0099bfd9023aad39e958",
+              "rank": 13,
+              "score": 0.4982883334159851
+            },
+            {
+              "researcherId": "researcher:v1:c7f97368df072ee905ca74f67d33e842",
+              "rank": 14,
+              "score": 0.49688899517059326
+            },
+            {
+              "researcherId": "researcher:v1:e152d1a5fd3f8131651d8db0ada89aab",
+              "rank": 15,
+              "score": 0.4960290193557739
+            },
+            {
+              "researcherId": "researcher:v1:3b702fa5843adf4cdd47b7057cbff790",
+              "rank": 16,
+              "score": 0.49451273679733276
+            },
+            {
+              "researcherId": "researcher:v1:3fbdd63e7c9f612d16ca75470ac9e8b5",
+              "rank": 17,
+              "score": 0.493770956993103
+            },
+            {
+              "researcherId": "researcher:v1:2ae5a765d7336e817b2ef2d84f621176",
+              "rank": 18,
+              "score": 0.4936103820800781
+            },
+            {
+              "researcherId": "researcher:v1:283da0d35eb94738d18b5434ed6c351e",
+              "rank": 19,
+              "score": 0.4935648441314697
+            },
+            {
+              "researcherId": "researcher:v1:1dc2b4f356e0c4aad0cd9b087a37435a",
+              "rank": 20,
+              "score": 0.4930899143218994
+            },
+            {
+              "researcherId": "researcher:v1:ae3369138ef6b88c12fa2baf05f9257f",
+              "rank": 21,
+              "score": 0.4928073287010193
+            },
+            {
+              "researcherId": "researcher:v1:ad0793a2bacf95245f6ecd786c70e172",
+              "rank": 22,
+              "score": 0.49231064319610596
+            },
+            {
+              "researcherId": "researcher:v1:177768eff0ecc0e980d319c729ecb85f",
+              "rank": 23,
+              "score": 0.4913051128387451
+            },
+            {
+              "researcherId": "researcher:v1:53c24599ea4f70f4fe202e5b8aabc2cd",
+              "rank": 24,
+              "score": 0.49019157886505127
+            },
+            {
+              "researcherId": "researcher:v1:d18d287bf7dbd644f63fd974e1207a05",
+              "rank": 25,
+              "score": 0.48988664150238037
+            },
+            {
+              "researcherId": "researcher:v1:a046db9d8217279c59f934a52292dca5",
+              "rank": 26,
+              "score": 0.4898563623428345
+            },
+            {
+              "researcherId": "researcher:v1:c715531e808e541c814105da4bac4c38",
+              "rank": 27,
+              "score": 0.489713191986084
+            },
+            {
+              "researcherId": "researcher:v1:633b3d92c45bb65e091ee3b4183c2bcd",
+              "rank": 28,
+              "score": 0.48969078063964844
+            },
+            {
+              "researcherId": "researcher:v1:b5924fb87331141d648b16dcf01bd2bd",
+              "rank": 29,
+              "score": 0.4892460107803345
+            },
+            {
+              "researcherId": "researcher:v1:5f68ab48c6d991df2530b90983c3d851",
+              "rank": 30,
+              "score": 0.4891688823699951
+            }
+          ],
+          "detail": {
+            "hits": 30,
+            "windowLabel": "full-2015-2025",
+            "droppedIncompatibleModel": 0,
+            "droppedMalformedMetadata": 0
+          }
+        },
+        "fused": {
+          "listLength": 40,
+          "latencyMillis": 1200,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": false,
+          "recallAt": {
+            "1": 0,
+            "5": 0.3,
+            "10": 0.5,
+            "30": 1
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 0.5,
+          "targetRanks": [
+            2,
+            3,
+            5,
+            7,
+            9,
+            11,
+            13,
+            15,
+            17,
+            20
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:731ad9af3f5b955112fc82f0e2525ef2",
+              "rank": 1,
+              "score": 0.01639344262295082
+            },
+            {
+              "researcherId": "researcher:v1:d00807037bc74924b35ec1e70e78f261",
+              "rank": 2,
+              "score": 0.01639344262295082
+            },
+            {
+              "researcherId": "researcher:v1:10247694dc557bd3c943ec86b7f8d0df",
+              "rank": 3,
+              "score": 0.016129032258064516
+            },
+            {
+              "researcherId": "researcher:v1:a35cc14207a6d6944a744163ca8865cb",
+              "rank": 4,
+              "score": 0.016129032258064516
+            },
+            {
+              "researcherId": "researcher:v1:1982d4e9662b09e9c70117d438232f58",
+              "rank": 5,
+              "score": 0.015873015873015872
+            },
+            {
+              "researcherId": "researcher:v1:4e95df681e03007573e3ec570d129c23",
+              "rank": 6,
+              "score": 0.015873015873015872
+            },
+            {
+              "researcherId": "researcher:v1:23a8d48597b0b0ee571365909b265785",
+              "rank": 7,
+              "score": 0.015625
+            },
+            {
+              "researcherId": "researcher:v1:28a19ef3bab971a3bc0c9817d197b611",
+              "rank": 8,
+              "score": 0.015625
+            },
+            {
+              "researcherId": "researcher:v1:24542da1380d96ba26ec9d127f3a4be7",
+              "rank": 9,
+              "score": 0.015384615384615385
+            },
+            {
+              "researcherId": "researcher:v1:982754c9005afe31d0489b4dbd189443",
+              "rank": 10,
+              "score": 0.015384615384615385
+            },
+            {
+              "researcherId": "researcher:v1:2f4a5e069f373156b3f3060b5e034f50",
+              "rank": 11,
+              "score": 0.015151515151515152
+            },
+            {
+              "researcherId": "researcher:v1:5d78e6e3c596adbc2debb5f82be28ef3",
+              "rank": 12,
+              "score": 0.015151515151515152
+            },
+            {
+              "researcherId": "researcher:v1:31a1e5511440bc207456e587aa7b27ed",
+              "rank": 13,
+              "score": 0.014925373134328358
+            },
+            {
+              "researcherId": "researcher:v1:3922e10a252efe24f0f423585e7e81f2",
+              "rank": 14,
+              "score": 0.014925373134328358
+            },
+            {
+              "researcherId": "researcher:v1:3af183672ba50ae45a38a75805185d69",
+              "rank": 15,
+              "score": 0.014705882352941176
+            },
+            {
+              "researcherId": "researcher:v1:85d1f76b83282333de03afb936c60cf5",
+              "rank": 16,
+              "score": 0.014705882352941176
+            },
+            {
+              "researcherId": "researcher:v1:3cf16e23192da8d4b50894b78a09f6e0",
+              "rank": 17,
+              "score": 0.014492753623188406
+            },
+            {
+              "researcherId": "researcher:v1:683c79436008d73c5808f9dfacd402ce",
+              "rank": 18,
+              "score": 0.014492753623188406
+            },
+            {
+              "researcherId": "researcher:v1:028c198fe117f18b151f066967435ee9",
+              "rank": 19,
+              "score": 0.014285714285714285
+            },
+            {
+              "researcherId": "researcher:v1:474799a1bcea6239ed3a1ce5db836c10",
+              "rank": 20,
+              "score": 0.014285714285714285
+            },
+            {
+              "researcherId": "researcher:v1:4501c6c2ebd8d51b8684ce5bc3e2955a",
+              "rank": 21,
+              "score": 0.014084507042253521
+            },
+            {
+              "researcherId": "researcher:v1:86e3ae46f08ebaee08ebff88746f8a84",
+              "rank": 22,
+              "score": 0.013888888888888888
+            },
+            {
+              "researcherId": "researcher:v1:db197ea9973d0099bfd9023aad39e958",
+              "rank": 23,
+              "score": 0.0136986301369863
+            },
+            {
+              "researcherId": "researcher:v1:c7f97368df072ee905ca74f67d33e842",
+              "rank": 24,
+              "score": 0.013513513513513514
+            },
+            {
+              "researcherId": "researcher:v1:e152d1a5fd3f8131651d8db0ada89aab",
+              "rank": 25,
+              "score": 0.013333333333333334
+            },
+            {
+              "researcherId": "researcher:v1:3b702fa5843adf4cdd47b7057cbff790",
+              "rank": 26,
+              "score": 0.013157894736842105
+            },
+            {
+              "researcherId": "researcher:v1:3fbdd63e7c9f612d16ca75470ac9e8b5",
+              "rank": 27,
+              "score": 0.012987012987012988
+            },
+            {
+              "researcherId": "researcher:v1:2ae5a765d7336e817b2ef2d84f621176",
+              "rank": 28,
+              "score": 0.01282051282051282
+            },
+            {
+              "researcherId": "researcher:v1:283da0d35eb94738d18b5434ed6c351e",
+              "rank": 29,
+              "score": 0.012658227848101266
+            },
+            {
+              "researcherId": "researcher:v1:1dc2b4f356e0c4aad0cd9b087a37435a",
+              "rank": 30,
+              "score": 0.0125
+            }
+          ],
+          "detail": {
+            "fusionMillis": 0,
+            "inputErrors": []
+          }
+        }
+      }
+    },
+    {
+      "id": "q19",
+      "category": "bridge_researchers",
+      "windowLabel": "full-2015-2025",
+      "targets": 10,
+      "byDesignWeak": [
+        "vector-only"
+      ],
+      "drift": {
+        "checked": true,
+        "labelsNotInGraph": [],
+        "labelsUnchecked": 0
+      },
+      "modes": {
+        "graph-only": {
+          "listLength": 10,
+          "latencyMillis": 73,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": false,
+          "recallAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 1,
+          "targetRanks": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:5d6029542b54c1717977ae66c695e403",
+              "rank": 1,
+              "score": 298
+            },
+            {
+              "researcherId": "researcher:v1:98afa40ff5b2ad6f93f88f88bcb702a0",
+              "rank": 2,
+              "score": 286
+            },
+            {
+              "researcherId": "researcher:v1:924dfc3bc7074d5395b24fe76fd9118c",
+              "rank": 3,
+              "score": 280
+            },
+            {
+              "researcherId": "researcher:v1:c7883d2daae7743663d011b5212b90b6",
+              "rank": 4,
+              "score": 271
+            },
+            {
+              "researcherId": "researcher:v1:9eb2fc0ec933892aac7c8ba89be3589b",
+              "rank": 5,
+              "score": 242
+            },
+            {
+              "researcherId": "researcher:v1:fe1177235d9a724607da7e9700d133c4",
+              "rank": 6,
+              "score": 240
+            },
+            {
+              "researcherId": "researcher:v1:fa31058199adb6e788e726f5f9a86b0b",
+              "rank": 7,
+              "score": 216
+            },
+            {
+              "researcherId": "researcher:v1:790e36cd37f4fa44e6bac392ccf456e8",
+              "rank": 8,
+              "score": 214
+            },
+            {
+              "researcherId": "researcher:v1:27c858a7768ddaf5ed772ec9a20234ce",
+              "rank": 9,
+              "score": 214
+            },
+            {
+              "researcherId": "researcher:v1:6ab771d5a61335f1a6e4ceed9d34ab9a",
+              "rank": 10,
+              "score": 213
+            }
+          ],
+          "detail": {
+            "operations": [
+              "bridge_researchers"
+            ],
+            "windowLabel": "full-2015-2025"
+          }
+        },
+        "vector-only": {
+          "listLength": 30,
+          "latencyMillis": 372,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": true,
+          "recallAt": {
+            "1": 0,
+            "5": 0,
+            "10": 0,
+            "30": 0
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 0,
+          "targetRanks": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:b7d7e7d59fc3fc64803617dd28ad38cd",
+              "rank": 1,
+              "score": 0.5938191413879395
+            },
+            {
+              "researcherId": "researcher:v1:5ebd967455e0968930c5fa443c50a7f9",
+              "rank": 2,
+              "score": 0.5799513459205627
+            },
+            {
+              "researcherId": "researcher:v1:5e3a2a698e17f94b0f6f972282a78102",
+              "rank": 3,
+              "score": 0.5788739323616028
+            },
+            {
+              "researcherId": "researcher:v1:24fa350e6664430a44a058db2b1793c7",
+              "rank": 4,
+              "score": 0.5742674469947815
+            },
+            {
+              "researcherId": "researcher:v1:4aa604d17fac160d6bd7e9792f53dbea",
+              "rank": 5,
+              "score": 0.5730956196784973
+            },
+            {
+              "researcherId": "researcher:v1:530d4a9643d48e2451081bef41d6134e",
+              "rank": 6,
+              "score": 0.5726649761199951
+            },
+            {
+              "researcherId": "researcher:v1:0a1d1340fabc20824c53429f28b9669d",
+              "rank": 7,
+              "score": 0.5720614790916443
+            },
+            {
+              "researcherId": "researcher:v1:de88c8cdef618e206dc2a87c278b07f1",
+              "rank": 8,
+              "score": 0.5714462399482727
+            },
+            {
+              "researcherId": "researcher:v1:98871ace688176c0148a7a198c45beee",
+              "rank": 9,
+              "score": 0.5704805254936218
+            },
+            {
+              "researcherId": "researcher:v1:caae1b81e10f3848b6bec4abe712118e",
+              "rank": 10,
+              "score": 0.5699145197868347
+            },
+            {
+              "researcherId": "researcher:v1:d75b508ea70b5f0b5a34945bfa955a05",
+              "rank": 11,
+              "score": 0.5687297582626343
+            },
+            {
+              "researcherId": "researcher:v1:d347562ff85a0383be2a011249531d51",
+              "rank": 12,
+              "score": 0.5680818557739258
+            },
+            {
+              "researcherId": "researcher:v1:db29e5ab8406d2bb2f7a53c4365d6ec8",
+              "rank": 13,
+              "score": 0.5678820610046387
+            },
+            {
+              "researcherId": "researcher:v1:5f28d5fc09e121887c231416875d49bf",
+              "rank": 14,
+              "score": 0.5677564740180969
+            },
+            {
+              "researcherId": "researcher:v1:235f56162861b37e6c3608a8ac4ecaef",
+              "rank": 15,
+              "score": 0.567387044429779
+            },
+            {
+              "researcherId": "researcher:v1:312f0a1cd08d55f18197f23d70eb46ab",
+              "rank": 16,
+              "score": 0.5673177242279053
+            },
+            {
+              "researcherId": "researcher:v1:753e894bdce1cab2412648c635c9f7ef",
+              "rank": 17,
+              "score": 0.5670366883277893
+            },
+            {
+              "researcherId": "researcher:v1:3ecc43db3f2a64b067bf22d67de689c5",
+              "rank": 18,
+              "score": 0.5667413473129272
+            },
+            {
+              "researcherId": "researcher:v1:5418f216b4af1eb48d143e1488e7d81b",
+              "rank": 19,
+              "score": 0.5663477182388306
+            },
+            {
+              "researcherId": "researcher:v1:a5727b78fbca16e202d4a7981b7fabd7",
+              "rank": 20,
+              "score": 0.5661215782165527
+            },
+            {
+              "researcherId": "researcher:v1:4840d7845699c33b1d7db8b9db73ebee",
+              "rank": 21,
+              "score": 0.5658912062644958
+            },
+            {
+              "researcherId": "researcher:v1:d438f45c042cf7546a7ba96b1a277afd",
+              "rank": 22,
+              "score": 0.5654086470603943
+            },
+            {
+              "researcherId": "researcher:v1:7da9cfd5f50931add629a81a737bbe33",
+              "rank": 23,
+              "score": 0.5651686191558838
+            },
+            {
+              "researcherId": "researcher:v1:e3e7fd3a0feed519fd48031685ac6ca6",
+              "rank": 24,
+              "score": 0.5651209950447083
+            },
+            {
+              "researcherId": "researcher:v1:d06bdfaeb1395811bc5469b3e171e1cd",
+              "rank": 25,
+              "score": 0.5647631287574768
+            },
+            {
+              "researcherId": "researcher:v1:25f88c41bfdf21b8bf54b6d1af5980d0",
+              "rank": 26,
+              "score": 0.5645509958267212
+            },
+            {
+              "researcherId": "researcher:v1:5092f1b616e3e437814da0e7d8c50bd9",
+              "rank": 27,
+              "score": 0.564441442489624
+            },
+            {
+              "researcherId": "researcher:v1:3229d91883b3476b9d7ad91fb45f20a6",
+              "rank": 28,
+              "score": 0.5644012689590454
+            },
+            {
+              "researcherId": "researcher:v1:712d2034fc0e0b3252ae4f09dacbabf3",
+              "rank": 29,
+              "score": 0.5642418265342712
+            },
+            {
+              "researcherId": "researcher:v1:f0545f14a10ae0b8096008784a0e029a",
+              "rank": 30,
+              "score": 0.5641288757324219
+            }
+          ],
+          "detail": {
+            "hits": 30,
+            "windowLabel": "full-2015-2025",
+            "droppedIncompatibleModel": 0,
+            "droppedMalformedMetadata": 0
+          }
+        },
+        "fused": {
+          "listLength": 40,
+          "latencyMillis": 445,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": false,
+          "recallAt": {
+            "1": 0.1,
+            "5": 0.2,
+            "10": 0.5,
+            "30": 1
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 1,
+          "targetRanks": [
+            1,
+            4,
+            6,
+            8,
+            10,
+            12,
+            14,
+            15,
+            17,
+            19
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:5d6029542b54c1717977ae66c695e403",
+              "rank": 1,
+              "score": 0.01639344262295082
+            },
+            {
+              "researcherId": "researcher:v1:b7d7e7d59fc3fc64803617dd28ad38cd",
+              "rank": 2,
+              "score": 0.01639344262295082
+            },
+            {
+              "researcherId": "researcher:v1:5ebd967455e0968930c5fa443c50a7f9",
+              "rank": 3,
+              "score": 0.016129032258064516
+            },
+            {
+              "researcherId": "researcher:v1:98afa40ff5b2ad6f93f88f88bcb702a0",
+              "rank": 4,
+              "score": 0.016129032258064516
+            },
+            {
+              "researcherId": "researcher:v1:5e3a2a698e17f94b0f6f972282a78102",
+              "rank": 5,
+              "score": 0.015873015873015872
+            },
+            {
+              "researcherId": "researcher:v1:924dfc3bc7074d5395b24fe76fd9118c",
+              "rank": 6,
+              "score": 0.015873015873015872
+            },
+            {
+              "researcherId": "researcher:v1:24fa350e6664430a44a058db2b1793c7",
+              "rank": 7,
+              "score": 0.015625
+            },
+            {
+              "researcherId": "researcher:v1:c7883d2daae7743663d011b5212b90b6",
+              "rank": 8,
+              "score": 0.015625
+            },
+            {
+              "researcherId": "researcher:v1:4aa604d17fac160d6bd7e9792f53dbea",
+              "rank": 9,
+              "score": 0.015384615384615385
+            },
+            {
+              "researcherId": "researcher:v1:9eb2fc0ec933892aac7c8ba89be3589b",
+              "rank": 10,
+              "score": 0.015384615384615385
+            },
+            {
+              "researcherId": "researcher:v1:530d4a9643d48e2451081bef41d6134e",
+              "rank": 11,
+              "score": 0.015151515151515152
+            },
+            {
+              "researcherId": "researcher:v1:fe1177235d9a724607da7e9700d133c4",
+              "rank": 12,
+              "score": 0.015151515151515152
+            },
+            {
+              "researcherId": "researcher:v1:0a1d1340fabc20824c53429f28b9669d",
+              "rank": 13,
+              "score": 0.014925373134328358
+            },
+            {
+              "researcherId": "researcher:v1:fa31058199adb6e788e726f5f9a86b0b",
+              "rank": 14,
+              "score": 0.014925373134328358
+            },
+            {
+              "researcherId": "researcher:v1:790e36cd37f4fa44e6bac392ccf456e8",
+              "rank": 15,
+              "score": 0.014705882352941176
+            },
+            {
+              "researcherId": "researcher:v1:de88c8cdef618e206dc2a87c278b07f1",
+              "rank": 16,
+              "score": 0.014705882352941176
+            },
+            {
+              "researcherId": "researcher:v1:27c858a7768ddaf5ed772ec9a20234ce",
+              "rank": 17,
+              "score": 0.014492753623188406
+            },
+            {
+              "researcherId": "researcher:v1:98871ace688176c0148a7a198c45beee",
+              "rank": 18,
+              "score": 0.014492753623188406
+            },
+            {
+              "researcherId": "researcher:v1:6ab771d5a61335f1a6e4ceed9d34ab9a",
+              "rank": 19,
+              "score": 0.014285714285714285
+            },
+            {
+              "researcherId": "researcher:v1:caae1b81e10f3848b6bec4abe712118e",
+              "rank": 20,
+              "score": 0.014285714285714285
+            },
+            {
+              "researcherId": "researcher:v1:d75b508ea70b5f0b5a34945bfa955a05",
+              "rank": 21,
+              "score": 0.014084507042253521
+            },
+            {
+              "researcherId": "researcher:v1:d347562ff85a0383be2a011249531d51",
+              "rank": 22,
+              "score": 0.013888888888888888
+            },
+            {
+              "researcherId": "researcher:v1:db29e5ab8406d2bb2f7a53c4365d6ec8",
+              "rank": 23,
+              "score": 0.0136986301369863
+            },
+            {
+              "researcherId": "researcher:v1:5f28d5fc09e121887c231416875d49bf",
+              "rank": 24,
+              "score": 0.013513513513513514
+            },
+            {
+              "researcherId": "researcher:v1:235f56162861b37e6c3608a8ac4ecaef",
+              "rank": 25,
+              "score": 0.013333333333333334
+            },
+            {
+              "researcherId": "researcher:v1:312f0a1cd08d55f18197f23d70eb46ab",
+              "rank": 26,
+              "score": 0.013157894736842105
+            },
+            {
+              "researcherId": "researcher:v1:753e894bdce1cab2412648c635c9f7ef",
+              "rank": 27,
+              "score": 0.012987012987012988
+            },
+            {
+              "researcherId": "researcher:v1:3ecc43db3f2a64b067bf22d67de689c5",
+              "rank": 28,
+              "score": 0.01282051282051282
+            },
+            {
+              "researcherId": "researcher:v1:5418f216b4af1eb48d143e1488e7d81b",
+              "rank": 29,
+              "score": 0.012658227848101266
+            },
+            {
+              "researcherId": "researcher:v1:a5727b78fbca16e202d4a7981b7fabd7",
+              "rank": 30,
+              "score": 0.0125
+            }
+          ],
+          "detail": {
+            "fusionMillis": 0,
+            "inputErrors": []
+          }
+        }
+      }
+    },
+    {
+      "id": "q20",
+      "category": "bridge_researchers",
+      "windowLabel": "w2021-2023",
+      "targets": 5,
+      "byDesignWeak": [
+        "vector-only"
+      ],
+      "drift": {
+        "checked": true,
+        "labelsNotInGraph": [],
+        "labelsUnchecked": 0
+      },
+      "modes": {
+        "graph-only": {
+          "listLength": 5,
+          "latencyMillis": 31,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": false,
+          "recallAt": {
+            "1": 0.2,
+            "5": 1,
+            "10": 1,
+            "30": 1
+          },
+          "recallCeilingAt": {
+            "1": 0.2,
+            "5": 1,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 1,
+          "targetRanks": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:98afa40ff5b2ad6f93f88f88bcb702a0",
+              "rank": 1,
+              "score": 130
+            },
+            {
+              "researcherId": "researcher:v1:790e36cd37f4fa44e6bac392ccf456e8",
+              "rank": 2,
+              "score": 107
+            },
+            {
+              "researcherId": "researcher:v1:bc4bcfaad03795c793ec3ec0b649dad4",
+              "rank": 3,
+              "score": 99
+            },
+            {
+              "researcherId": "researcher:v1:c7883d2daae7743663d011b5212b90b6",
+              "rank": 4,
+              "score": 98
+            },
+            {
+              "researcherId": "researcher:v1:5d6029542b54c1717977ae66c695e403",
+              "rank": 5,
+              "score": 97
+            }
+          ],
+          "detail": {
+            "operations": [
+              "bridge_researchers"
+            ],
+            "windowLabel": "w2021-2023"
+          }
+        },
+        "vector-only": {
+          "listLength": 0,
+          "latencyMillis": 177,
+          "error": null,
+          "empty": true,
+          "abstentionCodes": [],
+          "byDesignWeak": true,
+          "recallAt": {
+            "1": 0,
+            "5": 0,
+            "10": 0,
+            "30": 0
+          },
+          "recallCeilingAt": {
+            "1": 0.2,
+            "5": 1,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 0,
+          "targetRanks": [
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "top": [],
+          "detail": {
+            "hits": 0,
+            "windowLabel": "w2021-2023",
+            "droppedIncompatibleModel": 0,
+            "droppedMalformedMetadata": 0
+          }
+        },
+        "fused": {
+          "listLength": 5,
+          "latencyMillis": 208,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": false,
+          "recallAt": {
+            "1": 0.2,
+            "5": 1,
+            "10": 1,
+            "30": 1
+          },
+          "recallCeilingAt": {
+            "1": 0.2,
+            "5": 1,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 1,
+          "targetRanks": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:98afa40ff5b2ad6f93f88f88bcb702a0",
+              "rank": 1,
+              "score": 0.01639344262295082
+            },
+            {
+              "researcherId": "researcher:v1:790e36cd37f4fa44e6bac392ccf456e8",
+              "rank": 2,
+              "score": 0.016129032258064516
+            },
+            {
+              "researcherId": "researcher:v1:bc4bcfaad03795c793ec3ec0b649dad4",
+              "rank": 3,
+              "score": 0.015873015873015872
+            },
+            {
+              "researcherId": "researcher:v1:c7883d2daae7743663d011b5212b90b6",
+              "rank": 4,
+              "score": 0.015625
+            },
+            {
+              "researcherId": "researcher:v1:5d6029542b54c1717977ae66c695e403",
+              "rank": 5,
+              "score": 0.015384615384615385
+            }
+          ],
+          "detail": {
+            "fusionMillis": 0,
+            "inputErrors": []
+          }
+        }
+      }
+    },
+    {
+      "id": "q21",
+      "category": "bridge_researchers",
+      "windowLabel": "w2024-2025",
+      "targets": 10,
+      "byDesignWeak": [
+        "vector-only"
+      ],
+      "drift": {
+        "checked": true,
+        "labelsNotInGraph": [],
+        "labelsUnchecked": 0
+      },
+      "modes": {
+        "graph-only": {
+          "listLength": 10,
+          "latencyMillis": 58,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": false,
+          "recallAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 1,
+          "targetRanks": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:924dfc3bc7074d5395b24fe76fd9118c",
+              "rank": 1,
+              "score": 180
+            },
+            {
+              "researcherId": "researcher:v1:e6d32b66bf3468b48132a801988f305f",
+              "rank": 2,
+              "score": 157
+            },
+            {
+              "researcherId": "researcher:v1:5d6029542b54c1717977ae66c695e403",
+              "rank": 3,
+              "score": 134
+            },
+            {
+              "researcherId": "researcher:v1:fe1177235d9a724607da7e9700d133c4",
+              "rank": 4,
+              "score": 130
+            },
+            {
+              "researcherId": "researcher:v1:c7883d2daae7743663d011b5212b90b6",
+              "rank": 5,
+              "score": 129
+            },
+            {
+              "researcherId": "researcher:v1:eb1570e8b1c945f426f963950e01676d",
+              "rank": 6,
+              "score": 126
+            },
+            {
+              "researcherId": "researcher:v1:bc4bcfaad03795c793ec3ec0b649dad4",
+              "rank": 7,
+              "score": 125
+            },
+            {
+              "researcherId": "researcher:v1:9eb2fc0ec933892aac7c8ba89be3589b",
+              "rank": 8,
+              "score": 119
+            },
+            {
+              "researcherId": "researcher:v1:f415f9d2295347b33d5c8e13fe02bf5b",
+              "rank": 9,
+              "score": 112
+            },
+            {
+              "researcherId": "researcher:v1:7b2ca994e3a121a7ea0ad68c90c7e529",
+              "rank": 10,
+              "score": 109
+            }
+          ],
+          "detail": {
+            "operations": [
+              "bridge_researchers"
+            ],
+            "windowLabel": "w2024-2025"
+          }
+        },
+        "vector-only": {
+          "listLength": 0,
+          "latencyMillis": 188,
+          "error": null,
+          "empty": true,
+          "abstentionCodes": [],
+          "byDesignWeak": true,
+          "recallAt": {
+            "1": 0,
+            "5": 0,
+            "10": 0,
+            "30": 0
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 0,
+          "targetRanks": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "top": [],
+          "detail": {
+            "hits": 0,
+            "windowLabel": "w2024-2025",
+            "droppedIncompatibleModel": 0,
+            "droppedMalformedMetadata": 0
+          }
+        },
+        "fused": {
+          "listLength": 10,
+          "latencyMillis": 246,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": false,
+          "recallAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 1,
+          "targetRanks": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:924dfc3bc7074d5395b24fe76fd9118c",
+              "rank": 1,
+              "score": 0.01639344262295082
+            },
+            {
+              "researcherId": "researcher:v1:e6d32b66bf3468b48132a801988f305f",
+              "rank": 2,
+              "score": 0.016129032258064516
+            },
+            {
+              "researcherId": "researcher:v1:5d6029542b54c1717977ae66c695e403",
+              "rank": 3,
+              "score": 0.015873015873015872
+            },
+            {
+              "researcherId": "researcher:v1:fe1177235d9a724607da7e9700d133c4",
+              "rank": 4,
+              "score": 0.015625
+            },
+            {
+              "researcherId": "researcher:v1:c7883d2daae7743663d011b5212b90b6",
+              "rank": 5,
+              "score": 0.015384615384615385
+            },
+            {
+              "researcherId": "researcher:v1:eb1570e8b1c945f426f963950e01676d",
+              "rank": 6,
+              "score": 0.015151515151515152
+            },
+            {
+              "researcherId": "researcher:v1:bc4bcfaad03795c793ec3ec0b649dad4",
+              "rank": 7,
+              "score": 0.014925373134328358
+            },
+            {
+              "researcherId": "researcher:v1:9eb2fc0ec933892aac7c8ba89be3589b",
+              "rank": 8,
+              "score": 0.014705882352941176
+            },
+            {
+              "researcherId": "researcher:v1:f415f9d2295347b33d5c8e13fe02bf5b",
+              "rank": 9,
+              "score": 0.014492753623188406
+            },
+            {
+              "researcherId": "researcher:v1:7b2ca994e3a121a7ea0ad68c90c7e529",
+              "rank": 10,
+              "score": 0.014285714285714285
+            }
+          ],
+          "detail": {
+            "fusionMillis": 0,
+            "inputErrors": []
+          }
+        }
+      }
+    },
+    {
+      "id": "q25",
+      "category": "topic_filtered_ranking",
+      "windowLabel": "full-2015-2025",
+      "targets": 10,
+      "byDesignWeak": [
+        "graph-only"
+      ],
+      "drift": {
+        "checked": true,
+        "labelsNotInGraph": [],
+        "labelsUnchecked": 0
+      },
+      "modes": {
+        "graph-only": {
+          "listLength": 0,
+          "latencyMillis": 2,
+          "error": null,
+          "empty": true,
+          "abstentionCodes": [
+            "topic-candidates-failed"
+          ],
+          "byDesignWeak": true,
+          "recallAt": {
+            "1": 0,
+            "5": 0,
+            "10": 0,
+            "30": 0
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 0,
+          "targetRanks": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "top": [],
+          "detail": {
+            "operations": [
+              "researcher_ranking",
+              "semantic_context"
+            ],
+            "windowLabel": "full-2015-2025"
+          }
+        },
+        "vector-only": {
+          "listLength": 30,
+          "latencyMillis": 295,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": false,
+          "recallAt": {
+            "1": 0,
+            "5": 0,
+            "10": 0,
+            "30": 0.1
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 0.03571428571428571,
+          "targetRanks": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            28,
+            null,
+            null,
+            null,
+            null
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:d118091381ab124ebe5d7889d18c1358",
+              "rank": 1,
+              "score": 0.6862362623214722
+            },
+            {
+              "researcherId": "researcher:v1:bdd33173a8d6945eada3ff89dc3b380a",
+              "rank": 2,
+              "score": 0.6773573756217957
+            },
+            {
+              "researcherId": "researcher:v1:b23e667cb7ab305466d977ef790f2b77",
+              "rank": 3,
+              "score": 0.6743725538253784
+            },
+            {
+              "researcherId": "researcher:v1:f15b49dd7823108dddaa20529c822c0e",
+              "rank": 4,
+              "score": 0.6727147698402405
+            },
+            {
+              "researcherId": "researcher:v1:07d4e4839332616c98c50244499b30ac",
+              "rank": 5,
+              "score": 0.6717352867126465
+            },
+            {
+              "researcherId": "researcher:v1:336e68ad17a0dae528a039c45ceeda2d",
+              "rank": 6,
+              "score": 0.6711648106575012
+            },
+            {
+              "researcherId": "researcher:v1:31faa01341e654f441bf1a7b22a9cd53",
+              "rank": 7,
+              "score": 0.670998215675354
+            },
+            {
+              "researcherId": "researcher:v1:d59f09c69e35cae46eaeb1c456081dfb",
+              "rank": 8,
+              "score": 0.6699849367141724
+            },
+            {
+              "researcherId": "researcher:v1:3b100469140e664a6ac3149b7a699b4d",
+              "rank": 9,
+              "score": 0.6694642901420593
+            },
+            {
+              "researcherId": "researcher:v1:94f427ff5f571b5d54b65a5f6e431ebf",
+              "rank": 10,
+              "score": 0.6680216789245605
+            },
+            {
+              "researcherId": "researcher:v1:775438d09f3a4debfd66d697f66a64ed",
+              "rank": 11,
+              "score": 0.6675553321838379
+            },
+            {
+              "researcherId": "researcher:v1:cdb8f2ea33040a41bced45b28669edac",
+              "rank": 12,
+              "score": 0.6675230264663696
+            },
+            {
+              "researcherId": "researcher:v1:72cbfdee8ae81b7443ca03a7d57fdd1d",
+              "rank": 13,
+              "score": 0.6672382354736328
+            },
+            {
+              "researcherId": "researcher:v1:8fa2ef25352dfcfa92958873b03d3d32",
+              "rank": 14,
+              "score": 0.6669381856918335
+            },
+            {
+              "researcherId": "researcher:v1:d4c56a8a5af57e7b58247d75f6601023",
+              "rank": 15,
+              "score": 0.666376531124115
+            },
+            {
+              "researcherId": "researcher:v1:5682f3a3fbc3b1315fe8b7dbd2819407",
+              "rank": 16,
+              "score": 0.6663622260093689
+            },
+            {
+              "researcherId": "researcher:v1:ec8a3b8aa5e59ac036754873b94d3f25",
+              "rank": 17,
+              "score": 0.6661222577095032
+            },
+            {
+              "researcherId": "researcher:v1:d0c716ed9675677f475cb387bf68fa4d",
+              "rank": 18,
+              "score": 0.6660779714584351
+            },
+            {
+              "researcherId": "researcher:v1:26f1fb4b632bbc255057822f91d34588",
+              "rank": 19,
+              "score": 0.6658475995063782
+            },
+            {
+              "researcherId": "researcher:v1:d48088375bcdbcbf4e7ca28e61452a0c",
+              "rank": 20,
+              "score": 0.6657983064651489
+            },
+            {
+              "researcherId": "researcher:v1:470f3a4665b053545bd25e186c5562a3",
+              "rank": 21,
+              "score": 0.6655910611152649
+            },
+            {
+              "researcherId": "researcher:v1:98245150e5bf3d4c3a98c5cc91764b1d",
+              "rank": 22,
+              "score": 0.6655606627464294
+            },
+            {
+              "researcherId": "researcher:v1:223144c7de3a3a35ca27bd90e6d88efc",
+              "rank": 23,
+              "score": 0.6650848388671875
+            },
+            {
+              "researcherId": "researcher:v1:e4f3eab40046b22278431ccf83ae934e",
+              "rank": 24,
+              "score": 0.6649093627929688
+            },
+            {
+              "researcherId": "researcher:v1:3964258b6a06d9c1794fec2147bcda2e",
+              "rank": 25,
+              "score": 0.6648509502410889
+            },
+            {
+              "researcherId": "researcher:v1:8c5885ea19fedef7c14573e79961651c",
+              "rank": 26,
+              "score": 0.664790689945221
+            },
+            {
+              "researcherId": "researcher:v1:d1601b5e57e60e4ea964f2fdff67f93e",
+              "rank": 27,
+              "score": 0.6647147536277771
+            },
+            {
+              "researcherId": "researcher:v1:b29acc4ec40d284b985c18bd5b02f1f8",
+              "rank": 28,
+              "score": 0.6645120978355408
+            },
+            {
+              "researcherId": "researcher:v1:f370fabfd33187abf416ce7ad501a911",
+              "rank": 29,
+              "score": 0.6643652319908142
+            },
+            {
+              "researcherId": "researcher:v1:0c20fc481ebe576049f56daafee12acf",
+              "rank": 30,
+              "score": 0.6643101572990417
+            }
+          ],
+          "detail": {
+            "hits": 30,
+            "windowLabel": "full-2015-2025",
+            "droppedIncompatibleModel": 0,
+            "droppedMalformedMetadata": 0
+          }
+        },
+        "fused": {
+          "listLength": 30,
+          "latencyMillis": 297,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": false,
+          "recallAt": {
+            "1": 0,
+            "5": 0,
+            "10": 0,
+            "30": 0.1
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 0.03571428571428571,
+          "targetRanks": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            28,
+            null,
+            null,
+            null,
+            null
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:d118091381ab124ebe5d7889d18c1358",
+              "rank": 1,
+              "score": 0.01639344262295082
+            },
+            {
+              "researcherId": "researcher:v1:bdd33173a8d6945eada3ff89dc3b380a",
+              "rank": 2,
+              "score": 0.016129032258064516
+            },
+            {
+              "researcherId": "researcher:v1:b23e667cb7ab305466d977ef790f2b77",
+              "rank": 3,
+              "score": 0.015873015873015872
+            },
+            {
+              "researcherId": "researcher:v1:f15b49dd7823108dddaa20529c822c0e",
+              "rank": 4,
+              "score": 0.015625
+            },
+            {
+              "researcherId": "researcher:v1:07d4e4839332616c98c50244499b30ac",
+              "rank": 5,
+              "score": 0.015384615384615385
+            },
+            {
+              "researcherId": "researcher:v1:336e68ad17a0dae528a039c45ceeda2d",
+              "rank": 6,
+              "score": 0.015151515151515152
+            },
+            {
+              "researcherId": "researcher:v1:31faa01341e654f441bf1a7b22a9cd53",
+              "rank": 7,
+              "score": 0.014925373134328358
+            },
+            {
+              "researcherId": "researcher:v1:d59f09c69e35cae46eaeb1c456081dfb",
+              "rank": 8,
+              "score": 0.014705882352941176
+            },
+            {
+              "researcherId": "researcher:v1:3b100469140e664a6ac3149b7a699b4d",
+              "rank": 9,
+              "score": 0.014492753623188406
+            },
+            {
+              "researcherId": "researcher:v1:94f427ff5f571b5d54b65a5f6e431ebf",
+              "rank": 10,
+              "score": 0.014285714285714285
+            },
+            {
+              "researcherId": "researcher:v1:775438d09f3a4debfd66d697f66a64ed",
+              "rank": 11,
+              "score": 0.014084507042253521
+            },
+            {
+              "researcherId": "researcher:v1:cdb8f2ea33040a41bced45b28669edac",
+              "rank": 12,
+              "score": 0.013888888888888888
+            },
+            {
+              "researcherId": "researcher:v1:72cbfdee8ae81b7443ca03a7d57fdd1d",
+              "rank": 13,
+              "score": 0.0136986301369863
+            },
+            {
+              "researcherId": "researcher:v1:8fa2ef25352dfcfa92958873b03d3d32",
+              "rank": 14,
+              "score": 0.013513513513513514
+            },
+            {
+              "researcherId": "researcher:v1:d4c56a8a5af57e7b58247d75f6601023",
+              "rank": 15,
+              "score": 0.013333333333333334
+            },
+            {
+              "researcherId": "researcher:v1:5682f3a3fbc3b1315fe8b7dbd2819407",
+              "rank": 16,
+              "score": 0.013157894736842105
+            },
+            {
+              "researcherId": "researcher:v1:ec8a3b8aa5e59ac036754873b94d3f25",
+              "rank": 17,
+              "score": 0.012987012987012988
+            },
+            {
+              "researcherId": "researcher:v1:d0c716ed9675677f475cb387bf68fa4d",
+              "rank": 18,
+              "score": 0.01282051282051282
+            },
+            {
+              "researcherId": "researcher:v1:26f1fb4b632bbc255057822f91d34588",
+              "rank": 19,
+              "score": 0.012658227848101266
+            },
+            {
+              "researcherId": "researcher:v1:d48088375bcdbcbf4e7ca28e61452a0c",
+              "rank": 20,
+              "score": 0.0125
+            },
+            {
+              "researcherId": "researcher:v1:470f3a4665b053545bd25e186c5562a3",
+              "rank": 21,
+              "score": 0.012345679012345678
+            },
+            {
+              "researcherId": "researcher:v1:98245150e5bf3d4c3a98c5cc91764b1d",
+              "rank": 22,
+              "score": 0.012195121951219513
+            },
+            {
+              "researcherId": "researcher:v1:223144c7de3a3a35ca27bd90e6d88efc",
+              "rank": 23,
+              "score": 0.012048192771084338
+            },
+            {
+              "researcherId": "researcher:v1:e4f3eab40046b22278431ccf83ae934e",
+              "rank": 24,
+              "score": 0.011904761904761904
+            },
+            {
+              "researcherId": "researcher:v1:3964258b6a06d9c1794fec2147bcda2e",
+              "rank": 25,
+              "score": 0.011764705882352941
+            },
+            {
+              "researcherId": "researcher:v1:8c5885ea19fedef7c14573e79961651c",
+              "rank": 26,
+              "score": 0.011627906976744186
+            },
+            {
+              "researcherId": "researcher:v1:d1601b5e57e60e4ea964f2fdff67f93e",
+              "rank": 27,
+              "score": 0.011494252873563218
+            },
+            {
+              "researcherId": "researcher:v1:b29acc4ec40d284b985c18bd5b02f1f8",
+              "rank": 28,
+              "score": 0.011363636363636364
+            },
+            {
+              "researcherId": "researcher:v1:f370fabfd33187abf416ce7ad501a911",
+              "rank": 29,
+              "score": 0.011235955056179775
+            },
+            {
+              "researcherId": "researcher:v1:0c20fc481ebe576049f56daafee12acf",
+              "rank": 30,
+              "score": 0.011111111111111112
+            }
+          ],
+          "detail": {
+            "fusionMillis": 0,
+            "inputErrors": []
+          }
+        }
+      }
+    },
+    {
+      "id": "q26",
+      "category": "topic_filtered_ranking",
+      "windowLabel": "full-2015-2025",
+      "targets": 10,
+      "byDesignWeak": [
+        "graph-only"
+      ],
+      "drift": {
+        "checked": true,
+        "labelsNotInGraph": [],
+        "labelsUnchecked": 0
+      },
+      "modes": {
+        "graph-only": {
+          "listLength": 0,
+          "latencyMillis": 1,
+          "error": null,
+          "empty": true,
+          "abstentionCodes": [
+            "topic-candidates-failed"
+          ],
+          "byDesignWeak": true,
+          "recallAt": {
+            "1": 0,
+            "5": 0,
+            "10": 0,
+            "30": 0
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 0,
+          "targetRanks": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "top": [],
+          "detail": {
+            "operations": [
+              "researcher_ranking",
+              "semantic_context"
+            ],
+            "windowLabel": "full-2015-2025"
+          }
+        },
+        "vector-only": {
+          "listLength": 30,
+          "latencyMillis": 193,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": false,
+          "recallAt": {
+            "1": 0,
+            "5": 0,
+            "10": 0,
+            "30": 0
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 0,
+          "targetRanks": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:9eafaf03a410e7f9c28def4e50718776",
+              "rank": 1,
+              "score": 0.6360541582107544
+            },
+            {
+              "researcherId": "researcher:v1:afc873b45e99c50c49d2aea014375cfa",
+              "rank": 2,
+              "score": 0.6354447603225708
+            },
+            {
+              "researcherId": "researcher:v1:2a5b7bf054b257017e601426b34c99b9",
+              "rank": 3,
+              "score": 0.6322147250175476
+            },
+            {
+              "researcherId": "researcher:v1:f2ffa5f0dfb4217a83ac4dc33bb915a7",
+              "rank": 4,
+              "score": 0.6305877566337585
+            },
+            {
+              "researcherId": "researcher:v1:692f3f77f5830047d813f4842d6514e0",
+              "rank": 5,
+              "score": 0.630475640296936
+            },
+            {
+              "researcherId": "researcher:v1:dc7d9de638c3dad6435c5a1a07b498bd",
+              "rank": 6,
+              "score": 0.6295610070228577
+            },
+            {
+              "researcherId": "researcher:v1:c20fd50c0d2a176db029381847d2000b",
+              "rank": 7,
+              "score": 0.6284910440444946
+            },
+            {
+              "researcherId": "researcher:v1:5400e20f9d55e13ad722a73a81efc543",
+              "rank": 8,
+              "score": 0.6274749636650085
+            },
+            {
+              "researcherId": "researcher:v1:1d53f9c2aadaba4f5f3ce0c1b3bf3597",
+              "rank": 9,
+              "score": 0.6253678202629089
+            },
+            {
+              "researcherId": "researcher:v1:429b70a66637f5b06f25dde3858aceec",
+              "rank": 10,
+              "score": 0.6253007054328918
+            },
+            {
+              "researcherId": "researcher:v1:90fc6d459f5a82e54777f54fa69c2893",
+              "rank": 11,
+              "score": 0.6252337694168091
+            },
+            {
+              "researcherId": "researcher:v1:33299ed754b304d902f163981e06b047",
+              "rank": 12,
+              "score": 0.6246029138565063
+            },
+            {
+              "researcherId": "researcher:v1:aa9b53ea7b2e4ae4617621843da097ca",
+              "rank": 13,
+              "score": 0.624416172504425
+            },
+            {
+              "researcherId": "researcher:v1:f6cf7d15d90b488f56bc0c2703b9eff5",
+              "rank": 14,
+              "score": 0.6238469481468201
+            },
+            {
+              "researcherId": "researcher:v1:a2ba6efc8d601b8fb2ae7a3eeddc2e6c",
+              "rank": 15,
+              "score": 0.6231585741043091
+            },
+            {
+              "researcherId": "researcher:v1:cd5be3e5c0d9ed71572f2aeb2ec2819e",
+              "rank": 16,
+              "score": 0.6230796575546265
+            },
+            {
+              "researcherId": "researcher:v1:e088621fa4ed2cc8819f8dcd274b9748",
+              "rank": 17,
+              "score": 0.6225675940513611
+            },
+            {
+              "researcherId": "researcher:v1:0e4b551adf004607642827136cfbd5cd",
+              "rank": 18,
+              "score": 0.622446596622467
+            },
+            {
+              "researcherId": "researcher:v1:86b999724eb49b535613771ae309100f",
+              "rank": 19,
+              "score": 0.6220743060112
+            },
+            {
+              "researcherId": "researcher:v1:c1e01bd4a6543af2c6005f3194f91043",
+              "rank": 20,
+              "score": 0.6210413575172424
+            },
+            {
+              "researcherId": "researcher:v1:50607e58074387c322bca6a799669f7e",
+              "rank": 21,
+              "score": 0.6209810972213745
+            },
+            {
+              "researcherId": "researcher:v1:f7d5049a54bc659cf57b3f82e8ee5522",
+              "rank": 22,
+              "score": 0.6209386587142944
+            },
+            {
+              "researcherId": "researcher:v1:a8bc1a83ebbc633632132881322fc8d9",
+              "rank": 23,
+              "score": 0.6203754544258118
+            },
+            {
+              "researcherId": "researcher:v1:53e099708cc64434c1a0b9c88a16b255",
+              "rank": 24,
+              "score": 0.6200019121170044
+            },
+            {
+              "researcherId": "researcher:v1:9b7f5646f450ede0431b2d50a421cec9",
+              "rank": 25,
+              "score": 0.6189678311347961
+            },
+            {
+              "researcherId": "researcher:v1:7601cb6f242941950db515a598b4c995",
+              "rank": 26,
+              "score": 0.6189372539520264
+            },
+            {
+              "researcherId": "researcher:v1:a502fc177e3807a0454bf1f9bb4095fd",
+              "rank": 27,
+              "score": 0.6183041334152222
+            },
+            {
+              "researcherId": "researcher:v1:e4e5b61a0069700e94ae83d732cec527",
+              "rank": 28,
+              "score": 0.618048906326294
+            },
+            {
+              "researcherId": "researcher:v1:699811941d4a249a9553ebb9c421bbf7",
+              "rank": 29,
+              "score": 0.6175572276115417
+            },
+            {
+              "researcherId": "researcher:v1:6817b7e9b8743ff1ee86d85fde9679c4",
+              "rank": 30,
+              "score": 0.6175212860107422
+            }
+          ],
+          "detail": {
+            "hits": 30,
+            "windowLabel": "full-2015-2025",
+            "droppedIncompatibleModel": 0,
+            "droppedMalformedMetadata": 0
+          }
+        },
+        "fused": {
+          "listLength": 30,
+          "latencyMillis": 194,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": false,
+          "recallAt": {
+            "1": 0,
+            "5": 0,
+            "10": 0,
+            "30": 0
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 0,
+          "targetRanks": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:9eafaf03a410e7f9c28def4e50718776",
+              "rank": 1,
+              "score": 0.01639344262295082
+            },
+            {
+              "researcherId": "researcher:v1:afc873b45e99c50c49d2aea014375cfa",
+              "rank": 2,
+              "score": 0.016129032258064516
+            },
+            {
+              "researcherId": "researcher:v1:2a5b7bf054b257017e601426b34c99b9",
+              "rank": 3,
+              "score": 0.015873015873015872
+            },
+            {
+              "researcherId": "researcher:v1:f2ffa5f0dfb4217a83ac4dc33bb915a7",
+              "rank": 4,
+              "score": 0.015625
+            },
+            {
+              "researcherId": "researcher:v1:692f3f77f5830047d813f4842d6514e0",
+              "rank": 5,
+              "score": 0.015384615384615385
+            },
+            {
+              "researcherId": "researcher:v1:dc7d9de638c3dad6435c5a1a07b498bd",
+              "rank": 6,
+              "score": 0.015151515151515152
+            },
+            {
+              "researcherId": "researcher:v1:c20fd50c0d2a176db029381847d2000b",
+              "rank": 7,
+              "score": 0.014925373134328358
+            },
+            {
+              "researcherId": "researcher:v1:5400e20f9d55e13ad722a73a81efc543",
+              "rank": 8,
+              "score": 0.014705882352941176
+            },
+            {
+              "researcherId": "researcher:v1:1d53f9c2aadaba4f5f3ce0c1b3bf3597",
+              "rank": 9,
+              "score": 0.014492753623188406
+            },
+            {
+              "researcherId": "researcher:v1:429b70a66637f5b06f25dde3858aceec",
+              "rank": 10,
+              "score": 0.014285714285714285
+            },
+            {
+              "researcherId": "researcher:v1:90fc6d459f5a82e54777f54fa69c2893",
+              "rank": 11,
+              "score": 0.014084507042253521
+            },
+            {
+              "researcherId": "researcher:v1:33299ed754b304d902f163981e06b047",
+              "rank": 12,
+              "score": 0.013888888888888888
+            },
+            {
+              "researcherId": "researcher:v1:aa9b53ea7b2e4ae4617621843da097ca",
+              "rank": 13,
+              "score": 0.0136986301369863
+            },
+            {
+              "researcherId": "researcher:v1:f6cf7d15d90b488f56bc0c2703b9eff5",
+              "rank": 14,
+              "score": 0.013513513513513514
+            },
+            {
+              "researcherId": "researcher:v1:a2ba6efc8d601b8fb2ae7a3eeddc2e6c",
+              "rank": 15,
+              "score": 0.013333333333333334
+            },
+            {
+              "researcherId": "researcher:v1:cd5be3e5c0d9ed71572f2aeb2ec2819e",
+              "rank": 16,
+              "score": 0.013157894736842105
+            },
+            {
+              "researcherId": "researcher:v1:e088621fa4ed2cc8819f8dcd274b9748",
+              "rank": 17,
+              "score": 0.012987012987012988
+            },
+            {
+              "researcherId": "researcher:v1:0e4b551adf004607642827136cfbd5cd",
+              "rank": 18,
+              "score": 0.01282051282051282
+            },
+            {
+              "researcherId": "researcher:v1:86b999724eb49b535613771ae309100f",
+              "rank": 19,
+              "score": 0.012658227848101266
+            },
+            {
+              "researcherId": "researcher:v1:c1e01bd4a6543af2c6005f3194f91043",
+              "rank": 20,
+              "score": 0.0125
+            },
+            {
+              "researcherId": "researcher:v1:50607e58074387c322bca6a799669f7e",
+              "rank": 21,
+              "score": 0.012345679012345678
+            },
+            {
+              "researcherId": "researcher:v1:f7d5049a54bc659cf57b3f82e8ee5522",
+              "rank": 22,
+              "score": 0.012195121951219513
+            },
+            {
+              "researcherId": "researcher:v1:a8bc1a83ebbc633632132881322fc8d9",
+              "rank": 23,
+              "score": 0.012048192771084338
+            },
+            {
+              "researcherId": "researcher:v1:53e099708cc64434c1a0b9c88a16b255",
+              "rank": 24,
+              "score": 0.011904761904761904
+            },
+            {
+              "researcherId": "researcher:v1:9b7f5646f450ede0431b2d50a421cec9",
+              "rank": 25,
+              "score": 0.011764705882352941
+            },
+            {
+              "researcherId": "researcher:v1:7601cb6f242941950db515a598b4c995",
+              "rank": 26,
+              "score": 0.011627906976744186
+            },
+            {
+              "researcherId": "researcher:v1:a502fc177e3807a0454bf1f9bb4095fd",
+              "rank": 27,
+              "score": 0.011494252873563218
+            },
+            {
+              "researcherId": "researcher:v1:e4e5b61a0069700e94ae83d732cec527",
+              "rank": 28,
+              "score": 0.011363636363636364
+            },
+            {
+              "researcherId": "researcher:v1:699811941d4a249a9553ebb9c421bbf7",
+              "rank": 29,
+              "score": 0.011235955056179775
+            },
+            {
+              "researcherId": "researcher:v1:6817b7e9b8743ff1ee86d85fde9679c4",
+              "rank": 30,
+              "score": 0.011111111111111112
+            }
+          ],
+          "detail": {
+            "fusionMillis": 0,
+            "inputErrors": []
+          }
+        }
+      }
+    },
+    {
+      "id": "q30",
+      "category": "prompt_injection",
+      "windowLabel": "w2021-2023",
+      "targets": 10,
+      "byDesignWeak": [
+        "vector-only"
+      ],
+      "drift": {
+        "checked": true,
+        "labelsNotInGraph": [],
+        "labelsUnchecked": 0
+      },
+      "modes": {
+        "graph-only": {
+          "listLength": 10,
+          "latencyMillis": 7,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": false,
+          "recallAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 1,
+          "targetRanks": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:32ad9abca8538109a54a81cef181dd6d",
+              "rank": 1,
+              "score": 1232
+            },
+            {
+              "researcherId": "researcher:v1:4ca346d167465f8da4561b0afd1638dd",
+              "rank": 2,
+              "score": 699
+            },
+            {
+              "researcherId": "researcher:v1:5c69f1670a2e6622ec89190297d727dc",
+              "rank": 3,
+              "score": 698
+            },
+            {
+              "researcherId": "researcher:v1:451f3355bd360c1996de47ef0b2c11f4",
+              "rank": 4,
+              "score": 686
+            },
+            {
+              "researcherId": "researcher:v1:7c0853c7d7a3efce2afffc4967fe3637",
+              "rank": 5,
+              "score": 646
+            },
+            {
+              "researcherId": "researcher:v1:07e7eff544cc5b0adca3ac92856a8e08",
+              "rank": 6,
+              "score": 631
+            },
+            {
+              "researcherId": "researcher:v1:c646eec8f6cdbed74b9e4f776e11df48",
+              "rank": 7,
+              "score": 597
+            },
+            {
+              "researcherId": "researcher:v1:cefd47dcc2331282908add7aa906eb71",
+              "rank": 8,
+              "score": 557
+            },
+            {
+              "researcherId": "researcher:v1:0d4e7fc49783987ae8cc9a3302fa6da4",
+              "rank": 9,
+              "score": 551
+            },
+            {
+              "researcherId": "researcher:v1:21a1b7de436b7edbfbbcc30dc8a90c62",
+              "rank": 10,
+              "score": 547
+            }
+          ],
+          "detail": {
+            "operations": [
+              "researcher_ranking"
+            ],
+            "windowLabel": "w2021-2023"
+          }
+        },
+        "vector-only": {
+          "listLength": 0,
+          "latencyMillis": 193,
+          "error": null,
+          "empty": true,
+          "abstentionCodes": [],
+          "byDesignWeak": true,
+          "recallAt": {
+            "1": 0,
+            "5": 0,
+            "10": 0,
+            "30": 0
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 0,
+          "targetRanks": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "top": [],
+          "detail": {
+            "hits": 0,
+            "windowLabel": "w2021-2023",
+            "droppedIncompatibleModel": 0,
+            "droppedMalformedMetadata": 0
+          }
+        },
+        "fused": {
+          "listLength": 10,
+          "latencyMillis": 200,
+          "error": null,
+          "empty": false,
+          "abstentionCodes": [],
+          "byDesignWeak": false,
+          "recallAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "recallCeilingAt": {
+            "1": 0.1,
+            "5": 0.5,
+            "10": 1,
+            "30": 1
+          },
+          "reciprocalRank": 1,
+          "targetRanks": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "top": [
+            {
+              "researcherId": "researcher:v1:32ad9abca8538109a54a81cef181dd6d",
+              "rank": 1,
+              "score": 0.01639344262295082
+            },
+            {
+              "researcherId": "researcher:v1:4ca346d167465f8da4561b0afd1638dd",
+              "rank": 2,
+              "score": 0.016129032258064516
+            },
+            {
+              "researcherId": "researcher:v1:5c69f1670a2e6622ec89190297d727dc",
+              "rank": 3,
+              "score": 0.015873015873015872
+            },
+            {
+              "researcherId": "researcher:v1:451f3355bd360c1996de47ef0b2c11f4",
+              "rank": 4,
+              "score": 0.015625
+            },
+            {
+              "researcherId": "researcher:v1:7c0853c7d7a3efce2afffc4967fe3637",
+              "rank": 5,
+              "score": 0.015384615384615385
+            },
+            {
+              "researcherId": "researcher:v1:07e7eff544cc5b0adca3ac92856a8e08",
+              "rank": 6,
+              "score": 0.015151515151515152
+            },
+            {
+              "researcherId": "researcher:v1:c646eec8f6cdbed74b9e4f776e11df48",
+              "rank": 7,
+              "score": 0.014925373134328358
+            },
+            {
+              "researcherId": "researcher:v1:cefd47dcc2331282908add7aa906eb71",
+              "rank": 8,
+              "score": 0.014705882352941176
+            },
+            {
+              "researcherId": "researcher:v1:0d4e7fc49783987ae8cc9a3302fa6da4",
+              "rank": 9,
+              "score": 0.014492753623188406
+            },
+            {
+              "researcherId": "researcher:v1:21a1b7de436b7edbfbbcc30dc8a90c62",
+              "rank": 10,
+              "score": 0.014285714285714285
+            }
+          ],
+          "detail": {
+            "fusionMillis": 0,
+            "inputErrors": []
+          }
+        }
+      }
+    }
+  ],
+  "modes": {
+    "graph-only": {
+      "mode": "graph-only",
+      "questions": 11,
+      "scored": 11,
+      "exploratory": true,
+      "recallAt": {
+        "1": 0.09999999999999999,
+        "5": 0.5,
+        "10": 0.8181818181818182,
+        "30": 0.8181818181818182
+      },
+      "recallCeilingAt": {
+        "1": 0.11818181818181818,
+        "5": 0.5909090909090909,
+        "10": 1,
+        "30": 1
+      },
+      "mrr": 0.8181818181818182,
+      "ndcg": "not computed: benchmark-v1 has no graded relevance labels",
+      "errors": 0,
+      "empty": 2,
+      "abstentions": 2,
+      "byDesignWeakQuestions": 2,
+      "latencyMillis": {
+        "n": 11,
+        "min": 1,
+        "median": 31,
+        "p95": 970,
+        "max": 970,
+        "mean": 224.72727272727272
+      },
+      "listLength": {
+        "n": 11,
+        "min": 0,
+        "median": 10,
+        "p95": 10,
+        "max": 10,
+        "mean": 7.2727272727272725
+      }
+    },
+    "vector-only": {
+      "mode": "vector-only",
+      "questions": 11,
+      "scored": 11,
+      "exploratory": true,
+      "recallAt": {
+        "1": 0,
+        "5": 0,
+        "10": 0,
+        "30": 0.009090909090909092
+      },
+      "recallCeilingAt": {
+        "1": 0.11818181818181818,
+        "5": 0.5909090909090909,
+        "10": 1,
+        "30": 1
+      },
+      "mrr": 0.0032467532467532465,
+      "ndcg": "not computed: benchmark-v1 has no graded relevance labels",
+      "errors": 0,
+      "empty": 5,
+      "abstentions": 0,
+      "byDesignWeakQuestions": 9,
+      "latencyMillis": {
+        "n": 11,
+        "min": 172,
+        "median": 204,
+        "p95": 879,
+        "max": 879,
+        "mean": 330.72727272727275
+      },
+      "listLength": {
+        "n": 11,
+        "min": 0,
+        "median": 30,
+        "p95": 30,
+        "max": 30,
+        "mean": 16.363636363636363
+      }
+    },
+    "fused": {
+      "mode": "fused",
+      "questions": 11,
+      "scored": 11,
+      "exploratory": true,
+      "recallAt": {
+        "1": 0.09090909090909091,
+        "5": 0.4090909090909091,
+        "10": 0.6363636363636364,
+        "30": 0.8272727272727273
+      },
+      "recallCeilingAt": {
+        "1": 0.11818181818181818,
+        "5": 0.5909090909090909,
+        "10": 1,
+        "30": 1
+      },
+      "mrr": 0.7759740259740259,
+      "ndcg": "not computed: benchmark-v1 has no graded relevance labels",
+      "errors": 0,
+      "empty": 0,
+      "abstentions": 0,
+      "byDesignWeakQuestions": 0,
+      "latencyMillis": {
+        "n": 11,
+        "min": 181,
+        "median": 246,
+        "p95": 1608,
+        "max": 1608,
+        "mean": 555.8181818181819
+      },
+      "listLength": {
+        "n": 11,
+        "min": 5,
+        "median": 30,
+        "p95": 40,
+        "max": 40,
+        "mean": 23.636363636363637
+      },
+      "version": "fusion-exp-v1",
+      "k": 60,
+      "label": "experiment only; the production workflow has no fused ranking"
+    }
+  },
+  "evaluationMillis": 9710,
+  "embedderUsage": {
+    "requests": 11,
+    "texts": 11,
+    "characters": 886,
+    "estimatedTokens": 302,
+    "providerReportedTokens": 254,
+    "retries": 0
+  },
+  "status": "completed",
+  "totalMillis": 11390
+}
