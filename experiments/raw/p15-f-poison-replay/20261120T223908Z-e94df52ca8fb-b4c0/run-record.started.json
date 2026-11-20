@@ -1,0 +1,63 @@
+{
+  "kind": "scholarchain-experiment-run-record",
+  "version": 1,
+  "status": "started",
+  "attempt_id": "20261120T223908Z-e94df52ca8fb-b4c0",
+  "exit_code": null,
+  "failed_step": null,
+  "signal": null,
+  "head": "e94df52ca8fbd261acbdaa47007efde3c120d943",
+  "build_commit": "684636ef997ee041912e2b57d1c597ded8e9778d",
+  "region": "us-east-1",
+  "manifest": {
+    "path": "experiments/manifests/p15-f-poison-replay.json",
+    "manifest_id": "p15-f-poison-replay",
+    "sha256": "a39c7e453f3c9264092fc22640e2c56465e06ff947bf031291ee9112a5b5fbaf",
+    "experiment": "F",
+    "dataset_snapshot": "dblp-2026-11-01 (DBLP XML with dblp.dtd), subset rule dblp-subset-v1 (datasets/dataset-manifest.yaml); the vectors of the Phase 14 export run=f2625d504b12749389cf4f5b1a26aed4 in researcher-profile-v1"
+  },
+  "declared_not_enforced": {
+    "costBoundUsd": 0.1,
+    "maxDurationSeconds": 4800,
+    "resourceLimits": {
+      "ecsMaxTasks": 2,
+      "maxQueueMessages": 3,
+      "maxRequests": 3,
+      "embeddingMaxReceiveCount": 5,
+      "workerMaxCount": 2,
+      "toolDeadlineSeconds": 4200,
+      "terraformSource": "infra/terraform/modules/workflow/variables.tf (embedding_max_receive_count 5, embedding_visibility_seconds 300, dlq_retention_seconds); infra/terraform/modules/runtime/variables.tf (worker_max_count 2, worker_scale_in_minutes 5) and autoscaling.tf (worker step scaling on both queues); infra/terraform/modules/observability/alarms.tf (embedding DLQ alarm, period 300 s); API stage throttle in infra/terraform/environments/course (api_throttling_rate_limit 5, burst 10)"
+    }
+  },
+  "started_utc": "2026-11-20T22:39:08Z",
+  "ended_utc": null,
+  "metrics_export_of": null,
+  "action": {
+    "kind": "command",
+    "path": "experiments/collectors/f-poison-replay.sh",
+    "args": [
+      "--index",
+      "researcher-profile-v1",
+      "--question-id",
+      "q05"
+    ],
+    "resolved_args": null,
+    "run": true,
+    "exit_code": null,
+    "window_epoch": {
+      "start": null,
+      "end": null
+    }
+  },
+  "nested_run_records": [],
+  "remote_ids": {
+    "execution_names": [],
+    "emr_cluster_ids": []
+  },
+  "metrics": {
+    "status": "not-run",
+    "files": [],
+    "unresolved": []
+  },
+  "raw_results_location": "experiments/raw/p15-f-poison-replay/20261120T223908Z-e94df52ca8fb-b4c0"
+}

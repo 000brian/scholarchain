@@ -1,0 +1,115 @@
+{
+  "kind": "scholarchain-collector-tool-record",
+  "version": 1,
+  "tool": "f-poison-replay.sh",
+  "tool_path": "experiments/collectors/f-poison-replay.sh",
+  "tool_sha256": "02a5b0edff23801a10b6d3a1c11f821881e46feed3bdf22eac14b92577cf617e",
+  "arguments": [
+    "--index",
+    "researcher-profile-v1",
+    "--question-id",
+    "q05"
+  ],
+  "attempt_id": "20261120T223908Z-e94df52ca8fb-b4c0",
+  "manifest_id": "p15-f-poison-replay",
+  "region": "us-east-1",
+  "start_epoch_s": 1795214349,
+  "end_epoch_s": 1795214694,
+  "status": "completed",
+  "exit_code": 0,
+  "exit_meaning": "ran (observation recorded)",
+  "limits": {
+    "embedding_max_receive_count": 5,
+    "embedding_visibility_timeout_s": 300,
+    "part1_poison_limit_s": 960,
+    "part2_each_wait_limit_s": 720,
+    "scaleout_allowance_s": 480,
+    "release_cycle_s": 60,
+    "dlq_count_lag_s": 120,
+    "recovery_limit_s": 600,
+    "dlq_alarm_limit_s": 900,
+    "api_max_time_s": 35,
+    "tool_deadline_s": 4200,
+    "basis": "estimates: scale-out from 0 = alarm 60 s + SQS metric delay + Fargate start (infra 5a timeline); poison limit = allowance + (maxReceiveCount + 1) release cycles (release-at-once rule, decision 7.2) + DLQ count lag; WITHOUT release-at-once the poison needs maxReceiveCount x visibility timeout and is reported not seen within this limit; each part 2 wait limit counts from the start of that wait (after part 1 for the first), and the worker log is read at least once per wait (J-01)"
+  },
+  "baseline": {
+    "epoch_s": 1795214356,
+    "embedding": {
+      "visible": 0,
+      "in_flight": 0
+    },
+    "embedding_dlq": {
+      "visible": 0,
+      "in_flight": 0
+    },
+    "job": {
+      "visible": 0,
+      "in_flight": 0
+    },
+    "job_dlq": {
+      "visible": 0,
+      "in_flight": 0
+    },
+    "worker": {
+      "desired": 0,
+      "running": 0,
+      "pending": 0
+    },
+    "embedding_dlq_alarm_state": "OK"
+  },
+  "selection": {
+    "index": "researcher-profile-v1",
+    "source": "DynamoDB ArtifactRegistry (M-01: the vector bucket policy denies the S3 Vectors data plane to this principal)",
+    "rule": "the first unique pk artifact#vector#INDEX/KEY in scan order (bounded read-only scan, begins_with(pk), projection pk), then the latest version (Query ScanIndexForward=false Limit 1)",
+    "sampled": 1,
+    "eligible": 1,
+    "scan_calls": 1,
+    "items_scanned": 1000,
+    "items_matched": 1,
+    "expected_embedding_model": "voyage/voyage-4/1024/document/emb-v1",
+    "expected_embedding_dimensions": 1024,
+    "checked": "textHash, embeddingModel, embeddingDimensions present in the latest registry version; embeddingModel equal to expected_embedding_model (the document-side EmbeddingModelSpec.id built from config/course.json embedding.provider, models.embeddingModelId, embedding.dimensions and the rag spec version, L-02) and embeddingDimensions equal to config/course.json; the vector metadata itself is checked by the handler (permanent failure on a missing field)"
+  },
+  "counts": {
+    "messages_sent": 3
+  },
+  "observation": {
+    "part1_poison": "seen: DLQ count baseline + 1 and the poison taskId read back from the DLQ (never deleted)",
+    "part2_replay": "seen: worker log 'processed', then after the second send 'replayed'",
+    "part3_api": "statuses first=200/absent replay=200/true conflict=409/absent (expected: first 200, replay 200 with Idempotent-Replayed true, conflict 409 IDEMPOTENCY_CONFLICT)",
+    "recovery": "embedding in flight back to 0: yes; DLQ alarm ALARM: yes; valid task processed while the poison was retried: yes (sent right after the poison)"
+  },
+  "evidence": {
+    "worker_log": "yes",
+    "processed_seen": true,
+    "replayed_seen": true,
+    "dlq_received": true
+  },
+  "errors": [],
+  "files": [
+    {
+      "name": "events.csv",
+      "sha256": "52837a0c4b9089df9697704b7aa9e95a8dd0425b06d5addd7516ba3a8d833561"
+    },
+    {
+      "name": "queue-samples.csv",
+      "sha256": "0e7b55899ab5d60b403f4f3afe41483700561d0ff5ba398d10e88a7fadd053c7"
+    },
+    {
+      "name": "service-samples.csv",
+      "sha256": "80dd97b940ca77d0d956257f7dcd4c102cf8f52f11d2c5627f0a8d1122ce46a2"
+    },
+    {
+      "name": "alarm-samples.csv",
+      "sha256": "89de9b5a2c7bcaff25703e6226dcb6c80f15495b1045dad720330ab65b7c216b"
+    },
+    {
+      "name": "clock.csv",
+      "sha256": "c3104126c129bc79cbb1956617535a171c204de4e326c2c48cb21324eb3031f6"
+    },
+    {
+      "name": "incident-F.json",
+      "sha256": "a75efa8af7e9bbfbde9f22128b1d37a0eb60b6fa5ef222325cca4cd686872b4e"
+    }
+  ]
+}

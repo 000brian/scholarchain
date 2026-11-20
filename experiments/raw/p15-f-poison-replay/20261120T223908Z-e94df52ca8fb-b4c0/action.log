@@ -1,0 +1,25 @@
+STEP: f-poison-replay.sh prerequisites
+INFO: f-poison-replay.sh tool sha256 02a5b0edff23801a10b6d3a1c11f821881e46feed3bdf22eac14b92577cf617e; attempt 20261120T223908Z-e94df52ca8fb-b4c0; preflight false
+STEP: f-poison-replay.sh out-dir
+STEP: f-poison-replay.sh terraform-outputs
+INFO: f-poison-replay.sh terraform outputs read (values kept in memory, not shown)
+STEP: f-poison-replay.sh names
+INFO: f-poison-replay.sh expected stored embeddingModel voyage/voyage-4/1024/document/emb-v1, embeddingDimensions 1024 (config/course.json + EmbeddingModelSpec.id)
+INFO: f-poison-replay.sh ECS cluster scholarchain-course-runtime, worker service worker; queue URLs, table names and the API URL read (not shown)
+STEP: f-poison-replay.sh queue-settings
+INFO: f-poison-replay.sh embedding queue: maxReceiveCount 5, visibility 300s; part 1 limit 960s, part 2 limits 720s each
+STEP: f-poison-replay.sh select-key
+INFO: f-poison-replay.sh one vector key of researcher-profile-v1 selected from the registry; latest version fields present, model ok
+STEP: f-poison-replay.sh baseline
+BASELINE: embedding visible=0 in_flight=0; embedding-dlq visible=0; job visible=0 in_flight=0; job-dlq visible=0; worker desired=0 running=0 pending=0; dlq alarm OK
+SENT: part=poison event=sent task=p15-f-poison-20261120T223908Z-e94df52ca8fb-b4c0
+SENT: part=replay event=sent task=p15-f-replay-20261120T223908Z-e94df52ca8fb-b4c0
+STEP: f-poison-replay.sh part1-poison
+STEP: f-poison-replay.sh part2-replay
+SENT: part=replay event=sent-again task=p15-f-replay-20261120T223908Z-e94df52ca8fb-b4c0
+STEP: f-poison-replay.sh part3-api
+API: first status=200 error=- idempotent_replayed=absent -
+API: replay status=200 error=- idempotent_replayed=true same-query-id
+API: conflict status=409 error=IDEMPOTENCY_CONFLICT idempotent_replayed=absent -
+STEP: f-poison-replay.sh recovery
+RESULT: f-poison-replay.sh ok

@@ -1,0 +1,132 @@
+{
+  "incidentId": "p15-f-20261120T223908Z-e94df52ca8fb-b4c0",
+  "startUtc": "2026-11-20T22:39:19Z",
+  "endUtc": "2026-11-20T22:42:45Z",
+  "detectionSource": "CloudWatch alarm on the embedding DLQ (ApproximateNumberOfMessagesVisible > 0), state ALARM at 2026-11-20T22:44:50Z",
+  "detectedAtUtc": "2026-11-20T22:44:50Z",
+  "userVisibleImpact": "not measured by this tool; the embedding queue serves no API route (design, decision 8.1)",
+  "traceAndRunIds": {
+    "attemptId": "20261120T223908Z-e94df52ca8fb-b4c0",
+    "manifestId": "p15-f-poison-replay",
+    "poisonTaskId": "p15-f-poison-20261120T223908Z-e94df52ca8fb-b4c0",
+    "replayTaskId": "p15-f-replay-20261120T223908Z-e94df52ca8fb-b4c0"
+  },
+  "timeline": [
+    {
+      "epoch_s": 1795214360,
+      "part": "poison",
+      "source": "collector",
+      "event": "sent",
+      "outcome": "sent"
+    },
+    {
+      "epoch_s": 1795214361,
+      "part": "replay",
+      "source": "collector",
+      "event": "sent",
+      "outcome": "sent"
+    },
+    {
+      "epoch_s": 1795214517,
+      "part": "poison",
+      "source": "sqs",
+      "event": "dlq-count",
+      "outcome": "dlq-count-baseline-plus-1"
+    },
+    {
+      "epoch_s": 1795214518,
+      "part": "poison",
+      "source": "sqs",
+      "event": "dlq-receive",
+      "outcome": "dlq-received"
+    },
+    {
+      "epoch_s": 1795214518,
+      "part": "replay",
+      "source": "collector",
+      "event": "wait-start-processed",
+      "outcome": "waiting"
+    },
+    {
+      "epoch_s": 1795214507,
+      "part": "replay",
+      "source": "worker-log",
+      "event": "delivery",
+      "outcome": "processed"
+    },
+    {
+      "epoch_s": 1795214520,
+      "part": "replay",
+      "source": "completion-record",
+      "event": "present",
+      "outcome": "processed"
+    },
+    {
+      "epoch_s": 1795214521,
+      "part": "replay",
+      "source": "collector",
+      "event": "sent-again",
+      "outcome": "sent"
+    },
+    {
+      "epoch_s": 1795214521,
+      "part": "replay",
+      "source": "collector",
+      "event": "wait-start-replayed",
+      "outcome": "waiting"
+    },
+    {
+      "epoch_s": 1795214521,
+      "part": "replay",
+      "source": "worker-log",
+      "event": "delivery",
+      "outcome": "replayed"
+    },
+    {
+      "epoch_s": 1795214561,
+      "part": "api",
+      "source": "api",
+      "event": "first",
+      "outcome": "200"
+    },
+    {
+      "epoch_s": 1795214562,
+      "part": "api",
+      "source": "api",
+      "event": "replay",
+      "outcome": "200"
+    },
+    {
+      "epoch_s": 1795214563,
+      "part": "api",
+      "source": "api",
+      "event": "conflict",
+      "outcome": "409"
+    },
+    {
+      "epoch_s": 1795214565,
+      "part": "recovery",
+      "source": "sqs",
+      "event": "embedding-empty",
+      "outcome": "in-flight-0"
+    },
+    {
+      "epoch_s": 1795214690,
+      "part": "recovery",
+      "source": "cloudwatch",
+      "event": "dlq-alarm",
+      "outcome": "ALARM"
+    }
+  ],
+  "rootCause": "injected by experiment F: a valid-JSON embedding-task-v1 message naming an unknown index, a permanent failure by design (decision 7.2)",
+  "recoveryAction": "none by hand: SQS moves the message to the dead-letter queue after maxReceiveCount (5) receives; the worker keeps processing valid tasks",
+  "dataIntegrityAssessment": "the poison names no existing index, so nothing is written for it; the valid task rewrites one existing vector under its existing key and metadata (storage design, decision 6.3); this tool checks only the completion record presence",
+  "followUpOwner": "experiment-engineer (analysis, D16); rag-engineer or service-engineer for any part not seen",
+  "preventiveTestOrControl": "dead-letter queue with maxReceiveCount, the DLQ alarm, the release-at-once rule for permanent failures (decision 7.2), the completion record (decision 6.3) and the ReembedSuite unit tests",
+  "observation": {
+    "part1_poison": "seen: DLQ count baseline + 1 and the poison taskId read back from the DLQ (never deleted)",
+    "part2_replay": "seen: worker log 'processed', then after the second send 'replayed'",
+    "part3_api": "statuses first=200/absent replay=200/true conflict=409/absent (expected: first 200, replay 200 with Idempotent-Replayed true, conflict 409 IDEMPOTENCY_CONFLICT)",
+    "recovery": "embedding in flight back to 0: yes; DLQ alarm ALARM: yes; valid task processed while the poison was retried: yes (sent right after the poison)"
+  }
+}

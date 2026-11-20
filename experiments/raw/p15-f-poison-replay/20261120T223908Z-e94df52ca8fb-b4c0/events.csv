@@ -1,0 +1,16 @@
+epoch_s,part,source,event,task_id,outcome,code
+1795214360,poison,collector,sent,p15-f-poison-20261120T223908Z-e94df52ca8fb-b4c0,sent,
+1795214361,replay,collector,sent,p15-f-replay-20261120T223908Z-e94df52ca8fb-b4c0,sent,
+1795214517,poison,sqs,dlq-count,p15-f-poison-20261120T223908Z-e94df52ca8fb-b4c0,dlq-count-baseline-plus-1,visible=1
+1795214518,poison,sqs,dlq-receive,p15-f-poison-20261120T223908Z-e94df52ca8fb-b4c0,dlq-received,
+1795214518,replay,collector,wait-start-processed,p15-f-replay-20261120T223908Z-e94df52ca8fb-b4c0,waiting,limit=720s;deadline=1795215238
+1795214507,replay,worker-log,delivery,p15-f-replay-20261120T223908Z-e94df52ca8fb-b4c0,processed,
+1795214520,replay,completion-record,present,p15-f-replay-20261120T223908Z-e94df52ca8fb-b4c0,processed,completedAt=1795214506
+1795214521,replay,collector,sent-again,p15-f-replay-20261120T223908Z-e94df52ca8fb-b4c0,sent,
+1795214521,replay,collector,wait-start-replayed,p15-f-replay-20261120T223908Z-e94df52ca8fb-b4c0,waiting,limit=720s;deadline=1795215241
+1795214521,replay,worker-log,delivery,p15-f-replay-20261120T223908Z-e94df52ca8fb-b4c0,replayed,
+1795214561,api,api,first,,200,curl=0;t=16.818916;error=-;Idempotent-Replayed=absent;-
+1795214562,api,api,replay,,200,curl=0;t=0.177250;error=-;Idempotent-Replayed=true;same-query-id
+1795214563,api,api,conflict,,409,curl=0;t=0.154017;error=IDEMPOTENCY_CONFLICT;Idempotent-Replayed=absent;-
+1795214565,recovery,sqs,embedding-empty,,in-flight-0,
+1795214690,recovery,cloudwatch,dlq-alarm,,ALARM,
