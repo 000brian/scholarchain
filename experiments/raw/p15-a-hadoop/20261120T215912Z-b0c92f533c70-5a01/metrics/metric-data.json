@@ -1,0 +1,60 @@
+{
+    "MetricDataResults": [
+        {
+            "Id": "m13_0",
+            "Label": "AWS/States ExecutionsStarted Sum StateMachineArn={state-machine-arn}",
+            "Timestamps": [
+                "2026-11-20T15:59:00-06:00"
+            ],
+            "Values": [
+                1.0
+            ],
+            "StatusCode": "Complete"
+        },
+        {
+            "Id": "m14_0",
+            "Label": "AWS/States ExecutionsSucceeded Sum StateMachineArn={state-machine-arn}",
+            "Timestamps": [
+                "2026-11-20T15:59:00-06:00"
+            ],
+            "Values": [
+                0.0
+            ],
+            "StatusCode": "Complete"
+        },
+        {
+            "Id": "m15_0",
+            "Label": "AWS/States ExecutionsFailed Sum StateMachineArn={state-machine-arn}",
+            "Timestamps": [
+                "2026-11-20T15:59:00-06:00"
+            ],
+            "Values": [
+                1.0
+            ],
+            "StatusCode": "Complete"
+        },
+        {
+            "Id": "m16_0",
+            "Label": "AWS/States ExecutionsTimedOut Sum StateMachineArn={state-machine-arn}",
+            "Timestamps": [
+                "2026-11-20T15:59:00-06:00"
+            ],
+            "Values": [
+                0.0
+            ],
+            "StatusCode": "Complete"
+        },
+        {
+            "Id": "m17_0",
+            "Label": "AWS/States ExecutionTime Maximum StateMachineArn={state-machine-arn}",
+            "Timestamps": [
+                "2026-11-20T15:59:00-06:00"
+            ],
+            "Values": [
+                269.0
+            ],
+            "StatusCode": "Complete"
+        }
+    ],
+    "Messages": []
+}

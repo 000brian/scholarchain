@@ -1,0 +1,15 @@
+epoch_s,event_type,state_name
+1795211958,ExecutionStarted,
+1795211958,PassStateEntered,ReadInput
+1795211958,PassStateExited,ReadInput
+1795211958,ChoiceStateEntered,ExportInputCheck
+1795211958,ChoiceStateExited,ExportInputCheck
+1795211958,ChoiceStateEntered,HadoopRequested
+1795211958,ChoiceStateExited,HadoopRequested
+1795211958,TaskStateEntered,CreateHadoopCluster
+1795211958,TaskScheduled,
+1795211958,TaskStarted,
+1795211958,TaskFailed,
+1795211959,TaskStateExited,CreateHadoopCluster
+1795211959,FailStateEntered,FailPipeline
+1795211959,ExecutionFailed,

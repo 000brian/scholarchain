@@ -1,0 +1,36 @@
+STEP: ab-pipeline.sh prerequisites
+INFO: ab-pipeline.sh tool sha256 725cebaef196851384649336f1edfe51579eebddcb521dbe235033e635f176a6; attempt 20261120T215912Z-b0c92f533c70-5a01; preflight false
+STEP: ab-pipeline.sh out-dir
+STEP: ab-pipeline.sh terraform-outputs
+INFO: ab-pipeline.sh terraform outputs read (values kept in memory, not shown)
+STEP: ab-pipeline.sh pipeline
+STEP: run-bounded-pipeline.sh prerequisites
+STEP: run-bounded-pipeline.sh clean-tree
+INFO: run-bounded-pipeline.sh HEAD b0c92f533c7026262574373257b0e534f201541d; code version (build commit) 684636ef997ee041912e2b57d1c597ded8e9778d
+STEP: run-bounded-pipeline.sh terraform-outputs
+INFO: run-bounded-pipeline.sh account ********2972, Region us-east-1, data-lake bucket <data-bucket> (from terraform output)
+STEP: run-bounded-pipeline.sh record
+ATTEMPT: 20261120T215916Z-b0c92f533c70-c950
+STEP: run-bounded-pipeline.sh hadoop-inputs
+INPUT: {"codeVersion":"684636ef997ee041912e2b57d1c597ded8e9778d","hadoop":{"jar":"s3://{data-bucket}/artifacts/684636ef997ee041912e2b57d1c597ded8e9778d/jars/hadoop.jar","output":"s3://{data-bucket}/curated/hadoop-p15/20261120T215912Z-b0c92f533c70-5a01","dblp":"s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp-2026-11-01.xml.gz","dblpSnapshot":"dblp-2026-11-01","extraArgs":["--dblp-dtd","s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp.dtd"]},"cluster":{"managedScalingMaxUnits":2}}
+STEP: run-bounded-pipeline.sh start-execution
+EXECUTION: name=20261120T215916Z-b0c92f533c70-c950-hadoop started=2026-11-20T15:59:18.767000-06:00
+STEP: run-bounded-pipeline.sh wait-execution
+POLL: name=20261120T215916Z-b0c92f533c70-c950-hadoop status=FAILED elapsed_wait=1s
+STEP: run-bounded-pipeline.sh execution-result
+INFO: run-bounded-pipeline.sh EMR clusters of this execution: 
+RESULT-STATUS: FAILED
+RESULT-ERROR: EMR.AmazonElasticMapReduceException
+RESULT-CAUSE: Invalid configuration for managed scaling. The specified max capacity must be greater than min capacity. (Service: AmazonElasticMapReduce; Status Code: 400; Error Code: ValidationException; Request ID: 2790ff2a-4542-462d-bbb6-1b9328789d39; Proxy: null)
+ERROR: run-bounded-pipeline.sh step=execution-result exit=6: execution 20261120T215916Z-b0c92f533c70-c950-hadoop ended FAILED; check for clusters tagged project=scholarchain that are still running
+RUN-RECORD: evidence/runs/20261120T215916Z-b0c92f533c70-c950-hadoop.json
+RESULT: run-bounded-pipeline.sh failed exit=6 step=execution-result
+INFO: ab-pipeline.sh the pipeline ended with exit 6
+STEP: ab-pipeline.sh nested-record
+INFO: ab-pipeline.sh nested record evidence/runs/20261120T215916Z-b0c92f533c70-c950-hadoop.json (status failed)
+STEP: ab-pipeline.sh sfn-history
+STEP: ab-pipeline.sh emr
+STEP: ab-pipeline.sh hadoop-job-records
+STEP: ab-pipeline.sh hadoop-step-logs
+STEP: ab-pipeline.sh checklist
+RESULT: ab-pipeline.sh failed exit=6 step=checklist

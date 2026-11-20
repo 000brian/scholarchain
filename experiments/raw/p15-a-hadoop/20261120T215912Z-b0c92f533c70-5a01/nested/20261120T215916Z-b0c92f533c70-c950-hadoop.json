@@ -1,0 +1,59 @@
+{
+  "kind": "scholarchain-pipeline-run-record",
+  "version": 1,
+  "status": "failed",
+  "attempt_id": "20261120T215916Z-b0c92f533c70-c950",
+  "stage": "hadoop",
+  "head": "b0c92f533c7026262574373257b0e534f201541d",
+  "build_commit": "684636ef997ee041912e2b57d1c597ded8e9778d",
+  "code_version": "684636ef997ee041912e2b57d1c597ded8e9778d",
+  "dataset_snapshot": "dblp-2026-11-01",
+  "region": "us-east-1",
+  "started_utc": "2026-11-20T21:59:16Z",
+  "ended_utc": "2026-11-20T21:59:20Z",
+  "exit_code": 6,
+  "failed_step": "execution-result",
+  "signal": null,
+  "inputs": {
+    "dblp_sha256": "0376ad019b216553faff0a14e1757b2d4c7a3b84c1beacf0511ef83695211b18",
+    "execution_input": {
+      "codeVersion": "684636ef997ee041912e2b57d1c597ded8e9778d",
+      "hadoop": {
+        "jar": "s3://{data-bucket}/artifacts/684636ef997ee041912e2b57d1c597ded8e9778d/jars/hadoop.jar",
+        "output": "s3://{data-bucket}/curated/hadoop-p15/20261120T215912Z-b0c92f533c70-5a01",
+        "dblp": "s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp-2026-11-01.xml.gz",
+        "dblpSnapshot": "dblp-2026-11-01",
+        "extraArgs": [
+          "--dblp-dtd",
+          "s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp.dtd"
+        ]
+      },
+      "cluster": {
+        "managedScalingMaxUnits": 2
+      }
+    }
+  },
+  "outputs": {
+    "execution_status": "FAILED"
+  },
+  "run_ids": {
+    "execution_name": "20261120T215916Z-b0c92f533c70-c950-hadoop",
+    "emr_cluster_ids": []
+  },
+  "configuration": {
+    "file": null,
+    "sha256": null,
+    "note": "the Hadoop jobs use their built-in defaults plus -D scholarchain.code.version and the driver options in extra_args (for example --dblp-dtd, which sets scholarchain.dblp.dtdPath)",
+    "extra_args": [
+      "--dblp-dtd",
+      "s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp.dtd"
+    ],
+    "execution_settings": {
+      "emr_max_units": 2,
+      "spark_shuffle_partitions": null,
+      "note": "null = absent from the execution input: the state machine uses its defaults (the Terraform managed-scaling maximum; 32 shuffle partitions)"
+    }
+  },
+  "uploaded_keys": [],
+  "result": "failed"
+}

@@ -1,0 +1,118 @@
+{
+  "kind": "scholarchain-experiment-run-record",
+  "version": 1,
+  "status": "failed",
+  "attempt_id": "20261120T215912Z-b0c92f533c70-5a01",
+  "exit_code": 5,
+  "failed_step": "action-result",
+  "signal": null,
+  "head": "b0c92f533c7026262574373257b0e534f201541d",
+  "build_commit": "684636ef997ee041912e2b57d1c597ded8e9778d",
+  "region": "us-east-1",
+  "manifest": {
+    "path": "experiments/manifests/p15-a-hadoop.json",
+    "manifest_id": "p15-a-hadoop",
+    "sha256": "1254a11cd8431bfdf41b0549edca9f62adf622a5c13858ee7e469be4fa0488d8",
+    "experiment": "A",
+    "dataset_snapshot": "dblp-2026-11-01 (DBLP XML with dblp.dtd), subset rule dblp-subset-v1 (datasets/dataset-manifest.yaml)"
+  },
+  "declared_not_enforced": {
+    "costBoundUsd": 2.5,
+    "maxDurationSeconds": 18600,
+    "resourceLimits": {
+      "emrManagedScalingMinUnits": 2,
+      "emrManagedScalingMaxUnits": 2,
+      "ecsMaxTasks": 0,
+      "emrUnitType": "Instances (core nodes; the primary node is outside the limits)",
+      "pipelineWaitTimeoutSeconds": 14700,
+      "stateMachineTimeoutSeconds": 14400,
+      "emrIdleTimeoutSeconds": 900,
+      "terraformSource": "infra/terraform/environments/course/variables.tf (emr_managed_scaling_min_units 2, emr_managed_scaling_max_units 4); execution-input field cluster.managedScalingMaxUnits resolved and bounded in state ReadInput (infra/terraform/modules/workflow/sfn.tf); infra/terraform/modules/workflow/variables.tf (pipeline_timeout_seconds 14400); infra/terraform/modules/emr/variables.tf (idle_timeout_seconds)"
+    }
+  },
+  "started_utc": "2026-11-20T21:59:12Z",
+  "ended_utc": "2026-11-20T22:04:22Z",
+  "metrics_export_of": null,
+  "action": {
+    "kind": "command",
+    "path": "experiments/collectors/ab-pipeline.sh",
+    "args": [
+      "--stage",
+      "hadoop",
+      "--snapshot",
+      "dblp-2026-11-01",
+      "--dblp",
+      "s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp-2026-11-01.xml.gz",
+      "--hadoop-extra-arg",
+      "--dblp-dtd",
+      "--hadoop-extra-arg",
+      "s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp.dtd",
+      "--hadoop-output",
+      "s3://{data-bucket}/curated/hadoop-p15/{attempt-id}",
+      "--emr-max-units",
+      "2",
+      "--wait-timeout",
+      "14700"
+    ],
+    "resolved_args": [
+      "--stage",
+      "hadoop",
+      "--snapshot",
+      "dblp-2026-11-01",
+      "--dblp",
+      "s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp-2026-11-01.xml.gz",
+      "--hadoop-extra-arg",
+      "--dblp-dtd",
+      "--hadoop-extra-arg",
+      "s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp.dtd",
+      "--hadoop-output",
+      "s3://{data-bucket}/curated/hadoop-p15/20261120T215912Z-b0c92f533c70-5a01",
+      "--emr-max-units",
+      "2",
+      "--wait-timeout",
+      "14700"
+    ],
+    "run": true,
+    "exit_code": 6,
+    "window_epoch": {
+      "start": 1795211953,
+      "end": 1795211961
+    }
+  },
+  "nested_run_records": [
+    {
+      "path": "evidence/runs/20261120T215916Z-b0c92f533c70-c950-hadoop.json",
+      "copy": "nested/20261120T215916Z-b0c92f533c70-c950-hadoop.json",
+      "sha256": "f4c760253e6ee5c1f60509e0939844e9874fb9bb62ac4a786ce1b654106a9ced"
+    }
+  ],
+  "remote_ids": {
+    "execution_names": [
+      "20261120T215916Z-b0c92f533c70-c950-hadoop"
+    ],
+    "emr_cluster_ids": []
+  },
+  "metrics": {
+    "status": "partial",
+    "files": [
+      "experiments/raw/p15-a-hadoop/20261120T215912Z-b0c92f533c70-5a01/metrics/queries.json",
+      "experiments/raw/p15-a-hadoop/20261120T215912Z-b0c92f533c70-5a01/metrics/metric-data.json"
+    ],
+    "unresolved": [
+      "AWS/ElasticMapReduce CoreNodesRequested Maximum JobFlowId={emr-cluster-id}",
+      "AWS/ElasticMapReduce CoreNodesRunning Maximum JobFlowId={emr-cluster-id}",
+      "AWS/ElasticMapReduce CoreNodesPending Maximum JobFlowId={emr-cluster-id}",
+      "AWS/ElasticMapReduce TotalNodesRequested Maximum JobFlowId={emr-cluster-id}",
+      "AWS/ElasticMapReduce TotalNodesRunning Maximum JobFlowId={emr-cluster-id}",
+      "AWS/ElasticMapReduce TaskNodesRequested Maximum JobFlowId={emr-cluster-id}",
+      "AWS/ElasticMapReduce TaskNodesRunning Maximum JobFlowId={emr-cluster-id}",
+      "AWS/ElasticMapReduce ContainerPending Maximum JobFlowId={emr-cluster-id}",
+      "AWS/ElasticMapReduce ContainerPendingRatio Maximum JobFlowId={emr-cluster-id}",
+      "AWS/ElasticMapReduce ContainerAllocated Maximum JobFlowId={emr-cluster-id}",
+      "AWS/ElasticMapReduce AppsPending Maximum JobFlowId={emr-cluster-id}",
+      "AWS/ElasticMapReduce AppsRunning Maximum JobFlowId={emr-cluster-id}",
+      "AWS/ElasticMapReduce YARNMemoryAvailablePercentage Minimum JobFlowId={emr-cluster-id}"
+    ]
+  },
+  "raw_results_location": "experiments/raw/p15-a-hadoop/20261120T215912Z-b0c92f533c70-5a01"
+}
