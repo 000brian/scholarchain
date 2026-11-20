@@ -1,0 +1,20 @@
+af140ce0d9545ae1ef6fc4061d2407007cf45a23 phase-14: approve runtime-off plan attempt 2 (6d4a629c) after Neptune KMS error
+c4fbf62b8c49aded064b89fc6b26ef7aa4f073d5 phase-14 step F (factory-engineer): infra-engineer terraform grant search_provider_docs, aws-docs read_sections
+e78bb100b11ca8eb8092c27de4573f660875e18d phase-14 session 2: B-04, DBLP DTD driver option, C-06/C-07, I-29 dashboard, I-25/I-26/I-28, README runbook; reports; session 3 prompt
+1f9a20e8bc950c2be5d2565697263943284a95c9 phase-14 session 3 D-ER: --upload identity-assignments-only for --stage er (G-01); drop yAxis from dashboard widget 7 expression (G-02); reports
+39af6e4d0c51416886263a48fd2855e684a42db0 phase-14: approve runtime-off plan attempt 3 (a865a94d), dashboard only
+907aa5accae2d629f7c2e98d6620d49a0ccff4ff phase-14 D0a: release record, runtime-off attempt 3 (plan a865a94d)
+5c4cfb001227c25f1b9d7569b47159c0428e798d phase-14 D3: cost bound $8 across AWS, Anthropic and Voyage
+169680c062212b84610167295d9100e692627e2d phase-14 D5 repair G-07: multipart upload for large files in run-bounded-pipeline.sh (upload-input and er); reports
+24f7d84660692a9589c913a93277030f9e60b8b6 phase-14 D6 repair G-12: bash 3.2-safe literal replacement for --hadoop-extra-arg in run-bounded-pipeline.sh; reports
+b15dc789980e0347ff82323d53bdfca1ec20a4c4 phase-14 D6 repair G-14: allow elasticmapreduce:AddTags on project clusters for the pipeline state machine role and the role boundary; reports
+b925bc4ac306d749dd968816e51b573a5bc62a73 phase-14: approve runtime-off plan attempt 4 (5c77365f), G-14 IAM updates
+24f19d4d5426f8dfcb357aad2eb5514339c10750 phase-14 G-14: release record, runtime-off attempt 4 (plan 5c77365f)
+f159535e498ad1a4504dad1fac0a3fb6ceee14e6 phase-14 D6 repair G-17: Hadoop blocking defaults equal Phase 5 evaluated settings (maxBlockSize 200, fallback 200, skipSameNumberedName true); contract tests; reports
+20e79f356209b7ed73337a132c5057747a266a61 phase-14 D8 repair G-21: Spark driver memory 6g, shuffle partitions 32 and UI retention for both spark-submit steps; reports
+cf28e28596c1156fcaa68f5df50518a62cc23996 phase-14: approve runtime-off plan attempt 5 (61957631), G-21 Spark step options
+ba345f8d576c253900b2e640be69542b42c6d473 phase-14 G-21: release record, runtime-off attempt 5 (plan 61957631)
+1671968490871c19b52673fc1c0f72deef99d946 phase-14 D10: approve runtime-on plan 5656145e
+d8de940448b2092e8924c9552d8ae92df8ae251f phase-14 D11: release record, runtime-on (plan 5656145e)
+b39e1ed5b7855158b87e979624bb9c43b7a2fcc8 phase-14 D13a repair G-24: load-stage overrides built one jq --arg per word; reports
+56801c5fa81bf21a85bf1b5f82e255ef87323265 phase-14 session 3: runbook log, deployment report, summary
