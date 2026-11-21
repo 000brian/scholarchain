@@ -1,0 +1,56 @@
+{
+  "kind": "scholarchain-release",
+  "version": 2,
+  "environment": "course",
+  "attempt_id": "20261121T052512Z-ebcbc03a90bd-01a4",
+  "commit": "ebcbc03a90bd85f087bce4d0b81d8192da696003",
+  "head": "ebcbc03a90bd85f087bce4d0b81d8192da696003",
+  "plan_commit": "d872d120d404271f4371c1aed49959534617766a",
+  "build_commit": "684636ef997ee041912e2b57d1c597ded8e9778d",
+  "plan_id": "20261121T045100Z-d872d120d404-f91a",
+  "plan_sha256": "71fe907167a22d8e83c806fcc02b044670e0dda8275561c73be2dfca66041fbd",
+  "region": "us-east-1",
+  "applied_utc": "2026-11-21T05:25:12Z",
+  "runtime_enabled": false,
+  "image": {
+    "repository": "scholarchain-course-services",
+    "tag": null,
+    "digest": null
+  },
+  "ecs_cluster": "scholarchain-course-runtime",
+  "services": {
+    "query": {
+      "task_definition": "scholarchain-course-query:4",
+      "previous_task_definition": "scholarchain-course-query:3",
+      "desired_count": 0,
+      "running_count": 0,
+      "image_tag": "placeholder-runtime-disabled",
+      "digest_check": "not-applicable (runtime off, no task runs)"
+    },
+    "evidence": {
+      "task_definition": "scholarchain-course-evidence:4",
+      "previous_task_definition": "scholarchain-course-evidence:3",
+      "desired_count": 0,
+      "running_count": 0,
+      "image_tag": "placeholder-runtime-disabled",
+      "digest_check": "not-applicable (runtime off, no task runs)"
+    },
+    "graph": {
+      "task_definition": "scholarchain-course-graph:4",
+      "previous_task_definition": "scholarchain-course-graph:3",
+      "desired_count": 0,
+      "running_count": 0,
+      "image_tag": "placeholder-runtime-disabled",
+      "digest_check": "not-applicable (runtime off, no task runs)"
+    },
+    "worker": {
+      "task_definition": "scholarchain-course-worker:4",
+      "previous_task_definition": "scholarchain-course-worker:3",
+      "desired_count": 0,
+      "running_count": 0,
+      "image_tag": "placeholder-runtime-disabled",
+      "digest_check": "not-applicable (runtime off, no task runs)"
+    }
+  },
+  "verified": true
+}
