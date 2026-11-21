@@ -1,0 +1,16 @@
+diff --git a/scripts/cleanup.sh b/scripts/cleanup.sh
+index 3e5260f..479ffa8 100644
+--- a/scripts/cleanup.sh
++++ b/scripts/cleanup.sh
+@@ -359,7 +359,10 @@ read_outputs() {
+   info "account $(mask_account "${ACCOUNT_ID}"), Region ${EXPECTED_REGION}, profile ${AWS_PROFILE:-<default credential chain>} (use the human's own administrator profile, I-08)"
+ }
+ 
+-out() { jq -r --arg k "$1" '.[$k].value // empty' <<<"${OUTPUTS}"; }
++# out NAME: prints the value of terraform output NAME, or nothing when the
++# output is missing or null. Not `// empty`: jq's `//` also drops boolean
++# false, so `out runtime_enabled` printed "" for false (L-11, D27).
++out() { jq -r --arg k "$1" '.[$k].value | if . == null then empty else . end' <<<"${OUTPUTS}"; }
+ 
+ check_reports_archived() {
+   step "reports-archived"
