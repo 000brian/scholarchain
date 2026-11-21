@@ -1,0 +1,71 @@
+STEP: d-load.sh prerequisites
+INFO: d-load.sh tool sha256 8932309cdf2344fc5f09820aedc1ae4d6651e9bd226a958284dd060936802230; attempt 20261121T001529Z-abe4764a8293-b3f0; preflight false
+STEP: d-load.sh out-dir
+STEP: d-load.sh terraform-outputs
+INFO: d-load.sh terraform outputs read (values kept in memory, not shown)
+STEP: d-load.sh names
+STEP: d-load.sh load
+STEP: query-load.sh prerequisites
+STEP: query-load.sh key
+INFO: query-load.sh SCHOLARCHAIN_SERVICE_API_KEY is set (value not shown)
+STEP: query-load.sh list
+INFO: query-load.sh list load-tests/read-ids-d.txt: 29 IDs (neighbors 26, evidence 3); sha256 2629832c8cee319d852133d0eb92fddbe18f655c8f3ac95dcd712b6736fd1b00
+STEP: query-load.sh out-dir
+STEP: query-load.sh api-url
+INFO: query-load.sh API address read from terraform output (not shown)
+STEP: query-load.sh readiness
+READY: try=1 healthz=yes readyz=yes readyz_status=200
+STEP: query-load.sh id-check
+ID-CHECK: neighbors researcher:v1:fe1177235d9a724607da7e9700d133c4 status=200 class=ok
+ID-CHECK: evidence evidence:v1:770b25637f1c47a3bddcfcb77fcb264d status=200 class=ok
+ID-CHECK: neighbors researcher:v1:5d6029542b54c1717977ae66c695e403 status=200 class=ok
+ID-CHECK: neighbors researcher:v1:35fd7b17be0e5be647b62ad6410c70e8 status=200 class=ok
+ID-CHECK: neighbors researcher:v1:00b7c1b012cd8743bbfbfc97c7f79ea7 status=200 class=ok
+ID-CHECK: neighbors work:v1:daa83d005f1e6313587b1f3d3c65c243 status=200 class=ok
+ID-CHECK: neighbors researcher:v1:00e8ad347ecd63cf1834a0df916a41b3 status=200 class=ok
+ID-CHECK: neighbors researcher:v1:00fff3380b298f171cb4526fb7bbd471 status=200 class=ok
+ID-CHECK: neighbors researcher:v1:03c6a0f4c90cef885532de6a7920e497 status=200 class=ok
+ID-CHECK: evidence evidence:v1:9ce97848a46b05fb17d43390392ab115 status=200 class=ok
+ID-CHECK: neighbors researcher:v1:4fc0d2e6fcd1968992095c0a7103298b status=200 class=ok
+ID-CHECK: neighbors researcher:v1:c4c4d999ebf6b15b63913d24bcfc4971 status=200 class=ok
+ID-CHECK: neighbors researcher:v1:df6166236603a3e56028f86b2f9c5c93 status=200 class=ok
+ID-CHECK: neighbors work:v1:4c070d032cb054efdeeed40a84ff9f08 status=200 class=ok
+ID-CHECK: neighbors researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7 status=200 class=ok
+ID-CHECK: neighbors researcher:v1:00045316553446e1122b19fba5b0d1f5 status=200 class=ok
+ID-CHECK: neighbors researcher:v1:32ad9abca8538109a54a81cef181dd6d status=200 class=ok
+ID-CHECK: evidence evidence:v1:770b25637f1c47a3bddcfcb77fcb264d status=200 class=ok
+ID-CHECK: neighbors researcher:v1:002a3ae503bdb566079cc2fab5b0d63e status=200 class=ok
+ID-CHECK: neighbors researcher:v1:0574994137251083fe63869197dcac40 status=200 class=ok
+ID-CHECK: neighbors researcher:v1:21a1b7de436b7edbfbbcc30dc8a90c62 status=200 class=ok
+ID-CHECK: neighbors work:v1:95b5fdb1342e9c4cb5879aefb494cfda status=200 class=ok
+ID-CHECK: neighbors researcher:v1:00041d0bb12ab717db10a1023e2b5792 status=200 class=ok
+ID-CHECK: neighbors researcher:v1:c8e08951bf2e63c585e77de4a76470e3 status=200 class=ok
+ID-CHECK: neighbors researcher:v1:0b483e06c74206594317cf2cd77e891f status=200 class=ok
+ID-CHECK: neighbors researcher:v1:2f7616b9db394715ad95e793f6dfc1c7 status=200 class=ok
+ID-CHECK: neighbors researcher:v1:e77f23197793ad5a0801b6207fc6d22b status=200 class=ok
+ID-CHECK: neighbors researcher:v1:98afa40ff5b2ad6f93f88f88bcb702a0 status=200 class=ok
+ID-CHECK: neighbors researcher:v1:2dd100a916bcbf343384359301697d00 status=200 class=ok
+ID-CHECK-SUMMARY: ids=29 answered_200=29 other=0
+STEP: query-load.sh level-1
+INFO: query-load.sh level 1: 1 client(s), 120 s or 600 requests, whichever comes first
+LEVEL-SUMMARY: mode=read level=1 clients=1 stop=duration wall_s=120 attempted=451 completed=451 completed_per_s=3.758 untimed=0 classes: ok=451 
+LEVEL-SUMMARY: level=1 all(n=451,ok) p50=0.197880 p95=0.306821 p99=0.455094 s; ok(n=451,ok) p50=0.197880 p95=0.306821 p99=0.455094 s
+INFO: query-load.sh pause 60 s
+STEP: query-load.sh level-2
+INFO: query-load.sh level 2: 5 client(s), 120 s or 600 requests, whichever comes first
+LEVEL-SUMMARY: mode=read level=2 clients=5 stop=cap wall_s=24 attempted=600 completed=600 completed_per_s=25.000 untimed=0 classes: throttled=397 overloaded=166 other-5xx=3 ok=34 
+LEVEL-SUMMARY: level=2 all(n=600,ok) p50=0.139489 p95=0.185978 p99=0.282091 s; ok(n=34,ok) p50=0.160572 p95=0.394023 p99=0.396832 s
+INFO: query-load.sh pause 60 s
+STEP: query-load.sh level-3
+INFO: query-load.sh level 3: 10 client(s), 120 s or 600 requests, whichever comes first
+LEVEL-SUMMARY: mode=read level=3 clients=10 stop=cap wall_s=13 attempted=600 completed=600 completed_per_s=46.154 untimed=0 classes: throttled=356 overloaded=203 other-5xx=7 ok=34 
+LEVEL-SUMMARY: level=3 all(n=600,ok) p50=0.138102 p95=0.191022 p99=0.277795 s; ok(n=34,ok) p50=0.159704 p95=0.342423 p99=0.381735 s
+INFO: query-load.sh pause 60 s
+STEP: query-load.sh level-4
+INFO: query-load.sh level 4: 20 client(s), 120 s or 600 requests, whichever comes first
+LEVEL-SUMMARY: mode=read level=4 clients=20 stop=cap wall_s=10 attempted=600 completed=600 completed_per_s=60.000 untimed=0 classes: throttled=375 overloaded=157 other-5xx=18 ok=50 
+LEVEL-SUMMARY: level=4 all(n=600,ok) p50=0.152342 p95=0.279558 p99=0.541297 s; ok(n=50,ok) p50=0.205980 p95=0.504692 p99=0.623298 s
+STEP: query-load.sh done
+RESULT: query-load.sh ok
+STEP: d-load.sh after-load
+RESULT: d-load.sh ok

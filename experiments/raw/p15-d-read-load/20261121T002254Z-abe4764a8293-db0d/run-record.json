@@ -1,0 +1,86 @@
+{
+  "kind": "scholarchain-experiment-run-record",
+  "version": 1,
+  "status": "failed",
+  "attempt_id": "20261121T002254Z-abe4764a8293-db0d",
+  "exit_code": 5,
+  "failed_step": "metrics-settle",
+  "signal": "INT",
+  "head": "abe4764a8293041023088dfaf4a02a538e88158c",
+  "build_commit": "684636ef997ee041912e2b57d1c597ded8e9778d",
+  "region": "us-east-1",
+  "manifest": {
+    "path": "experiments/manifests/p15-d-read-load.json",
+    "manifest_id": "p15-d-read-load",
+    "sha256": "d851716dfbcd909f96a4b5e5be67d88a85206de67f9e74478b020825c7ce3070",
+    "experiment": "D",
+    "dataset_snapshot": "dblp-2026-11-01 (DBLP XML with dblp.dtd), subset rule dblp-subset-v1 (datasets/dataset-manifest.yaml); the Phase 14 graph run:v1:f2625d504b12749389cf4f5b1a26aed4 in Neptune and DynamoDB"
+  },
+  "declared_not_enforced": {
+    "costBoundUsd": 0.2,
+    "maxDurationSeconds": 2400,
+    "resourceLimits": {
+      "clientConcurrencyLevels": [
+        1,
+        5,
+        10,
+        20
+      ],
+      "maxRequests": 2400,
+      "maxRequestsPerLevel": 600,
+      "levelSeconds": 120,
+      "ecsMaxTasks": 2,
+      "apiThrottleRatePerSecond": 5,
+      "apiThrottleBurst": 10,
+      "terraformSource": "infra/terraform/environments/course (api_throttling_rate_limit 5, api_throttling_burst_limit 10; decision 3); infra/terraform/modules/runtime/autoscaling.tf (evidence and graph CPU target tracking, max service_max_count 2); hard caps in load-tests/query-load.sh (600 requests per level, at most 20 clients)"
+    }
+  },
+  "started_utc": "2026-11-21T00:22:54Z",
+  "ended_utc": "2026-11-21T00:23:09Z",
+  "metrics_export_of": null,
+  "action": {
+    "kind": "command",
+    "path": "experiments/collectors/d-load.sh",
+    "args": [
+      "--mode",
+      "read",
+      "--levels",
+      "1,5,10,20",
+      "--level-seconds",
+      "120",
+      "--max-requests-per-level",
+      "600",
+      "--pause-seconds",
+      "60"
+    ],
+    "resolved_args": [
+      "--mode",
+      "read",
+      "--levels",
+      "1,5,10,20",
+      "--level-seconds",
+      "120",
+      "--max-requests-per-level",
+      "600",
+      "--pause-seconds",
+      "60"
+    ],
+    "run": true,
+    "exit_code": 3,
+    "window_epoch": {
+      "start": 1795220575,
+      "end": 1795220578
+    }
+  },
+  "nested_run_records": [],
+  "remote_ids": {
+    "execution_names": [],
+    "emr_cluster_ids": []
+  },
+  "metrics": {
+    "status": "not-run",
+    "files": [],
+    "unresolved": []
+  },
+  "raw_results_location": "experiments/raw/p15-d-read-load/20261121T002254Z-abe4764a8293-db0d"
+}

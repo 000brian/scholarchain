@@ -1,0 +1,109 @@
+{
+  "kind": "scholarchain-load-tool-record",
+  "version": 1,
+  "tool": "load-tests/query-load.sh",
+  "tool_sha256": "05b255ad4e0a1489790c019a88081872e8d8a61ef790d843d10859cf70488612",
+  "mode": "read",
+  "arguments": [
+    "--mode",
+    "read",
+    "--levels",
+    "1,5,10,20",
+    "--level-seconds",
+    "120",
+    "--max-requests-per-level",
+    "600",
+    "--pause-seconds",
+    "60"
+  ],
+  "limits": {
+    "levels": "1,5,10,20",
+    "level_seconds": 120,
+    "max_requests_per_level": 600,
+    "pause_seconds": 60,
+    "curl_max_time_s": 15,
+    "hard_caps": {
+      "query": 60,
+      "read": 600,
+      "query_clients": 8,
+      "read_clients": 20
+    },
+    "explain_phase_seconds": 150
+  },
+  "list": {
+    "path": "load-tests/read-ids-d.txt",
+    "sha256": "2629832c8cee319d852133d0eb92fddbe18f655c8f3ac95dcd712b6736fd1b00",
+    "entries": 29
+  },
+  "attempt_id": "20261121T001529Z-abe4764a8293-b3f0",
+  "manifest_id": "p15-d-read-load",
+  "start_epoch_s": 1795220131,
+  "end_epoch_s": 1795220500,
+  "status": "completed",
+  "exit_code": 0,
+  "success_class": "ok",
+  "percentile_method": "nearest rank: value at rank ceil(p/100*n) of the sorted curl time_total values",
+  "explain_stage_keys": [
+    "planner",
+    "plannerFallback",
+    "resolver",
+    "metrics",
+    "paths",
+    "community",
+    "semantic",
+    "evidence",
+    "identity",
+    "synthesis",
+    "synthesisFallback",
+    "verification"
+  ],
+  "per_level": [
+    {
+      "level": 1,
+      "clients": 1,
+      "attempted": 451,
+      "completed": 451,
+      "stop": "duration",
+      "start_epoch_s": 1795220152,
+      "end_epoch_s": 1795220272
+    },
+    {
+      "level": 2,
+      "clients": 5,
+      "attempted": 600,
+      "completed": 600,
+      "stop": "cap",
+      "start_epoch_s": 1795220332,
+      "end_epoch_s": 1795220356
+    },
+    {
+      "level": 3,
+      "clients": 10,
+      "attempted": 600,
+      "completed": 600,
+      "stop": "cap",
+      "start_epoch_s": 1795220416,
+      "end_epoch_s": 1795220429
+    },
+    {
+      "level": 4,
+      "clients": 20,
+      "attempted": 600,
+      "completed": 600,
+      "stop": "cap",
+      "start_epoch_s": 1795220489,
+      "end_epoch_s": 1795220499
+    }
+  ],
+  "errors": [],
+  "files": [
+    "load-requests.csv",
+    "id-check.csv",
+    "load-levels.csv",
+    "load-clock.csv"
+  ],
+  "evidence": {
+    "requests": "recorded",
+    "clock": "recorded"
+  }
+}

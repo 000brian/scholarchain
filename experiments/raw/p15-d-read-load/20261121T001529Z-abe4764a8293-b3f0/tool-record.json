@@ -1,0 +1,55 @@
+{
+  "kind": "scholarchain-collector-tool-record",
+  "version": 1,
+  "tool": "d-load.sh",
+  "tool_path": "experiments/collectors/d-load.sh",
+  "tool_sha256": "8932309cdf2344fc5f09820aedc1ae4d6651e9bd226a958284dd060936802230",
+  "arguments": [
+    "--mode",
+    "read",
+    "--levels",
+    "1,5,10,20",
+    "--level-seconds",
+    "120",
+    "--max-requests-per-level",
+    "600",
+    "--pause-seconds",
+    "60"
+  ],
+  "attempt_id": "20261121T001529Z-abe4764a8293-b3f0",
+  "manifest_id": "p15-d-read-load",
+  "region": "us-east-1",
+  "start_epoch_s": 1795220130,
+  "end_epoch_s": 1795220501,
+  "status": "completed",
+  "exit_code": 0,
+  "exit_meaning": "ran (observation recorded)",
+  "limits": {
+    "mode": "read",
+    "sample_interval_s": 15,
+    "sampler_limit_s": 3600,
+    "load_tool": "load-tests/query-load.sh",
+    "load_tool_sha256": "05b255ad4e0a1489790c019a88081872e8d8a61ef790d843d10859cf70488612",
+    "note": "request caps, levels and durations are query-load.sh limits (load-tool-record.json)"
+  },
+  "baseline": {},
+  "selection": null,
+  "counts": {
+    "load_tool_exit": 0,
+    "service_sample_rows": 78
+  },
+  "observation": {
+    "result": "see load-levels.csv (classes and percentiles per level) and service-samples.csv (task counts); scale-out not expected under the deployed limits (decision 3)"
+  },
+  "evidence": {
+    "task_counts": "service-samples.csv (describe-services every 15s; Container Insights is off)",
+    "requests": "load-requests.csv, load-levels.csv, load-explain.csv (query) or id-check.csv (read), load-clock.csv, load-tool-record.json (query-load.sh)"
+  },
+  "errors": [],
+  "files": [
+    {
+      "name": "service-samples.csv",
+      "sha256": "6aef5e6fb10b47fbd552d92a9e6b93d4a375d20f252abe561badf3b09d3085d6"
+    }
+  ]
+}

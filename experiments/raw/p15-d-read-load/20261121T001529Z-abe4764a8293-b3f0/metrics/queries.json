@@ -1,0 +1,591 @@
+[
+  {
+    "Id": "m0_0",
+    "Label": "AWS/ApplicationELB TargetResponseTime p50 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ApplicationELB",
+        "MetricName": "TargetResponseTime",
+        "Dimensions": [
+          {
+            "Name": "LoadBalancer",
+            "Value": "{alb-dimension}"
+          },
+          {
+            "Name": "TargetGroup",
+            "Value": "{alb-target-group-graph}"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "p50"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m1_0",
+    "Label": "AWS/ApplicationELB TargetResponseTime p95 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ApplicationELB",
+        "MetricName": "TargetResponseTime",
+        "Dimensions": [
+          {
+            "Name": "LoadBalancer",
+            "Value": "{alb-dimension}"
+          },
+          {
+            "Name": "TargetGroup",
+            "Value": "{alb-target-group-graph}"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "p95"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m2_0",
+    "Label": "AWS/ApplicationELB TargetResponseTime p99 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ApplicationELB",
+        "MetricName": "TargetResponseTime",
+        "Dimensions": [
+          {
+            "Name": "LoadBalancer",
+            "Value": "{alb-dimension}"
+          },
+          {
+            "Name": "TargetGroup",
+            "Value": "{alb-target-group-graph}"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "p99"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m3_0",
+    "Label": "AWS/ApplicationELB TargetResponseTime p50 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ApplicationELB",
+        "MetricName": "TargetResponseTime",
+        "Dimensions": [
+          {
+            "Name": "LoadBalancer",
+            "Value": "{alb-dimension}"
+          },
+          {
+            "Name": "TargetGroup",
+            "Value": "{alb-target-group-evidence}"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "p50"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m4_0",
+    "Label": "AWS/ApplicationELB TargetResponseTime p95 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ApplicationELB",
+        "MetricName": "TargetResponseTime",
+        "Dimensions": [
+          {
+            "Name": "LoadBalancer",
+            "Value": "{alb-dimension}"
+          },
+          {
+            "Name": "TargetGroup",
+            "Value": "{alb-target-group-evidence}"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "p95"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m5_0",
+    "Label": "AWS/ApplicationELB TargetResponseTime p99 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ApplicationELB",
+        "MetricName": "TargetResponseTime",
+        "Dimensions": [
+          {
+            "Name": "LoadBalancer",
+            "Value": "{alb-dimension}"
+          },
+          {
+            "Name": "TargetGroup",
+            "Value": "{alb-target-group-evidence}"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "p99"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m6_0",
+    "Label": "AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ApplicationELB",
+        "MetricName": "RequestCount",
+        "Dimensions": [
+          {
+            "Name": "LoadBalancer",
+            "Value": "{alb-dimension}"
+          },
+          {
+            "Name": "TargetGroup",
+            "Value": "{alb-target-group-graph}"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m7_0",
+    "Label": "AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ApplicationELB",
+        "MetricName": "RequestCount",
+        "Dimensions": [
+          {
+            "Name": "LoadBalancer",
+            "Value": "{alb-dimension}"
+          },
+          {
+            "Name": "TargetGroup",
+            "Value": "{alb-target-group-evidence}"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m8_0",
+    "Label": "AWS/ApplicationELB HTTPCode_Target_5XX_Count Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ApplicationELB",
+        "MetricName": "HTTPCode_Target_5XX_Count",
+        "Dimensions": [
+          {
+            "Name": "LoadBalancer",
+            "Value": "{alb-dimension}"
+          },
+          {
+            "Name": "TargetGroup",
+            "Value": "{alb-target-group-graph}"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m9_0",
+    "Label": "AWS/ApplicationELB HTTPCode_Target_5XX_Count Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ApplicationELB",
+        "MetricName": "HTTPCode_Target_5XX_Count",
+        "Dimensions": [
+          {
+            "Name": "LoadBalancer",
+            "Value": "{alb-dimension}"
+          },
+          {
+            "Name": "TargetGroup",
+            "Value": "{alb-target-group-evidence}"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m10_0",
+    "Label": "AWS/ApplicationELB HTTPCode_ELB_5XX_Count Sum LoadBalancer={alb-dimension}",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ApplicationELB",
+        "MetricName": "HTTPCode_ELB_5XX_Count",
+        "Dimensions": [
+          {
+            "Name": "LoadBalancer",
+            "Value": "{alb-dimension}"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m11_0",
+    "Label": "AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ECS",
+        "MetricName": "CPUUtilization",
+        "Dimensions": [
+          {
+            "Name": "ClusterName",
+            "Value": "scholarchain-course-runtime"
+          },
+          {
+            "Name": "ServiceName",
+            "Value": "graph"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Average"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m12_0",
+    "Label": "AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ECS",
+        "MetricName": "MemoryUtilization",
+        "Dimensions": [
+          {
+            "Name": "ClusterName",
+            "Value": "scholarchain-course-runtime"
+          },
+          {
+            "Name": "ServiceName",
+            "Value": "graph"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Average"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m13_0",
+    "Label": "AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=graph",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ECS",
+        "MetricName": "LiveTaskCount",
+        "Dimensions": [
+          {
+            "Name": "ClusterName",
+            "Value": "scholarchain-course-runtime"
+          },
+          {
+            "Name": "ServiceName",
+            "Value": "graph"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m14_0",
+    "Label": "AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ECS",
+        "MetricName": "CPUUtilization",
+        "Dimensions": [
+          {
+            "Name": "ClusterName",
+            "Value": "scholarchain-course-runtime"
+          },
+          {
+            "Name": "ServiceName",
+            "Value": "evidence"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Average"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m15_0",
+    "Label": "AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ECS",
+        "MetricName": "MemoryUtilization",
+        "Dimensions": [
+          {
+            "Name": "ClusterName",
+            "Value": "scholarchain-course-runtime"
+          },
+          {
+            "Name": "ServiceName",
+            "Value": "evidence"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Average"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m16_0",
+    "Label": "AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=evidence",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ECS",
+        "MetricName": "LiveTaskCount",
+        "Dimensions": [
+          {
+            "Name": "ClusterName",
+            "Value": "scholarchain-course-runtime"
+          },
+          {
+            "Name": "ServiceName",
+            "Value": "evidence"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m17_0",
+    "Label": "AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-evidence-bundle",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ConsumedReadCapacityUnits",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-evidence-bundle"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m18_0",
+    "Label": "AWS/DynamoDB SuccessfulRequestLatency Average TableName=scholarchain-course-evidence-bundle,Operation=GetItem",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "SuccessfulRequestLatency",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-evidence-bundle"
+          },
+          {
+            "Name": "Operation",
+            "Value": "GetItem"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Average"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m19_0",
+    "Label": "AWS/DynamoDB SuccessfulRequestLatency Average TableName=scholarchain-course-evidence-bundle,Operation=Query",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "SuccessfulRequestLatency",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-evidence-bundle"
+          },
+          {
+            "Name": "Operation",
+            "Value": "Query"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Average"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m20_0",
+    "Label": "AWS/DynamoDB ThrottledRequests Sum TableName=scholarchain-course-evidence-bundle,Operation=GetItem",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ThrottledRequests",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-evidence-bundle"
+          },
+          {
+            "Name": "Operation",
+            "Value": "GetItem"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m21_0",
+    "Label": "AWS/DynamoDB ReadThrottleEvents Sum TableName=scholarchain-course-evidence-bundle",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ReadThrottleEvents",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-evidence-bundle"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m22_0",
+    "Label": "AWS/Neptune CPUUtilization Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/Neptune",
+        "MetricName": "CPUUtilization",
+        "Dimensions": [
+          {
+            "Name": "DBClusterIdentifier",
+            "Value": "scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m23_0",
+    "Label": "AWS/Neptune OpenCypherRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/Neptune",
+        "MetricName": "OpenCypherRequestsPerSec",
+        "Dimensions": [
+          {
+            "Name": "DBClusterIdentifier",
+            "Value": "scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Average"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m24_0",
+    "Label": "AWS/Neptune TotalRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/Neptune",
+        "MetricName": "TotalRequestsPerSec",
+        "Dimensions": [
+          {
+            "Name": "DBClusterIdentifier",
+            "Value": "scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Average"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m25_0",
+    "Label": "AWS/Neptune MainRequestQueuePendingRequests Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/Neptune",
+        "MetricName": "MainRequestQueuePendingRequests",
+        "Dimensions": [
+          {
+            "Name": "DBClusterIdentifier",
+            "Value": "scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m26_0",
+    "Label": "AWS/Neptune TotalServerErrorsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/Neptune",
+        "MetricName": "TotalServerErrorsPerSec",
+        "Dimensions": [
+          {
+            "Name": "DBClusterIdentifier",
+            "Value": "scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Average"
+    },
+    "ReturnData": true
+  }
+]

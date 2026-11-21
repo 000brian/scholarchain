@@ -1,0 +1,13 @@
+STEP: d-load.sh prerequisites
+INFO: d-load.sh tool sha256 8932309cdf2344fc5f09820aedc1ae4d6651e9bd226a958284dd060936802230; attempt 20261121T002254Z-abe4764a8293-db0d; preflight false
+STEP: d-load.sh out-dir
+STEP: d-load.sh terraform-outputs
+INFO: d-load.sh terraform outputs read (values kept in memory, not shown)
+STEP: d-load.sh names
+STEP: d-load.sh load
+STEP: query-load.sh prerequisites
+STEP: query-load.sh key
+ERROR: query-load.sh step=key exit=3: SCHOLARCHAIN_SERVICE_API_KEY is not set in this shell (export it before the run)
+RESULT: query-load.sh failed exit=3 step=key
+STEP: d-load.sh after-load
+RESULT: d-load.sh failed exit=3 step=after-load
