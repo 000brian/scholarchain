@@ -1,0 +1,109 @@
+{
+  "kind": "scholarchain-load-tool-record",
+  "version": 1,
+  "tool": "load-tests/query-load.sh",
+  "tool_sha256": "05b255ad4e0a1489790c019a88081872e8d8a61ef790d843d10859cf70488612",
+  "mode": "query",
+  "arguments": [
+    "--mode",
+    "query",
+    "--levels",
+    "1,2,4,8",
+    "--level-seconds",
+    "120",
+    "--max-requests-per-level",
+    "60",
+    "--pause-seconds",
+    "60"
+  ],
+  "limits": {
+    "levels": "1,2,4,8",
+    "level_seconds": 120,
+    "max_requests_per_level": 60,
+    "pause_seconds": 60,
+    "curl_max_time_s": 35,
+    "hard_caps": {
+      "query": 60,
+      "read": 600,
+      "query_clients": 8,
+      "read_clients": 20
+    },
+    "explain_phase_seconds": 150
+  },
+  "list": {
+    "path": "load-tests/questions-d.txt",
+    "sha256": "f20a57a973fafdf8201a36b5ee07d92d3d9de1d581b6f0f4090e6668b4b55eb5",
+    "entries": 25
+  },
+  "attempt_id": "20261120T235521Z-ff00cfa278c8-ca0c",
+  "manifest_id": "p15-d-query-load",
+  "start_epoch_s": 1795218923,
+  "end_epoch_s": 1795219458,
+  "status": "completed",
+  "exit_code": 0,
+  "success_class": "answered",
+  "percentile_method": "nearest rank: value at rank ceil(p/100*n) of the sorted curl time_total values",
+  "explain_stage_keys": [
+    "planner",
+    "plannerFallback",
+    "resolver",
+    "metrics",
+    "paths",
+    "community",
+    "semantic",
+    "evidence",
+    "identity",
+    "synthesis",
+    "synthesisFallback",
+    "verification"
+  ],
+  "per_level": [
+    {
+      "level": 1,
+      "clients": 1,
+      "attempted": 10,
+      "completed": 10,
+      "stop": "duration",
+      "start_epoch_s": 1795218924,
+      "end_epoch_s": 1795219051
+    },
+    {
+      "level": 2,
+      "clients": 2,
+      "attempted": 19,
+      "completed": 19,
+      "stop": "duration",
+      "start_epoch_s": 1795219117,
+      "end_epoch_s": 1795219252
+    },
+    {
+      "level": 3,
+      "clients": 4,
+      "attempted": 60,
+      "completed": 60,
+      "stop": "cap",
+      "start_epoch_s": 1795219323,
+      "end_epoch_s": 1795219374
+    },
+    {
+      "level": 4,
+      "clients": 8,
+      "attempted": 60,
+      "completed": 60,
+      "stop": "cap",
+      "start_epoch_s": 1795219439,
+      "end_epoch_s": 1795219455
+    }
+  ],
+  "errors": [],
+  "files": [
+    "load-requests.csv",
+    "load-explain.csv",
+    "load-levels.csv",
+    "load-clock.csv"
+  ],
+  "evidence": {
+    "requests": "recorded",
+    "clock": "recorded"
+  }
+}

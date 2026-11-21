@@ -1,0 +1,77 @@
+{
+  "kind": "scholarchain-experiment-run-record",
+  "version": 1,
+  "status": "started",
+  "attempt_id": "20261120T235521Z-ff00cfa278c8-ca0c",
+  "exit_code": null,
+  "failed_step": null,
+  "signal": null,
+  "head": "ff00cfa278c89889288612543fbde0aeb011fe33",
+  "build_commit": "684636ef997ee041912e2b57d1c597ded8e9778d",
+  "region": "us-east-1",
+  "manifest": {
+    "path": "experiments/manifests/p15-d-query-load.json",
+    "manifest_id": "p15-d-query-load",
+    "sha256": "2af43f86a39c31b00cb5c95810265e4d417be5522cef2bbdba0afaff33dc480b",
+    "experiment": "D",
+    "dataset_snapshot": "dblp-2026-11-01 (DBLP XML with dblp.dtd), subset rule dblp-subset-v1 (datasets/dataset-manifest.yaml); the Phase 14 graph run:v1:f2625d504b12749389cf4f5b1a26aed4 in Neptune, DynamoDB and S3 Vectors"
+  },
+  "declared_not_enforced": {
+    "costBoundUsd": 1,
+    "maxDurationSeconds": 2400,
+    "resourceLimits": {
+      "clientConcurrencyLevels": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "maxRequests": 240,
+      "maxRequestsPerLevel": 60,
+      "levelSeconds": 120,
+      "ecsMaxTasks": 2,
+      "apiThrottleRatePerSecond": 5,
+      "apiThrottleBurst": 10,
+      "maxConcurrentQueriesPerTask": 4,
+      "llmRequestsPerMinutePerTask": 19,
+      "terraformSource": "infra/terraform/environments/course (api_throttling_rate_limit 5, api_throttling_burst_limit 10; decision 3); infra/terraform/modules/runtime/autoscaling.tf (query, evidence, graph CPU target tracking, max service_max_count 2); config/course.json (service.maxConcurrentQueries 4, llm.requestsPerMinute 19); hard caps in load-tests/query-load.sh (60 queries per level, at most 8 clients)"
+    }
+  },
+  "started_utc": "2026-11-20T23:55:21Z",
+  "ended_utc": null,
+  "metrics_export_of": null,
+  "action": {
+    "kind": "command",
+    "path": "experiments/collectors/d-load.sh",
+    "args": [
+      "--mode",
+      "query",
+      "--levels",
+      "1,2,4,8",
+      "--level-seconds",
+      "120",
+      "--max-requests-per-level",
+      "60",
+      "--pause-seconds",
+      "60"
+    ],
+    "resolved_args": null,
+    "run": true,
+    "exit_code": null,
+    "window_epoch": {
+      "start": null,
+      "end": null
+    }
+  },
+  "nested_run_records": [],
+  "remote_ids": {
+    "execution_names": [],
+    "emr_cluster_ids": []
+  },
+  "metrics": {
+    "status": "not-run",
+    "files": [],
+    "unresolved": []
+  },
+  "raw_results_location": "experiments/raw/p15-d-query-load/20261120T235521Z-ff00cfa278c8-ca0c"
+}

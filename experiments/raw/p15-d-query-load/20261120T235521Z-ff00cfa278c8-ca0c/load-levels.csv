@@ -1,0 +1,5 @@
+mode,level,clients,window_start_epoch_s,window_end_epoch_s,deadline_epoch_s,stop,attempted,completed,completed_per_s,untimed,n_answered,n_abstained,n_throttled,n_overloaded,n_timeout,n_other-4xx,n_other-5xx,n_client-error,n_unclassified,n_all,p50_all_s,p95_all_s,p99_all_s,note_all,n_success,p50_success_s,p95_success_s,p99_success_s,note_success
+query,1,1,1795218924,1795219051,1795219044,duration,10,10,0.079,0,10,0,0,0,0,0,0,0,0,10,11.729707,18.508896,18.508896,few-samples,10,11.729707,18.508896,18.508896,few-samples
+query,2,2,1795219117,1795219252,1795219237,duration,19,19,0.141,0,18,0,0,0,1,0,0,0,0,19,12.933742,25.169650,25.169650,few-samples,18,12.034682,21.553013,21.553013,few-samples
+query,3,4,1795219323,1795219374,1795219443,cap,60,60,1.176,0,8,0,0,48,4,0,0,0,0,60,0.160326,25.161628,25.372098,ok,8,11.181043,17.565882,17.565882,few-samples
+query,4,8,1795219439,1795219455,1795219559,cap,60,60,3.750,0,4,0,3,53,0,0,0,0,0,60,0.153278,8.245208,16.350996,ok,4,12.331732,16.350996,16.350996,few-samples

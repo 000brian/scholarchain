@@ -1,0 +1,48 @@
+STEP: d-load.sh prerequisites
+INFO: d-load.sh tool sha256 8932309cdf2344fc5f09820aedc1ae4d6651e9bd226a958284dd060936802230; attempt 20261120T235521Z-ff00cfa278c8-ca0c; preflight false
+STEP: d-load.sh out-dir
+STEP: d-load.sh terraform-outputs
+INFO: d-load.sh terraform outputs read (values kept in memory, not shown)
+STEP: d-load.sh names
+STEP: d-load.sh load
+STEP: query-load.sh prerequisites
+STEP: query-load.sh key
+INFO: query-load.sh SCHOLARCHAIN_SERVICE_API_KEY is set (value not shown)
+STEP: query-load.sh list
+INFO: query-load.sh list load-tests/questions-d.txt: 25 questions (graph-only 23, graph-and-vector 2); sha256 f20a57a973fafdf8201a36b5ee07d92d3d9de1d581b6f0f4090e6668b4b55eb5
+STEP: query-load.sh out-dir
+STEP: query-load.sh api-url
+INFO: query-load.sh API address read from terraform output (not shown)
+STEP: query-load.sh readiness
+READY: try=1 healthz=yes readyz=yes readyz_status=200
+STEP: query-load.sh level-1
+INFO: query-load.sh level 1: 1 client(s), 120 s or 60 requests, whichever comes first
+LEVEL-SUMMARY: mode=query level=1 clients=1 stop=duration wall_s=127 attempted=10 completed=10 completed_per_s=0.079 untimed=0 classes: answered=10 
+LEVEL-SUMMARY: level=1 all(n=10,few-samples) p50=11.729707 p95=18.508896 p99=18.508896 s; answered(n=10,few-samples) p50=11.729707 p95=18.508896 p99=18.508896 s
+STEP: query-load.sh explain-1
+INFO: query-load.sh level 1: 10 explain read(s)
+INFO: query-load.sh pause 60 s
+STEP: query-load.sh level-2
+INFO: query-load.sh level 2: 2 client(s), 120 s or 60 requests, whichever comes first
+LEVEL-SUMMARY: mode=query level=2 clients=2 stop=duration wall_s=135 attempted=19 completed=19 completed_per_s=0.141 untimed=0 classes: timeout=1 answered=18 
+LEVEL-SUMMARY: level=2 all(n=19,few-samples) p50=12.933742 p95=25.169650 p99=25.169650 s; answered(n=18,few-samples) p50=12.034682 p95=21.553013 p99=21.553013 s
+STEP: query-load.sh explain-2
+INFO: query-load.sh level 2: 18 explain read(s)
+INFO: query-load.sh pause 60 s
+STEP: query-load.sh level-3
+INFO: query-load.sh level 3: 4 client(s), 120 s or 60 requests, whichever comes first
+LEVEL-SUMMARY: mode=query level=3 clients=4 stop=cap wall_s=51 attempted=60 completed=60 completed_per_s=1.176 untimed=0 classes: overloaded=48 timeout=4 answered=8 
+LEVEL-SUMMARY: level=3 all(n=60,ok) p50=0.160326 p95=25.161628 p99=25.372098 s; answered(n=8,few-samples) p50=11.181043 p95=17.565882 p99=17.565882 s
+STEP: query-load.sh explain-3
+INFO: query-load.sh level 3: 8 explain read(s)
+INFO: query-load.sh pause 60 s
+STEP: query-load.sh level-4
+INFO: query-load.sh level 4: 8 client(s), 120 s or 60 requests, whichever comes first
+LEVEL-SUMMARY: mode=query level=4 clients=8 stop=cap wall_s=16 attempted=60 completed=60 completed_per_s=3.750 untimed=0 classes: throttled=3 overloaded=53 answered=4 
+LEVEL-SUMMARY: level=4 all(n=60,ok) p50=0.153278 p95=8.245208 p99=16.350996 s; answered(n=4,few-samples) p50=12.331732 p95=16.350996 p99=16.350996 s
+STEP: query-load.sh explain-4
+INFO: query-load.sh level 4: 4 explain read(s)
+STEP: query-load.sh done
+RESULT: query-load.sh ok
+STEP: d-load.sh after-load
+RESULT: d-load.sh ok
