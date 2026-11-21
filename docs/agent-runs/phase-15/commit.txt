@@ -1,0 +1,27 @@
+819f68193ada930712395620ddcba6ce1d07fed7 phase-15 D29: phase summary (COMPLETE_WITH_OPEN_ITEMS)
+ade54326a63e9c2dd00d1ae41c9b0dbb21842e06 phase-15 D27/D28: removal done (175 resources), leftover diagnosis (L-15), removal-plan record, DynamoDB samples, billing
+e98343fc5302ac3e84023feb77db2bb8132e8bbb phase-15 L-11 (infra-engineer): cleanup.sh reads boolean outputs correctly; repair and review reports
+d9d0a242a5f9f5547be00f133b4b43950f8ff1f5 phase-15 D26: approve removal plan d636c648; evidence archive sha256
+4297e46c626f22a198952f99c6ebd0e572827848 phase-15 D25: evidence inventory, S3-only report copies with sha256, runbook log
+65172abaca0f66022d6ec8cd3cdeb6f4d3444eb2 phase-15 D22/D23: results summary (experiment-engineer), AB report, sitting 3 runbook log
+08bbb9d629ef2f11eea98bdfbc699179c2f1f107 phase-15 D23: derived tables and plots (experiments A-F)
+4a1a81d242ef47c7111279bb021a2bcffe6ed072 phase-15 session 3 sitting 2: runbook log through D20, FECD and deploy agent reports
+9efdf76a1d1850712afabee41b0fa0ded26d1fe8 phase-15 D20: release record, runtime off (plan 71fe9071)
+ebcbc03a90bd85f087bce4d0b81d8192da696003 phase-15 D19: approve runtime-off and cleanup-mode plan 71fe9071
+d872d120d404271f4371c1aed49959534617766a phase-15 D7a: p15-a-hadoop attempt 2 raw folder (succeeded)
+ee3bce8dbe908e063c5f729e421ab49e5757dff3 phase-15 D14: p15-d-read-load attempt 1 (succeeded) and attempt 2 (failed: key not exported) raw folders
+abe4764a8293041023088dfaf4a02a538e88158c phase-15 D13: p15-d-query-load attempt 1 raw folder
+ff00cfa278c89889288612543fbde0aeb011fe33 phase-15 D12b: C derived tables and plot
+e86449aabe5205ba339345b49b55c3204468700d phase-15 D11a, D11b, D12: p15-a-spark, p15-b-spark-burst, p15-c-embedding-backlog attempt 1 raw folders
+eb786c5275a36130302a2daaf60aa339c33c19da phase-15 L-01: release record (state machine update)
+70876eb27b268fddec044d84e1c547dd0e6118b5 phase-15 D10: p15-f-poison-replay attempt 1 raw folder
+e6082403e079189f449ba141be7377f097ae516f phase-15 L-01: approve runtime-on plan 235b56f5
+e94df52ca8fbd261acbdaa47007efde3c120d943 phase-15 L-01 (infra-engineer: no managed-scaling policy when max = min) and L-02 (experiment-engineer: full embedding model ID in F and C collectors); repair and review reports
+2cc5804baaced06850ed4f4ce79287c6b82643c7 phase-15 D11: p15-e-retrieval-modes attempt 1 raw folder
+6a6c31a06d604bc1c3b598c1071688d5af57cdff phase-15 D7a: p15-a-hadoop attempt 1 raw folder (failed: EMR refuses max = min)
+b0c92f533c7026262574373257b0e534f201541d phase-15 D9: approve eight experiment manifests
+71ab453b17638c68aa694bf13767b0f2208f954b phase-15 D4: release record (runtime on, build 684636ef)
+94ec6b01a4cad9dca013a95d56dfe2fbc315ad4f phase-15 D3: approve runtime-on plan 934d78c3
+bdaecef7023a405c450965c6015264a015691f00 phase-15 sitting 1: runbook log (D0-D3)
+85dacb447057cbb33c982dbb49cb2cf83a95e0aa phase-15 D0: cost bound
+684636ef997ee041912e2b57d1c597ded8e9778d phase-15 session 2: G-27 batched ingest and re-embed path, G-28 abstention codes, worker embedding loop, rag-retrieval-eval, Terraform and scripts, experiment tools and manifests; reports (domain, storage, rag, service, infra, experiment, code-reviewer)
