@@ -63,3 +63,11 @@ Repair L-01 (EMR refused managed-scaling max = min in D7a attempt 1). This plan 
 I approve this plan to be applied with my own admin profile (default). Signed: Brian, Nov 20, 2026
 
 APPROVED-PLAN-SHA256: 235b56f540bdc237ae511230736bbe184e420123609098ca809bac27b067de6d
+
+## Runtime-off and cleanup-mode plan (Phase 15, D19)
+
+Plan made at d872d120 (build commit 684636ef unchanged) with the default profile in us-east-1, variables runtime_enabled=false and cleanup_mode=true: 0 create, 8 update, 11 delete, 5 replace (Terraform: add 5, change 8, destroy 16). All 24 changes are runtime resources: 4 ECS services and 4 scaling targets updated (scale to 0); 5 scaling policies, 3 worker alarms and 3 healthy-host alarms deleted; 5 task definitions (query, evidence, graph, worker, ops) replaced. No IAM, network or stateful change; no change to the state machine, EMR settings, buckets or artifacts.
+
+I approve this plan to be applied with my own admin profile (default). Signed: Brian, Nov 20, 2026
+
+APPROVED-PLAN-SHA256: 71fe907167a22d8e83c806fcc02b044670e0dda8275561c73be2dfca66041fbd
