@@ -1,0 +1,106 @@
+{
+  "kind": "scholarchain-experiment-run-record",
+  "version": 1,
+  "status": "succeeded",
+  "attempt_id": "20261120T225632Z-eb786c5275a3-5c75",
+  "exit_code": 0,
+  "failed_step": null,
+  "signal": null,
+  "head": "eb786c5275a36130302a2daaf60aa339c33c19da",
+  "build_commit": "684636ef997ee041912e2b57d1c597ded8e9778d",
+  "region": "us-east-1",
+  "manifest": {
+    "path": "experiments/manifests/p15-a-hadoop.json",
+    "manifest_id": "p15-a-hadoop",
+    "sha256": "1254a11cd8431bfdf41b0549edca9f62adf622a5c13858ee7e469be4fa0488d8",
+    "experiment": "A",
+    "dataset_snapshot": "dblp-2026-11-01 (DBLP XML with dblp.dtd), subset rule dblp-subset-v1 (datasets/dataset-manifest.yaml)"
+  },
+  "declared_not_enforced": {
+    "costBoundUsd": 2.5,
+    "maxDurationSeconds": 18600,
+    "resourceLimits": {
+      "emrManagedScalingMinUnits": 2,
+      "emrManagedScalingMaxUnits": 2,
+      "ecsMaxTasks": 0,
+      "emrUnitType": "Instances (core nodes; the primary node is outside the limits)",
+      "pipelineWaitTimeoutSeconds": 14700,
+      "stateMachineTimeoutSeconds": 14400,
+      "emrIdleTimeoutSeconds": 900,
+      "terraformSource": "infra/terraform/environments/course/variables.tf (emr_managed_scaling_min_units 2, emr_managed_scaling_max_units 4); execution-input field cluster.managedScalingMaxUnits resolved and bounded in state ReadInput (infra/terraform/modules/workflow/sfn.tf); infra/terraform/modules/workflow/variables.tf (pipeline_timeout_seconds 14400); infra/terraform/modules/emr/variables.tf (idle_timeout_seconds)"
+    }
+  },
+  "started_utc": "2026-11-20T22:56:32Z",
+  "ended_utc": "2026-11-21T00:34:22Z",
+  "metrics_export_of": null,
+  "action": {
+    "kind": "command",
+    "path": "experiments/collectors/ab-pipeline.sh",
+    "args": [
+      "--stage",
+      "hadoop",
+      "--snapshot",
+      "dblp-2026-11-01",
+      "--dblp",
+      "s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp-2026-11-01.xml.gz",
+      "--hadoop-extra-arg",
+      "--dblp-dtd",
+      "--hadoop-extra-arg",
+      "s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp.dtd",
+      "--hadoop-output",
+      "s3://{data-bucket}/curated/hadoop-p15/{attempt-id}",
+      "--emr-max-units",
+      "2",
+      "--wait-timeout",
+      "14700"
+    ],
+    "resolved_args": [
+      "--stage",
+      "hadoop",
+      "--snapshot",
+      "dblp-2026-11-01",
+      "--dblp",
+      "s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp-2026-11-01.xml.gz",
+      "--hadoop-extra-arg",
+      "--dblp-dtd",
+      "--hadoop-extra-arg",
+      "s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp.dtd",
+      "--hadoop-output",
+      "s3://{data-bucket}/curated/hadoop-p15/20261120T225632Z-eb786c5275a3-5c75",
+      "--emr-max-units",
+      "2",
+      "--wait-timeout",
+      "14700"
+    ],
+    "run": true,
+    "exit_code": 0,
+    "window_epoch": {
+      "start": 1795215392,
+      "end": 1795220961
+    }
+  },
+  "nested_run_records": [
+    {
+      "path": "evidence/runs/20261120T225635Z-eb786c5275a3-cbc4-hadoop.json",
+      "copy": "nested/20261120T225635Z-eb786c5275a3-cbc4-hadoop.json",
+      "sha256": "8ff5990986ba4098168a0350de37fde7f7458c556c3efdecd5617c612a463cf8"
+    }
+  ],
+  "remote_ids": {
+    "execution_names": [
+      "20261120T225635Z-eb786c5275a3-cbc4-hadoop"
+    ],
+    "emr_cluster_ids": [
+      "j-05949161IHEKG5O4KFOD"
+    ]
+  },
+  "metrics": {
+    "status": "exported",
+    "files": [
+      "experiments/raw/p15-a-hadoop/20261120T225632Z-eb786c5275a3-5c75/metrics/queries.json",
+      "experiments/raw/p15-a-hadoop/20261120T225632Z-eb786c5275a3-5c75/metrics/metric-data.json"
+    ],
+    "unresolved": []
+  },
+  "raw_results_location": "experiments/raw/p15-a-hadoop/20261120T225632Z-eb786c5275a3-5c75"
+}

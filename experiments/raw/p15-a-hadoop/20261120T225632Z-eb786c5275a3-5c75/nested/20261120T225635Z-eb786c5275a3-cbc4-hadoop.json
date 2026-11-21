@@ -1,0 +1,77 @@
+{
+  "kind": "scholarchain-pipeline-run-record",
+  "version": 1,
+  "status": "succeeded",
+  "attempt_id": "20261120T225635Z-eb786c5275a3-cbc4",
+  "stage": "hadoop",
+  "head": "eb786c5275a36130302a2daaf60aa339c33c19da",
+  "build_commit": "684636ef997ee041912e2b57d1c597ded8e9778d",
+  "code_version": "684636ef997ee041912e2b57d1c597ded8e9778d",
+  "dataset_snapshot": "dblp-2026-11-01",
+  "region": "us-east-1",
+  "started_utc": "2026-11-20T22:56:35Z",
+  "ended_utc": "2026-11-21T00:18:41Z",
+  "exit_code": 0,
+  "failed_step": null,
+  "signal": null,
+  "inputs": {
+    "dblp_sha256": "0376ad019b216553faff0a14e1757b2d4c7a3b84c1beacf0511ef83695211b18",
+    "execution_input": {
+      "codeVersion": "684636ef997ee041912e2b57d1c597ded8e9778d",
+      "hadoop": {
+        "jar": "s3://{data-bucket}/artifacts/684636ef997ee041912e2b57d1c597ded8e9778d/jars/hadoop.jar",
+        "output": "s3://{data-bucket}/curated/hadoop-p15/20261120T225632Z-eb786c5275a3-5c75",
+        "dblp": "s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp-2026-11-01.xml.gz",
+        "dblpSnapshot": "dblp-2026-11-01",
+        "extraArgs": [
+          "--dblp-dtd",
+          "s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp.dtd"
+        ]
+      },
+      "cluster": {
+        "managedScalingMaxUnits": 2
+      }
+    }
+  },
+  "outputs": {
+    "execution_status": "SUCCEEDED",
+    "hadoop_output_root": "s3://{data-bucket}/curated/hadoop-p15/20261120T225632Z-eb786c5275a3-5c75"
+  },
+  "run_ids": {
+    "execution_name": "20261120T225635Z-eb786c5275a3-cbc4-hadoop",
+    "emr_cluster_ids": [
+      "j-05949161IHEKG5O4KFOD"
+    ],
+    "hadoop_runs": [
+      "s3://{data-bucket}/curated/hadoop-p15/20261120T225632Z-eb786c5275a3-5c75/dblp/snapshot=dblp-2026-11-01/j01-dblp-extract/run=80e9abc9f9114bd6db2bedcf8b5bd0e7",
+      "s3://{data-bucket}/curated/hadoop-p15/20261120T225632Z-eb786c5275a3-5c75/dblp/snapshot=dblp-2026-11-01/j05-blocking/run=63964f2c535fa6eae2d6d9102abeb13c",
+      "s3://{data-bucket}/curated/hadoop-p15/20261120T225632Z-eb786c5275a3-5c75/dblp/snapshot=dblp-2026-11-01/j05b-fallback-blocking/run=dd383870b9795432de7990f8174e028a",
+      "s3://{data-bucket}/curated/hadoop-p15/20261120T225632Z-eb786c5275a3-5c75/dblp/snapshot=dblp-2026-11-01/j05c-fallback-coverage/run=80b3096a3f7f8529351badd26d1657b2",
+      "s3://{data-bucket}/curated/hadoop-p15/20261120T225632Z-eb786c5275a3-5c75/dblp/snapshot=dblp-2026-11-01/j06-candidate-features/run=c64c7d11d26ecb954564b6043279f886",
+      "s3://{data-bucket}/curated/hadoop-p15/20261120T225632Z-eb786c5275a3-5c75/dblp/snapshot=dblp-2026-11-01/j07-publication-teams/run=010d8dbb706f378631168589faf96115",
+      "s3://{data-bucket}/curated/hadoop-p15/20261120T225632Z-eb786c5275a3-5c75/dblp/snapshot=dblp-2026-11-01/j08a-pair-expand/run=dcb403bfd52b063ec8c24b462109f9da",
+      "s3://{data-bucket}/curated/hadoop-p15/20261120T225632Z-eb786c5275a3-5c75/dblp/snapshot=dblp-2026-11-01/j08b-pair-consolidate/run=4bfee96865334bb828a993d808dbcdb9",
+      "s3://{data-bucket}/curated/hadoop-p15/20261120T225632Z-eb786c5275a3-5c75/linked/dblp-dblp-2026-11-01/j04-exact-id-join/run=bbfb05c3968ccf6cdf20b50762032ec1",
+      "s3://{data-bucket}/curated/hadoop-p15/20261120T225632Z-eb786c5275a3-5c75/linked/dblp-dblp-2026-11-01/j09-graph-export/run=148c659f567b96ffd2eec4b04f818600"
+    ],
+    "hadoop_j09_export_runs": [
+      "s3://{data-bucket}/curated/hadoop-p15/20261120T225632Z-eb786c5275a3-5c75/linked/dblp-dblp-2026-11-01/j09-graph-export/run=148c659f567b96ffd2eec4b04f818600"
+    ]
+  },
+  "configuration": {
+    "file": null,
+    "sha256": null,
+    "note": "the Hadoop jobs use their built-in defaults plus -D scholarchain.code.version and the driver options in extra_args (for example --dblp-dtd, which sets scholarchain.dblp.dtdPath)",
+    "extra_args": [
+      "--dblp-dtd",
+      "s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp.dtd"
+    ],
+    "execution_settings": {
+      "emr_max_units": 2,
+      "spark_shuffle_partitions": null,
+      "note": "null = absent from the execution input: the state machine uses its defaults (the Terraform managed-scaling maximum; 32 shuffle partitions)"
+    }
+  },
+  "uploaded_keys": [],
+  "result": "succeeded"
+}

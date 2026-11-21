@@ -1,0 +1,11 @@
+cluster_id,step_name,log,job_id,counter,value
+j-05949161IHEKG5O4KFOD,scholarchain-hadoop-pipeline,syslog,job_1795215602749_0001,map_input_splits,1
+j-05949161IHEKG5O4KFOD,scholarchain-hadoop-pipeline,syslog,job_1795215602749_0002,map_input_splits,12
+j-05949161IHEKG5O4KFOD,scholarchain-hadoop-pipeline,syslog,job_1795215602749_0003,map_input_splits,4
+j-05949161IHEKG5O4KFOD,scholarchain-hadoop-pipeline,syslog,job_1795215602749_0004,map_input_splits,24
+j-05949161IHEKG5O4KFOD,scholarchain-hadoop-pipeline,syslog,job_1795215602749_0005,map_input_splits,8
+j-05949161IHEKG5O4KFOD,scholarchain-hadoop-pipeline,syslog,job_1795215602749_0006,map_input_splits,8
+j-05949161IHEKG5O4KFOD,scholarchain-hadoop-pipeline,syslog,job_1795215602749_0007,map_input_splits,4
+j-05949161IHEKG5O4KFOD,scholarchain-hadoop-pipeline,syslog,job_1795215602749_0008,map_input_splits,8
+j-05949161IHEKG5O4KFOD,scholarchain-hadoop-pipeline,syslog,job_1795215602749_0009,map_input_splits,16
+j-05949161IHEKG5O4KFOD,scholarchain-hadoop-pipeline,syslog,job_1795215602749_0010,map_input_splits,263

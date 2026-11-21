@@ -1,0 +1,54 @@
+{
+  "stage": "hadoop",
+  "nested_run_record": "evidence/runs/20261120T225635Z-eb786c5275a3-cbc4-hadoop.json",
+  "nested_status": "succeeded",
+  "items": {
+    "input_records": {
+      "status": "found",
+      "source": "hadoop-job-counters.csv",
+      "note": "ScholarChain counters of each job (j01-dblp-extract reads the DBLP input)"
+    },
+    "output_records": {
+      "status": "found",
+      "source": "hadoop-job-counters.csv",
+      "note": "counters and stats of j09-graph-export and the other jobs"
+    },
+    "task_counts": {
+      "status": "partial",
+      "source": "hadoop-step-counters.csv",
+      "note": "map tasks planned = input splits from the step logs; reduce and launched-attempt counts are not logged (JobRunner waitForCompletion(false)): missing"
+    },
+    "duration": {
+      "status": "found",
+      "source": "emr-steps.csv, sfn-events.csv, the nested record start and end",
+      "note": "step start and end; execution events"
+    },
+    "shuffle": {
+      "status": "missing",
+      "source": null,
+      "note": "MapReduce shuffle counters are not logged by the Hadoop driver (waitForCompletion(false)); not in _job.json"
+    },
+    "failures": {
+      "status": "found",
+      "source": "nested record status, emr-steps.csv (state, failure_reported), sfn-events.csv",
+      "note": "never inferred"
+    },
+    "estimated_cost": {
+      "status": "found",
+      "source": "emr-instances.csv",
+      "instance_seconds": 14319,
+      "usd_estimate": 0.95,
+      "note": "estimate (unverified): instance-seconds from the instance lifecycle x $0.240 per instance-hour (COSTS.md:39, m5.xlarge EC2 + EMR); EBS not included"
+    },
+    "requested_running_capacity": {
+      "status": "exported by the runner",
+      "source": "metrics/metric-data.json (CoreNodesRequested, CoreNodesRunning, TotalNodes*, TaskNodes*)",
+      "note": "checked at analysis; empty series stay missing"
+    },
+    "released_capacity": {
+      "status": "found (lifecycle)",
+      "source": "metrics (drop of CoreNodesRunning before the cluster end) or emr-instances.csv ended_epoch and emr-cluster.json endedEpoch",
+      "note": "a release at cluster termination is a lifecycle record, not a measured zero and not a scale-in event"
+    }
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "kind": "scholarchain-collector-tool-record",
+  "version": 1,
+  "tool": "ab-pipeline.sh",
+  "tool_path": "experiments/collectors/ab-pipeline.sh",
+  "tool_sha256": "725cebaef196851384649336f1edfe51579eebddcb521dbe235033e635f176a6",
+  "arguments": [
+    "--stage",
+    "hadoop",
+    "--snapshot",
+    "dblp-2026-11-01",
+    "--dblp",
+    "s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp-2026-11-01.xml.gz",
+    "--hadoop-extra-arg",
+    "--dblp-dtd",
+    "--hadoop-extra-arg",
+    "s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp.dtd",
+    "--hadoop-output",
+    "s3://{data-bucket}/curated/hadoop-p15/20261120T225632Z-eb786c5275a3-5c75",
+    "--emr-max-units",
+    "2",
+    "--wait-timeout",
+    "14700"
+  ],
+  "attempt_id": "20261120T225632Z-eb786c5275a3-5c75",
+  "manifest_id": "p15-a-hadoop",
+  "region": "us-east-1",
+  "start_epoch_s": 1795215392,
+  "end_epoch_s": 1795220961,
+  "status": "completed",
+  "exit_code": 0,
+  "exit_meaning": "ran (observation recorded)",
+  "limits": {
+    "stage": "hadoop",
+    "emr_max_units_arg": "2",
+    "spark_shuffle_partitions_arg": null,
+    "cluster_end_wait_s": 900,
+    "step_log_wait_s": 600,
+    "remote_bounds": "state machine TimeoutSeconds (pipeline_timeout_seconds 14400), EMR managed-scaling maximum, EMR idle end 900 s (Terraform)"
+  },
+  "baseline": {},
+  "selection": null,
+  "counts": {
+    "hadoop_job_records": 10,
+    "instance_seconds": "14319",
+    "estimated_cost_usd": "0.95 (estimate)",
+    "pipeline_exit": 0,
+    "pipeline_started_epoch_s": 1795215393
+  },
+  "observation": {
+    "result": "pipeline exit 0; capacity over time is read from the exported metrics (requested, running, released); see ab-evidence.json"
+  },
+  "evidence": {},
+  "errors": [
+    "list-instance-groups-cli-exit-252:ParamValidation",
+    "step-log-missing-stderr"
+  ],
+  "files": [
+    {
+      "name": "clock.csv",
+      "sha256": "15a7ef9de6d6fc188a5949d90bcaadf9d1e4a71d13a198f6547b7b38f9e48092"
+    },
+    {
+      "name": "sfn-events.csv",
+      "sha256": "5f7c6c86373b7d626556fe92d60af48d12befb42ae0a8a0ad9f636f007334851"
+    },
+    {
+      "name": "emr-instance-groups.csv",
+      "sha256": "93b7bcc6a5dcb1182e9d2a90fef15da805e05aa266886fff92b74ea803a3716b"
+    },
+    {
+      "name": "emr-instances.csv",
+      "sha256": "3fa06ce624703a9c1ea2cbfcf7da6a659096fa6a51b9ca20041508ab0ccf6fe4"
+    },
+    {
+      "name": "emr-steps.csv",
+      "sha256": "a9bce2dde208e275c187d37db2831a00952b4bd3abd364716694f01183cbd1ab"
+    },
+    {
+      "name": "emr-cluster.json",
+      "sha256": "8e82c45c96ecb5acc9d9e9cec840bb97c026b21d3ed832e0ed6c405cf4967aa0"
+    },
+    {
+      "name": "hadoop-job-counters.csv",
+      "sha256": "9467e52acf81a45472e0a2e0808292606377780fbbf9deb07b2eb606bc188f9c"
+    },
+    {
+      "name": "hadoop-step-counters.csv",
+      "sha256": "37b091aab5048ea0907f6817dbfb093d30c2377ee9961a593555afd73ad2c8f3"
+    },
+    {
+      "name": "ab-evidence.json",
+      "sha256": "f6dff60ba819c17d8f5342cb1998bb7a7d5489605557094e254d560d21406546"
+    }
+  ]
+}

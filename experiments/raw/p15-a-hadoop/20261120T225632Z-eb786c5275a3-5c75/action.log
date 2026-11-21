@@ -1,0 +1,117 @@
+STEP: ab-pipeline.sh prerequisites
+INFO: ab-pipeline.sh tool sha256 725cebaef196851384649336f1edfe51579eebddcb521dbe235033e635f176a6; attempt 20261120T225632Z-eb786c5275a3-5c75; preflight false
+STEP: ab-pipeline.sh out-dir
+STEP: ab-pipeline.sh terraform-outputs
+INFO: ab-pipeline.sh terraform outputs read (values kept in memory, not shown)
+STEP: ab-pipeline.sh pipeline
+STEP: run-bounded-pipeline.sh prerequisites
+STEP: run-bounded-pipeline.sh clean-tree
+INFO: run-bounded-pipeline.sh HEAD eb786c5275a36130302a2daaf60aa339c33c19da; code version (build commit) 684636ef997ee041912e2b57d1c597ded8e9778d
+STEP: run-bounded-pipeline.sh terraform-outputs
+INFO: run-bounded-pipeline.sh account ********2972, Region us-east-1, data-lake bucket <data-bucket> (from terraform output)
+STEP: run-bounded-pipeline.sh record
+ATTEMPT: 20261120T225635Z-eb786c5275a3-cbc4
+STEP: run-bounded-pipeline.sh hadoop-inputs
+INPUT: {"codeVersion":"684636ef997ee041912e2b57d1c597ded8e9778d","hadoop":{"jar":"s3://{data-bucket}/artifacts/684636ef997ee041912e2b57d1c597ded8e9778d/jars/hadoop.jar","output":"s3://{data-bucket}/curated/hadoop-p15/20261120T225632Z-eb786c5275a3-5c75","dblp":"s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp-2026-11-01.xml.gz","dblpSnapshot":"dblp-2026-11-01","extraArgs":["--dblp-dtd","s3://{data-bucket}/raw/dblp/dblp-2026-11-01/dblp.dtd"]},"cluster":{"managedScalingMaxUnits":2}}
+STEP: run-bounded-pipeline.sh start-execution
+EXECUTION: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop started=2026-11-20T16:56:37.961000-06:00
+STEP: run-bounded-pipeline.sh wait-execution
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=0s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=61s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=121s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=182s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=243s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=303s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=364s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=425s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=485s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=546s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=607s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=667s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=728s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=789s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=849s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=910s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=970s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=1031s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=1092s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=1152s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=1213s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=1274s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=1334s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=1395s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=1456s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=1516s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=1577s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=1638s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=1698s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=1759s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=1820s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=1880s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=1941s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=2002s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=2062s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=2123s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=2184s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=2245s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=2306s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=2366s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=2427s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=2488s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=2549s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=2609s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=2670s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=2731s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=2792s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=2853s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=2914s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=2975s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=3036s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=3097s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=3158s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=3219s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=3280s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=3341s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=3402s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=3463s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=3523s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=3584s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=3645s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=3706s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=3766s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=3827s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=3888s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=3948s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=4009s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=4070s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=4130s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=4191s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=4252s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=4313s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=4374s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=4435s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=4496s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=4557s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=4617s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=4678s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=4739s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=4799s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=RUNNING elapsed_wait=4860s
+POLL: name=20261120T225635Z-eb786c5275a3-cbc4-hadoop status=SUCCEEDED elapsed_wait=4921s
+STEP: run-bounded-pipeline.sh execution-result
+INFO: run-bounded-pipeline.sh EMR clusters of this execution: j-05949161IHEKG5O4KFOD
+RESULT-STATUS: SUCCEEDED
+STEP: run-bounded-pipeline.sh hadoop-outputs
+INFO: run-bounded-pipeline.sh J09 export runs under the output root: s3://{data-bucket}/curated/hadoop-p15/20261120T225632Z-eb786c5275a3-5c75/linked/dblp-dblp-2026-11-01/j09-graph-export/run=148c659f567b96ffd2eec4b04f818600
+STEP: run-bounded-pipeline.sh done
+RUN-RECORD: evidence/runs/20261120T225635Z-eb786c5275a3-cbc4-hadoop.json
+RESULT: run-bounded-pipeline.sh ok
+INFO: ab-pipeline.sh the pipeline ended with exit 0
+STEP: ab-pipeline.sh nested-record
+INFO: ab-pipeline.sh nested record evidence/runs/20261120T225635Z-eb786c5275a3-cbc4-hadoop.json (status succeeded)
+STEP: ab-pipeline.sh sfn-history
+STEP: ab-pipeline.sh emr
+STEP: ab-pipeline.sh hadoop-job-records
+STEP: ab-pipeline.sh hadoop-step-logs
+STEP: ab-pipeline.sh checklist
+RESULT: ab-pipeline.sh ok

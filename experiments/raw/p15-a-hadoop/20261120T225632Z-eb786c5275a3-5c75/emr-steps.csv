@@ -1,0 +1,2 @@
+cluster_id,step_name,state,start_epoch,end_epoch,failure_reported
+j-05949161IHEKG5O4KFOD,scholarchain-hadoop-pipeline,COMPLETED,1795215683,1795219805,yes
