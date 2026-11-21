@@ -1,0 +1,2201 @@
+{
+    "Items": [
+        {
+            "coreness": {
+                "N": "10"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "participationCoefficient": {
+                "N": "0.25765306122448983"
+            },
+            "crossCommunityDegree": {
+                "N": "4"
+            },
+            "communitySize": {
+                "N": "15"
+            },
+            "communitiesConnected": {
+                "N": "3"
+            },
+            "researcherId": {
+                "S": "researcher:v1:e0bfc4559e1546aa9252839d158d0b6d"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "A": {
+                "N": "7"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "17"
+            },
+            "communityId": {
+                "S": "researcher:v1:21f775d8282f2372b5a1f922b6edab30"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "itemHash": {
+                "S": "sha256:edba23dbfc1c1fb55b2935f84887e73122627e0bd78725e1e20edea856594ad8"
+            },
+            "M": {
+                "N": "10"
+            },
+            "componentSize": {
+                "N": "188797"
+            },
+            "P": {
+                "N": "4"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:11836eedba4528826d1bc9d216031302"
+                    },
+                    {
+                        "S": "work:v1:fa91c5df9bd8d818f4dc8364f55e8a97"
+                    }
+                ]
+            },
+            "T": {
+                "N": "28"
+            },
+            "W": {
+                "N": "28"
+            },
+            "componentId": {
+                "S": "researcher:v1:0000410898582d695ceed6f464f1e9d3"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:e0bfc4559e1546aa9252839d158d0b6d"
+            },
+            "windowLabel": {
+                "S": "full-2015-2025"
+            },
+            "sk": {
+                "S": "window#full-2015-2025"
+            }
+        },
+        {
+            "coreness": {
+                "N": "2"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "participationCoefficient": {
+                "N": "0"
+            },
+            "crossCommunityDegree": {
+                "N": "0"
+            },
+            "communitySize": {
+                "N": "3"
+            },
+            "communitiesConnected": {
+                "N": "0"
+            },
+            "researcherId": {
+                "S": "researcher:v1:e0bfc4559e1546aa9252839d158d0b6d"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2017"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "A": {
+                "N": "2"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "2"
+            },
+            "communityId": {
+                "S": "researcher:v1:99db2383530923d3eae345ac6ba42421"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "M": {
+                "N": "2"
+            },
+            "itemHash": {
+                "S": "sha256:0775c5923e0efacfb9906b8c23a5f7a9455112a9b29579b1e1b23027b5f79f8f"
+            },
+            "componentSize": {
+                "N": "24935"
+            },
+            "P": {
+                "N": "1"
+            },
+            "T": {
+                "N": "2"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:694e0ec31bc61c633dcee75f26e98911"
+                    }
+                ]
+            },
+            "W": {
+                "N": "2"
+            },
+            "componentId": {
+                "S": "researcher:v1:000a04b809d325e582309ef6528c9225"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:e0bfc4559e1546aa9252839d158d0b6d"
+            },
+            "windowLabel": {
+                "S": "w2015-2017"
+            },
+            "sk": {
+                "S": "window#w2015-2017"
+            }
+        },
+        {
+            "coreness": {
+                "N": "10"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "participationCoefficient": {
+                "N": "0.2100591715976331"
+            },
+            "crossCommunityDegree": {
+                "N": "3"
+            },
+            "communitySize": {
+                "N": "15"
+            },
+            "communitiesConnected": {
+                "N": "2"
+            },
+            "researcherId": {
+                "S": "researcher:v1:e0bfc4559e1546aa9252839d158d0b6d"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "windowStartYear": {
+                "N": "2024"
+            },
+            "A": {
+                "N": "8.666666666666666"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "16"
+            },
+            "communityId": {
+                "S": "researcher:v1:21f775d8282f2372b5a1f922b6edab30"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "M": {
+                "N": "10"
+            },
+            "itemHash": {
+                "S": "sha256:2a41eb2b23691f60119bef603345575721d140c843b69d39bd97841c800cacd4"
+            },
+            "componentSize": {
+                "N": "104490"
+            },
+            "P": {
+                "N": "3"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:11836eedba4528826d1bc9d216031302"
+                    },
+                    {
+                        "S": "work:v1:fa91c5df9bd8d818f4dc8364f55e8a97"
+                    }
+                ]
+            },
+            "T": {
+                "N": "26"
+            },
+            "W": {
+                "N": "26"
+            },
+            "componentId": {
+                "S": "researcher:v1:0000affe0a996aa1062334aaa1bf51b2"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:e0bfc4559e1546aa9252839d158d0b6d"
+            },
+            "windowLabel": {
+                "S": "w2024-2025"
+            },
+            "sk": {
+                "S": "window#w2024-2025"
+            }
+        },
+        {
+            "coreness": {
+                "N": "9"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "participationCoefficient": {
+                "N": "0.8034188034188035"
+            },
+            "crossCommunityDegree": {
+                "N": "19"
+            },
+            "communitySize": {
+                "N": "5"
+            },
+            "communitiesConnected": {
+                "N": "10"
+            },
+            "researcherId": {
+                "S": "researcher:v1:f996a8198959c3f68e3237962062263c"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "A": {
+                "N": "3.25"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "23"
+            },
+            "communityId": {
+                "S": "researcher:v1:4eb61201f71e4a73849f4af5a67b6f73"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "M": {
+                "N": "9"
+            },
+            "itemHash": {
+                "S": "sha256:3ed376305070c5df15a5d7e194a825b3c864f40f813d3a4499cfc816bf579223"
+            },
+            "componentSize": {
+                "N": "188797"
+            },
+            "P": {
+                "N": "12"
+            },
+            "T": {
+                "N": "39"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:3bd2b2312b1b059dd56ef2c39fa2cb86"
+                    }
+                ]
+            },
+            "W": {
+                "N": "39"
+            },
+            "componentId": {
+                "S": "researcher:v1:0000410898582d695ceed6f464f1e9d3"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:f996a8198959c3f68e3237962062263c"
+            },
+            "windowLabel": {
+                "S": "full-2015-2025"
+            },
+            "sk": {
+                "S": "window#full-2015-2025"
+            }
+        },
+        {
+            "coreness": {
+                "N": "3"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "participationCoefficient": {
+                "N": "0.6419753086419753"
+            },
+            "crossCommunityDegree": {
+                "N": "4"
+            },
+            "communitySize": {
+                "N": "2"
+            },
+            "communitiesConnected": {
+                "N": "2"
+            },
+            "researcherId": {
+                "S": "researcher:v1:f996a8198959c3f68e3237962062263c"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2017"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "A": {
+                "N": "3"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "5"
+            },
+            "communityId": {
+                "S": "researcher:v1:c930dbf0fc32461f120d4fc6f9eca8ca"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "M": {
+                "N": "3"
+            },
+            "itemHash": {
+                "S": "sha256:c1dcbcc57ee783ac12817cc2f01f29d722c561c9ac71628a42875dca56aedab2"
+            },
+            "componentSize": {
+                "N": "8"
+            },
+            "P": {
+                "N": "3"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:18b45eeab2bef72bbec3349ca8a3cd83"
+                    },
+                    {
+                        "S": "work:v1:e5808e7feb9d2daa4989350bdbb6d618"
+                    },
+                    {
+                        "S": "work:v1:f10164af7876866c796876a295fa1c39"
+                    }
+                ]
+            },
+            "T": {
+                "N": "9"
+            },
+            "W": {
+                "N": "9"
+            },
+            "componentId": {
+                "S": "researcher:v1:41aaf439487e88636e67e4be1614fba9"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:f996a8198959c3f68e3237962062263c"
+            },
+            "windowLabel": {
+                "S": "w2015-2017"
+            },
+            "sk": {
+                "S": "window#w2015-2017"
+            }
+        },
+        {
+            "coreness": {
+                "N": "3"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "participationCoefficient": {
+                "N": "0.49382716049382713"
+            },
+            "crossCommunityDegree": {
+                "N": "3"
+            },
+            "communitySize": {
+                "N": "29"
+            },
+            "communitiesConnected": {
+                "N": "1"
+            },
+            "researcherId": {
+                "S": "researcher:v1:f996a8198959c3f68e3237962062263c"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2020"
+            },
+            "windowStartYear": {
+                "N": "2018"
+            },
+            "A": {
+                "N": "2.25"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "5"
+            },
+            "communityId": {
+                "S": "researcher:v1:199302c8b4ca7d91f1092a54407381e2"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "M": {
+                "N": "3"
+            },
+            "itemHash": {
+                "S": "sha256:ca2631c823ceaf2dfff051b980685dc94e9d40b23e796f3b7a57bbb572299585"
+            },
+            "componentSize": {
+                "N": "47770"
+            },
+            "P": {
+                "N": "4"
+            },
+            "T": {
+                "N": "9"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:db23fad37c53a9df31a1d86a83347a32"
+                    }
+                ]
+            },
+            "W": {
+                "N": "9"
+            },
+            "componentId": {
+                "S": "researcher:v1:0000410898582d695ceed6f464f1e9d3"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:f996a8198959c3f68e3237962062263c"
+            },
+            "windowLabel": {
+                "S": "w2018-2020"
+            },
+            "sk": {
+                "S": "window#w2018-2020"
+            }
+        },
+        {
+            "coreness": {
+                "N": "9"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "participationCoefficient": {
+                "N": "0.8390022675736961"
+            },
+            "crossCommunityDegree": {
+                "N": "14"
+            },
+            "communitySize": {
+                "N": "31"
+            },
+            "communitiesConnected": {
+                "N": "8"
+            },
+            "researcherId": {
+                "S": "researcher:v1:f996a8198959c3f68e3237962062263c"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2023"
+            },
+            "windowStartYear": {
+                "N": "2021"
+            },
+            "A": {
+                "N": "4.2"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "17"
+            },
+            "communityId": {
+                "S": "researcher:v1:199302c8b4ca7d91f1092a54407381e2"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "M": {
+                "N": "9"
+            },
+            "itemHash": {
+                "S": "sha256:e349b03d0d3ad74920218824d35820d6e2ed59dbea770a75f41475496a692218"
+            },
+            "componentSize": {
+                "N": "83688"
+            },
+            "P": {
+                "N": "5"
+            },
+            "T": {
+                "N": "21"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:3bd2b2312b1b059dd56ef2c39fa2cb86"
+                    }
+                ]
+            },
+            "W": {
+                "N": "21"
+            },
+            "componentId": {
+                "S": "researcher:v1:000098cdc0d7aaa5f3aa05939c5d451e"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:f996a8198959c3f68e3237962062263c"
+            },
+            "windowLabel": {
+                "S": "w2021-2023"
+            },
+            "sk": {
+                "S": "window#w2021-2023"
+            }
+        },
+        {
+            "coreness": {
+                "N": "4"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "participationCoefficient": {
+                "N": "0.64"
+            },
+            "crossCommunityDegree": {
+                "N": "3"
+            },
+            "communitySize": {
+                "N": "6"
+            },
+            "communitiesConnected": {
+                "N": "3"
+            },
+            "researcherId": {
+                "S": "researcher:v1:c13cefd51577e198cdcff8cf89ef7aef"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "A": {
+                "N": "2.5"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "8"
+            },
+            "communityId": {
+                "S": "researcher:v1:04cdbf69a90dbc882c602e678e73de9b"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "itemHash": {
+                "S": "sha256:65704229899b321b5b1e08e2058f46dae0c4419472892c06e1c473b34effe28e"
+            },
+            "M": {
+                "N": "4"
+            },
+            "componentSize": {
+                "N": "188797"
+            },
+            "P": {
+                "N": "4"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:d5139d1aacb2933d44810eb97f33d0be"
+                    }
+                ]
+            },
+            "T": {
+                "N": "10"
+            },
+            "W": {
+                "N": "10"
+            },
+            "componentId": {
+                "S": "researcher:v1:0000410898582d695ceed6f464f1e9d3"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:c13cefd51577e198cdcff8cf89ef7aef"
+            },
+            "windowLabel": {
+                "S": "full-2015-2025"
+            },
+            "sk": {
+                "S": "window#full-2015-2025"
+            }
+        },
+        {
+            "coreness": {
+                "N": "2"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "participationCoefficient": {
+                "N": "0"
+            },
+            "crossCommunityDegree": {
+                "N": "0"
+            },
+            "communitySize": {
+                "N": "5"
+            },
+            "communitiesConnected": {
+                "N": "0"
+            },
+            "researcherId": {
+                "S": "researcher:v1:c13cefd51577e198cdcff8cf89ef7aef"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2017"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "A": {
+                "N": "2"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "4"
+            },
+            "communityId": {
+                "S": "researcher:v1:af7aa3f2b681090c2245ffc3a781c28e"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "M": {
+                "N": "2"
+            },
+            "itemHash": {
+                "S": "sha256:2c5f0fd0c39fb8c5b6fdcc305c3349b5f257608a9b28d3b2cdff5f7ca3ab7d03"
+            },
+            "componentSize": {
+                "N": "24935"
+            },
+            "P": {
+                "N": "3"
+            },
+            "T": {
+                "N": "6"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:41fbbf5627ac1d9b07deece47b5d6042"
+                    },
+                    {
+                        "S": "work:v1:6751164b86d20a6f97f2df73d8372004"
+                    },
+                    {
+                        "S": "work:v1:9fca23c8f33b1f8ba910572f409df789"
+                    }
+                ]
+            },
+            "W": {
+                "N": "6"
+            },
+            "componentId": {
+                "S": "researcher:v1:000a04b809d325e582309ef6528c9225"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:c13cefd51577e198cdcff8cf89ef7aef"
+            },
+            "windowLabel": {
+                "S": "w2015-2017"
+            },
+            "sk": {
+                "S": "window#w2015-2017"
+            }
+        },
+        {
+            "coreness": {
+                "N": "4"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "participationCoefficient": {
+                "N": "0"
+            },
+            "crossCommunityDegree": {
+                "N": "0"
+            },
+            "communitySize": {
+                "N": "5"
+            },
+            "communitiesConnected": {
+                "N": "0"
+            },
+            "researcherId": {
+                "S": "researcher:v1:c13cefd51577e198cdcff8cf89ef7aef"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2020"
+            },
+            "windowStartYear": {
+                "N": "2018"
+            },
+            "A": {
+                "N": "4"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "4"
+            },
+            "communityId": {
+                "S": "researcher:v1:04cdbf69a90dbc882c602e678e73de9b"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "itemHash": {
+                "S": "sha256:6df9cbbf92111f88872803e440996c4572e778b9a3c7e7da4024f91870931312"
+            },
+            "M": {
+                "N": "4"
+            },
+            "componentSize": {
+                "N": "5"
+            },
+            "P": {
+                "N": "1"
+            },
+            "T": {
+                "N": "4"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:d5139d1aacb2933d44810eb97f33d0be"
+                    }
+                ]
+            },
+            "W": {
+                "N": "4"
+            },
+            "componentId": {
+                "S": "researcher:v1:04cdbf69a90dbc882c602e678e73de9b"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:c13cefd51577e198cdcff8cf89ef7aef"
+            },
+            "windowLabel": {
+                "S": "w2018-2020"
+            },
+            "sk": {
+                "S": "window#w2018-2020"
+            }
+        },
+        {
+            "coreness": {
+                "N": "15"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "participationCoefficient": {
+                "N": "0.882282996432818"
+            },
+            "crossCommunityDegree": {
+                "N": "36"
+            },
+            "communitySize": {
+                "N": "50"
+            },
+            "communitiesConnected": {
+                "N": "21"
+            },
+            "researcherId": {
+                "S": "researcher:v1:e4444daceb2ca1ab6ec0ecd55b346dd9"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "A": {
+                "N": "7.25"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "44"
+            },
+            "communityId": {
+                "S": "researcher:v1:b5c1f7a111fa43abc4294f7e381b8a6f"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "M": {
+                "N": "11"
+            },
+            "itemHash": {
+                "S": "sha256:bf53ad36a262335909c22beabda86d5c544119cecf3e14975fde2ec951cb926e"
+            },
+            "componentSize": {
+                "N": "188797"
+            },
+            "P": {
+                "N": "8"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:6150116ffb2b97c7e75c06984aa80174"
+                    }
+                ]
+            },
+            "T": {
+                "N": "58"
+            },
+            "W": {
+                "N": "58"
+            },
+            "componentId": {
+                "S": "researcher:v1:0000410898582d695ceed6f464f1e9d3"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:e4444daceb2ca1ab6ec0ecd55b346dd9"
+            },
+            "windowLabel": {
+                "S": "full-2015-2025"
+            },
+            "sk": {
+                "S": "window#full-2015-2025"
+            }
+        },
+        {
+            "coreness": {
+                "N": "9"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "participationCoefficient": {
+                "N": "0.5866666666666667"
+            },
+            "crossCommunityDegree": {
+                "N": "6"
+            },
+            "communitySize": {
+                "N": "11"
+            },
+            "communitiesConnected": {
+                "N": "4"
+            },
+            "researcherId": {
+                "S": "researcher:v1:e4444daceb2ca1ab6ec0ecd55b346dd9"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2023"
+            },
+            "windowStartYear": {
+                "N": "2021"
+            },
+            "A": {
+                "N": "7.5"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "14"
+            },
+            "communityId": {
+                "S": "researcher:v1:0c842e5108964c3c9c045c94dc01f3f3"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "itemHash": {
+                "S": "sha256:3c2648f35bd4ac3d835a8058edf1e5116fb7cfb1f592745b0f65b8bafa9576c3"
+            },
+            "M": {
+                "N": "9"
+            },
+            "componentSize": {
+                "N": "83688"
+            },
+            "P": {
+                "N": "2"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:94d9738127b146f13798b28679d8df0b"
+                    }
+                ]
+            },
+            "T": {
+                "N": "15"
+            },
+            "W": {
+                "N": "15"
+            },
+            "componentId": {
+                "S": "researcher:v1:000098cdc0d7aaa5f3aa05939c5d451e"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:e4444daceb2ca1ab6ec0ecd55b346dd9"
+            },
+            "windowLabel": {
+                "S": "w2021-2023"
+            },
+            "sk": {
+                "S": "window#w2021-2023"
+            }
+        },
+        {
+            "coreness": {
+                "N": "12"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "participationCoefficient": {
+                "N": "0.7809626825310979"
+            },
+            "crossCommunityDegree": {
+                "N": "21"
+            },
+            "communitySize": {
+                "N": "41"
+            },
+            "communitiesConnected": {
+                "N": "11"
+            },
+            "researcherId": {
+                "S": "researcher:v1:e4444daceb2ca1ab6ec0ecd55b346dd9"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "windowStartYear": {
+                "N": "2024"
+            },
+            "A": {
+                "N": "7.166666666666667"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "32"
+            },
+            "communityId": {
+                "S": "researcher:v1:b5c1f7a111fa43abc4294f7e381b8a6f"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "itemHash": {
+                "S": "sha256:34f5f2a8c49f6e36636427de0a2fc3d870697766c4278a88d58fd5e4d01e9c31"
+            },
+            "M": {
+                "N": "11"
+            },
+            "componentSize": {
+                "N": "104490"
+            },
+            "P": {
+                "N": "6"
+            },
+            "T": {
+                "N": "43"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:6150116ffb2b97c7e75c06984aa80174"
+                    }
+                ]
+            },
+            "W": {
+                "N": "43"
+            },
+            "componentId": {
+                "S": "researcher:v1:0000affe0a996aa1062334aaa1bf51b2"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:e4444daceb2ca1ab6ec0ecd55b346dd9"
+            },
+            "windowLabel": {
+                "S": "w2024-2025"
+            },
+            "sk": {
+                "S": "window#w2024-2025"
+            }
+        },
+        {
+            "coreness": {
+                "N": "53"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "participationCoefficient": {
+                "N": "0.7867568529725881"
+            },
+            "crossCommunityDegree": {
+                "N": "37"
+            },
+            "communitySize": {
+                "N": "29"
+            },
+            "communitiesConnected": {
+                "N": "9"
+            },
+            "researcherId": {
+                "S": "researcher:v1:d1457400a3ef97e784a0cee5094d1ebe"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "A": {
+                "N": "53"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "53"
+            },
+            "communityId": {
+                "S": "researcher:v1:010d1c9b5281921244e7a69efb242996"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "M": {
+                "N": "53"
+            },
+            "itemHash": {
+                "S": "sha256:72d6abf34cafe2cec80dada5d4f2ab491d81c1513933429af6b42bafb4421770"
+            },
+            "componentSize": {
+                "N": "188797"
+            },
+            "P": {
+                "N": "1"
+            },
+            "T": {
+                "N": "53"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:286e6962c2480c1891e7219fc6273572"
+                    }
+                ]
+            },
+            "W": {
+                "N": "53"
+            },
+            "componentId": {
+                "S": "researcher:v1:0000410898582d695ceed6f464f1e9d3"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:d1457400a3ef97e784a0cee5094d1ebe"
+            },
+            "windowLabel": {
+                "S": "full-2015-2025"
+            },
+            "sk": {
+                "S": "window#full-2015-2025"
+            }
+        },
+        {
+            "coreness": {
+                "N": "53"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "participationCoefficient": {
+                "N": "0.672125311498754"
+            },
+            "crossCommunityDegree": {
+                "N": "29"
+            },
+            "communitySize": {
+                "N": "121"
+            },
+            "communitiesConnected": {
+                "N": "8"
+            },
+            "researcherId": {
+                "S": "researcher:v1:d1457400a3ef97e784a0cee5094d1ebe"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "windowStartYear": {
+                "N": "2024"
+            },
+            "A": {
+                "N": "53"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "53"
+            },
+            "communityId": {
+                "S": "researcher:v1:010d1c9b5281921244e7a69efb242996"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "M": {
+                "N": "53"
+            },
+            "itemHash": {
+                "S": "sha256:1411b1d4506ee49e48151ad75fdeb75872bb73fd99c5842188babac805488e17"
+            },
+            "componentSize": {
+                "N": "104490"
+            },
+            "P": {
+                "N": "1"
+            },
+            "T": {
+                "N": "53"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:286e6962c2480c1891e7219fc6273572"
+                    }
+                ]
+            },
+            "W": {
+                "N": "53"
+            },
+            "componentId": {
+                "S": "researcher:v1:0000affe0a996aa1062334aaa1bf51b2"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:d1457400a3ef97e784a0cee5094d1ebe"
+            },
+            "windowLabel": {
+                "S": "w2024-2025"
+            },
+            "sk": {
+                "S": "window#w2024-2025"
+            }
+        },
+        {
+            "coreness": {
+                "N": "3"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "participationCoefficient": {
+                "N": "0.625"
+            },
+            "crossCommunityDegree": {
+                "N": "2"
+            },
+            "communitySize": {
+                "N": "13"
+            },
+            "communitiesConnected": {
+                "N": "2"
+            },
+            "researcherId": {
+                "S": "researcher:v1:37db304696333700af7a78991b117bb2"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "A": {
+                "N": "1.3333333333333333"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "3"
+            },
+            "communityId": {
+                "S": "researcher:v1:1a6af3c34e3e73b833592ac55b4dbc4a"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "M": {
+                "N": "2"
+            },
+            "itemHash": {
+                "S": "sha256:d4f532c9070f409d479b8101e8a3dc483d9d7da8e2f458dd848b6f8110c74352"
+            },
+            "componentSize": {
+                "N": "188797"
+            },
+            "P": {
+                "N": "3"
+            },
+            "T": {
+                "N": "4"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:c97f6d93ae99a42527f19370e1ed1c6c"
+                    }
+                ]
+            },
+            "W": {
+                "N": "4"
+            },
+            "componentId": {
+                "S": "researcher:v1:0000410898582d695ceed6f464f1e9d3"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:37db304696333700af7a78991b117bb2"
+            },
+            "windowLabel": {
+                "S": "full-2015-2025"
+            },
+            "sk": {
+                "S": "window#full-2015-2025"
+            }
+        },
+        {
+            "coreness": {
+                "N": "1"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "participationCoefficient": {
+                "N": "0"
+            },
+            "crossCommunityDegree": {
+                "N": "0"
+            },
+            "communitySize": {
+                "N": "9"
+            },
+            "communitiesConnected": {
+                "N": "0"
+            },
+            "researcherId": {
+                "S": "researcher:v1:37db304696333700af7a78991b117bb2"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2017"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "A": {
+                "N": "1"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "1"
+            },
+            "communityId": {
+                "S": "researcher:v1:2930e346c08df53ac2be9c09e2709b11"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "itemHash": {
+                "S": "sha256:aea04266749cb94414418cd3a7f3c310d3867a4a51b06787c160861f07a8ee38"
+            },
+            "M": {
+                "N": "1"
+            },
+            "componentSize": {
+                "N": "24935"
+            },
+            "P": {
+                "N": "1"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:9857f3fecb86d1813e4ab63a5bdd6047"
+                    }
+                ]
+            },
+            "T": {
+                "N": "1"
+            },
+            "W": {
+                "N": "1"
+            },
+            "componentId": {
+                "S": "researcher:v1:000a04b809d325e582309ef6528c9225"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:37db304696333700af7a78991b117bb2"
+            },
+            "windowLabel": {
+                "S": "w2015-2017"
+            },
+            "sk": {
+                "S": "window#w2015-2017"
+            }
+        },
+        {
+            "coreness": {
+                "N": "2"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "participationCoefficient": {
+                "N": "0.6666666666666667"
+            },
+            "crossCommunityDegree": {
+                "N": "2"
+            },
+            "communitySize": {
+                "N": "2"
+            },
+            "communitiesConnected": {
+                "N": "2"
+            },
+            "researcherId": {
+                "S": "researcher:v1:37db304696333700af7a78991b117bb2"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2020"
+            },
+            "windowStartYear": {
+                "N": "2018"
+            },
+            "A": {
+                "N": "1.5"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "3"
+            },
+            "communityId": {
+                "S": "researcher:v1:37db304696333700af7a78991b117bb2"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "M": {
+                "N": "2"
+            },
+            "itemHash": {
+                "S": "sha256:d4f3b225933959a4f92eaf1620506ad9172971452a95ec886500dc05a81cda7d"
+            },
+            "componentSize": {
+                "N": "47770"
+            },
+            "P": {
+                "N": "2"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:c97f6d93ae99a42527f19370e1ed1c6c"
+                    }
+                ]
+            },
+            "T": {
+                "N": "3"
+            },
+            "W": {
+                "N": "3"
+            },
+            "componentId": {
+                "S": "researcher:v1:0000410898582d695ceed6f464f1e9d3"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:37db304696333700af7a78991b117bb2"
+            },
+            "windowLabel": {
+                "S": "w2018-2020"
+            },
+            "sk": {
+                "S": "window#w2018-2020"
+            }
+        },
+        {
+            "coreness": {
+                "N": "5"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "participationCoefficient": {
+                "N": "0.64"
+            },
+            "crossCommunityDegree": {
+                "N": "3"
+            },
+            "communitySize": {
+                "N": "6"
+            },
+            "communitiesConnected": {
+                "N": "2"
+            },
+            "researcherId": {
+                "S": "researcher:v1:44b3bcc3b14ad94f9f34c094a5ecac6a"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "A": {
+                "N": "5"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "5"
+            },
+            "communityId": {
+                "S": "researcher:v1:1bcbaea2f7256499a13d06d0ab7bb200"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "M": {
+                "N": "5"
+            },
+            "itemHash": {
+                "S": "sha256:c23ae0094579fc47de92b875b10b9d49c23e231bc902cb5a65ea28e849de7cd6"
+            },
+            "componentSize": {
+                "N": "188797"
+            },
+            "P": {
+                "N": "1"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:1791dd49f21c834793acbe93072ae816"
+                    }
+                ]
+            },
+            "T": {
+                "N": "5"
+            },
+            "W": {
+                "N": "5"
+            },
+            "componentId": {
+                "S": "researcher:v1:0000410898582d695ceed6f464f1e9d3"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:44b3bcc3b14ad94f9f34c094a5ecac6a"
+            },
+            "windowLabel": {
+                "S": "full-2015-2025"
+            },
+            "sk": {
+                "S": "window#full-2015-2025"
+            }
+        },
+        {
+            "coreness": {
+                "N": "5"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "participationCoefficient": {
+                "N": "0.31999999999999995"
+            },
+            "crossCommunityDegree": {
+                "N": "1"
+            },
+            "communitySize": {
+                "N": "5"
+            },
+            "communitiesConnected": {
+                "N": "1"
+            },
+            "researcherId": {
+                "S": "researcher:v1:44b3bcc3b14ad94f9f34c094a5ecac6a"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2020"
+            },
+            "windowStartYear": {
+                "N": "2018"
+            },
+            "A": {
+                "N": "5"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "5"
+            },
+            "communityId": {
+                "S": "researcher:v1:1bcbaea2f7256499a13d06d0ab7bb200"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "M": {
+                "N": "5"
+            },
+            "itemHash": {
+                "S": "sha256:216ceb0ec51dc207638a73110602f205628924e204be9ba519e6d8215c5e2b42"
+            },
+            "componentSize": {
+                "N": "47770"
+            },
+            "P": {
+                "N": "1"
+            },
+            "T": {
+                "N": "5"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:1791dd49f21c834793acbe93072ae816"
+                    }
+                ]
+            },
+            "W": {
+                "N": "5"
+            },
+            "componentId": {
+                "S": "researcher:v1:0000410898582d695ceed6f464f1e9d3"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:44b3bcc3b14ad94f9f34c094a5ecac6a"
+            },
+            "windowLabel": {
+                "S": "w2018-2020"
+            },
+            "sk": {
+                "S": "window#w2018-2020"
+            }
+        },
+        {
+            "coreness": {
+                "N": "6"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "participationCoefficient": {
+                "N": "0.4444444444444444"
+            },
+            "crossCommunityDegree": {
+                "N": "2"
+            },
+            "communitySize": {
+                "N": "10"
+            },
+            "communitiesConnected": {
+                "N": "1"
+            },
+            "researcherId": {
+                "S": "researcher:v1:5b3ab1e16f07ca04469c56a306548319"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "A": {
+                "N": "6"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "6"
+            },
+            "communityId": {
+                "S": "researcher:v1:cb58bc987969156039df5b063d3a4527"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "itemHash": {
+                "S": "sha256:4860329e6f57d6d35bdf790cebb10a432e7a742c7eb015866ae38988eca3b6ac"
+            },
+            "M": {
+                "N": "6"
+            },
+            "componentSize": {
+                "N": "188797"
+            },
+            "P": {
+                "N": "1"
+            },
+            "T": {
+                "N": "6"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:1731b2202013fba7ba5799185d7e0b2e"
+                    }
+                ]
+            },
+            "W": {
+                "N": "6"
+            },
+            "componentId": {
+                "S": "researcher:v1:0000410898582d695ceed6f464f1e9d3"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:5b3ab1e16f07ca04469c56a306548319"
+            },
+            "windowLabel": {
+                "S": "full-2015-2025"
+            },
+            "sk": {
+                "S": "window#full-2015-2025"
+            }
+        },
+        {
+            "coreness": {
+                "N": "6"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "participationCoefficient": {
+                "N": "0"
+            },
+            "crossCommunityDegree": {
+                "N": "0"
+            },
+            "communitySize": {
+                "N": "75"
+            },
+            "communitiesConnected": {
+                "N": "0"
+            },
+            "researcherId": {
+                "S": "researcher:v1:5b3ab1e16f07ca04469c56a306548319"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "windowStartYear": {
+                "N": "2024"
+            },
+            "A": {
+                "N": "6"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "6"
+            },
+            "communityId": {
+                "S": "researcher:v1:024de099db42e05db8a572be790954d0"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "itemHash": {
+                "S": "sha256:79f3dab8aaa8aa98541587adcb111ef9fe93b7201e45fa634793a97e0163d92e"
+            },
+            "M": {
+                "N": "6"
+            },
+            "componentSize": {
+                "N": "104490"
+            },
+            "P": {
+                "N": "1"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:1731b2202013fba7ba5799185d7e0b2e"
+                    }
+                ]
+            },
+            "T": {
+                "N": "6"
+            },
+            "W": {
+                "N": "6"
+            },
+            "componentId": {
+                "S": "researcher:v1:0000affe0a996aa1062334aaa1bf51b2"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:5b3ab1e16f07ca04469c56a306548319"
+            },
+            "windowLabel": {
+                "S": "w2024-2025"
+            },
+            "sk": {
+                "S": "window#w2024-2025"
+            }
+        },
+        {
+            "coreness": {
+                "N": "3"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "participationCoefficient": {
+                "N": "0.6666666666666667"
+            },
+            "crossCommunityDegree": {
+                "N": "2"
+            },
+            "communitySize": {
+                "N": "2"
+            },
+            "communitiesConnected": {
+                "N": "2"
+            },
+            "researcherId": {
+                "S": "researcher:v1:8b3262b416e0f588111467f03667bdfc"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "A": {
+                "N": "3"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "3"
+            },
+            "communityId": {
+                "S": "researcher:v1:240e7c254744cd7e210ffe047eb6ceeb"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "itemHash": {
+                "S": "sha256:d9882aa6c116ca29ebd3cee9462b00a8d777771453c91180d4fb2626b5f20e4e"
+            },
+            "M": {
+                "N": "3"
+            },
+            "componentSize": {
+                "N": "188797"
+            },
+            "P": {
+                "N": "1"
+            },
+            "T": {
+                "N": "3"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:96957ba16187a46941cea2b6cbdf224c"
+                    }
+                ]
+            },
+            "W": {
+                "N": "3"
+            },
+            "componentId": {
+                "S": "researcher:v1:0000410898582d695ceed6f464f1e9d3"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:8b3262b416e0f588111467f03667bdfc"
+            },
+            "windowLabel": {
+                "S": "full-2015-2025"
+            },
+            "sk": {
+                "S": "window#full-2015-2025"
+            }
+        },
+        {
+            "coreness": {
+                "N": "3"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "participationCoefficient": {
+                "N": "0"
+            },
+            "crossCommunityDegree": {
+                "N": "0"
+            },
+            "communitySize": {
+                "N": "4"
+            },
+            "communitiesConnected": {
+                "N": "0"
+            },
+            "researcherId": {
+                "S": "researcher:v1:8b3262b416e0f588111467f03667bdfc"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2020"
+            },
+            "windowStartYear": {
+                "N": "2018"
+            },
+            "A": {
+                "N": "3"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "3"
+            },
+            "communityId": {
+                "S": "researcher:v1:240e7c254744cd7e210ffe047eb6ceeb"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "M": {
+                "N": "3"
+            },
+            "itemHash": {
+                "S": "sha256:25cd741fbc09ab1629888efee605041858fc70547499a958a389c9ff25338756"
+            },
+            "componentSize": {
+                "N": "47770"
+            },
+            "P": {
+                "N": "1"
+            },
+            "T": {
+                "N": "3"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:96957ba16187a46941cea2b6cbdf224c"
+                    }
+                ]
+            },
+            "W": {
+                "N": "3"
+            },
+            "componentId": {
+                "S": "researcher:v1:0000410898582d695ceed6f464f1e9d3"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:8b3262b416e0f588111467f03667bdfc"
+            },
+            "windowLabel": {
+                "S": "w2018-2020"
+            },
+            "sk": {
+                "S": "window#w2018-2020"
+            }
+        },
+        {
+            "coreness": {
+                "N": "2"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "snapshotId": {
+                "S": "dblp-dblp-2026-11-01"
+            },
+            "participationCoefficient": {
+                "N": "0"
+            },
+            "crossCommunityDegree": {
+                "N": "0"
+            },
+            "communitySize": {
+                "N": "3"
+            },
+            "communitiesConnected": {
+                "N": "0"
+            },
+            "researcherId": {
+                "S": "researcher:v1:a23afd92399440a8f412bece77836f3f"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "A": {
+                "N": "2"
+            },
+            "version": {
+                "N": "1"
+            },
+            "C": {
+                "N": "2"
+            },
+            "communityId": {
+                "S": "researcher:v1:a23afd92399440a8f412bece77836f3f"
+            },
+            "identityConfidence": {
+                "N": "0.95"
+            },
+            "M": {
+                "N": "2"
+            },
+            "itemHash": {
+                "S": "sha256:4df355ed36c7f6c6975cc4ba9104d57c957f07ec3339b9ef7a4ebe19b6fe1829"
+            },
+            "componentSize": {
+                "N": "3"
+            },
+            "P": {
+                "N": "1"
+            },
+            "T": {
+                "N": "2"
+            },
+            "mrWorkIds": {
+                "L": [
+                    {
+                        "S": "work:v1:cee4725d4534cababbdd10efd82cd48c"
+                    }
+                ]
+            },
+            "W": {
+                "N": "2"
+            },
+            "componentId": {
+                "S": "researcher:v1:a23afd92399440a8f412bece77836f3f"
+            },
+            "pk": {
+                "S": "researcher#researcher:v1:a23afd92399440a8f412bece77836f3f"
+            },
+            "windowLabel": {
+                "S": "full-2015-2025"
+            },
+            "sk": {
+                "S": "window#full-2015-2025"
+            }
+        }
+    ],
+    "Count": 1543,
+    "ScannedCount": 1543,
+    "ConsumedCapacity": null,
+    "NextToken": "eyJFeGNsdXNpdmVTdGFydEtleSI6IG51bGwsICJib3RvX3RydW5jYXRlX2Ftb3VudCI6IDI1fQ=="
+}

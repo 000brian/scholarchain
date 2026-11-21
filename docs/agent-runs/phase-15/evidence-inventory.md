@@ -37,6 +37,14 @@ Other committed evidence: `experiments/manifests/*.json` (8, signed b0c92f5), `e
 
 `rag/ingest-reports/` and `rag/retrieval-eval/` exist only in the data bucket and are not under `reports/`, so `archive-evidence.sh` does not copy them. Resolution before the archive: the human copies both prefixes (read-only download) into `~/scholarchain-evidence-p15/s3-copies/` (outside the repository, next to the archive copies of D25.4), and the orchestrator records their file count and sha256 list in the runbook log. Status: done. 5 files, 232 KB: `rag/retrieval-eval/20261120T221406Z-6a6c31a06d60-2968/report.json` (E) and 4 ingest reports under `rag/ingest-reports/run=6301f6f046a30f08f173ce204b70ce6e/` (sha256 names 8c3f3eaa…, e6c3d05a… (D7 probe), e0cc74b2…, 86629cdd… (D7 full pass); the other two are the clip 07 demo run and a further run of the same ingest run ID (check which)). Orchestrator scan (counts only): no `s3://` bucket, ARN, AWS host, bucket name or URL; one 12-digit run = fractional digits of a float (`docsPerSecondLocalFakeNotRepresentative`), not an identifier. Committed under `docs/agent-runs/phase-15/s3-copies/` with `s3-copies.sha256` (human), and kept locally.
 
+## 3b. Added during D27 (read-only, before the DynamoDB tables were removed)
+
+`~/scholarchain-evidence-p15/dynamodb-sample/`: RunLedger items of clip 01's query run `run:v1:4f74439a72646af75c238901a8e07863` (4 items: 2 attempt reservations, 2 query audits) and 25-item samples of EvidenceBundle, ResearcherMetricCache and EntityLinkCache. Orchestrator scan: no identifiers. A sample of the Spark graph export in S3 was not copied (the bucket was already being emptied); the export's record counts are in the A/B raw folders (`spark-outputs.csv`).
+
+## 3c. After the removal (D27 attempt 2, D28)
+
+The removal plan record is committed under `docs/agent-runs/phase-15/cleanup/` (identifier scan clean). The saved plan, its text and the masked run output (`.tfplan`, `.plan.txt`, `.apply.txt`) stay local next to the Terraform configuration and are not committed: the run output names AWS service hosts. The run's figures are in the runbook log: 175 resources removed, 6,620,629 object versions emptied, 9 ECR images; leftover check exit 6 from tagging-API records of removed resources (L-15); direct per-service counts all 0 except the 20 kept task definitions (clip 21 part 5). If committed, the DynamoDB samples (3b) sit under `docs/agent-runs/phase-15/dynamodb-sample/` with `dynamodb-sample.sha256`.
+
 ## 4. Not evidence, kept by design
 
 Hand-made IAM user and budget (Phase 17); ACTIVE task-definition revisions (expected leftovers, I-15); the local Terraform state.

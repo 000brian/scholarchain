@@ -1,0 +1,141 @@
+{
+    "Items": [
+        {
+            "version": {
+                "N": "1"
+            },
+            "label": {
+                "S": "query-audit"
+            },
+            "runId": {
+                "S": "run:v1:4f74439a72646af75c238901a8e07863"
+            },
+            "eventType": {
+                "S": "claim"
+            },
+            "pk": {
+                "S": "run#run:v1:4f74439a72646af75c238901a8e07863"
+            },
+            "itemHash": {
+                "S": "sha256:3b51f1c85f285f1ff3df8cc633c375d6f56f078f966aca9b3492e1f5bf6dcf6a"
+            },
+            "attempt": {
+                "N": "1"
+            },
+            "sk": {
+                "S": "attempt#000001#00000000#claim"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "answerHash": {
+                "S": "sha256:4ec93a3e4c9f0f79b9529fb3c7d043caf83d5787f385b68c37125678d27ba3cb"
+            },
+            "schemaVersion": {
+                "N": "3"
+            },
+            "itemHash": {
+                "S": "sha256:21570ffe5cbdceb600ea4cca2ddc642396271075afcf05e7c199b7e6e97ac4ce"
+            },
+            "attempt": {
+                "N": "1"
+            },
+            "questionHash": {
+                "S": "sha256:f42f1d79c0f27ea64d6bcddf0c361f2a6a13b42ea9fb1991a71670bf18b4127c"
+            },
+            "abstained": {
+                "BOOL": false
+            },
+            "runId": {
+                "S": "run:v1:4f74439a72646af75c238901a8e07863"
+            },
+            "eventType": {
+                "S": "query-audit"
+            },
+            "seq": {
+                "N": "1"
+            },
+            "pk": {
+                "S": "run#run:v1:4f74439a72646af75c238901a8e07863"
+            },
+            "record": {
+                "S": "{\"schemaVersion\":3,\"queryRunId\":\"run:v1:4f74439a72646af75c238901a8e07863\",\"questionHash\":\"sha256:f42f1d79c0f27ea64d6bcddf0c361f2a6a13b42ea9fb1991a71670bf18b4127c\",\"plan\":{\"schemaVersion\":1,\"question\":\"Which paper of Wanli Ouyang had the most coauthors on one paper between 2015 and 2025?\",\"graphRunId\":\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"steps\":[{\"operation\":\"max_team_size\",\"researcherIds\":[\"researcher:v1:fe1177235d9a724607da7e9700d133c4\"],\"window\":{\"startYear\":2015,\"endYear\":2025},\"parameters\":{\"metric\":\"max_coauthors_on_one_paper\",\"windowLabel\":\"full-2015-2025\"}}],\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"sourceRecordIds\":[\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:4f74439a72646af75c238901a8e07863\",\"jobName\":\"rag.query\",\"policyVersion\":\"query-planner-v2@sha256:60b5260e9c2eeabff46150fb09cf41a89fe39fbd23701b7023cdf0663e5684a1\",\"contentHash\":\"sha256:f42f1d79c0f27ea64d6bcddf0c361f2a6a13b42ea9fb1991a71670bf18b4127c\"}},\"planSource\":\"llm\",\"resolvedResearcherIds\":[\"researcher:v1:fe1177235d9a724607da7e9700d133c4\"],\"unresolvedNames\":[],\"evidenceIds\":[\"evidence:v1:c884c6a8c5a4b3c5a620138cfce1b08a\",\"evidence:v1:b70b58dd1ca686b90dd5fcb1940c3159\",\"evidence:v1:9da58a66278cd0ad641366124c0b1a41\"],\"bundleId\":\"evidence:v1:baa7a243bcbe1fa0dd1be25b0882ff5c\",\"graphRunId\":\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"metricPolicyVersions\":[\"graph-v1\"],\"promptVersions\":[\"query-planner-v2@sha256:60b5260e9c2eeabff46150fb09cf41a89fe39fbd23701b7023cdf0663e5684a1\",\"answer-synthesis-v3@sha256:becccf473e825a63b1a7f3d644f9ffafd15e80fbdfe5c111180315bb7bcb32b8\"],\"modelId\":\"claude-haiku-5-5\",\"inputTokens\":3189,\"outputTokens\":1231,\"latencyMillis\":6303,\"stageMillis\":{\"planner\":2526,\"resolver\":262,\"metrics\":38,\"paths\":0,\"community\":0,\"semantic\":0,\"evidence\":0,\"identity\":0,\"synthesis\":3368,\"verification\":2},\"verificationCounts\":{\"verified\":2,\"partially_supported\":0,\"unsupported\":1,\"conflicting\":0},\"answerHash\":\"sha256:4ec93a3e4c9f0f79b9529fb3c7d043caf83d5787f385b68c37125678d27ba3cb\",\"abstained\":false,\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"sourceRecordIds\":[\"sha256:f42f1d79c0f27ea64d6bcddf0c361f2a6a13b42ea9fb1991a71670bf18b4127c\"],\"runId\":\"run:v1:4f74439a72646af75c238901a8e07863\",\"jobName\":\"rag.query\",\"policyVersion\":\"query-audit/1\",\"contentHash\":null},\"queryTemplateIds\":[\"researcher_by_id\",\"coauthor_neighbors\",\"work_by_id\"],\"indexesQueried\":[],\"metadataFilterKeys\":[],\"modelCalls\":{\"planner\":{\"logicalCalls\":1,\"invalidOutputs\":0,\"truncatedOutputs\":0,\"droppedBoundNumbers\":0,\"fallbacks\":0},\"synthesis\":{\"logicalCalls\":1,\"invalidOutputs\":0,\"truncatedOutputs\":0,\"droppedBoundNumbers\":0,\"fallbacks\":0}},\"cacheHits\":{},\"abstentionCodes\":[]}"
+            },
+            "sk": {
+                "S": "attempt#000001#00000001#query-audit"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "label": {
+                "S": "query-audit"
+            },
+            "runId": {
+                "S": "run:v1:4f74439a72646af75c238901a8e07863"
+            },
+            "eventType": {
+                "S": "claim"
+            },
+            "pk": {
+                "S": "run#run:v1:4f74439a72646af75c238901a8e07863"
+            },
+            "itemHash": {
+                "S": "sha256:f0cf41c082bd0ea844b86f8f3c39e468cd8a393e3069d6a2722f2ae0eee4693a"
+            },
+            "attempt": {
+                "N": "2"
+            },
+            "sk": {
+                "S": "attempt#000002#00000000#claim"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "answerHash": {
+                "S": "sha256:3b41c4b6f05f49d3056857c2c2c1ed0c4523aab9cf7a168ef61e5df082a3a44c"
+            },
+            "schemaVersion": {
+                "N": "3"
+            },
+            "itemHash": {
+                "S": "sha256:de51454d648e45049842ebb3fef01ee0b6acb6ea353744b1679a52c997205eff"
+            },
+            "attempt": {
+                "N": "2"
+            },
+            "questionHash": {
+                "S": "sha256:f42f1d79c0f27ea64d6bcddf0c361f2a6a13b42ea9fb1991a71670bf18b4127c"
+            },
+            "abstained": {
+                "BOOL": false
+            },
+            "runId": {
+                "S": "run:v1:4f74439a72646af75c238901a8e07863"
+            },
+            "eventType": {
+                "S": "query-audit"
+            },
+            "pk": {
+                "S": "run#run:v1:4f74439a72646af75c238901a8e07863"
+            },
+            "seq": {
+                "N": "1"
+            },
+            "record": {
+                "S": "{\"schemaVersion\":3,\"queryRunId\":\"run:v1:4f74439a72646af75c238901a8e07863\",\"questionHash\":\"sha256:f42f1d79c0f27ea64d6bcddf0c361f2a6a13b42ea9fb1991a71670bf18b4127c\",\"plan\":{\"schemaVersion\":1,\"question\":\"Which paper of Wanli Ouyang had the most coauthors on one paper between 2015 and 2025?\",\"graphRunId\":\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"steps\":[{\"operation\":\"max_team_size\",\"researcherIds\":[\"researcher:v1:fe1177235d9a724607da7e9700d133c4\"],\"window\":{\"startYear\":2015,\"endYear\":2025},\"parameters\":{\"metric\":\"max_coauthors_on_one_paper\",\"windowLabel\":\"full-2015-2025\"}}],\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"sourceRecordIds\":[\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:4f74439a72646af75c238901a8e07863\",\"jobName\":\"rag.query\",\"policyVersion\":\"query-planner-v2@sha256:60b5260e9c2eeabff46150fb09cf41a89fe39fbd23701b7023cdf0663e5684a1\",\"contentHash\":\"sha256:f42f1d79c0f27ea64d6bcddf0c361f2a6a13b42ea9fb1991a71670bf18b4127c\"}},\"planSource\":\"llm\",\"resolvedResearcherIds\":[\"researcher:v1:fe1177235d9a724607da7e9700d133c4\"],\"unresolvedNames\":[],\"evidenceIds\":[\"evidence:v1:c884c6a8c5a4b3c5a620138cfce1b08a\",\"evidence:v1:b70b58dd1ca686b90dd5fcb1940c3159\",\"evidence:v1:9da58a66278cd0ad641366124c0b1a41\"],\"bundleId\":\"evidence:v1:baa7a243bcbe1fa0dd1be25b0882ff5c\",\"graphRunId\":\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"metricPolicyVersions\":[\"graph-v1\"],\"promptVersions\":[\"query-planner-v2@sha256:60b5260e9c2eeabff46150fb09cf41a89fe39fbd23701b7023cdf0663e5684a1\",\"answer-synthesis-v3@sha256:becccf473e825a63b1a7f3d644f9ffafd15e80fbdfe5c111180315bb7bcb32b8\"],\"modelId\":\"claude-haiku-5-5\",\"inputTokens\":3189,\"outputTokens\":1169,\"latencyMillis\":6106,\"stageMillis\":{\"planner\":2733,\"resolver\":155,\"metrics\":41,\"paths\":0,\"community\":0,\"semantic\":0,\"evidence\":0,\"identity\":0,\"synthesis\":3054,\"verification\":1},\"verificationCounts\":{\"verified\":2,\"partially_supported\":0,\"unsupported\":0,\"conflicting\":0},\"answerHash\":\"sha256:3b41c4b6f05f49d3056857c2c2c1ed0c4523aab9cf7a168ef61e5df082a3a44c\",\"abstained\":false,\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"sourceRecordIds\":[\"sha256:f42f1d79c0f27ea64d6bcddf0c361f2a6a13b42ea9fb1991a71670bf18b4127c\"],\"runId\":\"run:v1:4f74439a72646af75c238901a8e07863\",\"jobName\":\"rag.query\",\"policyVersion\":\"query-audit/1\",\"contentHash\":null},\"queryTemplateIds\":[\"researcher_by_id\",\"coauthor_neighbors\",\"work_by_id\"],\"indexesQueried\":[],\"metadataFilterKeys\":[],\"modelCalls\":{\"planner\":{\"logicalCalls\":1,\"invalidOutputs\":0,\"truncatedOutputs\":0,\"droppedBoundNumbers\":0,\"fallbacks\":0},\"synthesis\":{\"logicalCalls\":1,\"invalidOutputs\":0,\"truncatedOutputs\":0,\"droppedBoundNumbers\":0,\"fallbacks\":0}},\"cacheHits\":{},\"abstentionCodes\":[]}"
+            },
+            "sk": {
+                "S": "attempt#000002#00000001#query-audit"
+            }
+        }
+    ],
+    "Count": 4,
+    "ScannedCount": 4,
+    "ConsumedCapacity": null
+}

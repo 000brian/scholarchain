@@ -1,0 +1,883 @@
+{
+    "Items": [
+        {
+            "linkKind": {
+                "S": "name"
+            },
+            "displayName": {
+                "S": "Fu Rong"
+            },
+            "version": {
+                "N": "1"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "matchedValue": {
+                "S": "Fu Rong"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "researcherId": {
+                "S": "researcher:v1:c996891a637cac6d11d2268862d6e591"
+            },
+            "itemHash": {
+                "S": "sha256:55321d2616cf6fa58df56f376a01103936cbab9b08c5418cb84ae71818299d82"
+            },
+            "pk": {
+                "S": "name#fu rong"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:c996891a637cac6d11d2268862d6e591"
+            }
+        },
+        {
+            "displayName": {
+                "S": "Ibrahim Burak Özyurt"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "linkKind": {
+                "S": "name"
+            },
+            "version": {
+                "N": "1"
+            },
+            "matchedValue": {
+                "S": "Ibrahim Burak Özyurt"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "researcherId": {
+                "S": "researcher:v1:7160e90500aa1089d753e24cc8a9d5cb"
+            },
+            "itemHash": {
+                "S": "sha256:bd22c580425d6ff880d9ba17b08900196992480410d2b26ac770cd70d65f4911"
+            },
+            "pk": {
+                "S": "name#ibrahim burak ozyurt"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:7160e90500aa1089d753e24cc8a9d5cb"
+            }
+        },
+        {
+            "displayName": {
+                "S": "Eero P. Simoncelli"
+            },
+            "linkKind": {
+                "S": "orcid"
+            },
+            "version": {
+                "N": "1"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "matchedValue": {
+                "S": "0000-0002-1206-527X"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "itemHash": {
+                "S": "sha256:28c5cd3b99a5bb8af374f8af7c4610e193277dbfdfd253fe70f53094d6bbab55"
+            },
+            "pk": {
+                "S": "orcid#0000-0002-1206-527X"
+            },
+            "researcherId": {
+                "S": "researcher:v1:f8dbe599182b5468c3a005819b09c055"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:f8dbe599182b5468c3a005819b09c055"
+            }
+        },
+        {
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "version": {
+                "N": "1"
+            },
+            "linkKind": {
+                "S": "name"
+            },
+            "displayName": {
+                "S": "Angelina Kraft"
+            },
+            "matchedValue": {
+                "S": "Angelina Kraft"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "itemHash": {
+                "S": "sha256:3dbc2f49672eb8f1bdf78f0c8d005a95b68068cbf070b4abcf8d002609b44322"
+            },
+            "pk": {
+                "S": "name#angelina kraft"
+            },
+            "researcherId": {
+                "S": "researcher:v1:ff9896186fb6ffd3429258ae2b5400ff"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:ff9896186fb6ffd3429258ae2b5400ff"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "displayName": {
+                "S": "Quentin Bragard"
+            },
+            "linkKind": {
+                "S": "name"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "matchedValue": {
+                "S": "Quentin Bragard"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "pk": {
+                "S": "name#quentin bragard"
+            },
+            "researcherId": {
+                "S": "researcher:v1:016dc96bbec9ea94b87e88960ea7c978"
+            },
+            "itemHash": {
+                "S": "sha256:ff1f379909e82c0cd73633458a54176a0b5b11743d9decdd11fb3d910fa46891"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:016dc96bbec9ea94b87e88960ea7c978"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "linkKind": {
+                "S": "name"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "displayName": {
+                "S": "Boris Wiegand"
+            },
+            "matchedValue": {
+                "S": "Boris Wiegand"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "pk": {
+                "S": "name#boris wiegand"
+            },
+            "itemHash": {
+                "S": "sha256:58b720ffec0c5e1de8047e82baee6d972bb697fd752998ea7690ed7972dce117"
+            },
+            "researcherId": {
+                "S": "researcher:v1:84b7e95103bba015bd1863bb6adb51fa"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:84b7e95103bba015bd1863bb6adb51fa"
+            }
+        },
+        {
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "version": {
+                "N": "1"
+            },
+            "displayName": {
+                "S": "Bo Bao"
+            },
+            "linkKind": {
+                "S": "name"
+            },
+            "matchedValue": {
+                "S": "Bo Bao"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "pk": {
+                "S": "name#bo bao"
+            },
+            "researcherId": {
+                "S": "researcher:v1:bec86850363af5b0402022734c2dd8d2"
+            },
+            "itemHash": {
+                "S": "sha256:f9499e662eb88eca100400c0277d8295c69afac573b15446f63076a4afd1b98c"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:bec86850363af5b0402022734c2dd8d2"
+            }
+        },
+        {
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "linkKind": {
+                "S": "name"
+            },
+            "displayName": {
+                "S": "Meghana Chillara"
+            },
+            "version": {
+                "N": "1"
+            },
+            "matchedValue": {
+                "S": "Meghana Chillara"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "researcherId": {
+                "S": "researcher:v1:93da96842f47c2b9574d7c3814b35a87"
+            },
+            "pk": {
+                "S": "name#meghana chillara"
+            },
+            "itemHash": {
+                "S": "sha256:9539984833eb215b0ddc440e286cffb4ac32ebd709894c21180e6afcf9132b88"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:93da96842f47c2b9574d7c3814b35a87"
+            }
+        },
+        {
+            "displayName": {
+                "S": "Jun Nie"
+            },
+            "linkKind": {
+                "S": "name"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "version": {
+                "N": "1"
+            },
+            "matchedValue": {
+                "S": "Jun Nie"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "itemHash": {
+                "S": "sha256:2c08c5a438c1f752b9c0d9004f2439c9ce5f7f4dcb31b91fb65d634147a57f2a"
+            },
+            "researcherId": {
+                "S": "researcher:v1:f7473488ac47f2b29f3052e65d5010e3"
+            },
+            "pk": {
+                "S": "name#jun nie"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:f7473488ac47f2b29f3052e65d5010e3"
+            }
+        },
+        {
+            "displayName": {
+                "S": "Qingyuan Song"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "linkKind": {
+                "S": "orcid"
+            },
+            "version": {
+                "N": "1"
+            },
+            "matchedValue": {
+                "S": "0000-0002-2999-8690"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "pk": {
+                "S": "orcid#0000-0002-2999-8690"
+            },
+            "itemHash": {
+                "S": "sha256:946f94bd768a9f2a313cd80c86744a3fd77cf072d08a2be11c2263f3c1207177"
+            },
+            "researcherId": {
+                "S": "researcher:v1:0e32ea871eb4e51b2b952f34d4202975"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:0e32ea871eb4e51b2b952f34d4202975"
+            }
+        },
+        {
+            "displayName": {
+                "S": "Fengyin Lin"
+            },
+            "version": {
+                "N": "1"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "linkKind": {
+                "S": "name"
+            },
+            "matchedValue": {
+                "S": "Fengyin Lin"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "researcherId": {
+                "S": "researcher:v1:e54bebab8439300455c9e2d7a43d89b5"
+            },
+            "pk": {
+                "S": "name#fengyin lin"
+            },
+            "itemHash": {
+                "S": "sha256:46d3c4e15715b618b147a9eb67063c24699f708b9fbfa55e8405e0827a11f4d5"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:e54bebab8439300455c9e2d7a43d89b5"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "displayName": {
+                "S": "Alexander M. Bronstein"
+            },
+            "linkKind": {
+                "S": "name"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "matchedValue": {
+                "S": "Alexander M. Bronstein"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "itemHash": {
+                "S": "sha256:c2d8700153d475bb03486a8ced4016b976ddd9c10864ec243c3dcc82a380ac56"
+            },
+            "pk": {
+                "S": "name#alexander m bronstein"
+            },
+            "researcherId": {
+                "S": "researcher:v1:2896f7c3f4fb2c71a2381e3124bc1172"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:2896f7c3f4fb2c71a2381e3124bc1172"
+            }
+        },
+        {
+            "linkKind": {
+                "S": "name"
+            },
+            "version": {
+                "N": "1"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "displayName": {
+                "S": "Irina P. Temnikova"
+            },
+            "matchedValue": {
+                "S": "Irina P. Temnikova"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "researcherId": {
+                "S": "researcher:v1:9f6aee2b9ad9522362c6d6e4fd1150ce"
+            },
+            "itemHash": {
+                "S": "sha256:45dd67314f4ea124f03738ba23913569f28315ed91f59e1d7b826aeedcf7b740"
+            },
+            "pk": {
+                "S": "name#irina p temnikova"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:9f6aee2b9ad9522362c6d6e4fd1150ce"
+            }
+        },
+        {
+            "displayName": {
+                "S": "Jussi Kangasharju"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "version": {
+                "N": "1"
+            },
+            "linkKind": {
+                "S": "name"
+            },
+            "matchedValue": {
+                "S": "Jussi Kangasharju"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "pk": {
+                "S": "name#jussi kangasharju"
+            },
+            "researcherId": {
+                "S": "researcher:v1:44573ada758478a966bb6eddd879a460"
+            },
+            "itemHash": {
+                "S": "sha256:a0dda32a4cc3e2d24cba2bfdfd80ebdab0ff050eccb1d72cb2a5c20f392cc674"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:44573ada758478a966bb6eddd879a460"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "linkKind": {
+                "S": "name"
+            },
+            "displayName": {
+                "S": "Gian-Luca Savino"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "matchedValue": {
+                "S": "Gian-Luca Savino"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "researcherId": {
+                "S": "researcher:v1:eecc9fcf46e7602fce25a4659c2c432a"
+            },
+            "itemHash": {
+                "S": "sha256:5c5a8790982bd6f8de308a07b73f94741674d28dbf4d887d39c755b1acba01dc"
+            },
+            "pk": {
+                "S": "name#gian luca savino"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:eecc9fcf46e7602fce25a4659c2c432a"
+            }
+        },
+        {
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "displayName": {
+                "S": "Hu Zongzheng"
+            },
+            "linkKind": {
+                "S": "name"
+            },
+            "version": {
+                "N": "1"
+            },
+            "matchedValue": {
+                "S": "Hu Zongzheng"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "researcherId": {
+                "S": "researcher:v1:fd2dc0a7ad61bc241c1806daf263b6e1"
+            },
+            "itemHash": {
+                "S": "sha256:9addea0a6d85ef310749e1bdc7558bc5ae55b017db0d4c9fa0812ebfa729ed1a"
+            },
+            "pk": {
+                "S": "name#hu zongzheng"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:fd2dc0a7ad61bc241c1806daf263b6e1"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "displayName": {
+                "S": "Wenfei Fan"
+            },
+            "linkKind": {
+                "S": "name"
+            },
+            "matchedValue": {
+                "S": "Wenfei Fan"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "researcherId": {
+                "S": "researcher:v1:f6d9dbc861a5f330e3c55260f4511ccb"
+            },
+            "pk": {
+                "S": "name#wenfei fan"
+            },
+            "itemHash": {
+                "S": "sha256:8674ac14f4f2ab6d047c090ee9bddf8f379af34906a9c791b64f278f33dbf515"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:f6d9dbc861a5f330e3c55260f4511ccb"
+            }
+        },
+        {
+            "linkKind": {
+                "S": "name"
+            },
+            "version": {
+                "N": "1"
+            },
+            "displayName": {
+                "S": "Yong Pei"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "matchedValue": {
+                "S": "Yong Pei"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "itemHash": {
+                "S": "sha256:be9db603d41ffff7e403e79fa336035c4ed5d0b88227542902c68c5a4e40cb0e"
+            },
+            "researcherId": {
+                "S": "researcher:v1:bb87b69b7d41648eb4e50a5bdabe129e"
+            },
+            "pk": {
+                "S": "name#yong pei"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:bb87b69b7d41648eb4e50a5bdabe129e"
+            }
+        },
+        {
+            "displayName": {
+                "S": "Yulin Yuan"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "version": {
+                "N": "1"
+            },
+            "linkKind": {
+                "S": "name"
+            },
+            "matchedValue": {
+                "S": "Yulin Yuan"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "researcherId": {
+                "S": "researcher:v1:f4bf04083da0f9e0a15f4483b322051a"
+            },
+            "itemHash": {
+                "S": "sha256:d094f2e799ff0a7d8d5fc86bc3aea3b2cd36193487809f498eea5a01c6339993"
+            },
+            "pk": {
+                "S": "name#yulin yuan"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:f4bf04083da0f9e0a15f4483b322051a"
+            }
+        },
+        {
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "version": {
+                "N": "1"
+            },
+            "displayName": {
+                "S": "Chaithanya Kumar Mummadi"
+            },
+            "linkKind": {
+                "S": "name"
+            },
+            "matchedValue": {
+                "S": "Chaithanya Kumar Mummadi"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "itemHash": {
+                "S": "sha256:b2b2b430ff17e4f90462a82d6a5908273fefb57a11556c87e00ca9a2528d6e0f"
+            },
+            "pk": {
+                "S": "name#chaithanya kumar mummadi"
+            },
+            "researcherId": {
+                "S": "researcher:v1:7b637640af19490fbedbe11ab07cf3d2"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:7b637640af19490fbedbe11ab07cf3d2"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "displayName": {
+                "S": "Rock Stevens"
+            },
+            "linkKind": {
+                "S": "name"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "matchedValue": {
+                "S": "Rock Stevens"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "itemHash": {
+                "S": "sha256:26c65b9d08c980c228f040b79291c668fafdddf5fd3c3f3821fae0668e84ae22"
+            },
+            "researcherId": {
+                "S": "researcher:v1:f366047e30054fc0cae22cc1acf1c0eb"
+            },
+            "pk": {
+                "S": "name#rock stevens"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:f366047e30054fc0cae22cc1acf1c0eb"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "displayName": {
+                "S": "Appan Rakaraddi"
+            },
+            "linkKind": {
+                "S": "orcid"
+            },
+            "matchedValue": {
+                "S": "0000-0001-9146-8861"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "pk": {
+                "S": "orcid#0000-0001-9146-8861"
+            },
+            "researcherId": {
+                "S": "researcher:v1:92befa6461a14a4c5c95073bb016d245"
+            },
+            "itemHash": {
+                "S": "sha256:358546496feaadb625c426123620adefabd1550230af11499952e4b1fe095597"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:92befa6461a14a4c5c95073bb016d245"
+            }
+        },
+        {
+            "linkKind": {
+                "S": "name"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "version": {
+                "N": "1"
+            },
+            "displayName": {
+                "S": "Yi-Hsiu Liao"
+            },
+            "matchedValue": {
+                "S": "Yi-Hsiu Liao"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "pk": {
+                "S": "name#yi hsiu liao"
+            },
+            "itemHash": {
+                "S": "sha256:82a2c688f404314bdc3f90eeadafe443bc45bfc9c494175e79b0d5076b97d754"
+            },
+            "researcherId": {
+                "S": "researcher:v1:dd341af9db8cd85f2d38e9e0b3757f7c"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:dd341af9db8cd85f2d38e9e0b3757f7c"
+            }
+        },
+        {
+            "displayName": {
+                "S": "Klinton Bicknell"
+            },
+            "version": {
+                "N": "1"
+            },
+            "linkKind": {
+                "S": "name"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "matchedValue": {
+                "S": "Klinton Bicknell"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "researcherId": {
+                "S": "researcher:v1:14654ec96cb803e6d07ff0c8888f0ef1"
+            },
+            "pk": {
+                "S": "name#klinton bicknell"
+            },
+            "itemHash": {
+                "S": "sha256:2b4c91a62fa2eec2a11f9700629d77da6ca886f957e052b2a49b2e4bf70ad979"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:14654ec96cb803e6d07ff0c8888f0ef1"
+            }
+        },
+        {
+            "displayName": {
+                "S": "Md. Abdur Rahman 0001"
+            },
+            "policyVersion": {
+                "S": "graph-v1"
+            },
+            "version": {
+                "N": "1"
+            },
+            "linkKind": {
+                "S": "name"
+            },
+            "matchedValue": {
+                "S": "Mohamed Abdur Rahman 0001"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "pk": {
+                "S": "name#mohamed abdur rahman"
+            },
+            "itemHash": {
+                "S": "sha256:88b2dd400d4f01d783358068145312608e760ce9ede891ac9c5b33a595482663"
+            },
+            "researcherId": {
+                "S": "researcher:v1:d299d20c39d640154cb46e0881c96d6b"
+            },
+            "keyRule": {
+                "S": "author-name-key/1"
+            },
+            "sk": {
+                "S": "researcher#researcher:v1:d299d20c39d640154cb46e0881c96d6b"
+            }
+        }
+    ],
+    "Count": 2773,
+    "ScannedCount": 2773,
+    "ConsumedCapacity": null,
+    "NextToken": "eyJFeGNsdXNpdmVTdGFydEtleSI6IG51bGwsICJib3RvX3RydW5jYXRlX2Ftb3VudCI6IDI1fQ=="
+}

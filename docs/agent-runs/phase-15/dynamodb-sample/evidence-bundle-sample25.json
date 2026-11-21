@@ -1,0 +1,1172 @@
+{
+    "Items": [
+        {
+            "version": {
+                "N": "1"
+            },
+            "itemCount": {
+                "N": "10"
+            },
+            "runId": {
+                "S": "run:v1:e02cf74d377c8a2631edbc7efe56a174"
+            },
+            "bundleId": {
+                "S": "evidence:v1:282bd1da5e1a94a6232f11524f38e6a9"
+            },
+            "evidenceIds": {
+                "L": [
+                    {
+                        "S": "evidence:v1:f406e0947a83e335f563adc9e7c2a01d"
+                    },
+                    {
+                        "S": "evidence:v1:c5add5f08d6d534d220b1eeb6f7de042"
+                    },
+                    {
+                        "S": "evidence:v1:7388f479d1fe7af450be9b178dd2f5f7"
+                    },
+                    {
+                        "S": "evidence:v1:188be29c5a72484d3f0aaf3984acac78"
+                    },
+                    {
+                        "S": "evidence:v1:aceef3249cac50d759fe7efb77dfcef4"
+                    },
+                    {
+                        "S": "evidence:v1:44ca0589b886e42b1fc219b2c057dff0"
+                    },
+                    {
+                        "S": "evidence:v1:0030dc1a7369f7aa3190d5875221a362"
+                    },
+                    {
+                        "S": "evidence:v1:50f23bb9cbc7de9c36748115a764d0f4"
+                    },
+                    {
+                        "S": "evidence:v1:2ac400b15ed1d73ee7ea38381a0748a6"
+                    },
+                    {
+                        "S": "evidence:v1:d0883abdadd31ce328e673df908bae16"
+                    }
+                ]
+            },
+            "itemHash": {
+                "S": "sha256:91947de2dc99818eb9d3837ba36a6d57fe49ce125dcdff52a6778ae5dc88cfde"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:282bd1da5e1a94a6232f11524f38e6a9"
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"bundleId\":\"evidence:v1:282bd1da5e1a94a6232f11524f38e6a9\",\"items\":[{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:f406e0947a83e335f563adc9e7c2a01d\",\"evidenceType\":\"metric\",\"subjectIds\":[\"researcher:v1:98afa40ff5b2ad6f93f88f88bcb702a0\",\"metric=communities_connected\",\"window=w2021-2023\"],\"window\":{\"startYear\":2021,\"endYear\":2023},\"metric\":{\"metric\":\"communities_connected\",\"value\":130},\"snippet\":\"name=Dacheng Tao\\nresearcherId=researcher:v1:98afa40ff5b2ad6f93f88f88bcb702a0\\nrank=1\\nwindowLabel=w2021-2023\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"sourceRecordIds\":[\"ResearcherMetricCache:ranking#w2021-2023#communities_connected/rank#0001\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:e02cf74d377c8a2631edbc7efe56a174\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:c54dba5eb9230d6abbf7d33f92e28beffbfd3a1c5c51d2095f58d6ae2bd2b82c\"}},{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:c5add5f08d6d534d220b1eeb6f7de042\",\"evidenceType\":\"metric\",\"subjectIds\":[\"researcher:v1:790e36cd37f4fa44e6bac392ccf456e8\",\"metric=communities_connected\",\"window=w2021-2023\"],\"window\":{\"startYear\":2021,\"endYear\":2023},\"metric\":{\"metric\":\"communities_connected\",\"value\":107},\"snippet\":\"name=Yi Yang 0001\\nresearcherId=researcher:v1:790e36cd37f4fa44e6bac392ccf456e8\\nrank=2\\nwindowLabel=w2021-2023\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"sourceRecordIds\":[\"ResearcherMetricCache:ranking#w2021-2023#communities_connected/rank#0002\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:e02cf74d377c8a2631edbc7efe56a174\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:6001adfd9bbea61081df9a6a4206d282b01521e506f428316efec700e814f556\"}},{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:7388f479d1fe7af450be9b178dd2f5f7\",\"evidenceType\":\"metric\",\"subjectIds\":[\"researcher:v1:bc4bcfaad03795c793ec3ec0b649dad4\",\"metric=communities_connected\",\"window=w2021-2023\"],\"window\":{\"startYear\":2021,\"endYear\":2023},\"metric\":{\"metric\":\"communities_connected\",\"value\":99},\"snippet\":\"name=Ping Luo 0002\\nresearcherId=researcher:v1:bc4bcfaad03795c793ec3ec0b649dad4\\nrank=3\\nwindowLabel=w2021-2023\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"sourceRecordIds\":[\"ResearcherMetricCache:ranking#w2021-2023#communities_connected/rank#0003\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:e02cf74d377c8a2631edbc7efe56a174\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:a59065607c8dccad7f82661aba2b719bb360b722ecac73e2c9b04a3c361eb8b3\"}},{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:188be29c5a72484d3f0aaf3984acac78\",\"evidenceType\":\"metric\",\"subjectIds\":[\"researcher:v1:c7883d2daae7743663d011b5212b90b6\",\"metric=communities_connected\",\"window=w2021-2023\"],\"window\":{\"startYear\":2021,\"endYear\":2023},\"metric\":{\"metric\":\"communities_connected\",\"value\":98},\"snippet\":\"name=Tat-Seng Chua\\nresearcherId=researcher:v1:c7883d2daae7743663d011b5212b90b6\\nrank=4\\nwindowLabel=w2021-2023\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"sourceRecordIds\":[\"ResearcherMetricCache:ranking#w2021-2023#communities_connected/rank#0004\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:e02cf74d377c8a2631edbc7efe56a174\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:6f49850fce359b22f4466d1580740ea6921d2ef46a647dcf84f2ffbe959cdc15\"}},{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:aceef3249cac50d759fe7efb77dfcef4\",\"evidenceType\":\"metric\",\"subjectIds\":[\"researcher:v1:5d6029542b54c1717977ae66c695e403\",\"metric=communities_connected\",\"window=w2021-2023\"],\"window\":{\"startYear\":2021,\"endYear\":2023},\"metric\":{\"metric\":\"communities_connected\",\"value\":97},\"snippet\":\"name=Philip S. Yu\\nresearcherId=researcher:v1:5d6029542b54c1717977ae66c695e403\\nrank=5\\nwindowLabel=w2021-2023\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"sourceRecordIds\":[\"ResearcherMetricCache:ranking#w2021-2023#communities_connected/rank#0005\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:e02cf74d377c8a2631edbc7efe56a174\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:ba5cbad775b7f45476c1d8c4b5b10e92fcc201d76e46fba4b3410a448b3fe881\"}},{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:44ca0589b886e42b1fc219b2c057dff0\",\"evidenceType\":\"metric\",\"subjectIds\":[\"researcher:v1:98afa40ff5b2ad6f93f88f88bcb702a0\",\"metric=cross_community_degree\",\"window=w2021-2023\"],\"window\":{\"startYear\":2021,\"endYear\":2023},\"metric\":{\"metric\":\"cross_community_degree\",\"value\":374},\"snippet\":\"name=Dacheng Tao\\nresearcherId=researcher:v1:98afa40ff5b2ad6f93f88f88bcb702a0\\nwindowLabel=w2021-2023\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"ResearcherMetricCache:researcher#researcher:v1:98afa40ff5b2ad6f93f88f88bcb702a0/window#w2021-2023\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:e02cf74d377c8a2631edbc7efe56a174\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:5f07e3712512461688e0b0237703c5717022cfbc9c41a318ad716cb4d52d8500\"}},{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:0030dc1a7369f7aa3190d5875221a362\",\"evidenceType\":\"metric\",\"subjectIds\":[\"researcher:v1:790e36cd37f4fa44e6bac392ccf456e8\",\"metric=cross_community_degree\",\"window=w2021-2023\"],\"window\":{\"startYear\":2021,\"endYear\":2023},\"metric\":{\"metric\":\"cross_community_degree\",\"value\":280},\"snippet\":\"name=Yi Yang 0001\\nresearcherId=researcher:v1:790e36cd37f4fa44e6bac392ccf456e8\\nwindowLabel=w2021-2023\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"ResearcherMetricCache:researcher#researcher:v1:790e36cd37f4fa44e6bac392ccf456e8/window#w2021-2023\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:e02cf74d377c8a2631edbc7efe56a174\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:910d29f2e6e31d48d4405de10a6bae4066ae5abdd522937d747e0115edfab8d3\"}},{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:50f23bb9cbc7de9c36748115a764d0f4\",\"evidenceType\":\"metric\",\"subjectIds\":[\"researcher:v1:bc4bcfaad03795c793ec3ec0b649dad4\",\"metric=cross_community_degree\",\"window=w2021-2023\"],\"window\":{\"startYear\":2021,\"endYear\":2023},\"metric\":{\"metric\":\"cross_community_degree\",\"value\":247},\"snippet\":\"name=Ping Luo 0002\\nresearcherId=researcher:v1:bc4bcfaad03795c793ec3ec0b649dad4\\nwindowLabel=w2021-2023\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"ResearcherMetricCache:researcher#researcher:v1:bc4bcfaad03795c793ec3ec0b649dad4/window#w2021-2023\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:e02cf74d377c8a2631edbc7efe56a174\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:d1abe3de7ac8e1fa0ac2a3b58ed50c7c6380a1003ff6f8fd786b316826b5986b\"}},{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:2ac400b15ed1d73ee7ea38381a0748a6\",\"evidenceType\":\"metric\",\"subjectIds\":[\"researcher:v1:c7883d2daae7743663d011b5212b90b6\",\"metric=cross_community_degree\",\"window=w2021-2023\"],\"window\":{\"startYear\":2021,\"endYear\":2023},\"metric\":{\"metric\":\"cross_community_degree\",\"value\":210},\"snippet\":\"name=Tat-Seng Chua\\nresearcherId=researcher:v1:c7883d2daae7743663d011b5212b90b6\\nwindowLabel=w2021-2023\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"ResearcherMetricCache:researcher#researcher:v1:c7883d2daae7743663d011b5212b90b6/window#w2021-2023\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:e02cf74d377c8a2631edbc7efe56a174\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:c703f4b247ef01202a70eb7916798c765ecf451959af69f257602682eb24cd65\"}},{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:d0883abdadd31ce328e673df908bae16\",\"evidenceType\":\"metric\",\"subjectIds\":[\"researcher:v1:5d6029542b54c1717977ae66c695e403\",\"metric=cross_community_degree\",\"window=w2021-2023\"],\"window\":{\"startYear\":2021,\"endYear\":2023},\"metric\":{\"metric\":\"cross_community_degree\",\"value\":238},\"snippet\":\"name=Philip S. Yu\\nresearcherId=researcher:v1:5d6029542b54c1717977ae66c695e403\\nwindowLabel=w2021-2023\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"ResearcherMetricCache:researcher#researcher:v1:5d6029542b54c1717977ae66c695e403/window#w2021-2023\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:e02cf74d377c8a2631edbc7efe56a174\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:e8cf21cd5a4bdebbe992c9bfdeab2ce1ca8eaa002a03d852f307eb0bcf29bccf\"}}],\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"sourceRecordIds\":[\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:e02cf74d377c8a2631edbc7efe56a174\",\"jobName\":\"rag.query\",\"policyVersion\":\"runtime-evidence/1\",\"contentHash\":null}}"
+            },
+            "sk": {
+                "S": "bundle"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:ffe31810cbe7086ca1c3b399473c67f4"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:1f7ee28f98df653a9de40b2f091b59e9"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "evidenceType": {
+                "S": "coauthor_edge"
+            },
+            "itemHash": {
+                "S": "sha256:4462febad211e5b506dfbad966e8798e57323a0fa1cd4db814352b682596993e"
+            },
+            "contentHash": {
+                "S": "sha256:8caf7c3ab37cd1b1873f40a7eebfc4b589d0e3549cc154ca576d7a2ebe88c425"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:1f7ee28f98df653a9de40b2f091b59e9"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:00e8ad347ecd63cf1834a0df916a41b3"
+                    },
+                    {
+                        "S": "researcher:v1:24542da1380d96ba26ec9d127f3a4be7"
+                    },
+                    {
+                        "S": "window=full-2015-2025"
+                    }
+                ]
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:1f7ee28f98df653a9de40b2f091b59e9\",\"evidenceType\":\"coauthor_edge\",\"subjectIds\":[\"researcher:v1:00e8ad347ecd63cf1834a0df916a41b3\",\"researcher:v1:24542da1380d96ba26ec9d127f3a4be7\",\"window=full-2015-2025\"],\"window\":{\"startYear\":2015,\"endYear\":2025},\"metric\":null,\"snippet\":\"nameA=Elie Bakouch\\nresearcherA=researcher:v1:00e8ad347ecd63cf1834a0df916a41b3\\nnameB=Brian R. Bartoldson\\nresearcherB=researcher:v1:24542da1380d96ba26ec9d127f3a4be7\\nweight=1\\njointPublicationCount=1\\nfirstYear=2025\\nlastYear=2025\\nsupportingWorkIds=work:v1:d3d8eb7f3b99e77d234888909a8a5b55\\nedgeId=edge:v1:767653a9ec8ddb87bf72b70830e0b5ce\\nwindowLabel=full-2015-2025\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"graph:COAUTHORED_WITH/edge:v1:767653a9ec8ddb87bf72b70830e0b5ce\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"edge:v1:767653a9ec8ddb87bf72b70830e0b5ce\"],\"runId\":\"run:v1:ffe31810cbe7086ca1c3b399473c67f4\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:8caf7c3ab37cd1b1873f40a7eebfc4b589d0e3549cc154ca576d7a2ebe88c425\"}}"
+            },
+            "sk": {
+                "S": "window#2015-2025"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:7a7e0336fefb1f75b3a19504d5b6215f"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:3689c8fe4dadc17f8a874f58a0ef8f02"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "evidenceType": {
+                "S": "metric"
+            },
+            "contentHash": {
+                "S": "sha256:2251df68bdde055b615b5ed8497a9dfc358dde05a39d5e0cb51af549b54b1c78"
+            },
+            "itemHash": {
+                "S": "sha256:972188379d8746547270f5dde8248204ac2d3cdb151d3570ba5c3561b2dd4064"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:3689c8fe4dadc17f8a874f58a0ef8f02"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:3689c8fe4dadc17f8a874f58a0ef8f02\",\"evidenceType\":\"metric\",\"subjectIds\":[\"researcher:v1:9eb2fc0ec933892aac7c8ba89be3589b\",\"metric=cross_community_degree\",\"window=full-2015-2025\"],\"window\":{\"startYear\":2015,\"endYear\":2025},\"metric\":{\"metric\":\"cross_community_degree\",\"value\":663},\"snippet\":\"name=Ming-Hsuan Yang 0001\\nresearcherId=researcher:v1:9eb2fc0ec933892aac7c8ba89be3589b\\nwindowLabel=full-2015-2025\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"ResearcherMetricCache:researcher#researcher:v1:9eb2fc0ec933892aac7c8ba89be3589b/window#full-2015-2025\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:7a7e0336fefb1f75b3a19504d5b6215f\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:2251df68bdde055b615b5ed8497a9dfc358dde05a39d5e0cb51af549b54b1c78\"}}"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:9eb2fc0ec933892aac7c8ba89be3589b"
+                    },
+                    {
+                        "S": "metric=cross_community_degree"
+                    },
+                    {
+                        "S": "window=full-2015-2025"
+                    }
+                ]
+            },
+            "sk": {
+                "S": "window#2015-2025"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:7a7e0336fefb1f75b3a19504d5b6215f"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:e1cca8cad0b73e60b6a8ddca1485563f"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "evidenceType": {
+                "S": "metric"
+            },
+            "itemHash": {
+                "S": "sha256:83cda9b6097ffd2e2c421a23aa11d0e2b430c9462c41722dae5159e189207a97"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:e1cca8cad0b73e60b6a8ddca1485563f"
+            },
+            "contentHash": {
+                "S": "sha256:846135c311bfc1fee91ca50428289adbd78345d36e2b253966e8f0ac79c77402"
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:e1cca8cad0b73e60b6a8ddca1485563f\",\"evidenceType\":\"metric\",\"subjectIds\":[\"researcher:v1:924dfc3bc7074d5395b24fe76fd9118c\",\"metric=cross_community_degree\",\"window=full-2015-2025\"],\"window\":{\"startYear\":2015,\"endYear\":2025},\"metric\":{\"metric\":\"cross_community_degree\",\"value\":896},\"snippet\":\"name=Yu Qiao 0001\\nresearcherId=researcher:v1:924dfc3bc7074d5395b24fe76fd9118c\\nwindowLabel=full-2015-2025\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"ResearcherMetricCache:researcher#researcher:v1:924dfc3bc7074d5395b24fe76fd9118c/window#full-2015-2025\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:7a7e0336fefb1f75b3a19504d5b6215f\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:846135c311bfc1fee91ca50428289adbd78345d36e2b253966e8f0ac79c77402\"}}"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:924dfc3bc7074d5395b24fe76fd9118c"
+                    },
+                    {
+                        "S": "metric=cross_community_degree"
+                    },
+                    {
+                        "S": "window=full-2015-2025"
+                    }
+                ]
+            },
+            "sk": {
+                "S": "window#2015-2025"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:ffe31810cbe7086ca1c3b399473c67f4"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:f0b0fa3a16dd7ca97c6f920ef81d9d81"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "evidenceType": {
+                "S": "coauthor_edge"
+            },
+            "itemHash": {
+                "S": "sha256:c5a7a666a983a0b4d3843cd2521193a6989c7c9e78b937e4e70adf3f7870f311"
+            },
+            "contentHash": {
+                "S": "sha256:e40cc9219eeed666d669c9cf6d2d34b2003eddfcb2de5deeb87c09d053b8a817"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:f0b0fa3a16dd7ca97c6f920ef81d9d81"
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:f0b0fa3a16dd7ca97c6f920ef81d9d81\",\"evidenceType\":\"coauthor_edge\",\"subjectIds\":[\"researcher:v1:00e8ad347ecd63cf1834a0df916a41b3\",\"researcher:v1:1982d4e9662b09e9c70117d438232f58\",\"window=full-2015-2025\"],\"window\":{\"startYear\":2015,\"endYear\":2025},\"metric\":null,\"snippet\":\"nameA=Elie Bakouch\\nresearcherA=researcher:v1:00e8ad347ecd63cf1834a0df916a41b3\\nnameB=Sebastian Majstorovic\\nresearcherB=researcher:v1:1982d4e9662b09e9c70117d438232f58\\nweight=1\\njointPublicationCount=1\\nfirstYear=2025\\nlastYear=2025\\nsupportingWorkIds=work:v1:d3d8eb7f3b99e77d234888909a8a5b55\\nedgeId=edge:v1:58c7ecb68638130cababce8ec2aa6bb6\\nwindowLabel=full-2015-2025\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"graph:COAUTHORED_WITH/edge:v1:58c7ecb68638130cababce8ec2aa6bb6\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"edge:v1:58c7ecb68638130cababce8ec2aa6bb6\"],\"runId\":\"run:v1:ffe31810cbe7086ca1c3b399473c67f4\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:e40cc9219eeed666d669c9cf6d2d34b2003eddfcb2de5deeb87c09d053b8a817\"}}"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:00e8ad347ecd63cf1834a0df916a41b3"
+                    },
+                    {
+                        "S": "researcher:v1:1982d4e9662b09e9c70117d438232f58"
+                    },
+                    {
+                        "S": "window=full-2015-2025"
+                    }
+                ]
+            },
+            "sk": {
+                "S": "window#2015-2025"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:1781c418f29c41ecf2993bfebf94b604"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:790d64d54ad1302286f27dcac65b8aeb"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "evidenceType": {
+                "S": "coauthor_edge"
+            },
+            "contentHash": {
+                "S": "sha256:61be2a68aee25c02415fb3e427a98f77f3d4b351abd3d4ca89d47e6d8f7f88e3"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:790d64d54ad1302286f27dcac65b8aeb"
+            },
+            "itemHash": {
+                "S": "sha256:db699572981ec299e5c5b2db22bd0beeef2243c4eb3fccb5552607e11fb73e3c"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:4ce562c1ad2fc8366941977a04befb2e"
+                    },
+                    {
+                        "S": "researcher:v1:fe1177235d9a724607da7e9700d133c4"
+                    },
+                    {
+                        "S": "window=full-2015-2025"
+                    }
+                ]
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:790d64d54ad1302286f27dcac65b8aeb\",\"evidenceType\":\"coauthor_edge\",\"subjectIds\":[\"researcher:v1:4ce562c1ad2fc8366941977a04befb2e\",\"researcher:v1:fe1177235d9a724607da7e9700d133c4\",\"window=full-2015-2025\"],\"window\":{\"startYear\":2015,\"endYear\":2025},\"metric\":null,\"snippet\":\"nameA=Xinzhu Ma\\nresearcherA=researcher:v1:4ce562c1ad2fc8366941977a04befb2e\\nnameB=Wanli Ouyang\\nresearcherB=researcher:v1:fe1177235d9a724607da7e9700d133c4\\nweight=11\\njointPublicationCount=11\\nfirstYear=2019\\nlastYear=2025\\nsupportingWorkIds=work:v1:476cbd3162e420df3e0928d5533aa0f6,work:v1:598262a9e5c2a15eef64bd5e1bdc12b9,work:v1:6cddb61193c5f744d079942e301151f8,work:v1:90d7fc640573726deaed5118e2d08982,work:v1:9a11e98e9dc3cd81359c8e35455b50b8\\nedgeId=edge:v1:f5ed67f6bd802534a5d6139d156847c0\\nwindowLabel=full-2015-2025\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"graph:COAUTHORED_WITH/edge:v1:f5ed67f6bd802534a5d6139d156847c0\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"edge:v1:f5ed67f6bd802534a5d6139d156847c0\"],\"runId\":\"run:v1:1781c418f29c41ecf2993bfebf94b604\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:61be2a68aee25c02415fb3e427a98f77f3d4b351abd3d4ca89d47e6d8f7f88e3\"}}"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "sk": {
+                "S": "window#2015-2025"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:ec7dc746c609f930c22a3a0dc3972500"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:f28b0cc7a9a7dc416a24b32435638c8e"
+            },
+            "evidenceType": {
+                "S": "match_decision"
+            },
+            "contentHash": {
+                "S": "sha256:2a14b89b316e0785f680131d76469755909e1ad3d90d57fcd1ed475d68acb4d8"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:f28b0cc7a9a7dc416a24b32435638c8e"
+            },
+            "itemHash": {
+                "S": "sha256:38f125f262eca411614a56292763293544ec7612f917016fca0f0c8cf2dd9fad"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:0574994137251083fe63869197dcac40"
+                    },
+                    {
+                        "S": "identity=yiannis demiris"
+                    }
+                ]
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:f28b0cc7a9a7dc416a24b32435638c8e\",\"evidenceType\":\"match_decision\",\"subjectIds\":[\"researcher:v1:0574994137251083fe63869197dcac40\",\"identity=yiannis demiris\"],\"window\":null,\"metric\":null,\"snippet\":\"name=Yiannis Demiris\\nresearcherId=researcher:v1:0574994137251083fe63869197dcac40\\naskedName=Yiannis Demiris\\nmatchedValue=Yiannis Demiris\\nresolved=true\\noutcome=accepted\\nconfidence=0.9241\\npublicationCount=13\\ndistinctCoauthors=16\\ntopCoauthorNames=Hyung Jin Chang | Jin Young Choi 0002 | Sangdoo Yun\\ntopCoauthorIds=researcher:v1:b1e75263f85fe8cf020e2e542ca2c142,researcher:v1:a80dbe68e542595653fe3523429e8c5e,researcher:v1:305ef054b214154708ce193a2be024e5\\ncontextWindowLabel=full-2015-2025\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"sourceRecordIds\":[\"EntityLinkCache:name#yiannis demiris/researcher#researcher:v1:0574994137251083fe63869197dcac40\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:ec7dc746c609f930c22a3a0dc3972500\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:2a14b89b316e0785f680131d76469755909e1ad3d90d57fcd1ed475d68acb4d8\"}}"
+            },
+            "sk": {
+                "S": "window#none"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:e0fe57681d871d830126b19eb58e7da7"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "evidenceType": {
+                "S": "graph_path"
+            },
+            "itemHash": {
+                "S": "sha256:45485691efece400d351bf624d79ad53dc12594f599f5cb16d3f9178322b2750"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:e0fe57681d871d830126b19eb58e7da7"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:df6166236603a3e56028f86b2f9c5c93"
+                    },
+                    {
+                        "S": "researcher:v1:21a1b7de436b7edbfbbcc30dc8a90c62"
+                    }
+                ]
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:e0fe57681d871d830126b19eb58e7da7\",\"evidenceType\":\"graph_path\",\"subjectIds\":[\"researcher:v1:df6166236603a3e56028f86b2f9c5c93\",\"researcher:v1:21a1b7de436b7edbfbbcc30dc8a90c62\"],\"window\":{\"startYear\":2015,\"endYear\":2025},\"metric\":null,\"snippet\":null,\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"pipeline\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"researcher:v1:df6166236603a3e56028f86b2f9c5c93\",\"researcher:v1:21a1b7de436b7edbfbbcc30dc8a90c62\"],\"runId\":\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"jobName\":\"spark.path-evidence\",\"policyVersion\":\"graph-v1\",\"contentHash\":null}}"
+            },
+            "sk": {
+                "S": "window#2015-2025"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:7a7e0336fefb1f75b3a19504d5b6215f"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:d76c11ad19277a89a585f45e2784e467"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "evidenceType": {
+                "S": "metric"
+            },
+            "itemHash": {
+                "S": "sha256:4e6399f32e7510f947020f0b9c003ac00a37640e39f32d50abc84b90645036e6"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:d76c11ad19277a89a585f45e2784e467"
+            },
+            "contentHash": {
+                "S": "sha256:f02e07027fc63590ff5fad4b9596a85f584f2c232a3fed78572a1230df063d1a"
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:d76c11ad19277a89a585f45e2784e467\",\"evidenceType\":\"metric\",\"subjectIds\":[\"researcher:v1:6ab771d5a61335f1a6e4ceed9d34ab9a\",\"metric=cross_community_degree\",\"window=full-2015-2025\"],\"window\":{\"startYear\":2015,\"endYear\":2025},\"metric\":{\"metric\":\"cross_community_degree\",\"value\":444},\"snippet\":\"name=Xing Xie 0001\\nresearcherId=researcher:v1:6ab771d5a61335f1a6e4ceed9d34ab9a\\nwindowLabel=full-2015-2025\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"ResearcherMetricCache:researcher#researcher:v1:6ab771d5a61335f1a6e4ceed9d34ab9a/window#full-2015-2025\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:7a7e0336fefb1f75b3a19504d5b6215f\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:f02e07027fc63590ff5fad4b9596a85f584f2c232a3fed78572a1230df063d1a\"}}"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:6ab771d5a61335f1a6e4ceed9d34ab9a"
+                    },
+                    {
+                        "S": "metric=cross_community_degree"
+                    },
+                    {
+                        "S": "window=full-2015-2025"
+                    }
+                ]
+            },
+            "sk": {
+                "S": "window#2015-2025"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:27ee35342ab7059aae2e0de6d3fd8e23"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:5a564c6e06c2071f60e11a98c58fa9df"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "evidenceType": {
+                "S": "metric"
+            },
+            "itemHash": {
+                "S": "sha256:0d6ad566e701ddedebbac5e9788c810dc3db3acbcb90bb8c14fc52a4d76f4d50"
+            },
+            "contentHash": {
+                "S": "sha256:dd6a4d34818a0be968ddfc816fac1d691b72fe474ff45103719741450c9b7a8a"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:5a564c6e06c2071f60e11a98c58fa9df"
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:5a564c6e06c2071f60e11a98c58fa9df\",\"evidenceType\":\"metric\",\"subjectIds\":[\"researcher:v1:c8e08951bf2e63c585e77de4a76470e3\",\"metric=distinct_coauthors\",\"window=full-2015-2025\"],\"window\":{\"startYear\":2015,\"endYear\":2025},\"metric\":{\"metric\":\"distinct_coauthors\",\"value\":1011},\"snippet\":\"name=Wangmeng Zuo\\nresearcherId=researcher:v1:c8e08951bf2e63c585e77de4a76470e3\\nwindowLabel=full-2015-2025\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"ResearcherMetricCache:researcher#researcher:v1:c8e08951bf2e63c585e77de4a76470e3/window#full-2015-2025\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:27ee35342ab7059aae2e0de6d3fd8e23\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:dd6a4d34818a0be968ddfc816fac1d691b72fe474ff45103719741450c9b7a8a\"}}"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:c8e08951bf2e63c585e77de4a76470e3"
+                    },
+                    {
+                        "S": "metric=distinct_coauthors"
+                    },
+                    {
+                        "S": "window=full-2015-2025"
+                    }
+                ]
+            },
+            "sk": {
+                "S": "window#2015-2025"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:94a22765fb83fc575016793a348aa728"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:dfe6a82aba348468ad41eceacfc1191b"
+            },
+            "evidenceType": {
+                "S": "match_decision"
+            },
+            "itemHash": {
+                "S": "sha256:dc83d9dc4439a71c56661899ec429960c64501fbed0f45fe2ed6ae2394aff2ab"
+            },
+            "contentHash": {
+                "S": "sha256:3d38b8eee686b434aae2d9c2bffd43d8ba627a7772dee213a878db3c28f0690f"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:dfe6a82aba348468ad41eceacfc1191b"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7"
+                    },
+                    {
+                        "S": "identity=marcos v conde"
+                    }
+                ]
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:dfe6a82aba348468ad41eceacfc1191b\",\"evidenceType\":\"match_decision\",\"subjectIds\":[\"researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7\",\"identity=marcos v conde\"],\"window\":null,\"metric\":null,\"snippet\":\"name=Marcos V. Conde\\nresearcherId=researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7\\naskedName=Marcos V. Conde\\nmatchedValue=Marcos V. Conde\\nresolved=true\\noutcome=accepted\\nconfidence=0.9002\\npublicationCount=33\\ndistinctCoauthors=950\\ntopCoauthorNames=Radu Timofte | Zongwei Wu | Álvaro García\\ntopCoauthorIds=researcher:v1:32ad9abca8538109a54a81cef181dd6d,researcher:v1:37b139fcba2cb05240caf213d7c6ed85,researcher:v1:a3ee32d8e98fde17db7c21ad858c8b16\\ncontextWindowLabel=full-2015-2025\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"sourceRecordIds\":[\"EntityLinkCache:name#marcos v conde/researcher#researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:94a22765fb83fc575016793a348aa728\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:3d38b8eee686b434aae2d9c2bffd43d8ba627a7772dee213a878db3c28f0690f\"}}"
+            },
+            "sk": {
+                "S": "window#none"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:4210f7497ffb49dafd31f2bdca9d2efc"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "evidenceType": {
+                "S": "graph_path"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:4210f7497ffb49dafd31f2bdca9d2efc"
+            },
+            "itemHash": {
+                "S": "sha256:a62040fdb9a363caba4ebb2524ccadb8299c38498acd4d9d6bd3008f78388f81"
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:4210f7497ffb49dafd31f2bdca9d2efc\",\"evidenceType\":\"graph_path\",\"subjectIds\":[\"researcher:v1:c8e08951bf2e63c585e77de4a76470e3\",\"researcher:v1:7eb30133d981fcfeb607628fae4f1c49\"],\"window\":{\"startYear\":2015,\"endYear\":2025},\"metric\":null,\"snippet\":null,\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"pipeline\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"researcher:v1:c8e08951bf2e63c585e77de4a76470e3\",\"researcher:v1:7eb30133d981fcfeb607628fae4f1c49\"],\"runId\":\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"jobName\":\"spark.path-evidence\",\"policyVersion\":\"graph-v1\",\"contentHash\":null}}"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:c8e08951bf2e63c585e77de4a76470e3"
+                    },
+                    {
+                        "S": "researcher:v1:7eb30133d981fcfeb607628fae4f1c49"
+                    }
+                ]
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "sk": {
+                "S": "window#2015-2025"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:1781c418f29c41ecf2993bfebf94b604"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:8c390ac6be3a2a34297bbe8a5bb4f7fa"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "evidenceType": {
+                "S": "coauthor_edge"
+            },
+            "itemHash": {
+                "S": "sha256:8a79c13a0d94aceb63bfdccc123b5aead9783cbf17a9f610cc97eaa1d0421caf"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:8c390ac6be3a2a34297bbe8a5bb4f7fa"
+            },
+            "contentHash": {
+                "S": "sha256:3e51109df3d3cf50d16c942e527c3ebcc4a0a84e156272d2fc622fc3da9760db"
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:8c390ac6be3a2a34297bbe8a5bb4f7fa\",\"evidenceType\":\"coauthor_edge\",\"subjectIds\":[\"researcher:v1:8b72fc9b1121116540c919b993a54228\",\"researcher:v1:fe1177235d9a724607da7e9700d133c4\",\"window=full-2015-2025\"],\"window\":{\"startYear\":2015,\"endYear\":2025},\"metric\":null,\"snippet\":\"nameA=Lei Bai 0001\\nresearcherA=researcher:v1:8b72fc9b1121116540c919b993a54228\\nnameB=Wanli Ouyang\\nresearcherB=researcher:v1:fe1177235d9a724607da7e9700d133c4\\nweight=27\\njointPublicationCount=27\\nfirstYear=2021\\nlastYear=2025\\nsupportingWorkIds=work:v1:078c8e68324d7b552bc2205a32a1c809,work:v1:15a7dc3fd97cbe02431e325be7b1e4b1,work:v1:1ac5deae0c5b224a883ea5ca6cce7b8e,work:v1:25d2314e88164209247099519d745901,work:v1:33ed7e1d5df1d67f5dfd9083c72681c2\\nedgeId=edge:v1:44923367f86d20c2cea98494e9b6aa34\\nwindowLabel=full-2015-2025\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"graph:COAUTHORED_WITH/edge:v1:44923367f86d20c2cea98494e9b6aa34\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"edge:v1:44923367f86d20c2cea98494e9b6aa34\"],\"runId\":\"run:v1:1781c418f29c41ecf2993bfebf94b604\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:3e51109df3d3cf50d16c942e527c3ebcc4a0a84e156272d2fc622fc3da9760db\"}}"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:8b72fc9b1121116540c919b993a54228"
+                    },
+                    {
+                        "S": "researcher:v1:fe1177235d9a724607da7e9700d133c4"
+                    },
+                    {
+                        "S": "window=full-2015-2025"
+                    }
+                ]
+            },
+            "sk": {
+                "S": "window#2015-2025"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:1781c418f29c41ecf2993bfebf94b604"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:f1f88e62083a58740a5563422ceef0ec"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "evidenceType": {
+                "S": "metric"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:f1f88e62083a58740a5563422ceef0ec"
+            },
+            "contentHash": {
+                "S": "sha256:5dd56b95cb88d1dccc6595e1c592f1653ebc843b4db1c081c2535596af94ac34"
+            },
+            "itemHash": {
+                "S": "sha256:60d0dd497215a49cafc9e1d021195465d8087e66194e7233ff277620599813b4"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:fe1177235d9a724607da7e9700d133c4"
+                    },
+                    {
+                        "S": "metric=weighted_degree"
+                    },
+                    {
+                        "S": "window=full-2015-2025"
+                    }
+                ]
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:f1f88e62083a58740a5563422ceef0ec\",\"evidenceType\":\"metric\",\"subjectIds\":[\"researcher:v1:fe1177235d9a724607da7e9700d133c4\",\"metric=weighted_degree\",\"window=full-2015-2025\"],\"window\":{\"startYear\":2015,\"endYear\":2025},\"metric\":{\"metric\":\"weighted_degree\",\"value\":1227},\"snippet\":\"name=Wanli Ouyang\\nresearcherId=researcher:v1:fe1177235d9a724607da7e9700d133c4\\nwindowLabel=full-2015-2025\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"ResearcherMetricCache:researcher#researcher:v1:fe1177235d9a724607da7e9700d133c4/window#full-2015-2025\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:1781c418f29c41ecf2993bfebf94b604\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:5dd56b95cb88d1dccc6595e1c592f1653ebc843b4db1c081c2535596af94ac34\"}}"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "sk": {
+                "S": "window#2015-2025"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:2796c6ff8a7422d9bca3a14d2a94e428"
+            },
+            "windowEndYear": {
+                "N": "2023"
+            },
+            "evidenceType": {
+                "S": "metric"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:2796c6ff8a7422d9bca3a14d2a94e428"
+            },
+            "itemHash": {
+                "S": "sha256:9f5e218e83921145a3d0152c1fc5913a99dd19594520fcf6e531c6609d8f7a26"
+            },
+            "contentHash": {
+                "S": "sha256:b84380f8ec3de3f9b1ec7ef9bb338e6da9336b650207e6c92b7a6e8e95226abd"
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:2796c6ff8a7422d9bca3a14d2a94e428\",\"evidenceType\":\"metric\",\"subjectIds\":[\"researcher:v1:20a899b2e92900468cb651dbc1427663\",\"metric=community_size\",\"window=w2021-2023\"],\"window\":{\"startYear\":2021,\"endYear\":2023},\"metric\":{\"metric\":\"community_size\",\"value\":18},\"snippet\":\"name=Boqing Zhu\\nresearcherId=researcher:v1:20a899b2e92900468cb651dbc1427663\\ngroupId=researcher:v1:0b483e06c74206594317cf2cd77e891f\\nwindowLabel=w2021-2023\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"ResearcherMetricCache:researcher#researcher:v1:20a899b2e92900468cb651dbc1427663/window#w2021-2023\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:948e6cdacc470d1ad411a7480e5b0b9c\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:b84380f8ec3de3f9b1ec7ef9bb338e6da9336b650207e6c92b7a6e8e95226abd\"}}"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:20a899b2e92900468cb651dbc1427663"
+                    },
+                    {
+                        "S": "metric=community_size"
+                    },
+                    {
+                        "S": "window=w2021-2023"
+                    }
+                ]
+            },
+            "windowStartYear": {
+                "N": "2021"
+            },
+            "sk": {
+                "S": "window#2021-2023"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:84ea277816cc01d2c18658dc91e94538"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "evidenceType": {
+                "S": "graph_path"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:84ea277816cc01d2c18658dc91e94538"
+            },
+            "itemHash": {
+                "S": "sha256:c79d4d7c09f4e07836197cf0e2016ea329aeeecc2681dcb8e84974bc4190dcdf"
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:84ea277816cc01d2c18658dc91e94538\",\"evidenceType\":\"graph_path\",\"subjectIds\":[\"researcher:v1:32ad9abca8538109a54a81cef181dd6d\",\"researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7\"],\"window\":{\"startYear\":2015,\"endYear\":2025},\"metric\":null,\"snippet\":null,\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"pipeline\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"researcher:v1:32ad9abca8538109a54a81cef181dd6d\",\"researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7\"],\"runId\":\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"jobName\":\"spark.path-evidence\",\"policyVersion\":\"graph-v1\",\"contentHash\":null}}"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:32ad9abca8538109a54a81cef181dd6d"
+                    },
+                    {
+                        "S": "researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7"
+                    }
+                ]
+            },
+            "sk": {
+                "S": "window#2015-2025"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:1781c418f29c41ecf2993bfebf94b604"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:1458b8f2fc10909202f4e85796d206b9"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "evidenceType": {
+                "S": "metric"
+            },
+            "itemHash": {
+                "S": "sha256:8e120794d46c81f53411b6172140002f3a8ccae27d02116e352e075a6b1d6546"
+            },
+            "contentHash": {
+                "S": "sha256:5dd56b95cb88d1dccc6595e1c592f1653ebc843b4db1c081c2535596af94ac34"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:1458b8f2fc10909202f4e85796d206b9"
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:1458b8f2fc10909202f4e85796d206b9\",\"evidenceType\":\"metric\",\"subjectIds\":[\"researcher:v1:fe1177235d9a724607da7e9700d133c4\",\"metric=average_coauthors_per_paper\",\"window=full-2015-2025\"],\"window\":{\"startYear\":2015,\"endYear\":2025},\"metric\":{\"metric\":\"average_coauthors_per_paper\",\"value\":6.357512953367876},\"snippet\":\"name=Wanli Ouyang\\nresearcherId=researcher:v1:fe1177235d9a724607da7e9700d133c4\\nwindowLabel=full-2015-2025\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"ResearcherMetricCache:researcher#researcher:v1:fe1177235d9a724607da7e9700d133c4/window#full-2015-2025\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:1781c418f29c41ecf2993bfebf94b604\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:5dd56b95cb88d1dccc6595e1c592f1653ebc843b4db1c081c2535596af94ac34\"}}"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:fe1177235d9a724607da7e9700d133c4"
+                    },
+                    {
+                        "S": "metric=average_coauthors_per_paper"
+                    },
+                    {
+                        "S": "window=full-2015-2025"
+                    }
+                ]
+            },
+            "sk": {
+                "S": "window#2015-2025"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:971c129b383021e6ae4be97df49dcd68"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "evidenceType": {
+                "S": "graph_path"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:971c129b383021e6ae4be97df49dcd68"
+            },
+            "itemHash": {
+                "S": "sha256:343b95267433e4bf2c6857607eba549966062653286498e507118e145d527c4e"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:971c129b383021e6ae4be97df49dcd68\",\"evidenceType\":\"graph_path\",\"subjectIds\":[\"researcher:v1:df6166236603a3e56028f86b2f9c5c93\",\"researcher:v1:7eb30133d981fcfeb607628fae4f1c49\"],\"window\":{\"startYear\":2015,\"endYear\":2025},\"metric\":null,\"snippet\":null,\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"pipeline\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"researcher:v1:df6166236603a3e56028f86b2f9c5c93\",\"researcher:v1:7eb30133d981fcfeb607628fae4f1c49\"],\"runId\":\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"jobName\":\"spark.path-evidence\",\"policyVersion\":\"graph-v1\",\"contentHash\":null}}"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:df6166236603a3e56028f86b2f9c5c93"
+                    },
+                    {
+                        "S": "researcher:v1:7eb30133d981fcfeb607628fae4f1c49"
+                    }
+                ]
+            },
+            "sk": {
+                "S": "window#2015-2025"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:ae412aeafe924c9a153d2a44e90e3c7f"
+            },
+            "windowEndYear": {
+                "N": "2023"
+            },
+            "evidenceType": {
+                "S": "metric"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:ae412aeafe924c9a153d2a44e90e3c7f"
+            },
+            "itemHash": {
+                "S": "sha256:987e388f4267f16acf08a0e31c99383d1f53a5734e4fecb7dba572e984a5a186"
+            },
+            "contentHash": {
+                "S": "sha256:64273ea788350dbb45b45ea84eebdc6349f785a72262e75876ff59d831fd9135"
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:ae412aeafe924c9a153d2a44e90e3c7f\",\"evidenceType\":\"metric\",\"subjectIds\":[\"researcher:v1:7792fa6de91b4502ed93f713bac2d3eb\",\"metric=community_size\",\"window=w2021-2023\"],\"window\":{\"startYear\":2021,\"endYear\":2023},\"metric\":{\"metric\":\"community_size\",\"value\":18},\"snippet\":\"name=Ming Feng\\nresearcherId=researcher:v1:7792fa6de91b4502ed93f713bac2d3eb\\ngroupId=researcher:v1:0b483e06c74206594317cf2cd77e891f\\nwindowLabel=w2021-2023\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"ResearcherMetricCache:researcher#researcher:v1:7792fa6de91b4502ed93f713bac2d3eb/window#w2021-2023\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:948e6cdacc470d1ad411a7480e5b0b9c\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:64273ea788350dbb45b45ea84eebdc6349f785a72262e75876ff59d831fd9135\"}}"
+            },
+            "windowStartYear": {
+                "N": "2021"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:7792fa6de91b4502ed93f713bac2d3eb"
+                    },
+                    {
+                        "S": "metric=community_size"
+                    },
+                    {
+                        "S": "window=w2021-2023"
+                    }
+                ]
+            },
+            "sk": {
+                "S": "window#2021-2023"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:7a7e0336fefb1f75b3a19504d5b6215f"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:11b9afe23808e55ca89ec77281c8bf52"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "evidenceType": {
+                "S": "metric"
+            },
+            "contentHash": {
+                "S": "sha256:75629692e4db7875ba1a7c84ff684de8b57a4ed1e3b775ef32d49f96dd65a4a0"
+            },
+            "itemHash": {
+                "S": "sha256:a906ea6040ecdb9e4500489b4adda246e7bd9e992dce10a99458123124b484e1"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:11b9afe23808e55ca89ec77281c8bf52"
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:11b9afe23808e55ca89ec77281c8bf52\",\"evidenceType\":\"metric\",\"subjectIds\":[\"researcher:v1:c7883d2daae7743663d011b5212b90b6\",\"metric=cross_community_degree\",\"window=full-2015-2025\"],\"window\":{\"startYear\":2015,\"endYear\":2025},\"metric\":{\"metric\":\"cross_community_degree\",\"value\":654},\"snippet\":\"name=Tat-Seng Chua\\nresearcherId=researcher:v1:c7883d2daae7743663d011b5212b90b6\\nwindowLabel=full-2015-2025\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"ResearcherMetricCache:researcher#researcher:v1:c7883d2daae7743663d011b5212b90b6/window#full-2015-2025\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:7a7e0336fefb1f75b3a19504d5b6215f\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:75629692e4db7875ba1a7c84ff684de8b57a4ed1e3b775ef32d49f96dd65a4a0\"}}"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:c7883d2daae7743663d011b5212b90b6"
+                    },
+                    {
+                        "S": "metric=cross_community_degree"
+                    },
+                    {
+                        "S": "window=full-2015-2025"
+                    }
+                ]
+            },
+            "sk": {
+                "S": "window#2015-2025"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:a606935b54bdb417806950b03b1f0d5a"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:f8824fb062df3522ead3db622ecf46eb"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "evidenceType": {
+                "S": "metric"
+            },
+            "contentHash": {
+                "S": "sha256:5dd56b95cb88d1dccc6595e1c592f1653ebc843b4db1c081c2535596af94ac34"
+            },
+            "itemHash": {
+                "S": "sha256:eda1a647ba081021194457bcc792dd4a2e4cd9fdf49fb4ab9fe76e0b42ab4ad9"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:f8824fb062df3522ead3db622ecf46eb"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:fe1177235d9a724607da7e9700d133c4"
+                    },
+                    {
+                        "S": "metric=max_coauthors_on_one_paper"
+                    },
+                    {
+                        "S": "window=full-2015-2025"
+                    }
+                ]
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:f8824fb062df3522ead3db622ecf46eb\",\"evidenceType\":\"metric\",\"subjectIds\":[\"researcher:v1:fe1177235d9a724607da7e9700d133c4\",\"metric=max_coauthors_on_one_paper\",\"window=full-2015-2025\"],\"window\":{\"startYear\":2015,\"endYear\":2025},\"metric\":{\"metric\":\"max_coauthors_on_one_paper\",\"value\":19},\"snippet\":\"name=Wanli Ouyang\\nresearcherId=researcher:v1:fe1177235d9a724607da7e9700d133c4\\nwindowLabel=full-2015-2025\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"ResearcherMetricCache:researcher#researcher:v1:fe1177235d9a724607da7e9700d133c4/window#full-2015-2025\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:a606935b54bdb417806950b03b1f0d5a\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:5dd56b95cb88d1dccc6595e1c592f1653ebc843b4db1c081c2535596af94ac34\"}}"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "sk": {
+                "S": "window#2015-2025"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:e7e02dd8b22f5d12f7119374a33e4f10"
+            },
+            "windowEndYear": {
+                "N": "2023"
+            },
+            "evidenceType": {
+                "S": "metric"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:e7e02dd8b22f5d12f7119374a33e4f10"
+            },
+            "itemHash": {
+                "S": "sha256:8dc52fdb5a3c160f5b58c7f16b647c7700e5c5c708988a2bbdafef218cae2b2b"
+            },
+            "contentHash": {
+                "S": "sha256:7304142e9e447a17b9a9c187434910a4cd27b6b16355118197ee4b9447d45c1e"
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:e7e02dd8b22f5d12f7119374a33e4f10\",\"evidenceType\":\"metric\",\"subjectIds\":[\"researcher:v1:0b483e06c74206594317cf2cd77e891f\",\"metric=participation_coefficient\",\"window=w2021-2023\"],\"window\":{\"startYear\":2021,\"endYear\":2023},\"metric\":{\"metric\":\"participation_coefficient\",\"value\":0.7071337726904845},\"snippet\":\"name=Kele Xu\\nresearcherId=researcher:v1:0b483e06c74206594317cf2cd77e891f\\nwindowLabel=w2021-2023\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"ResearcherMetricCache:researcher#researcher:v1:0b483e06c74206594317cf2cd77e891f/window#w2021-2023\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:948e6cdacc470d1ad411a7480e5b0b9c\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:7304142e9e447a17b9a9c187434910a4cd27b6b16355118197ee4b9447d45c1e\"}}"
+            },
+            "windowStartYear": {
+                "N": "2021"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:0b483e06c74206594317cf2cd77e891f"
+                    },
+                    {
+                        "S": "metric=participation_coefficient"
+                    },
+                    {
+                        "S": "window=w2021-2023"
+                    }
+                ]
+            },
+            "sk": {
+                "S": "window#2021-2023"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:748abfde4bbb628cac78b531a3d0147a"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "evidenceType": {
+                "S": "graph_path"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:748abfde4bbb628cac78b531a3d0147a"
+            },
+            "itemHash": {
+                "S": "sha256:ecb422b0228242b58d6d573900c7c8d740edd9df4c6def03b77d8eef1bb6d776"
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:748abfde4bbb628cac78b531a3d0147a\",\"evidenceType\":\"graph_path\",\"subjectIds\":[\"researcher:v1:924dfc3bc7074d5395b24fe76fd9118c\",\"researcher:v1:a5d6a7f5513a147d737a05f719856a52\"],\"window\":{\"startYear\":2015,\"endYear\":2025},\"metric\":null,\"snippet\":null,\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"pipeline\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"researcher:v1:924dfc3bc7074d5395b24fe76fd9118c\",\"researcher:v1:a5d6a7f5513a147d737a05f719856a52\"],\"runId\":\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"jobName\":\"spark.path-evidence\",\"policyVersion\":\"graph-v1\",\"contentHash\":null}}"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:924dfc3bc7074d5395b24fe76fd9118c"
+                    },
+                    {
+                        "S": "researcher:v1:a5d6a7f5513a147d737a05f719856a52"
+                    }
+                ]
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "sk": {
+                "S": "window#2015-2025"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:19cdb1aadffcf2e1c4ea4ddb5e27cb8c"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:10b3e2887c966b65b172a17b486883f7"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "evidenceType": {
+                "S": "metric"
+            },
+            "contentHash": {
+                "S": "sha256:a9bea58a07c6506ddca41a736a827c5dc3dd40b97e2616263a03848bc147234e"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:10b3e2887c966b65b172a17b486883f7"
+            },
+            "itemHash": {
+                "S": "sha256:71fde91c93b87873c6995ceb042340d72cacc6c55bec078fc833e56331410405"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:07d4e4839332616c98c50244499b30ac"
+                    },
+                    {
+                        "S": "metric=distinct_coauthors"
+                    },
+                    {
+                        "S": "window=full-2015-2025"
+                    }
+                ]
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:10b3e2887c966b65b172a17b486883f7\",\"evidenceType\":\"metric\",\"subjectIds\":[\"researcher:v1:07d4e4839332616c98c50244499b30ac\",\"metric=distinct_coauthors\",\"window=full-2015-2025\"],\"window\":{\"startYear\":2015,\"endYear\":2025},\"metric\":{\"metric\":\"distinct_coauthors\",\"value\":30},\"snippet\":\"name=Daniel M. Romero\\nresearcherId=researcher:v1:07d4e4839332616c98c50244499b30ac\\nrank=6\\nwindowLabel=full-2015-2025\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"dblp-dblp-2026-11-01\",\"sourceRecordIds\":[\"ResearcherMetricCache:researcher#researcher:v1:07d4e4839332616c98c50244499b30ac/window#full-2015-2025\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:19cdb1aadffcf2e1c4ea4ddb5e27cb8c\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:a9bea58a07c6506ddca41a736a827c5dc3dd40b97e2616263a03848bc147234e\"}}"
+            },
+            "sk": {
+                "S": "window#2015-2025"
+            }
+        },
+        {
+            "version": {
+                "N": "1"
+            },
+            "runId": {
+                "S": "run:v1:7a7e0336fefb1f75b3a19504d5b6215f"
+            },
+            "evidenceId": {
+                "S": "evidence:v1:8a850cd1fbf5c9f61fabff9d96d07b61"
+            },
+            "windowEndYear": {
+                "N": "2025"
+            },
+            "evidenceType": {
+                "S": "metric"
+            },
+            "pk": {
+                "S": "evidence#evidence:v1:8a850cd1fbf5c9f61fabff9d96d07b61"
+            },
+            "contentHash": {
+                "S": "sha256:80e746089cbf94f0d0381e47416b53655f3332a1943933c2dd663892c961a390"
+            },
+            "itemHash": {
+                "S": "sha256:c2bbfa0609349233c0a3a0d6d984b64f58c6b2913109be6ce7892659f7850370"
+            },
+            "record": {
+                "S": "{\"schemaVersion\":1,\"evidenceId\":\"evidence:v1:8a850cd1fbf5c9f61fabff9d96d07b61\",\"evidenceType\":\"metric\",\"subjectIds\":[\"researcher:v1:27c858a7768ddaf5ed772ec9a20234ce\",\"metric=communities_connected\",\"window=full-2015-2025\"],\"window\":{\"startYear\":2015,\"endYear\":2025},\"metric\":{\"metric\":\"communities_connected\",\"value\":214},\"snippet\":\"name=Junchi Yan\\nresearcherId=researcher:v1:27c858a7768ddaf5ed772ec9a20234ce\\nrank=9\\nwindowLabel=full-2015-2025\",\"provenance\":{\"schemaVersion\":1,\"sourceType\":\"runtime\",\"datasetId\":\"scholarchain-graph\",\"snapshotId\":\"run:v1:f2625d504b12749389cf4f5b1a26aed4\",\"sourceRecordIds\":[\"ResearcherMetricCache:ranking#full-2015-2025#communities_connected/rank#0009\",\"run:v1:f2625d504b12749389cf4f5b1a26aed4\"],\"runId\":\"run:v1:7a7e0336fefb1f75b3a19504d5b6215f\",\"jobName\":\"rag.query\",\"policyVersion\":\"graph-v1\",\"contentHash\":\"sha256:80e746089cbf94f0d0381e47416b53655f3332a1943933c2dd663892c961a390\"}}"
+            },
+            "windowStartYear": {
+                "N": "2015"
+            },
+            "subjectIds": {
+                "L": [
+                    {
+                        "S": "researcher:v1:27c858a7768ddaf5ed772ec9a20234ce"
+                    },
+                    {
+                        "S": "metric=communities_connected"
+                    },
+                    {
+                        "S": "window=full-2015-2025"
+                    }
+                ]
+            },
+            "sk": {
+                "S": "window#2015-2025"
+            }
+        }
+    ],
+    "Count": 304,
+    "ScannedCount": 304,
+    "ConsumedCapacity": null,
+    "NextToken": "eyJFeGNsdXNpdmVTdGFydEtleSI6IG51bGwsICJib3RvX3RydW5jYXRlX2Ftb3VudCI6IDI1fQ=="
+}

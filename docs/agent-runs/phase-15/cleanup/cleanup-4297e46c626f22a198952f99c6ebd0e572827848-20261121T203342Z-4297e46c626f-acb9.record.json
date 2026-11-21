@@ -1,0 +1,18 @@
+{
+  "kind": "scholarchain-cleanup-plan-record",
+  "version": 3,
+  "environment": "course",
+  "plan_commit": "4297e46c626f22a198952f99c6ebd0e572827848",
+  "commit": "4297e46c626f22a198952f99c6ebd0e572827848",
+  "build_commit": "684636ef997ee041912e2b57d1c597ded8e9778d",
+  "plan_id": "20261121T203342Z-4297e46c626f-acb9",
+  "tree_clean": true,
+  "plan_file": "plans/cleanup-4297e46c626f22a198952f99c6ebd0e572827848-20261121T203342Z-4297e46c626f-acb9.tfplan",
+  "plan_sha256": "d636c6482cb229475ccd0087970a6c3aa3f2bb65f7bfaed47becd0e9ec9e619e",
+  "account_sha256": "c222e02c8ee354bef19f431d34358889851c047ebc24ccf5cea1921ee65ae05b",
+  "account_masked": "********2972",
+  "region": "us-east-1",
+  "evidence_archive_sha256": "a7115c16727ada7ba3e33b6354036f6b55e73237f11a552d0a6af5dcd5391e87",
+  "evidence_archive_reports_entries": 0,
+  "created_utc": "2026-11-21T20:33:57Z"
+}
