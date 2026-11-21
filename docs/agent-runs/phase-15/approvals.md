@@ -71,3 +71,8 @@ Plan made at d872d120 (build commit 684636ef unchanged) with the default profile
 I approve this plan to be applied with my own admin profile (default). Signed: Brian, Nov 20, 2026
 
 APPROVED-PLAN-SHA256: 71fe907167a22d8e83c806fcc02b044670e0dda8275561c73be2dfca66041fbd
+
+Removal plan from cleanup.sh --list (plan ID 20261121T203342Z-4297e46c626f-acb9, plan commit 4297e46c; 175 Terraform removals, plus 9 ECR images, the data-lake object versions and the EMR-created interface endpoint), approved by Brian on 2026-11-21. Removal (D27) proceeds on the Nov 20 Teams approval from the instructor (teardown after recording, with archived evidence); the archival-location question was also asked in Teams on 2026-11-21.
+APPROVED-PLAN-SHA256: d636c6482cb229475ccd0087970a6c3aa3f2bb65f7bfaed47becd0e9ec9e619e
+Evidence archive (local only, never shared as is: its byte copies hold identifiers): evidence/archives/20261121T202848Z-4297e46c626f-e079.tar, copy in ~/scholarchain-evidence-p15/
+EVIDENCE-ARCHIVE-SHA256: a7115c16727ada7ba3e33b6354036f6b55e73237f11a552d0a6af5dcd5391e87
