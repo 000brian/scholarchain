@@ -1,0 +1,93 @@
+{
+  "format": "scholarchain.rag.ingest-run-report",
+  "formatVersion": 1,
+  "label": "local fake, not representative",
+  "codeVersion": "f159535e498ad1a4504dad1fac0a3fb6ceee14e6",
+  "jobCodeVersion": "rag/1",
+  "build": {
+    "buildCommit": "f159535e498ad1a4504dad1fac0a3fb6ceee14e6",
+    "buildDirty": "false",
+    "module": "services",
+    "version": "0.1.0-SNAPSHOT",
+    "status": "resource"
+  },
+  "steps": {
+    "render-run-1": {
+      "millis": 45435,
+      "freeDiskBytesAfter": 30023507968
+    },
+    "ingest-run-1": {
+      "millis": 12982514,
+      "freeDiskBytesAfter": 30023507968
+    }
+  },
+  "input": {
+    "export": "s3://{data-bucket}/graph/exports/20261119T062721Z-ba345f8d576c-cebe/run=f2625d504b12749389cf4f5b1a26aed4",
+    "exportKind": "s3",
+    "exportManifestSha256": "52e03b68ce544f7bf8cd9f45d6eba66ab11664b2f41b79acd08db457e33259dd",
+    "sourceRunId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+    "files": 93,
+    "bytes": 8027983655,
+    "checks": "manifest present; every listed file present with its byte count; bytes and sha256 checked as each file is read",
+    "configFile": "course.json",
+    "configFingerprint": "sha256:71a5fd169b44132b435467ab4c9ae375e8827e5a5e93a54b23366c67c9dfff8b"
+  },
+  "environment": {
+    "heapMaxBytes": 3221225472,
+    "processors": 2,
+    "freeDiskBytesAtStart": 30023512064,
+    "minFreeDiskBytes": 16106127360,
+    "stores": "aws",
+    "storesDescription": "AWS stores through storage's AwsStorageEnvironment (S3, DynamoDB, S3 Vectors)"
+  },
+  "embedding": {
+    "provider": "voyage",
+    "documentModelSpec": "voyage/voyage-4/1024/document/emb-v1",
+    "queryModelSpec": "voyage/voyage-4/1024/query/emb-v1",
+    "model": "voyage-4",
+    "dimensions": 1024,
+    "maxBatchSize": 64,
+    "note": "fake = deterministic lexical feature hashing; NOT semantic"
+  },
+  "templates": [
+    {
+      "templateId": "spark-researcher-profile/graph-v1",
+      "documentType": "researcher_profile",
+      "index": "researcher-profile-v1",
+      "chunking": "chunking-v1 (maxChars 4000)",
+      "source": "spark verbatim: summaryKind=researcher_profile, job=spark.semantic-summaries, policy=graph-v1"
+    },
+    {
+      "templateId": "spark-community/graph-v1",
+      "documentType": "community_summary",
+      "index": "collaboration-community-v1",
+      "chunking": "chunking-v1 (maxChars 4000)",
+      "source": "spark verbatim: summaryKind=community, job=spark.semantic-summaries, policy=graph-v1"
+    },
+    {
+      "templateId": "spark-path/graph-v1",
+      "documentType": "collaboration_path",
+      "index": "collaboration-path-v1",
+      "chunking": "chunking-v1 (maxChars 4000)",
+      "source": "spark verbatim: summaryKind=path, job=spark.semantic-summaries, policy=graph-v1"
+    },
+    {
+      "templateId": "paper-abstract-v1",
+      "documentType": "paper_summary",
+      "index": "paper-abstract-v1",
+      "chunking": "chunking-v1 (maxChars 4000)",
+      "source": "rag rendered: job=rag.render-paper-summary, policy=paper-abstract-v1"
+    },
+    {
+      "templateId": "topic-institution-summary-v1",
+      "documentType": "topic_institution_summary",
+      "index": "topic-institution-summary-v1",
+      "chunking": "chunking-v1 (maxChars 4000)",
+      "source": "no input (0 documents): no enrichment input: the Phase 6 graph has 0 topic and 0 institution nodes and no affiliated_with or has_topic edges (OpenAlex, ORCID and Crossref enrichment is not loaded yet), so there is nothing to summarize without inventing facts"
+    }
+  ],
+  "runId": "run:v1:6301f6f046a30f08f173ce204b70ce6e",
+  "runs": [],
+  "status": "stopped: step ingest-run-1 took 12982514 ms (> 60 minutes)",
+  "totalMillis": 13033018
+}
