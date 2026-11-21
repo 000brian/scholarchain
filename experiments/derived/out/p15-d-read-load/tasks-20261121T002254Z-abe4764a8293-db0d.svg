@@ -1,0 +1,150 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1098" font-family="sans-serif" font-size="11">
+<rect x="0" y="0" width="1000" height="1098" fill="white"/>
+<text x="70" y="20" font-size="14" font-weight="bold">p15-d-read-load 20261121T002254Z-abe4764a8293-db0d: tasks and CloudWatch series over the levels</text>
+<text x="70" y="36">x axis: time (UTC), 2026-11-21T00:20:56Z to 2026-11-21T00:24:57Z</text>
+<text x="70" y="44" font-weight="bold">service tasks (describe-services samples)</text>
+<rect x="70" y="50" width="700" height="200" fill="none" stroke="#333"/>
+<line x1="70" y1="250.0" x2="770" y2="250.0" stroke="#ddd"/>
+<text x="66" y="254.0" text-anchor="end">0</text>
+<line x1="70" y1="210.0" x2="770" y2="210.0" stroke="#ddd"/>
+<text x="66" y="214.0" text-anchor="end">0.25</text>
+<line x1="70" y1="170.0" x2="770" y2="170.0" stroke="#ddd"/>
+<text x="66" y="174.0" text-anchor="end">0.5</text>
+<line x1="70" y1="130.0" x2="770" y2="130.0" stroke="#ddd"/>
+<text x="66" y="134.0" text-anchor="end">0.75</text>
+<line x1="70" y1="90.0" x2="770" y2="90.0" stroke="#ddd"/>
+<text x="66" y="94.0" text-anchor="end">1</text>
+<line x1="70" y1="50.0" x2="770" y2="50.0" stroke="#ddd"/>
+<text x="66" y="54.0" text-anchor="end">1.25</text>
+<text x="14" y="150" transform="rotate(-90 14 150)" text-anchor="middle">tasks</text>
+<line x1="81.6" y1="50" x2="81.6" y2="250" stroke="#eee"/>
+<text x="81.6" y="264" text-anchor="middle">00:21:00</text>
+<line x1="168.8" y1="50" x2="168.8" y2="250" stroke="#eee"/>
+<text x="168.8" y="264" text-anchor="middle">00:21:30</text>
+<line x1="255.9" y1="50" x2="255.9" y2="250" stroke="#eee"/>
+<text x="255.9" y="264" text-anchor="middle">00:22:00</text>
+<line x1="343.0" y1="50" x2="343.0" y2="250" stroke="#eee"/>
+<text x="343.0" y="264" text-anchor="middle">00:22:30</text>
+<line x1="430.2" y1="50" x2="430.2" y2="250" stroke="#eee"/>
+<text x="430.2" y="264" text-anchor="middle">00:23:00</text>
+<line x1="517.3" y1="50" x2="517.3" y2="250" stroke="#eee"/>
+<text x="517.3" y="264" text-anchor="middle">00:23:30</text>
+<line x1="604.4" y1="50" x2="604.4" y2="250" stroke="#eee"/>
+<text x="604.4" y="264" text-anchor="middle">00:24:00</text>
+<line x1="691.6" y1="50" x2="691.6" y2="250" stroke="#eee"/>
+<text x="691.6" y="264" text-anchor="middle">00:24:30</text>
+<line x1="780" y1="64" x2="798" y2="64" stroke="#1f77b4" stroke-width="2"/>
+<text x="802" y="68">evidence desired</text>
+<polyline points="418.5,90.0 421.5,90.0" fill="none" stroke="#1f77b4" stroke-width="1.5"/>
+<line x1="780" y1="78" x2="798" y2="78" stroke="#d62728" stroke-width="2"/>
+<text x="802" y="82">evidence running</text>
+<polyline points="418.5,90.0 421.5,90.0" fill="none" stroke="#d62728" stroke-width="1.5"/>
+<line x1="780" y1="92" x2="798" y2="92" stroke="#2ca02c" stroke-width="2"/>
+<text x="802" y="96">graph desired</text>
+<polyline points="418.5,90.0 421.5,90.0" fill="none" stroke="#2ca02c" stroke-width="1.5"/>
+<line x1="780" y1="106" x2="798" y2="106" stroke="#9467bd" stroke-width="2"/>
+<text x="802" y="110">graph running</text>
+<polyline points="418.5,90.0 421.5,90.0" fill="none" stroke="#9467bd" stroke-width="1.5"/>
+<line x1="780" y1="120" x2="798" y2="120" stroke="#ff7f0e" stroke-width="2"/>
+<text x="802" y="124">query desired</text>
+<polyline points="418.5,90.0 421.5,90.0" fill="none" stroke="#ff7f0e" stroke-width="1.5"/>
+<line x1="780" y1="134" x2="798" y2="134" stroke="#8c564b" stroke-width="2"/>
+<text x="802" y="138">query running</text>
+<polyline points="418.5,90.0 421.5,90.0" fill="none" stroke="#8c564b" stroke-width="1.5"/>
+<text x="70" y="289" font-weight="bold">ALB TargetResponseTime (CloudWatch)</text>
+<rect x="70" y="295" width="700" height="200" fill="none" stroke="#333"/>
+<line x1="70" y1="495.0" x2="770" y2="495.0" stroke="#ddd"/>
+<text x="66" y="499.0" text-anchor="end">0</text>
+<line x1="70" y1="455.0" x2="770" y2="455.0" stroke="#ddd"/>
+<text x="66" y="459.0" text-anchor="end">0.25</text>
+<line x1="70" y1="415.0" x2="770" y2="415.0" stroke="#ddd"/>
+<text x="66" y="419.0" text-anchor="end">0.5</text>
+<line x1="70" y1="375.0" x2="770" y2="375.0" stroke="#ddd"/>
+<text x="66" y="379.0" text-anchor="end">0.75</text>
+<line x1="70" y1="335.0" x2="770" y2="335.0" stroke="#ddd"/>
+<text x="66" y="339.0" text-anchor="end">1</text>
+<line x1="70" y1="295.0" x2="770" y2="295.0" stroke="#ddd"/>
+<text x="66" y="299.0" text-anchor="end">1.25</text>
+<text x="14" y="395" transform="rotate(-90 14 395)" text-anchor="middle">seconds</text>
+<line x1="81.6" y1="295" x2="81.6" y2="495" stroke="#eee"/>
+<text x="81.6" y="509" text-anchor="middle">00:21:00</text>
+<line x1="168.8" y1="295" x2="168.8" y2="495" stroke="#eee"/>
+<text x="168.8" y="509" text-anchor="middle">00:21:30</text>
+<line x1="255.9" y1="295" x2="255.9" y2="495" stroke="#eee"/>
+<text x="255.9" y="509" text-anchor="middle">00:22:00</text>
+<line x1="343.0" y1="295" x2="343.0" y2="495" stroke="#eee"/>
+<text x="343.0" y="509" text-anchor="middle">00:22:30</text>
+<line x1="430.2" y1="295" x2="430.2" y2="495" stroke="#eee"/>
+<text x="430.2" y="509" text-anchor="middle">00:23:00</text>
+<line x1="517.3" y1="295" x2="517.3" y2="495" stroke="#eee"/>
+<text x="517.3" y="509" text-anchor="middle">00:23:30</text>
+<line x1="604.4" y1="295" x2="604.4" y2="495" stroke="#eee"/>
+<text x="604.4" y="509" text-anchor="middle">00:24:00</text>
+<line x1="691.6" y1="295" x2="691.6" y2="495" stroke="#eee"/>
+<text x="691.6" y="509" text-anchor="middle">00:24:30</text>
+<text x="70" y="534" font-weight="bold">ECS CPUUtilization (CloudWatch)</text>
+<rect x="70" y="540" width="700" height="200" fill="none" stroke="#333"/>
+<line x1="70" y1="740.0" x2="770" y2="740.0" stroke="#ddd"/>
+<text x="66" y="744.0" text-anchor="end">0</text>
+<line x1="70" y1="700.0" x2="770" y2="700.0" stroke="#ddd"/>
+<text x="66" y="704.0" text-anchor="end">0.25</text>
+<line x1="70" y1="660.0" x2="770" y2="660.0" stroke="#ddd"/>
+<text x="66" y="664.0" text-anchor="end">0.5</text>
+<line x1="70" y1="620.0" x2="770" y2="620.0" stroke="#ddd"/>
+<text x="66" y="624.0" text-anchor="end">0.75</text>
+<line x1="70" y1="580.0" x2="770" y2="580.0" stroke="#ddd"/>
+<text x="66" y="584.0" text-anchor="end">1</text>
+<line x1="70" y1="540.0" x2="770" y2="540.0" stroke="#ddd"/>
+<text x="66" y="544.0" text-anchor="end">1.25</text>
+<text x="14" y="640" transform="rotate(-90 14 640)" text-anchor="middle">percent</text>
+<line x1="81.6" y1="540" x2="81.6" y2="740" stroke="#eee"/>
+<text x="81.6" y="754" text-anchor="middle">00:21:00</text>
+<line x1="168.8" y1="540" x2="168.8" y2="740" stroke="#eee"/>
+<text x="168.8" y="754" text-anchor="middle">00:21:30</text>
+<line x1="255.9" y1="540" x2="255.9" y2="740" stroke="#eee"/>
+<text x="255.9" y="754" text-anchor="middle">00:22:00</text>
+<line x1="343.0" y1="540" x2="343.0" y2="740" stroke="#eee"/>
+<text x="343.0" y="754" text-anchor="middle">00:22:30</text>
+<line x1="430.2" y1="540" x2="430.2" y2="740" stroke="#eee"/>
+<text x="430.2" y="754" text-anchor="middle">00:23:00</text>
+<line x1="517.3" y1="540" x2="517.3" y2="740" stroke="#eee"/>
+<text x="517.3" y="754" text-anchor="middle">00:23:30</text>
+<line x1="604.4" y1="540" x2="604.4" y2="740" stroke="#eee"/>
+<text x="604.4" y="754" text-anchor="middle">00:24:00</text>
+<line x1="691.6" y1="540" x2="691.6" y2="740" stroke="#eee"/>
+<text x="691.6" y="754" text-anchor="middle">00:24:30</text>
+<text x="70" y="779" font-weight="bold">ECS MemoryUtilization (CloudWatch)</text>
+<rect x="70" y="785" width="700" height="200" fill="none" stroke="#333"/>
+<line x1="70" y1="985.0" x2="770" y2="985.0" stroke="#ddd"/>
+<text x="66" y="989.0" text-anchor="end">0</text>
+<line x1="70" y1="945.0" x2="770" y2="945.0" stroke="#ddd"/>
+<text x="66" y="949.0" text-anchor="end">0.25</text>
+<line x1="70" y1="905.0" x2="770" y2="905.0" stroke="#ddd"/>
+<text x="66" y="909.0" text-anchor="end">0.5</text>
+<line x1="70" y1="865.0" x2="770" y2="865.0" stroke="#ddd"/>
+<text x="66" y="869.0" text-anchor="end">0.75</text>
+<line x1="70" y1="825.0" x2="770" y2="825.0" stroke="#ddd"/>
+<text x="66" y="829.0" text-anchor="end">1</text>
+<line x1="70" y1="785.0" x2="770" y2="785.0" stroke="#ddd"/>
+<text x="66" y="789.0" text-anchor="end">1.25</text>
+<text x="14" y="885" transform="rotate(-90 14 885)" text-anchor="middle">percent</text>
+<line x1="81.6" y1="785" x2="81.6" y2="985" stroke="#eee"/>
+<text x="81.6" y="999" text-anchor="middle">00:21:00</text>
+<line x1="168.8" y1="785" x2="168.8" y2="985" stroke="#eee"/>
+<text x="168.8" y="999" text-anchor="middle">00:21:30</text>
+<line x1="255.9" y1="785" x2="255.9" y2="985" stroke="#eee"/>
+<text x="255.9" y="999" text-anchor="middle">00:22:00</text>
+<line x1="343.0" y1="785" x2="343.0" y2="985" stroke="#eee"/>
+<text x="343.0" y="999" text-anchor="middle">00:22:30</text>
+<line x1="430.2" y1="785" x2="430.2" y2="985" stroke="#eee"/>
+<text x="430.2" y="999" text-anchor="middle">00:23:00</text>
+<line x1="517.3" y1="785" x2="517.3" y2="985" stroke="#eee"/>
+<text x="517.3" y="999" text-anchor="middle">00:23:30</text>
+<line x1="604.4" y1="785" x2="604.4" y2="985" stroke="#eee"/>
+<text x="604.4" y="999" text-anchor="middle">00:24:00</text>
+<line x1="691.6" y1="785" x2="691.6" y2="985" stroke="#eee"/>
+<text x="691.6" y="999" text-anchor="middle">00:24:30</text>
+<text x="70" y="1040" fill="#555">events: green dashed = scale-out, red dashed = scale-in, gray dashed = lifecycle record</text>
+<text x="70" y="1054" fill="#555">shaded bands: level windows; scale events from desired-count changes</text>
+<text x="70" y="1068" fill="#555">metrics from experiments/raw/p15-d-read-load/20261121T002254Z-abe4764a8293-db0d/metrics</text>
+</svg>

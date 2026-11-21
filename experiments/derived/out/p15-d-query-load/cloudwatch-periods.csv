@@ -1,0 +1,457 @@
+manifest,attempt,series,period_start_utc,value,attribution
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB HTTPCode_Target_4XX_Count Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:50:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB HTTPCode_Target_4XX_Count Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:51:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB HTTPCode_Target_5XX_Count Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:59:00Z,1.000,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB HTTPCode_Target_5XX_Count Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:02:00Z,52.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB HTTPCode_Target_5XX_Count Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:03:00Z,12.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB HTTPCode_Target_5XX_Count Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:04:00Z,41.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",2026-11-20T23:50:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",2026-11-20T23:51:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",2026-11-20T23:52:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",2026-11-20T23:53:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",2026-11-20T23:54:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",2026-11-20T23:55:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",2026-11-20T23:56:00Z,0.000,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",2026-11-20T23:57:00Z,10.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",2026-11-20T23:58:00Z,0.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",2026-11-20T23:59:00Z,0.000,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",2026-11-21T00:00:00Z,12.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",2026-11-21T00:01:00Z,6.000,pause
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",2026-11-21T00:02:00Z,8.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",2026-11-21T00:03:00Z,0.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",2026-11-21T00:04:00Z,4.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",2026-11-21T00:05:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",2026-11-21T00:06:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",2026-11-21T00:07:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-evidence}",2026-11-21T00:08:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",2026-11-20T23:50:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",2026-11-20T23:51:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",2026-11-20T23:52:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",2026-11-20T23:53:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",2026-11-20T23:54:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",2026-11-20T23:55:00Z,0.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",2026-11-20T23:56:00Z,0.000,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",2026-11-20T23:57:00Z,0.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",2026-11-20T23:58:00Z,0.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",2026-11-20T23:59:00Z,0.000,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",2026-11-21T00:00:00Z,0.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",2026-11-21T00:01:00Z,0.000,pause
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",2026-11-21T00:02:00Z,0.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",2026-11-21T00:03:00Z,0.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",2026-11-21T00:04:00Z,0.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",2026-11-21T00:05:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",2026-11-21T00:06:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",2026-11-21T00:07:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-graph}",2026-11-21T00:08:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:50:00Z,3.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:51:00Z,3.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:52:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:53:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:54:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:55:00Z,8.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:56:00Z,5.000,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:57:00Z,3.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:58:00Z,2.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:59:00Z,8.000,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:00:00Z,9.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:01:00Z,0.000,pause
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:02:00Z,60.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:03:00Z,12.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:04:00Z,46.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:05:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:06:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:07:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB RequestCount Sum LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:08:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p50 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:50:00Z,0.001,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p50 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:51:00Z,0.025,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p50 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:55:00Z,0.001,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p50 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:56:00Z,11.364,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p50 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:57:00Z,15.125,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p50 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:58:00Z,10.835,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p50 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:59:00Z,13.110,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p50 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:00:00Z,11.638,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p50 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:02:00Z,0.006,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p50 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:03:00Z,0.007,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p50 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:04:00Z,0.006,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p95 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:50:00Z,0.234,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p95 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:51:00Z,15.613,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p95 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:55:00Z,15.937,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p95 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:56:00Z,14.630,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p95 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:57:00Z,18.156,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p95 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:58:00Z,15.922,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p95 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:59:00Z,24.290,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p95 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:00:00Z,21.255,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p95 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:02:00Z,23.668,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p95 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:03:00Z,0.061,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p95 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:04:00Z,12.740,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p99 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:50:00Z,0.236,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p99 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:51:00Z,15.789,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p99 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:55:00Z,15.977,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p99 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:56:00Z,14.687,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p99 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:57:00Z,18.259,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p99 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:58:00Z,15.928,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p99 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-20T23:59:00Z,24.878,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p99 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:00:00Z,21.348,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p99 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:02:00Z,24.767,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p99 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:03:00Z,0.062,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ApplicationELB TargetResponseTime p99 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}",2026-11-21T00:04:00Z,16.087,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-evidence-bundle,2026-11-20T23:50:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-evidence-bundle,2026-11-20T23:51:00Z,2.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-evidence-bundle,2026-11-20T23:52:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-evidence-bundle,2026-11-20T23:53:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-evidence-bundle,2026-11-20T23:54:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-evidence-bundle,2026-11-20T23:55:00Z,4.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-evidence-bundle,2026-11-20T23:56:00Z,0.000,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-evidence-bundle,2026-11-20T23:57:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-evidence-bundle,2026-11-20T23:58:00Z,23.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-evidence-bundle,2026-11-20T23:59:00Z,99.000,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-evidence-bundle,2026-11-21T00:00:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-evidence-bundle,2026-11-21T00:01:00Z,0.000,pause
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-evidence-bundle,2026-11-21T00:02:00Z,88.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-evidence-bundle,2026-11-21T00:03:00Z,56.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-evidence-bundle,2026-11-21T00:04:00Z,70.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-20T23:50:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-20T23:51:00Z,5.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-20T23:52:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-20T23:53:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-20T23:54:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-20T23:55:00Z,5.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-20T23:56:00Z,5.000,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-20T23:57:00Z,2.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-20T23:58:00Z,4.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-20T23:59:00Z,8.000,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-21T00:00:00Z,7.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-21T00:01:00Z,0.000,pause
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-21T00:02:00Z,60.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-21T00:03:00Z,16.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-21T00:04:00Z,41.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-researcher-metric-cache,2026-11-20T23:50:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-researcher-metric-cache,2026-11-20T23:51:00Z,2.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-researcher-metric-cache,2026-11-20T23:52:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-researcher-metric-cache,2026-11-20T23:53:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-researcher-metric-cache,2026-11-20T23:54:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-researcher-metric-cache,2026-11-20T23:55:00Z,35.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-researcher-metric-cache,2026-11-20T23:56:00Z,53.000,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-researcher-metric-cache,2026-11-20T23:57:00Z,4.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-researcher-metric-cache,2026-11-20T23:58:00Z,34.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-researcher-metric-cache,2026-11-20T23:59:00Z,68.000,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-researcher-metric-cache,2026-11-21T00:00:00Z,23.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-researcher-metric-cache,2026-11-21T00:01:00Z,0.000,pause
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-researcher-metric-cache,2026-11-21T00:02:00Z,83.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-researcher-metric-cache,2026-11-21T00:03:00Z,14.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedReadCapacityUnits Sum TableName=scholarchain-course-researcher-metric-cache,2026-11-21T00:04:00Z,45.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedWriteCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-20T23:50:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedWriteCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-20T23:51:00Z,22.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedWriteCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-20T23:52:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedWriteCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-20T23:53:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedWriteCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-20T23:54:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedWriteCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-20T23:55:00Z,59.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedWriteCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-20T23:56:00Z,129.000,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedWriteCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-20T23:57:00Z,58.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedWriteCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-20T23:58:00Z,75.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedWriteCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-20T23:59:00Z,196.000,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedWriteCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-21T00:00:00Z,201.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedWriteCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-21T00:01:00Z,0.000,pause
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedWriteCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-21T00:02:00Z,222.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedWriteCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-21T00:03:00Z,93.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ConsumedWriteCapacityUnits Sum TableName=scholarchain-course-query-session,2026-11-21T00:04:00Z,86.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-evidence-bundle",2026-11-20T23:51:00Z,1.238,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-evidence-bundle",2026-11-20T23:55:00Z,1.090,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-evidence-bundle",2026-11-20T23:57:00Z,1.719,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-evidence-bundle",2026-11-20T23:58:00Z,0.947,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-evidence-bundle",2026-11-20T23:59:00Z,1.143,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-evidence-bundle",2026-11-21T00:00:00Z,1.442,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-evidence-bundle",2026-11-21T00:02:00Z,1.283,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-evidence-bundle",2026-11-21T00:03:00Z,1.233,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-evidence-bundle",2026-11-21T00:04:00Z,1.586,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-query-session",2026-11-20T23:50:00Z,19.011,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-query-session",2026-11-20T23:51:00Z,1.947,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-query-session",2026-11-20T23:55:00Z,8.987,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-query-session",2026-11-20T23:56:00Z,2.303,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-query-session",2026-11-20T23:57:00Z,2.076,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-query-session",2026-11-20T23:58:00Z,11.092,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-query-session",2026-11-20T23:59:00Z,1.631,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-query-session",2026-11-21T00:00:00Z,1.757,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-query-session",2026-11-21T00:02:00Z,3.611,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-query-session",2026-11-21T00:03:00Z,11.622,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-query-session",2026-11-21T00:04:00Z,1.478,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-researcher-metric-cache",2026-11-20T23:50:00Z,18.508,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-researcher-metric-cache",2026-11-20T23:51:00Z,1.639,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-researcher-metric-cache",2026-11-20T23:55:00Z,2.753,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-researcher-metric-cache",2026-11-20T23:56:00Z,1.804,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-researcher-metric-cache",2026-11-20T23:57:00Z,3.798,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-researcher-metric-cache",2026-11-20T23:58:00Z,1.795,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-researcher-metric-cache",2026-11-20T23:59:00Z,1.627,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-researcher-metric-cache",2026-11-21T00:00:00Z,2.269,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-researcher-metric-cache",2026-11-21T00:02:00Z,1.491,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-researcher-metric-cache",2026-11-21T00:03:00Z,3.868,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=GetItem,TableName=scholarchain-course-researcher-metric-cache",2026-11-21T00:04:00Z,1.686,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=PutItem,TableName=scholarchain-course-query-session",2026-11-20T23:51:00Z,4.083,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=PutItem,TableName=scholarchain-course-query-session",2026-11-20T23:55:00Z,3.201,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=PutItem,TableName=scholarchain-course-query-session",2026-11-20T23:56:00Z,3.628,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=PutItem,TableName=scholarchain-course-query-session",2026-11-20T23:57:00Z,4.959,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=PutItem,TableName=scholarchain-course-query-session",2026-11-20T23:58:00Z,2.782,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=PutItem,TableName=scholarchain-course-query-session",2026-11-20T23:59:00Z,3.021,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=PutItem,TableName=scholarchain-course-query-session",2026-11-21T00:00:00Z,3.324,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=PutItem,TableName=scholarchain-course-query-session",2026-11-21T00:02:00Z,3.007,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=PutItem,TableName=scholarchain-course-query-session",2026-11-21T00:03:00Z,4.216,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB SuccessfulRequestLatency Average Operation=PutItem,TableName=scholarchain-course-query-session",2026-11-21T00:04:00Z,4.537,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:50:00Z,0.234,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:51:00Z,0.975,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:52:00Z,0.227,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:53:00Z,0.237,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:54:00Z,0.245,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:55:00Z,0.234,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:56:00Z,0.223,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:57:00Z,2.031,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:58:00Z,0.250,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:59:00Z,0.267,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:00:00Z,0.233,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:01:00Z,1.683,pause
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:02:00Z,1.061,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:03:00Z,1.843,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:04:00Z,0.783,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:05:00Z,0.250,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:06:00Z,0.229,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:07:00Z,0.228,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:50:00Z,0.293,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:51:00Z,0.253,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:52:00Z,0.260,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:53:00Z,0.262,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:54:00Z,0.263,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:55:00Z,0.287,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:56:00Z,0.297,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:57:00Z,0.260,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:58:00Z,0.249,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:59:00Z,0.270,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:00:00Z,0.292,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:01:00Z,0.284,pause
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:02:00Z,0.248,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:03:00Z,0.285,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:04:00Z,0.261,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:05:00Z,0.260,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:06:00Z,0.262,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:07:00Z,0.259,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:50:00Z,0.122,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:51:00Z,0.934,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:52:00Z,0.125,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:53:00Z,0.120,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:54:00Z,0.110,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:55:00Z,2.007,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:56:00Z,6.733,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:57:00Z,1.278,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:58:00Z,0.122,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:59:00Z,9.759,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:00:00Z,3.635,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:01:00Z,0.601,pause
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:02:00Z,3.790,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:03:00Z,2.212,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:04:00Z,2.377,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:05:00Z,0.153,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:06:00Z,0.179,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS CPUUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:07:00Z,0.117,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:50:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:51:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:52:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:53:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:54:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:55:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:56:00Z,1.000,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:57:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:58:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:59:00Z,1.000,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:00:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:01:00Z,1.000,pause
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:02:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:03:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:04:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:05:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:06:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:07:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:08:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:50:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:51:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:52:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:53:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:54:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:55:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:56:00Z,1.000,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:57:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:58:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:59:00Z,1.000,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:00:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:01:00Z,1.000,pause
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:02:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:03:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:04:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:05:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:06:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:07:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:08:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:50:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:51:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:52:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:53:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:54:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:55:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:56:00Z,1.000,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:57:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:58:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:59:00Z,1.000,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:00:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:01:00Z,1.000,pause
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:02:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:03:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:04:00Z,1.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:05:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:06:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:07:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS LiveTaskCount Maximum ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:08:00Z,1.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:50:00Z,17.285,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:51:00Z,17.334,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:52:00Z,17.383,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:53:00Z,17.383,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:54:00Z,17.383,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:55:00Z,17.643,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:56:00Z,17.773,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:57:00Z,17.855,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:58:00Z,18.359,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-20T23:59:00Z,18.392,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:00:00Z,18.457,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:01:00Z,19.564,pause
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:02:00Z,20.020,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:03:00Z,20.557,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:04:00Z,20.866,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:05:00Z,21.094,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:06:00Z,21.126,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=evidence",2026-11-21T00:07:00Z,21.191,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:50:00Z,18.164,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:51:00Z,18.197,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:52:00Z,18.262,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:53:00Z,18.262,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:54:00Z,18.343,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:55:00Z,18.359,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:56:00Z,18.392,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:57:00Z,18.457,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:58:00Z,18.473,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-20T23:59:00Z,18.555,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:00:00Z,18.555,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:01:00Z,18.636,pause
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:02:00Z,18.652,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:03:00Z,18.685,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:04:00Z,18.750,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:05:00Z,18.750,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:06:00Z,18.831,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=graph",2026-11-21T00:07:00Z,18.848,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:50:00Z,7.471,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:51:00Z,7.560,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:52:00Z,7.617,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:53:00Z,7.617,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:54:00Z,7.617,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:55:00Z,7.756,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:56:00Z,8.333,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:57:00Z,8.529,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:58:00Z,8.545,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-20T23:59:00Z,9.025,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:00:00Z,9.554,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:01:00Z,9.619,pause
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:02:00Z,9.668,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:03:00Z,9.757,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:04:00Z,9.798,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:05:00Z,9.863,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:06:00Z,9.863,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/ECS MemoryUtilization Average ClusterName=scholarchain-course-runtime,ServiceName=query",2026-11-21T00:07:00Z,9.863,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune CPUUtilization Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:50:00Z,12.628,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune CPUUtilization Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:51:00Z,13.920,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune CPUUtilization Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:52:00Z,17.225,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune CPUUtilization Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:53:00Z,12.339,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune CPUUtilization Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:54:00Z,12.333,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune CPUUtilization Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:55:00Z,12.441,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune CPUUtilization Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:56:00Z,15.869,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune CPUUtilization Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:57:00Z,15.803,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune CPUUtilization Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:58:00Z,14.071,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune CPUUtilization Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:59:00Z,13.987,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune CPUUtilization Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:00:00Z,15.183,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune CPUUtilization Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:01:00Z,18.892,pause
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune CPUUtilization Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:02:00Z,12.583,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune CPUUtilization Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:03:00Z,15.363,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune CPUUtilization Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:04:00Z,13.307,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune CPUUtilization Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:05:00Z,14.282,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune CPUUtilization Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:06:00Z,13.838,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune CPUUtilization Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:07:00Z,12.660,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune MainRequestQueuePendingRequests Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:50:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune MainRequestQueuePendingRequests Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:51:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune MainRequestQueuePendingRequests Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:52:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune MainRequestQueuePendingRequests Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:53:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune MainRequestQueuePendingRequests Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:54:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune MainRequestQueuePendingRequests Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:55:00Z,0.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune MainRequestQueuePendingRequests Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:56:00Z,0.000,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune MainRequestQueuePendingRequests Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:57:00Z,0.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune MainRequestQueuePendingRequests Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:58:00Z,0.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune MainRequestQueuePendingRequests Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:59:00Z,0.000,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune MainRequestQueuePendingRequests Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:00:00Z,0.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune MainRequestQueuePendingRequests Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:01:00Z,0.000,pause
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune MainRequestQueuePendingRequests Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:02:00Z,0.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune MainRequestQueuePendingRequests Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:03:00Z,0.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune MainRequestQueuePendingRequests Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:04:00Z,0.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune MainRequestQueuePendingRequests Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:05:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune MainRequestQueuePendingRequests Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:06:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune MainRequestQueuePendingRequests Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:07:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune MainRequestQueuePendingRequests Maximum DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:08:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune OpenCypherRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:50:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune OpenCypherRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:51:00Z,0.117,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune OpenCypherRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:52:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune OpenCypherRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:53:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune OpenCypherRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:54:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune OpenCypherRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:55:00Z,0.017,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune OpenCypherRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:56:00Z,0.950,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune OpenCypherRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:57:00Z,0.400,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune OpenCypherRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:58:00Z,0.283,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune OpenCypherRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:59:00Z,1.250,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune OpenCypherRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:00:00Z,1.067,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune OpenCypherRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:01:00Z,0.483,pause
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune OpenCypherRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:02:00Z,0.900,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune OpenCypherRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:03:00Z,1.167,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune OpenCypherRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:04:00Z,0.800,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune OpenCypherRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:05:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune OpenCypherRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:06:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune OpenCypherRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:07:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune OpenCypherRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:08:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:50:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:51:00Z,0.117,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:52:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:53:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:54:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:55:00Z,0.017,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:56:00Z,0.950,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:57:00Z,0.400,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:58:00Z,0.283,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:59:00Z,1.250,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:00:00Z,1.067,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:01:00Z,0.483,pause
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:02:00Z,0.900,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:03:00Z,1.167,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:04:00Z,0.800,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:05:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:06:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:07:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalRequestsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:08:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalServerErrorsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:50:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalServerErrorsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:51:00Z,0.017,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalServerErrorsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:52:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalServerErrorsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:53:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalServerErrorsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:54:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalServerErrorsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:55:00Z,0.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalServerErrorsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:56:00Z,0.000,level 1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalServerErrorsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:57:00Z,0.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalServerErrorsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:58:00Z,0.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalServerErrorsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-20T23:59:00Z,0.000,level 2
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalServerErrorsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:00:00Z,0.000,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalServerErrorsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:01:00Z,0.000,pause
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalServerErrorsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:02:00Z,0.117,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalServerErrorsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:03:00Z,0.067,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalServerErrorsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:04:00Z,0.050,boundary
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalServerErrorsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:05:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalServerErrorsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:06:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalServerErrorsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:07:00Z,0.000,outside
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/Neptune TotalServerErrorsPerSec Average DBClusterIdentifier=scholarchain-course-graph-1ea085a2f9dfe63be11289c5d3,2026-11-21T00:08:00Z,0.000,outside

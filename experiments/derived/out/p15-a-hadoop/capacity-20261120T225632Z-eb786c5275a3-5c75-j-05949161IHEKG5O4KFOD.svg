@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="853" font-family="sans-serif" font-size="11">
+<rect x="0" y="0" width="1000" height="853" fill="white"/>
+<text x="70" y="20" font-size="14" font-weight="bold">p15-a-hadoop 20261120T225632Z-eb786c5275a3-5c75 cluster j-05949161IHEKG5O4KFOD: no scale-out observed</text>
+<text x="70" y="36">x axis: time (UTC), 2026-11-20T22:51:32Z to 2026-11-21T00:34:21Z</text>
+<text x="70" y="44" font-weight="bold">capacity units and nodes</text>
+<rect x="70" y="50" width="700" height="200" fill="none" stroke="#333"/>
+<line x1="70" y1="250.0" x2="770" y2="250.0" stroke="#ddd"/>
+<text x="66" y="254.0" text-anchor="end">0</text>
+<line x1="70" y1="210.0" x2="770" y2="210.0" stroke="#ddd"/>
+<text x="66" y="214.0" text-anchor="end">0.5</text>
+<line x1="70" y1="170.0" x2="770" y2="170.0" stroke="#ddd"/>
+<text x="66" y="174.0" text-anchor="end">1</text>
+<line x1="70" y1="130.0" x2="770" y2="130.0" stroke="#ddd"/>
+<text x="66" y="134.0" text-anchor="end">1.5</text>
+<line x1="70" y1="90.0" x2="770" y2="90.0" stroke="#ddd"/>
+<text x="66" y="94.0" text-anchor="end">2</text>
+<line x1="70" y1="50.0" x2="770" y2="50.0" stroke="#ddd"/>
+<text x="66" y="54.0" text-anchor="end">2.5</text>
+<text x="14" y="150" transform="rotate(-90 14 150)" text-anchor="middle">units / nodes</text>
+<line x1="127.6" y1="50" x2="127.6" y2="250" stroke="#eee"/>
+<text x="127.6" y="264" text-anchor="middle">23:00</text>
+<line x1="229.8" y1="50" x2="229.8" y2="250" stroke="#eee"/>
+<text x="229.8" y="264" text-anchor="middle">23:15</text>
+<line x1="331.9" y1="50" x2="331.9" y2="250" stroke="#eee"/>
+<text x="331.9" y="264" text-anchor="middle">23:30</text>
+<line x1="434.0" y1="50" x2="434.0" y2="250" stroke="#eee"/>
+<text x="434.0" y="264" text-anchor="middle">23:45</text>
+<line x1="536.1" y1="50" x2="536.1" y2="250" stroke="#eee"/>
+<text x="536.1" y="264" text-anchor="middle">00:00</text>
+<line x1="638.3" y1="50" x2="638.3" y2="250" stroke="#eee"/>
+<text x="638.3" y="264" text-anchor="middle">00:15</text>
+<line x1="740.4" y1="50" x2="740.4" y2="250" stroke="#eee"/>
+<text x="740.4" y="264" text-anchor="middle">00:30</text>
+<line x1="104.7" y1="50" x2="104.7" y2="250" stroke="#7f7f7f" stroke-dasharray="4,3"/>
+<text x="106.7" y="72" fill="#7f7f7f" font-size="9" transform="rotate(-30 106.7 72)">cluster created</text>
+<line x1="133.9" y1="50" x2="133.9" y2="250" stroke="#7f7f7f" stroke-dasharray="4,3"/>
+<text x="135.9" y="72" fill="#7f7f7f" font-size="9" transform="rotate(-30 135.9 72)">cluster ready</text>
+<line x1="637.1" y1="50" x2="637.1" y2="250" stroke="#7f7f7f" stroke-dasharray="4,3"/>
+<text x="639.1" y="72" fill="#7f7f7f" font-size="9" transform="rotate(-30 639.1 72)">cluster termination requested</text>
+<line x1="654.5" y1="50" x2="654.5" y2="250" stroke="#7f7f7f" stroke-dasharray="4,3"/>
+<text x="656.5" y="72" fill="#7f7f7f" font-size="9" transform="rotate(-30 656.5 72)">cluster ended</text>
+<text x="780" y="68" fill="#999">TotalUnitsRequested: missing (no data)</text>
+<text x="780" y="82" fill="#999">TotalUnitsRunning: missing (no data)</text>
+<text x="780" y="96" fill="#999">CoreUnitsRequested: missing (no data)</text>
+<text x="780" y="110" fill="#999">CoreUnitsRunning: missing (no data)</text>
+<text x="780" y="124" fill="#999">CoreNodesRequested: missing (no data)</text>
+<line x1="780" y1="134" x2="798" y2="134" stroke="#8c564b" stroke-width="2"/>
+<text x="802" y="138">CoreNodesRunning</text>
+<circle cx="161.7" cy="90.0" r="2.5" fill="#8c564b"/>
+<circle cx="188.9" cy="90.0" r="2.5" fill="#8c564b"/>
+<circle cx="223.0" cy="90.0" r="2.5" fill="#8c564b"/>
+<circle cx="263.8" cy="90.0" r="2.5" fill="#8c564b"/>
+<circle cx="291.0" cy="90.0" r="2.5" fill="#8c564b"/>
+<circle cx="325.1" cy="90.0" r="2.5" fill="#8c564b"/>
+<circle cx="365.9" cy="90.0" r="2.5" fill="#8c564b"/>
+<circle cx="393.2" cy="90.0" r="2.5" fill="#8c564b"/>
+<circle cx="427.2" cy="90.0" r="2.5" fill="#8c564b"/>
+<circle cx="468.1" cy="90.0" r="2.5" fill="#8c564b"/>
+<circle cx="495.3" cy="90.0" r="2.5" fill="#8c564b"/>
+<circle cx="529.3" cy="90.0" r="2.5" fill="#8c564b"/>
+<circle cx="570.2" cy="90.0" r="2.5" fill="#8c564b"/>
+<circle cx="597.4" cy="90.0" r="2.5" fill="#8c564b"/>
+<text x="70" y="289" font-weight="bold">YARN pending</text>
+<rect x="70" y="295" width="700" height="200" fill="none" stroke="#333"/>
+<line x1="70" y1="495.0" x2="770" y2="495.0" stroke="#ddd"/>
+<text x="66" y="499.0" text-anchor="end">0</text>
+<line x1="70" y1="428.3" x2="770" y2="428.3" stroke="#ddd"/>
+<text x="66" y="432.3" text-anchor="end">200</text>
+<line x1="70" y1="361.7" x2="770" y2="361.7" stroke="#ddd"/>
+<text x="66" y="365.7" text-anchor="end">400</text>
+<line x1="70" y1="295.0" x2="770" y2="295.0" stroke="#ddd"/>
+<text x="66" y="299.0" text-anchor="end">600</text>
+<text x="14" y="395" transform="rotate(-90 14 395)" text-anchor="middle">count</text>
+<line x1="127.6" y1="295" x2="127.6" y2="495" stroke="#eee"/>
+<text x="127.6" y="509" text-anchor="middle">23:00</text>
+<line x1="229.8" y1="295" x2="229.8" y2="495" stroke="#eee"/>
+<text x="229.8" y="509" text-anchor="middle">23:15</text>
+<line x1="331.9" y1="295" x2="331.9" y2="495" stroke="#eee"/>
+<text x="331.9" y="509" text-anchor="middle">23:30</text>
+<line x1="434.0" y1="295" x2="434.0" y2="495" stroke="#eee"/>
+<text x="434.0" y="509" text-anchor="middle">23:45</text>
+<line x1="536.1" y1="295" x2="536.1" y2="495" stroke="#eee"/>
+<text x="536.1" y="509" text-anchor="middle">00:00</text>
+<line x1="638.3" y1="295" x2="638.3" y2="495" stroke="#eee"/>
+<text x="638.3" y="509" text-anchor="middle">00:15</text>
+<line x1="740.4" y1="295" x2="740.4" y2="495" stroke="#eee"/>
+<text x="740.4" y="509" text-anchor="middle">00:30</text>
+<line x1="104.7" y1="295" x2="104.7" y2="495" stroke="#7f7f7f" stroke-dasharray="4,3"/>
+<line x1="133.9" y1="295" x2="133.9" y2="495" stroke="#7f7f7f" stroke-dasharray="4,3"/>
+<line x1="637.1" y1="295" x2="637.1" y2="495" stroke="#7f7f7f" stroke-dasharray="4,3"/>
+<line x1="654.5" y1="295" x2="654.5" y2="495" stroke="#7f7f7f" stroke-dasharray="4,3"/>
+<line x1="780" y1="309" x2="798" y2="309" stroke="#1f77b4" stroke-width="2"/>
+<text x="802" y="313">ContainerPending</text>
+<polyline points="134.5,495.0 141.3,495.0 148.1,495.0 154.9,495.0 161.7,495.0 168.5,495.0 175.3,495.0 182.1,495.0 188.9,495.0 195.7,495.0 202.5,494.7 209.3,494.7 216.2,491.0 223.0,491.0 229.8,494.7 236.6,494.7 243.4,483.0 250.2,488.3 257.0,493.7 263.8,495.0 270.6,491.7 277.4,493.7 284.2,495.0 291.0,494.3 297.8,493.7 304.7,486.3 311.5,492.3 318.3,494.7 325.1,492.0 331.9,494.7 338.7,495.0 345.5,495.0 352.3,495.0 359.1,495.0 365.9,323.7 372.7,323.7 379.5,333.7 386.4,341.0 393.2,350.3 400.0,361.0 406.8,371.3 413.6,378.3 420.4,385.0 427.2,385.0 434.0,395.7 440.8,401.0 447.6,406.3 454.4,410.3 461.2,405.0 468.1,419.7 474.9,425.0 481.7,430.3 488.5,435.7 495.3,441.0 502.1,446.3 508.9,451.7 515.7,457.0 522.5,460.3 529.3,465.0 536.1,470.3 542.9,475.7 549.8,481.0 556.6,486.3 563.4,486.3 570.2,494.7 577.0,495.0 583.8,495.0 590.6,495.0 597.4,495.0 604.2,495.0 611.0,495.0 617.8,495.0 624.6,495.0 631.5,495.0 638.3,495.0" fill="none" stroke="#1f77b4" stroke-width="1.5"/>
+<line x1="780" y1="323" x2="798" y2="323" stroke="#d62728" stroke-width="2"/>
+<text x="802" y="327">AppsPending</text>
+<polyline points="134.5,495.0 141.3,495.0 148.1,495.0 154.9,495.0 161.7,495.0 168.5,495.0 175.3,495.0 182.1,495.0 188.9,495.0 195.7,495.0 202.5,495.0 209.3,495.0 216.2,495.0 223.0,495.0 229.8,495.0 236.6,495.0 243.4,495.0 250.2,495.0 257.0,495.0 263.8,495.0 270.6,495.0 277.4,495.0 284.2,495.0 291.0,495.0 297.8,495.0 304.7,495.0 311.5,495.0 318.3,495.0 325.1,495.0 331.9,495.0 338.7,495.0 345.5,495.0 352.3,495.0 359.1,495.0 365.9,495.0 372.7,495.0 379.5,495.0 386.4,495.0 393.2,495.0 400.0,495.0 406.8,495.0 413.6,495.0 420.4,495.0 427.2,495.0 434.0,495.0 440.8,495.0 447.6,495.0 454.4,495.0 461.2,495.0 468.1,495.0 474.9,495.0 481.7,495.0 488.5,495.0 495.3,495.0 502.1,495.0 508.9,495.0 515.7,495.0 522.5,495.0 529.3,495.0 536.1,495.0 542.9,495.0 549.8,495.0 556.6,495.0 563.4,495.0 570.2,495.0 577.0,495.0 583.8,495.0 590.6,495.0 597.4,495.0 604.2,495.0 611.0,495.0 617.8,495.0 624.6,495.0 631.5,495.0 638.3,495.0" fill="none" stroke="#d62728" stroke-width="1.5"/>
+<text x="70" y="534" font-weight="bold">YARN memory available</text>
+<rect x="70" y="540" width="700" height="200" fill="none" stroke="#333"/>
+<line x1="70" y1="740.0" x2="770" y2="740.0" stroke="#ddd"/>
+<text x="66" y="744.0" text-anchor="end">0</text>
+<line x1="70" y1="700.0" x2="770" y2="700.0" stroke="#ddd"/>
+<text x="66" y="704.0" text-anchor="end">25</text>
+<line x1="70" y1="660.0" x2="770" y2="660.0" stroke="#ddd"/>
+<text x="66" y="664.0" text-anchor="end">50</text>
+<line x1="70" y1="620.0" x2="770" y2="620.0" stroke="#ddd"/>
+<text x="66" y="624.0" text-anchor="end">75</text>
+<line x1="70" y1="580.0" x2="770" y2="580.0" stroke="#ddd"/>
+<text x="66" y="584.0" text-anchor="end">100</text>
+<line x1="70" y1="540.0" x2="770" y2="540.0" stroke="#ddd"/>
+<text x="66" y="544.0" text-anchor="end">125</text>
+<text x="14" y="640" transform="rotate(-90 14 640)" text-anchor="middle">percent</text>
+<line x1="127.6" y1="540" x2="127.6" y2="740" stroke="#eee"/>
+<text x="127.6" y="754" text-anchor="middle">23:00</text>
+<line x1="229.8" y1="540" x2="229.8" y2="740" stroke="#eee"/>
+<text x="229.8" y="754" text-anchor="middle">23:15</text>
+<line x1="331.9" y1="540" x2="331.9" y2="740" stroke="#eee"/>
+<text x="331.9" y="754" text-anchor="middle">23:30</text>
+<line x1="434.0" y1="540" x2="434.0" y2="740" stroke="#eee"/>
+<text x="434.0" y="754" text-anchor="middle">23:45</text>
+<line x1="536.1" y1="540" x2="536.1" y2="740" stroke="#eee"/>
+<text x="536.1" y="754" text-anchor="middle">00:00</text>
+<line x1="638.3" y1="540" x2="638.3" y2="740" stroke="#eee"/>
+<text x="638.3" y="754" text-anchor="middle">00:15</text>
+<line x1="740.4" y1="540" x2="740.4" y2="740" stroke="#eee"/>
+<text x="740.4" y="754" text-anchor="middle">00:30</text>
+<line x1="104.7" y1="540" x2="104.7" y2="740" stroke="#7f7f7f" stroke-dasharray="4,3"/>
+<line x1="133.9" y1="540" x2="133.9" y2="740" stroke="#7f7f7f" stroke-dasharray="4,3"/>
+<line x1="637.1" y1="540" x2="637.1" y2="740" stroke="#7f7f7f" stroke-dasharray="4,3"/>
+<line x1="654.5" y1="540" x2="654.5" y2="740" stroke="#7f7f7f" stroke-dasharray="4,3"/>
+<line x1="780" y1="554" x2="798" y2="554" stroke="#1f77b4" stroke-width="2"/>
+<text x="802" y="558">YARNMemoryAvailablePercentage</text>
+<polyline points="134.5,580.0 141.3,640.0 148.1,640.0 154.9,640.0 161.7,640.0 168.5,640.0 175.3,640.0 182.1,640.0 188.9,640.0 195.7,640.0 202.5,740.0 209.3,740.0 216.2,740.0 223.0,740.0 229.8,740.0 236.6,740.0 243.4,740.0 250.2,740.0 257.0,740.0 263.8,740.0 270.6,740.0 277.4,740.0 284.2,700.0 291.0,740.0 297.8,740.0 304.7,740.0 311.5,740.0 318.3,740.0 325.1,740.0 331.9,740.0 338.7,660.0 345.5,660.0 352.3,660.0 359.1,580.0 365.9,740.0 372.7,740.0 379.5,740.0 386.4,740.0 393.2,740.0 400.0,740.0 406.8,740.0 413.6,740.0 420.4,740.0 427.2,740.0 434.0,740.0 440.8,740.0 447.6,740.0 454.4,740.0 461.2,740.0 468.1,740.0 474.9,740.0 481.7,740.0 488.5,740.0 495.3,740.0 502.1,740.0 508.9,740.0 515.7,740.0 522.5,740.0 529.3,740.0 536.1,740.0 542.9,740.0 549.8,740.0 556.6,740.0 563.4,740.0 570.2,740.0 577.0,740.0 583.8,660.0 590.6,580.0 597.4,660.0 604.2,580.0 611.0,580.0 617.8,580.0 624.6,580.0 631.5,580.0 638.3,580.0" fill="none" stroke="#1f77b4" stroke-width="1.5"/>
+<text x="70" y="795" fill="#555">events: green dashed = scale-out, red dashed = scale-in, gray dashed = lifecycle record</text>
+<text x="70" y="809" fill="#555">status succeeded; metrics from experiments/raw/p15-a-hadoop/20261120T225632Z-eb786c5275a3-5c75/metrics</text>
+<text x="70" y="823" fill="#555">released capacity at cluster end is a lifecycle record, not a measured zero</text>
+</svg>

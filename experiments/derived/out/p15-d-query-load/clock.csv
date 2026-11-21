@@ -1,0 +1,3 @@
+manifest,attempt,phase,local_send_epoch_s,local_recv_epoch_s,http_date_epoch_s,offset_s,uncertainty_s,note
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,start,1795218924,1795218924,1795218924,0.5,1.0,server minus laptop; +-uncertainty
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,end,1795219457,1795219458,1795219458,1.0,1.5,server minus laptop; +-uncertainty

@@ -1,0 +1,13 @@
+manifest,attempt,level,service,samples,desired_min,desired_max,running_min,running_max
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,1,evidence,8,1,1,1,1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,1,graph,8,1,1,1,1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,1,query,8,1,1,1,1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,2,evidence,8,1,1,1,1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,2,graph,8,1,1,1,1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,2,query,8,1,1,1,1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,3,evidence,3,1,1,1,1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,3,graph,3,1,1,1,1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,3,query,3,1,1,1,1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,4,evidence,1,1,1,1,1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,4,graph,1,1,1,1,1
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,4,query,1,1,1,1,1

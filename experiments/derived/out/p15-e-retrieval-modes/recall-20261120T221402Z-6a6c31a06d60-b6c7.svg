@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="438" font-family="sans-serif" font-size="11">
+<rect x="0" y="0" width="900" height="438" fill="white"/>
+<text x="70" y="20" font-size="14" font-weight="bold">p15-e-retrieval-modes 20261120T221402Z-6a6c31a06d60-b6c7: recall@K per mode</text>
+<rect x="70" y="50" width="600" height="300" fill="none" stroke="#333"/>
+<line x1="70" y1="350.0" x2="670" y2="350.0" stroke="#ddd"/>
+<text x="66" y="354.0" text-anchor="end">0</text>
+<line x1="70" y1="290.0" x2="670" y2="290.0" stroke="#ddd"/>
+<text x="66" y="294.0" text-anchor="end">0.25</text>
+<line x1="70" y1="230.0" x2="670" y2="230.0" stroke="#ddd"/>
+<text x="66" y="234.0" text-anchor="end">0.5</text>
+<line x1="70" y1="170.0" x2="670" y2="170.0" stroke="#ddd"/>
+<text x="66" y="174.0" text-anchor="end">0.75</text>
+<line x1="70" y1="110.0" x2="670" y2="110.0" stroke="#ddd"/>
+<text x="66" y="114.0" text-anchor="end">1</text>
+<line x1="70" y1="50.0" x2="670" y2="50.0" stroke="#ddd"/>
+<text x="66" y="54.0" text-anchor="end">1.25</text>
+<text x="145.0" y="364" text-anchor="middle">K=1</text>
+<text x="295.0" y="364" text-anchor="middle">K=5</text>
+<text x="445.0" y="364" text-anchor="middle">K=10</text>
+<text x="595.0" y="364" text-anchor="middle">K=30</text>
+<text x="370" y="380" text-anchor="middle">K</text>
+<text x="14" y="200" transform="rotate(-90 14 200)" text-anchor="middle">recall</text>
+<line x1="680" y1="60" x2="698" y2="60" stroke="#1f77b4" stroke-width="2"/>
+<text x="702" y="64">graph-only</text>
+<circle cx="145.0" cy="326.0" r="3" fill="#1f77b4"/>
+<circle cx="295.0" cy="230.0" r="3" fill="#1f77b4"/>
+<circle cx="445.0" cy="153.6" r="3" fill="#1f77b4"/>
+<circle cx="595.0" cy="153.6" r="3" fill="#1f77b4"/>
+<polyline points="145.0,326.0 295.0,230.0 445.0,153.6 595.0,153.6" fill="none" stroke="#1f77b4" stroke-width="1.5"/>
+<line x1="680" y1="74" x2="698" y2="74" stroke="#d62728" stroke-width="2"/>
+<text x="702" y="78">vector-only</text>
+<circle cx="145.0" cy="350.0" r="3" fill="#d62728"/>
+<circle cx="295.0" cy="350.0" r="3" fill="#d62728"/>
+<circle cx="445.0" cy="350.0" r="3" fill="#d62728"/>
+<circle cx="595.0" cy="347.8" r="3" fill="#d62728"/>
+<polyline points="145.0,350.0 295.0,350.0 445.0,350.0 595.0,347.8" fill="none" stroke="#d62728" stroke-width="1.5"/>
+<line x1="680" y1="88" x2="698" y2="88" stroke="#2ca02c" stroke-width="2"/>
+<text x="702" y="92">fused</text>
+<circle cx="145.0" cy="328.2" r="3" fill="#2ca02c"/>
+<circle cx="295.0" cy="251.8" r="3" fill="#2ca02c"/>
+<circle cx="445.0" cy="197.3" r="3" fill="#2ca02c"/>
+<circle cx="595.0" cy="151.5" r="3" fill="#2ca02c"/>
+<polyline points="145.0,328.2 295.0,251.8 445.0,197.3 595.0,151.5" fill="none" stroke="#2ca02c" stroke-width="1.5"/>
+<text x="70" y="398" fill="#555">fused: experiment only; the production workflow has no fused ranking</text>
+<text x="70" y="412" fill="#555">a mode that errors or returns nothing scores 0 for that question (counted under errors or empty in modes.csv)</text>
+</svg>

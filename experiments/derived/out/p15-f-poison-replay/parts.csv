@@ -1,0 +1,4 @@
+manifest,attempt,status,part,events,first_utc,last_utc,outcomes,verdict
+p15-f-poison-replay,20261120T223908Z-e94df52ca8fb-b4c0,succeeded,poison,3,2026-11-20T22:39:20Z,2026-11-20T22:41:58Z,dlq-count-baseline-plus-1;dlq-received;sent,dlq-received
+p15-f-poison-replay,20261120T223908Z-e94df52ca8fb-b4c0,succeeded,replay,7,2026-11-20T22:39:21Z,2026-11-20T22:42:01Z,processed;replayed;sent;waiting,processed then replayed (worker log or completion record)
+p15-f-poison-replay,20261120T223908Z-e94df52ca8fb-b4c0,succeeded,api,3,2026-11-20T22:42:41Z,2026-11-20T22:42:43Z,200;409,seen

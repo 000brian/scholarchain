@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="839" font-family="sans-serif" font-size="11">
+<rect x="0" y="0" width="1000" height="839" fill="white"/>
+<text x="70" y="20" font-size="14" font-weight="bold">p15-f-poison-replay 20261120T223908Z-e94df52ca8fb-b4c0: worker 0-&gt;1; gate missing evidence</text>
+<text x="70" y="36">x axis: time (UTC), 2026-11-20T22:39:08Z to 2026-11-20T22:44:55Z</text>
+<text x="70" y="44" font-weight="bold">embedding queue (collector samples; CloudWatch for comparison)</text>
+<rect x="70" y="50" width="700" height="200" fill="none" stroke="#333"/>
+<line x1="70" y1="250.0" x2="770" y2="250.0" stroke="#ddd"/>
+<text x="66" y="254.0" text-anchor="end">0</text>
+<line x1="70" y1="210.0" x2="770" y2="210.0" stroke="#ddd"/>
+<text x="66" y="214.0" text-anchor="end">0.5</text>
+<line x1="70" y1="170.0" x2="770" y2="170.0" stroke="#ddd"/>
+<text x="66" y="174.0" text-anchor="end">1</text>
+<line x1="70" y1="130.0" x2="770" y2="130.0" stroke="#ddd"/>
+<text x="66" y="134.0" text-anchor="end">1.5</text>
+<line x1="70" y1="90.0" x2="770" y2="90.0" stroke="#ddd"/>
+<text x="66" y="94.0" text-anchor="end">2</text>
+<line x1="70" y1="50.0" x2="770" y2="50.0" stroke="#ddd"/>
+<text x="66" y="54.0" text-anchor="end">2.5</text>
+<text x="14" y="150" transform="rotate(-90 14 150)" text-anchor="middle">messages</text>
+<line x1="174.9" y1="50" x2="174.9" y2="250" stroke="#eee"/>
+<text x="174.9" y="264" text-anchor="middle">22:40</text>
+<line x1="295.9" y1="50" x2="295.9" y2="250" stroke="#eee"/>
+<text x="295.9" y="264" text-anchor="middle">22:41</text>
+<line x1="417.0" y1="50" x2="417.0" y2="250" stroke="#eee"/>
+<text x="417.0" y="264" text-anchor="middle">22:42</text>
+<line x1="538.0" y1="50" x2="538.0" y2="250" stroke="#eee"/>
+<text x="538.0" y="264" text-anchor="middle">22:43</text>
+<line x1="659.0" y1="50" x2="659.0" y2="250" stroke="#eee"/>
+<text x="659.0" y="264" text-anchor="middle">22:44</text>
+<line x1="364.5" y1="50" x2="364.5" y2="250" stroke="#2ca02c" stroke-dasharray="4,3"/>
+<text x="366.5" y="72" fill="#2ca02c" font-size="9" transform="rotate(-30 366.5 72)">worker desired 0-&gt;1</text>
+<line x1="780" y1="64" x2="798" y2="64" stroke="#1f77b4" stroke-width="2"/>
+<text x="802" y="68">visible (samples)</text>
+<polyline points="86.1,250.0 92.2,250.0 130.5,90.0 170.9,90.0 209.2,90.0 245.5,90.0 281.8,90.0 320.1,90.0 358.5,90.0 396.8,90.0 435.1,250.0 471.4,250.0 509.8,250.0 546.1,250.0 584.4,250.0 622.7,250.0 659.0,250.0 697.4,250.0 733.7,250.0 759.9,250.0" fill="none" stroke="#1f77b4" stroke-width="1.5"/>
+<line x1="780" y1="78" x2="798" y2="78" stroke="#d62728" stroke-width="2"/>
+<text x="802" y="82">in flight (samples)</text>
+<polyline points="86.1,250.0 92.2,250.0 130.5,250.0 170.9,250.0 209.2,250.0 245.5,250.0 281.8,250.0 320.1,250.0 358.5,250.0 396.8,250.0 435.1,250.0 471.4,250.0 509.8,250.0 546.1,250.0 584.4,250.0 622.7,250.0 659.0,250.0 697.4,250.0 733.7,250.0 759.9,250.0" fill="none" stroke="#d62728" stroke-width="1.5"/>
+<line x1="780" y1="92" x2="798" y2="92" stroke="#2ca02c" stroke-width="2"/>
+<text x="802" y="96">visible (CloudWatch Maximum)</text>
+<polyline points="-551.3,250.0 -430.3,250.0 -309.3,250.0 -188.2,250.0 -67.2,250.0 53.9,90.0 174.9,90.0 295.9,90.0 417.0,250.0 538.0,250.0 659.0,250.0 780.1,250.0 901.1,250.0 1022.2,250.0 1143.2,250.0" fill="none" stroke="#2ca02c" stroke-width="1.5"/>
+<text x="70" y="289" font-weight="bold">worker service tasks (describe-services samples)</text>
+<rect x="70" y="295" width="700" height="200" fill="none" stroke="#333"/>
+<line x1="70" y1="495.0" x2="770" y2="495.0" stroke="#ddd"/>
+<text x="66" y="499.0" text-anchor="end">0</text>
+<line x1="70" y1="455.0" x2="770" y2="455.0" stroke="#ddd"/>
+<text x="66" y="459.0" text-anchor="end">0.25</text>
+<line x1="70" y1="415.0" x2="770" y2="415.0" stroke="#ddd"/>
+<text x="66" y="419.0" text-anchor="end">0.5</text>
+<line x1="70" y1="375.0" x2="770" y2="375.0" stroke="#ddd"/>
+<text x="66" y="379.0" text-anchor="end">0.75</text>
+<line x1="70" y1="335.0" x2="770" y2="335.0" stroke="#ddd"/>
+<text x="66" y="339.0" text-anchor="end">1</text>
+<line x1="70" y1="295.0" x2="770" y2="295.0" stroke="#ddd"/>
+<text x="66" y="299.0" text-anchor="end">1.25</text>
+<text x="14" y="395" transform="rotate(-90 14 395)" text-anchor="middle">tasks</text>
+<line x1="174.9" y1="295" x2="174.9" y2="495" stroke="#eee"/>
+<text x="174.9" y="509" text-anchor="middle">22:40</text>
+<line x1="295.9" y1="295" x2="295.9" y2="495" stroke="#eee"/>
+<text x="295.9" y="509" text-anchor="middle">22:41</text>
+<line x1="417.0" y1="295" x2="417.0" y2="495" stroke="#eee"/>
+<text x="417.0" y="509" text-anchor="middle">22:42</text>
+<line x1="538.0" y1="295" x2="538.0" y2="495" stroke="#eee"/>
+<text x="538.0" y="509" text-anchor="middle">22:43</text>
+<line x1="659.0" y1="295" x2="659.0" y2="495" stroke="#eee"/>
+<text x="659.0" y="509" text-anchor="middle">22:44</text>
+<line x1="364.5" y1="295" x2="364.5" y2="495" stroke="#2ca02c" stroke-dasharray="4,3"/>
+<line x1="780" y1="309" x2="798" y2="309" stroke="#1f77b4" stroke-width="2"/>
+<text x="802" y="313">desired</text>
+<polyline points="90.2,495.0 98.2,495.0 136.6,495.0 174.9,495.0 213.2,495.0 249.5,495.0 287.9,495.0 324.2,495.0 364.5,335.0 402.9,335.0 439.2,335.0 477.5,335.0 513.8,335.0 552.1,335.0 588.4,335.0 626.8,335.0 663.1,335.0 701.4,335.0 737.7,335.0 763.9,335.0" fill="none" stroke="#1f77b4" stroke-width="1.5"/>
+<line x1="780" y1="323" x2="798" y2="323" stroke="#d62728" stroke-width="2"/>
+<text x="802" y="327">running</text>
+<polyline points="90.2,495.0 98.2,495.0 136.6,495.0 174.9,495.0 213.2,495.0 249.5,495.0 287.9,495.0 324.2,495.0 364.5,495.0 402.9,335.0 439.2,335.0 477.5,335.0 513.8,335.0 552.1,335.0 588.4,335.0 626.8,335.0 663.1,335.0 701.4,335.0 737.7,335.0 763.9,335.0" fill="none" stroke="#d62728" stroke-width="1.5"/>
+<line x1="780" y1="337" x2="798" y2="337" stroke="#2ca02c" stroke-width="2"/>
+<text x="802" y="341">pending</text>
+<polyline points="90.2,495.0 98.2,495.0 136.6,495.0 174.9,495.0 213.2,495.0 249.5,495.0 287.9,495.0 324.2,495.0 364.5,335.0 402.9,495.0 439.2,495.0 477.5,495.0 513.8,495.0 552.1,495.0 588.4,495.0 626.8,495.0 663.1,495.0 701.4,495.0 737.7,495.0 763.9,495.0" fill="none" stroke="#2ca02c" stroke-width="1.5"/>
+<text x="70" y="534" font-weight="bold">dead-letter and job queues (samples)</text>
+<rect x="70" y="540" width="700" height="200" fill="none" stroke="#333"/>
+<line x1="70" y1="740.0" x2="770" y2="740.0" stroke="#ddd"/>
+<text x="66" y="744.0" text-anchor="end">0</text>
+<line x1="70" y1="700.0" x2="770" y2="700.0" stroke="#ddd"/>
+<text x="66" y="704.0" text-anchor="end">0.25</text>
+<line x1="70" y1="660.0" x2="770" y2="660.0" stroke="#ddd"/>
+<text x="66" y="664.0" text-anchor="end">0.5</text>
+<line x1="70" y1="620.0" x2="770" y2="620.0" stroke="#ddd"/>
+<text x="66" y="624.0" text-anchor="end">0.75</text>
+<line x1="70" y1="580.0" x2="770" y2="580.0" stroke="#ddd"/>
+<text x="66" y="584.0" text-anchor="end">1</text>
+<line x1="70" y1="540.0" x2="770" y2="540.0" stroke="#ddd"/>
+<text x="66" y="544.0" text-anchor="end">1.25</text>
+<text x="14" y="640" transform="rotate(-90 14 640)" text-anchor="middle">messages</text>
+<line x1="174.9" y1="540" x2="174.9" y2="740" stroke="#eee"/>
+<text x="174.9" y="754" text-anchor="middle">22:40</text>
+<line x1="295.9" y1="540" x2="295.9" y2="740" stroke="#eee"/>
+<text x="295.9" y="754" text-anchor="middle">22:41</text>
+<line x1="417.0" y1="540" x2="417.0" y2="740" stroke="#eee"/>
+<text x="417.0" y="754" text-anchor="middle">22:42</text>
+<line x1="538.0" y1="540" x2="538.0" y2="740" stroke="#eee"/>
+<text x="538.0" y="754" text-anchor="middle">22:43</text>
+<line x1="659.0" y1="540" x2="659.0" y2="740" stroke="#eee"/>
+<text x="659.0" y="754" text-anchor="middle">22:44</text>
+<line x1="364.5" y1="540" x2="364.5" y2="740" stroke="#2ca02c" stroke-dasharray="4,3"/>
+<line x1="780" y1="554" x2="798" y2="554" stroke="#1f77b4" stroke-width="2"/>
+<text x="802" y="558">embedding DLQ visible</text>
+<polyline points="86.1,740.0 94.2,740.0 132.5,740.0 172.9,740.0 209.2,740.0 247.5,740.0 283.8,740.0 322.2,740.0 360.5,740.0 398.8,740.0 437.1,740.0 473.5,580.0 511.8,580.0 548.1,580.0 586.4,580.0 622.7,580.0 661.1,580.0 697.4,580.0 735.7,580.0 761.9,580.0" fill="none" stroke="#1f77b4" stroke-width="1.5"/>
+<line x1="780" y1="568" x2="798" y2="568" stroke="#d62728" stroke-width="2"/>
+<text x="802" y="572">job visible</text>
+<polyline points="88.2,740.0 96.2,740.0 134.6,740.0 172.9,740.0 211.2,740.0 247.5,740.0 285.9,740.0 322.2,740.0 362.5,740.0 400.8,740.0 437.1,740.0 475.5,740.0 511.8,740.0 550.1,740.0 586.4,740.0 624.8,740.0 661.1,740.0 699.4,740.0 735.7,740.0 761.9,740.0" fill="none" stroke="#d62728" stroke-width="1.5"/>
+<line x1="780" y1="582" x2="798" y2="582" stroke="#2ca02c" stroke-width="2"/>
+<text x="802" y="586">job in flight</text>
+<polyline points="88.2,740.0 96.2,740.0 134.6,740.0 172.9,740.0 211.2,740.0 247.5,740.0 285.9,740.0 322.2,740.0 362.5,740.0 400.8,740.0 437.1,740.0 475.5,740.0 511.8,740.0 550.1,740.0 586.4,740.0 624.8,740.0 661.1,740.0 699.4,740.0 735.7,740.0 761.9,740.0" fill="none" stroke="#2ca02c" stroke-width="1.5"/>
+<text x="70" y="795" fill="#555">events: green dashed = scale-out, red dashed = scale-in, gray dashed = lifecycle record</text>
+<text x="70" y="809" fill="#555">status succeeded; scaling activities missing; metrics from experiments/raw/p15-f-poison-replay/20261120T223908Z-e94df52ca8fb-b4c0/metrics</text>
+</svg>

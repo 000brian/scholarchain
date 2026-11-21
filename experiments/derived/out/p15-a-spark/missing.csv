@@ -1,0 +1,10 @@
+manifest,attempt,item,reason
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,AWS/ElasticMapReduce CoreNodesRequested Maximum JobFlowId=j-0156143328PILM02OMF9,empty series (no datapoints)
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,AWS/ElasticMapReduce CoreUnitsRequested JobFlowId=j-0156143328PILM02OMF9,series not exported
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,AWS/ElasticMapReduce CoreUnitsRunning JobFlowId=j-0156143328PILM02OMF9,series not exported
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,AWS/ElasticMapReduce TaskNodesRequested Maximum JobFlowId=j-0156143328PILM02OMF9,empty series (no datapoints)
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,AWS/ElasticMapReduce TaskNodesRunning Maximum JobFlowId=j-0156143328PILM02OMF9,empty series (no datapoints)
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,AWS/ElasticMapReduce TotalNodesRequested Maximum JobFlowId=j-0156143328PILM02OMF9,empty series (no datapoints)
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,AWS/ElasticMapReduce TotalNodesRunning Maximum JobFlowId=j-0156143328PILM02OMF9,empty series (no datapoints)
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,AWS/ElasticMapReduce TotalUnitsRequested JobFlowId=j-0156143328PILM02OMF9,series not exported
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,AWS/ElasticMapReduce TotalUnitsRunning JobFlowId=j-0156143328PILM02OMF9,series not exported

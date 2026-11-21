@@ -1,0 +1,5 @@
+manifest,attempt,item,reason
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/ApplicationELB HTTPCode_ELB_5XX_Count Sum LoadBalancer={alb-dimension},empty series (no datapoints)
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,AWS/DynamoDB ReadThrottleEvents Sum TableName=scholarchain-course-researcher-metric-cache,empty series (no datapoints)
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB ThrottledRequests Sum Operation=GetItem,TableName=scholarchain-course-evidence-bundle",empty series (no datapoints)
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,"AWS/DynamoDB ThrottledRequests Sum Operation=PutItem,TableName=scholarchain-course-query-session",empty series (no datapoints)

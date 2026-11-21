@@ -1,0 +1,185 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="839" font-family="sans-serif" font-size="11">
+<rect x="0" y="0" width="1000" height="839" fill="white"/>
+<text x="70" y="20" font-size="14" font-weight="bold">p15-f-poison-replay 20261120T223908Z-e94df52ca8fb-b4c0: failure timeline</text>
+<text x="70" y="36">x axis: time (UTC), 2026-11-20T22:39:08Z to 2026-11-20T22:44:55Z</text>
+<text x="70" y="44" font-weight="bold">queues (collector samples)</text>
+<rect x="70" y="50" width="700" height="200" fill="none" stroke="#333"/>
+<line x1="70" y1="250.0" x2="770" y2="250.0" stroke="#ddd"/>
+<text x="66" y="254.0" text-anchor="end">0</text>
+<line x1="70" y1="210.0" x2="770" y2="210.0" stroke="#ddd"/>
+<text x="66" y="214.0" text-anchor="end">0.5</text>
+<line x1="70" y1="170.0" x2="770" y2="170.0" stroke="#ddd"/>
+<text x="66" y="174.0" text-anchor="end">1</text>
+<line x1="70" y1="130.0" x2="770" y2="130.0" stroke="#ddd"/>
+<text x="66" y="134.0" text-anchor="end">1.5</text>
+<line x1="70" y1="90.0" x2="770" y2="90.0" stroke="#ddd"/>
+<text x="66" y="94.0" text-anchor="end">2</text>
+<line x1="70" y1="50.0" x2="770" y2="50.0" stroke="#ddd"/>
+<text x="66" y="54.0" text-anchor="end">2.5</text>
+<text x="14" y="150" transform="rotate(-90 14 150)" text-anchor="middle">messages</text>
+<line x1="174.9" y1="50" x2="174.9" y2="250" stroke="#eee"/>
+<text x="174.9" y="264" text-anchor="middle">22:40</text>
+<line x1="295.9" y1="50" x2="295.9" y2="250" stroke="#eee"/>
+<text x="295.9" y="264" text-anchor="middle">22:41</text>
+<line x1="417.0" y1="50" x2="417.0" y2="250" stroke="#eee"/>
+<text x="417.0" y="264" text-anchor="middle">22:42</text>
+<line x1="538.0" y1="50" x2="538.0" y2="250" stroke="#eee"/>
+<text x="538.0" y="264" text-anchor="middle">22:43</text>
+<line x1="659.0" y1="50" x2="659.0" y2="250" stroke="#eee"/>
+<text x="659.0" y="264" text-anchor="middle">22:44</text>
+<line x1="94.2" y1="50" x2="94.2" y2="250" stroke="#9467bd" stroke-dasharray="4,3"/>
+<text x="96.2" y="72" fill="#9467bd" font-size="9" transform="rotate(-30 96.2 72)">poison sent sent</text>
+<line x1="96.2" y1="50" x2="96.2" y2="250" stroke="#9467bd" stroke-dasharray="4,3"/>
+<text x="98.2" y="72" fill="#9467bd" font-size="9" transform="rotate(-30 98.2 72)">replay sent sent</text>
+<line x1="390.7" y1="50" x2="390.7" y2="250" stroke="#9467bd" stroke-dasharray="4,3"/>
+<text x="392.7" y="72" fill="#9467bd" font-size="9" transform="rotate(-30 392.7 72)">replay delivery processed</text>
+<line x1="402.9" y1="50" x2="402.9" y2="250" stroke="#2ca02c" stroke-dasharray="4,3"/>
+<text x="404.9" y="72" fill="#2ca02c" font-size="9" transform="rotate(-30 404.9 72)">worker running 0-&gt;1</text>
+<line x1="410.9" y1="50" x2="410.9" y2="250" stroke="#9467bd" stroke-dasharray="4,3"/>
+<text x="412.9" y="72" fill="#9467bd" font-size="9" transform="rotate(-30 412.9 72)">poison dlq-count dlq-count-baseline-plus-1</text>
+<line x1="412.9" y1="50" x2="412.9" y2="250" stroke="#9467bd" stroke-dasharray="4,3"/>
+<text x="414.9" y="72" fill="#9467bd" font-size="9" transform="rotate(-30 414.9 72)">poison dlq-receive dlq-received</text>
+<line x1="412.9" y1="50" x2="412.9" y2="250" stroke="#9467bd" stroke-dasharray="4,3"/>
+<text x="414.9" y="72" fill="#9467bd" font-size="9" transform="rotate(-30 414.9 72)">replay wait-start-processed waiting</text>
+<line x1="417.0" y1="50" x2="417.0" y2="250" stroke="#9467bd" stroke-dasharray="4,3"/>
+<text x="419.0" y="72" fill="#9467bd" font-size="9" transform="rotate(-30 419.0 72)">replay present processed</text>
+<line x1="419.0" y1="50" x2="419.0" y2="250" stroke="#9467bd" stroke-dasharray="4,3"/>
+<text x="421.0" y="72" fill="#9467bd" font-size="9" transform="rotate(-30 421.0 72)">replay delivery replayed</text>
+<line x1="419.0" y1="50" x2="419.0" y2="250" stroke="#9467bd" stroke-dasharray="4,3"/>
+<text x="421.0" y="72" fill="#9467bd" font-size="9" transform="rotate(-30 421.0 72)">replay sent-again sent</text>
+<line x1="419.0" y1="50" x2="419.0" y2="250" stroke="#9467bd" stroke-dasharray="4,3"/>
+<text x="421.0" y="72" fill="#9467bd" font-size="9" transform="rotate(-30 421.0 72)">replay wait-start-replayed waiting</text>
+<line x1="499.7" y1="50" x2="499.7" y2="250" stroke="#9467bd" stroke-dasharray="4,3"/>
+<text x="501.7" y="72" fill="#9467bd" font-size="9" transform="rotate(-30 501.7 72)">api first 200</text>
+<line x1="501.7" y1="50" x2="501.7" y2="250" stroke="#9467bd" stroke-dasharray="4,3"/>
+<text x="503.7" y="72" fill="#9467bd" font-size="9" transform="rotate(-30 503.7 72)">api replay 200</text>
+<line x1="503.7" y1="50" x2="503.7" y2="250" stroke="#9467bd" stroke-dasharray="4,3"/>
+<text x="505.7" y="72" fill="#9467bd" font-size="9" transform="rotate(-30 505.7 72)">api conflict 409</text>
+<line x1="507.8" y1="50" x2="507.8" y2="250" stroke="#9467bd" stroke-dasharray="4,3"/>
+<text x="509.8" y="72" fill="#9467bd" font-size="9" transform="rotate(-30 509.8 72)">recovery embedding-empty in-flight-0</text>
+<line x1="759.9" y1="50" x2="759.9" y2="250" stroke="#9467bd" stroke-dasharray="4,3"/>
+<text x="761.9" y="72" fill="#9467bd" font-size="9" transform="rotate(-30 761.9 72)">recovery dlq-alarm ALARM</text>
+<line x1="780" y1="64" x2="798" y2="64" stroke="#1f77b4" stroke-width="2"/>
+<text x="802" y="68">embedding in_flight</text>
+<polyline points="86.1,250.0 92.2,250.0 130.5,250.0 170.9,250.0 209.2,250.0 245.5,250.0 281.8,250.0 320.1,250.0 358.5,250.0 396.8,250.0 435.1,250.0 471.4,250.0 509.8,250.0 546.1,250.0 584.4,250.0 622.7,250.0 659.0,250.0 697.4,250.0 733.7,250.0 759.9,250.0" fill="none" stroke="#1f77b4" stroke-width="1.5"/>
+<line x1="780" y1="78" x2="798" y2="78" stroke="#d62728" stroke-width="2"/>
+<text x="802" y="82">embedding visible</text>
+<polyline points="86.1,250.0 92.2,250.0 130.5,90.0 170.9,90.0 209.2,90.0 245.5,90.0 281.8,90.0 320.1,90.0 358.5,90.0 396.8,90.0 435.1,250.0 471.4,250.0 509.8,250.0 546.1,250.0 584.4,250.0 622.7,250.0 659.0,250.0 697.4,250.0 733.7,250.0 759.9,250.0" fill="none" stroke="#d62728" stroke-width="1.5"/>
+<line x1="780" y1="92" x2="798" y2="92" stroke="#2ca02c" stroke-width="2"/>
+<text x="802" y="96">embedding-dlq in_flight</text>
+<polyline points="86.1,250.0 94.2,250.0 132.5,250.0 172.9,250.0 209.2,250.0 247.5,250.0 283.8,250.0 322.2,250.0 360.5,250.0 398.8,250.0 437.1,250.0 473.5,250.0 511.8,250.0 548.1,250.0 586.4,250.0 622.7,250.0 661.1,250.0 697.4,250.0 735.7,250.0 761.9,250.0" fill="none" stroke="#2ca02c" stroke-width="1.5"/>
+<line x1="780" y1="106" x2="798" y2="106" stroke="#9467bd" stroke-width="2"/>
+<text x="802" y="110">embedding-dlq visible</text>
+<polyline points="86.1,250.0 94.2,250.0 132.5,250.0 172.9,250.0 209.2,250.0 247.5,250.0 283.8,250.0 322.2,250.0 360.5,250.0 398.8,250.0 437.1,250.0 473.5,170.0 511.8,170.0 548.1,170.0 586.4,170.0 622.7,170.0 661.1,170.0 697.4,170.0 735.7,170.0 761.9,170.0" fill="none" stroke="#9467bd" stroke-width="1.5"/>
+<line x1="780" y1="120" x2="798" y2="120" stroke="#ff7f0e" stroke-width="2"/>
+<text x="802" y="124">job in_flight</text>
+<polyline points="88.2,250.0 96.2,250.0 134.6,250.0 172.9,250.0 211.2,250.0 247.5,250.0 285.9,250.0 322.2,250.0 362.5,250.0 400.8,250.0 437.1,250.0 475.5,250.0 511.8,250.0 550.1,250.0 586.4,250.0 624.8,250.0 661.1,250.0 699.4,250.0 735.7,250.0 761.9,250.0" fill="none" stroke="#ff7f0e" stroke-width="1.5"/>
+<line x1="780" y1="134" x2="798" y2="134" stroke="#8c564b" stroke-width="2"/>
+<text x="802" y="138">job visible</text>
+<polyline points="88.2,250.0 96.2,250.0 134.6,250.0 172.9,250.0 211.2,250.0 247.5,250.0 285.9,250.0 322.2,250.0 362.5,250.0 400.8,250.0 437.1,250.0 475.5,250.0 511.8,250.0 550.1,250.0 586.4,250.0 624.8,250.0 661.1,250.0 699.4,250.0 735.7,250.0 761.9,250.0" fill="none" stroke="#8c564b" stroke-width="1.5"/>
+<line x1="780" y1="148" x2="798" y2="148" stroke="#17becf" stroke-width="2"/>
+<text x="802" y="152">job-dlq in_flight</text>
+<polyline points="90.2,250.0 98.2,250.0 134.6,250.0 174.9,250.0 211.2,250.0 249.5,250.0 285.9,250.0 324.2,250.0 362.5,250.0 400.8,250.0 439.2,250.0 475.5,250.0 513.8,250.0 550.1,250.0 588.4,250.0 624.8,250.0 663.1,250.0 699.4,250.0 737.7,250.0 763.9,250.0" fill="none" stroke="#17becf" stroke-width="1.5"/>
+<line x1="780" y1="162" x2="798" y2="162" stroke="#7f7f7f" stroke-width="2"/>
+<text x="802" y="166">job-dlq visible</text>
+<polyline points="90.2,250.0 98.2,250.0 134.6,250.0 174.9,250.0 211.2,250.0 249.5,250.0 285.9,250.0 324.2,250.0 362.5,250.0 400.8,250.0 439.2,250.0 475.5,250.0 513.8,250.0 550.1,250.0 588.4,250.0 624.8,250.0 663.1,250.0 699.4,250.0 737.7,250.0 763.9,250.0" fill="none" stroke="#7f7f7f" stroke-width="1.5"/>
+<text x="70" y="289" font-weight="bold">alarm state (1 = ALARM, 0 = OK; other states not drawn)</text>
+<rect x="70" y="295" width="700" height="200" fill="none" stroke="#333"/>
+<line x1="70" y1="495.0" x2="770" y2="495.0" stroke="#ddd"/>
+<text x="66" y="499.0" text-anchor="end">0</text>
+<line x1="70" y1="455.0" x2="770" y2="455.0" stroke="#ddd"/>
+<text x="66" y="459.0" text-anchor="end">0.25</text>
+<line x1="70" y1="415.0" x2="770" y2="415.0" stroke="#ddd"/>
+<text x="66" y="419.0" text-anchor="end">0.5</text>
+<line x1="70" y1="375.0" x2="770" y2="375.0" stroke="#ddd"/>
+<text x="66" y="379.0" text-anchor="end">0.75</text>
+<line x1="70" y1="335.0" x2="770" y2="335.0" stroke="#ddd"/>
+<text x="66" y="339.0" text-anchor="end">1</text>
+<line x1="70" y1="295.0" x2="770" y2="295.0" stroke="#ddd"/>
+<text x="66" y="299.0" text-anchor="end">1.25</text>
+<text x="14" y="395" transform="rotate(-90 14 395)" text-anchor="middle">state</text>
+<line x1="174.9" y1="295" x2="174.9" y2="495" stroke="#eee"/>
+<text x="174.9" y="509" text-anchor="middle">22:40</text>
+<line x1="295.9" y1="295" x2="295.9" y2="495" stroke="#eee"/>
+<text x="295.9" y="509" text-anchor="middle">22:41</text>
+<line x1="417.0" y1="295" x2="417.0" y2="495" stroke="#eee"/>
+<text x="417.0" y="509" text-anchor="middle">22:42</text>
+<line x1="538.0" y1="295" x2="538.0" y2="495" stroke="#eee"/>
+<text x="538.0" y="509" text-anchor="middle">22:43</text>
+<line x1="659.0" y1="295" x2="659.0" y2="495" stroke="#eee"/>
+<text x="659.0" y="509" text-anchor="middle">22:44</text>
+<line x1="94.2" y1="295" x2="94.2" y2="495" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="96.2" y1="295" x2="96.2" y2="495" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="390.7" y1="295" x2="390.7" y2="495" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="402.9" y1="295" x2="402.9" y2="495" stroke="#2ca02c" stroke-dasharray="4,3"/>
+<line x1="410.9" y1="295" x2="410.9" y2="495" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="412.9" y1="295" x2="412.9" y2="495" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="412.9" y1="295" x2="412.9" y2="495" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="417.0" y1="295" x2="417.0" y2="495" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="419.0" y1="295" x2="419.0" y2="495" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="419.0" y1="295" x2="419.0" y2="495" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="419.0" y1="295" x2="419.0" y2="495" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="499.7" y1="295" x2="499.7" y2="495" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="501.7" y1="295" x2="501.7" y2="495" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="503.7" y1="295" x2="503.7" y2="495" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="507.8" y1="295" x2="507.8" y2="495" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="759.9" y1="295" x2="759.9" y2="495" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="780" y1="309" x2="798" y2="309" stroke="#1f77b4" stroke-width="2"/>
+<text x="802" y="313">scholarchain-course-embedding-dlq-not-empty</text>
+<polyline points="92.2,495.0 100.3,495.0 138.6,495.0 176.9,495.0 213.2,495.0 251.6,495.0 287.9,495.0 326.2,495.0 366.5,495.0 402.9,495.0 441.2,495.0 477.5,495.0 515.8,495.0 554.1,495.0 590.5,495.0 628.8,495.0 665.1,495.0 703.4,495.0 739.7,495.0 766.0,335.0" fill="none" stroke="#1f77b4" stroke-width="1.5"/>
+<line x1="780" y1="323" x2="798" y2="323" stroke="#d62728" stroke-width="2"/>
+<text x="802" y="327">scholarchain-course-worker-scale-in</text>
+<polyline points="92.2,335.0 100.3,335.0 138.6,335.0 176.9,335.0 213.2,335.0 251.6,335.0 287.9,335.0 326.2,335.0 366.5,335.0 402.9,495.0 441.2,495.0 477.5,495.0 515.8,495.0 554.1,495.0 590.5,495.0 628.8,495.0 665.1,495.0 703.4,495.0 739.7,495.0 766.0,495.0" fill="none" stroke="#d62728" stroke-width="1.5"/>
+<line x1="780" y1="337" x2="798" y2="337" stroke="#2ca02c" stroke-width="2"/>
+<text x="802" y="341">scholarchain-course-worker-scale-out</text>
+<polyline points="92.2,495.0 100.3,495.0 138.6,495.0 176.9,495.0 213.2,495.0 251.6,495.0 287.9,495.0 326.2,495.0 366.5,495.0 402.9,495.0 441.2,495.0 477.5,495.0 515.8,495.0 554.1,495.0 590.5,495.0 628.8,495.0 665.1,495.0 703.4,495.0 739.7,495.0 766.0,495.0" fill="none" stroke="#2ca02c" stroke-width="1.5"/>
+<line x1="780" y1="351" x2="798" y2="351" stroke="#9467bd" stroke-width="2"/>
+<text x="802" y="355">scholarchain-course-worker-scale-out-embedding</text>
+<polyline points="92.2,495.0 100.3,495.0 138.6,495.0 176.9,495.0 213.2,495.0 251.6,495.0 287.9,495.0 326.2,495.0 366.5,335.0 402.9,335.0 441.2,335.0 477.5,335.0 515.8,335.0 554.1,335.0 590.5,335.0 628.8,335.0 665.1,335.0 703.4,335.0 739.7,495.0 766.0,495.0" fill="none" stroke="#9467bd" stroke-width="1.5"/>
+<text x="70" y="534" font-weight="bold">worker running tasks (samples)</text>
+<rect x="70" y="540" width="700" height="200" fill="none" stroke="#333"/>
+<line x1="70" y1="740.0" x2="770" y2="740.0" stroke="#ddd"/>
+<text x="66" y="744.0" text-anchor="end">0</text>
+<line x1="70" y1="700.0" x2="770" y2="700.0" stroke="#ddd"/>
+<text x="66" y="704.0" text-anchor="end">0.25</text>
+<line x1="70" y1="660.0" x2="770" y2="660.0" stroke="#ddd"/>
+<text x="66" y="664.0" text-anchor="end">0.5</text>
+<line x1="70" y1="620.0" x2="770" y2="620.0" stroke="#ddd"/>
+<text x="66" y="624.0" text-anchor="end">0.75</text>
+<line x1="70" y1="580.0" x2="770" y2="580.0" stroke="#ddd"/>
+<text x="66" y="584.0" text-anchor="end">1</text>
+<line x1="70" y1="540.0" x2="770" y2="540.0" stroke="#ddd"/>
+<text x="66" y="544.0" text-anchor="end">1.25</text>
+<text x="14" y="640" transform="rotate(-90 14 640)" text-anchor="middle">tasks</text>
+<line x1="174.9" y1="540" x2="174.9" y2="740" stroke="#eee"/>
+<text x="174.9" y="754" text-anchor="middle">22:40</text>
+<line x1="295.9" y1="540" x2="295.9" y2="740" stroke="#eee"/>
+<text x="295.9" y="754" text-anchor="middle">22:41</text>
+<line x1="417.0" y1="540" x2="417.0" y2="740" stroke="#eee"/>
+<text x="417.0" y="754" text-anchor="middle">22:42</text>
+<line x1="538.0" y1="540" x2="538.0" y2="740" stroke="#eee"/>
+<text x="538.0" y="754" text-anchor="middle">22:43</text>
+<line x1="659.0" y1="540" x2="659.0" y2="740" stroke="#eee"/>
+<text x="659.0" y="754" text-anchor="middle">22:44</text>
+<line x1="94.2" y1="540" x2="94.2" y2="740" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="96.2" y1="540" x2="96.2" y2="740" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="390.7" y1="540" x2="390.7" y2="740" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="402.9" y1="540" x2="402.9" y2="740" stroke="#2ca02c" stroke-dasharray="4,3"/>
+<line x1="410.9" y1="540" x2="410.9" y2="740" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="412.9" y1="540" x2="412.9" y2="740" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="412.9" y1="540" x2="412.9" y2="740" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="417.0" y1="540" x2="417.0" y2="740" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="419.0" y1="540" x2="419.0" y2="740" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="419.0" y1="540" x2="419.0" y2="740" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="419.0" y1="540" x2="419.0" y2="740" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="499.7" y1="540" x2="499.7" y2="740" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="501.7" y1="540" x2="501.7" y2="740" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="503.7" y1="540" x2="503.7" y2="740" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="507.8" y1="540" x2="507.8" y2="740" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="759.9" y1="540" x2="759.9" y2="740" stroke="#9467bd" stroke-dasharray="4,3"/>
+<line x1="780" y1="554" x2="798" y2="554" stroke="#1f77b4" stroke-width="2"/>
+<text x="802" y="558">running</text>
+<polyline points="90.2,740.0 98.2,740.0 136.6,740.0 174.9,740.0 213.2,740.0 249.5,740.0 287.9,740.0 324.2,740.0 364.5,740.0 402.9,580.0 439.2,580.0 477.5,580.0 513.8,580.0 552.1,580.0 588.4,580.0 626.8,580.0 663.1,580.0 701.4,580.0 737.7,580.0 763.9,580.0" fill="none" stroke="#1f77b4" stroke-width="1.5"/>
+<text x="70" y="795" fill="#555">events: green dashed = scale-out, red dashed = scale-in, gray dashed = lifecycle record</text>
+<text x="70" y="809" fill="#555">status succeeded; purple dashed = collector events</text>
+</svg>

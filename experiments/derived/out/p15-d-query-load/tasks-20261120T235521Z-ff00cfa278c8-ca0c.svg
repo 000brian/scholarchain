@@ -1,0 +1,200 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1098" font-family="sans-serif" font-size="11">
+<rect x="0" y="0" width="1000" height="1098" fill="white"/>
+<text x="70" y="20" font-size="14" font-weight="bold">p15-d-query-load 20261120T235521Z-ff00cfa278c8-ca0c: tasks and CloudWatch series over the levels</text>
+<text x="70" y="36">x axis: time (UTC), 2026-11-20T23:53:22Z to 2026-11-21T00:06:18Z</text>
+<text x="70" y="44" font-weight="bold">service tasks (describe-services samples)</text>
+<rect x="180.1" y="50" width="114.6" height="200" fill="#eeeeee"/>
+<text x="182.1" y="62" fill="#555">level 1</text>
+<rect x="354.1" y="50" width="121.8" height="200" fill="#eeeeee"/>
+<text x="356.1" y="62" fill="#555">level 2</text>
+<rect x="540.0" y="50" width="46.0" height="200" fill="#eeeeee"/>
+<text x="542.0" y="62" fill="#555">level 3</text>
+<rect x="644.6" y="50" width="14.4" height="200" fill="#eeeeee"/>
+<text x="646.6" y="62" fill="#555">level 4</text>
+<rect x="70" y="50" width="700" height="200" fill="none" stroke="#333"/>
+<line x1="70" y1="250.0" x2="770" y2="250.0" stroke="#ddd"/>
+<text x="66" y="254.0" text-anchor="end">0</text>
+<line x1="70" y1="210.0" x2="770" y2="210.0" stroke="#ddd"/>
+<text x="66" y="214.0" text-anchor="end">0.25</text>
+<line x1="70" y1="170.0" x2="770" y2="170.0" stroke="#ddd"/>
+<text x="66" y="174.0" text-anchor="end">0.5</text>
+<line x1="70" y1="130.0" x2="770" y2="130.0" stroke="#ddd"/>
+<text x="66" y="134.0" text-anchor="end">0.75</text>
+<line x1="70" y1="90.0" x2="770" y2="90.0" stroke="#ddd"/>
+<text x="66" y="94.0" text-anchor="end">1</text>
+<line x1="70" y1="50.0" x2="770" y2="50.0" stroke="#ddd"/>
+<text x="66" y="54.0" text-anchor="end">1.25</text>
+<text x="14" y="150" transform="rotate(-90 14 150)" text-anchor="middle">tasks</text>
+<line x1="104.3" y1="50" x2="104.3" y2="250" stroke="#eee"/>
+<text x="104.3" y="264" text-anchor="middle">23:54</text>
+<line x1="212.5" y1="50" x2="212.5" y2="250" stroke="#eee"/>
+<text x="212.5" y="264" text-anchor="middle">23:56</text>
+<line x1="320.8" y1="50" x2="320.8" y2="250" stroke="#eee"/>
+<text x="320.8" y="264" text-anchor="middle">23:58</text>
+<line x1="429.0" y1="50" x2="429.0" y2="250" stroke="#eee"/>
+<text x="429.0" y="264" text-anchor="middle">00:00</text>
+<line x1="537.3" y1="50" x2="537.3" y2="250" stroke="#eee"/>
+<text x="537.3" y="264" text-anchor="middle">00:02</text>
+<line x1="645.5" y1="50" x2="645.5" y2="250" stroke="#eee"/>
+<text x="645.5" y="264" text-anchor="middle">00:04</text>
+<line x1="753.8" y1="50" x2="753.8" y2="250" stroke="#eee"/>
+<text x="753.8" y="264" text-anchor="middle">00:06</text>
+<line x1="780" y1="64" x2="798" y2="64" stroke="#1f77b4" stroke-width="2"/>
+<text x="802" y="68">evidence desired</text>
+<polyline points="178.2,90.0 179.1,90.0 193.6,90.0 208.0,90.0 221.5,90.0 236.0,90.0 250.4,90.0 264.8,90.0 279.3,90.0 293.7,90.0 307.2,90.0 321.7,90.0 336.1,90.0 350.5,90.0 365.0,90.0 379.4,90.0 392.9,90.0 407.4,90.0 421.8,90.0 436.2,90.0 450.7,90.0 464.2,90.0 478.6,90.0 493.1,90.0 507.5,90.0 521.9,90.0 536.4,90.0 549.9,90.0 564.3,90.0 578.8,90.0 593.2,90.0 607.6,90.0 621.2,90.0 635.6,90.0 650.0,90.0 661.8,90.0" fill="none" stroke="#1f77b4" stroke-width="1.5"/>
+<line x1="780" y1="78" x2="798" y2="78" stroke="#d62728" stroke-width="2"/>
+<text x="802" y="82">evidence running</text>
+<polyline points="178.2,90.0 179.1,90.0 193.6,90.0 208.0,90.0 221.5,90.0 236.0,90.0 250.4,90.0 264.8,90.0 279.3,90.0 293.7,90.0 307.2,90.0 321.7,90.0 336.1,90.0 350.5,90.0 365.0,90.0 379.4,90.0 392.9,90.0 407.4,90.0 421.8,90.0 436.2,90.0 450.7,90.0 464.2,90.0 478.6,90.0 493.1,90.0 507.5,90.0 521.9,90.0 536.4,90.0 549.9,90.0 564.3,90.0 578.8,90.0 593.2,90.0 607.6,90.0 621.2,90.0 635.6,90.0 650.0,90.0 661.8,90.0" fill="none" stroke="#d62728" stroke-width="1.5"/>
+<line x1="780" y1="92" x2="798" y2="92" stroke="#2ca02c" stroke-width="2"/>
+<text x="802" y="96">graph desired</text>
+<polyline points="178.2,90.0 179.1,90.0 193.6,90.0 208.0,90.0 221.5,90.0 236.0,90.0 250.4,90.0 264.8,90.0 279.3,90.0 293.7,90.0 307.2,90.0 321.7,90.0 336.1,90.0 350.5,90.0 365.0,90.0 379.4,90.0 392.9,90.0 407.4,90.0 421.8,90.0 436.2,90.0 450.7,90.0 464.2,90.0 478.6,90.0 493.1,90.0 507.5,90.0 521.9,90.0 536.4,90.0 549.9,90.0 564.3,90.0 578.8,90.0 593.2,90.0 607.6,90.0 621.2,90.0 635.6,90.0 650.0,90.0 661.8,90.0" fill="none" stroke="#2ca02c" stroke-width="1.5"/>
+<line x1="780" y1="106" x2="798" y2="106" stroke="#9467bd" stroke-width="2"/>
+<text x="802" y="110">graph running</text>
+<polyline points="178.2,90.0 179.1,90.0 193.6,90.0 208.0,90.0 221.5,90.0 236.0,90.0 250.4,90.0 264.8,90.0 279.3,90.0 293.7,90.0 307.2,90.0 321.7,90.0 336.1,90.0 350.5,90.0 365.0,90.0 379.4,90.0 392.9,90.0 407.4,90.0 421.8,90.0 436.2,90.0 450.7,90.0 464.2,90.0 478.6,90.0 493.1,90.0 507.5,90.0 521.9,90.0 536.4,90.0 549.9,90.0 564.3,90.0 578.8,90.0 593.2,90.0 607.6,90.0 621.2,90.0 635.6,90.0 650.0,90.0 661.8,90.0" fill="none" stroke="#9467bd" stroke-width="1.5"/>
+<line x1="780" y1="120" x2="798" y2="120" stroke="#ff7f0e" stroke-width="2"/>
+<text x="802" y="124">query desired</text>
+<polyline points="178.2,90.0 179.1,90.0 193.6,90.0 208.0,90.0 221.5,90.0 236.0,90.0 250.4,90.0 264.8,90.0 279.3,90.0 293.7,90.0 307.2,90.0 321.7,90.0 336.1,90.0 350.5,90.0 365.0,90.0 379.4,90.0 392.9,90.0 407.4,90.0 421.8,90.0 436.2,90.0 450.7,90.0 464.2,90.0 478.6,90.0 493.1,90.0 507.5,90.0 521.9,90.0 536.4,90.0 549.9,90.0 564.3,90.0 578.8,90.0 593.2,90.0 607.6,90.0 621.2,90.0 635.6,90.0 650.0,90.0 661.8,90.0" fill="none" stroke="#ff7f0e" stroke-width="1.5"/>
+<line x1="780" y1="134" x2="798" y2="134" stroke="#8c564b" stroke-width="2"/>
+<text x="802" y="138">query running</text>
+<polyline points="178.2,90.0 179.1,90.0 193.6,90.0 208.0,90.0 221.5,90.0 236.0,90.0 250.4,90.0 264.8,90.0 279.3,90.0 293.7,90.0 307.2,90.0 321.7,90.0 336.1,90.0 350.5,90.0 365.0,90.0 379.4,90.0 392.9,90.0 407.4,90.0 421.8,90.0 436.2,90.0 450.7,90.0 464.2,90.0 478.6,90.0 493.1,90.0 507.5,90.0 521.9,90.0 536.4,90.0 549.9,90.0 564.3,90.0 578.8,90.0 593.2,90.0 607.6,90.0 621.2,90.0 635.6,90.0 650.0,90.0 661.8,90.0" fill="none" stroke="#8c564b" stroke-width="1.5"/>
+<text x="70" y="289" font-weight="bold">ALB TargetResponseTime (CloudWatch)</text>
+<rect x="180.1" y="295" width="114.6" height="200" fill="#eeeeee"/>
+<text x="182.1" y="307" fill="#555">level 1</text>
+<rect x="354.1" y="295" width="121.8" height="200" fill="#eeeeee"/>
+<text x="356.1" y="307" fill="#555">level 2</text>
+<rect x="540.0" y="295" width="46.0" height="200" fill="#eeeeee"/>
+<text x="542.0" y="307" fill="#555">level 3</text>
+<rect x="644.6" y="295" width="14.4" height="200" fill="#eeeeee"/>
+<text x="646.6" y="307" fill="#555">level 4</text>
+<rect x="70" y="295" width="700" height="200" fill="none" stroke="#333"/>
+<line x1="70" y1="495.0" x2="770" y2="495.0" stroke="#ddd"/>
+<text x="66" y="499.0" text-anchor="end">0</text>
+<line x1="70" y1="428.3" x2="770" y2="428.3" stroke="#ddd"/>
+<text x="66" y="432.3" text-anchor="end">10</text>
+<line x1="70" y1="361.7" x2="770" y2="361.7" stroke="#ddd"/>
+<text x="66" y="365.7" text-anchor="end">20</text>
+<line x1="70" y1="295.0" x2="770" y2="295.0" stroke="#ddd"/>
+<text x="66" y="299.0" text-anchor="end">30</text>
+<text x="14" y="395" transform="rotate(-90 14 395)" text-anchor="middle">seconds</text>
+<line x1="104.3" y1="295" x2="104.3" y2="495" stroke="#eee"/>
+<text x="104.3" y="509" text-anchor="middle">23:54</text>
+<line x1="212.5" y1="295" x2="212.5" y2="495" stroke="#eee"/>
+<text x="212.5" y="509" text-anchor="middle">23:56</text>
+<line x1="320.8" y1="295" x2="320.8" y2="495" stroke="#eee"/>
+<text x="320.8" y="509" text-anchor="middle">23:58</text>
+<line x1="429.0" y1="295" x2="429.0" y2="495" stroke="#eee"/>
+<text x="429.0" y="509" text-anchor="middle">00:00</text>
+<line x1="537.3" y1="295" x2="537.3" y2="495" stroke="#eee"/>
+<text x="537.3" y="509" text-anchor="middle">00:02</text>
+<line x1="645.5" y1="295" x2="645.5" y2="495" stroke="#eee"/>
+<text x="645.5" y="509" text-anchor="middle">00:04</text>
+<line x1="753.8" y1="295" x2="753.8" y2="495" stroke="#eee"/>
+<text x="753.8" y="509" text-anchor="middle">00:06</text>
+<line x1="780" y1="309" x2="798" y2="309" stroke="#1f77b4" stroke-width="2"/>
+<text x="802" y="313">p50 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}</text>
+<polyline points="-112.2,495.0 -58.1,494.8" fill="none" stroke="#1f77b4" stroke-width="1.5"/>
+<polyline points="158.4,495.0 212.5,419.2 266.6,394.2 320.8,422.8 374.9,407.6 429.0,417.4 537.3,495.0 591.4,495.0 645.5,495.0" fill="none" stroke="#1f77b4" stroke-width="1.5"/>
+<line x1="780" y1="323" x2="798" y2="323" stroke="#d62728" stroke-width="2"/>
+<text x="802" y="327">p95 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}</text>
+<polyline points="-112.2,493.4 -58.1,390.9" fill="none" stroke="#d62728" stroke-width="1.5"/>
+<polyline points="158.4,388.8 212.5,397.5 266.6,374.0 320.8,388.9 374.9,333.1 429.0,353.3 537.3,337.2 591.4,494.6 645.5,410.1" fill="none" stroke="#d62728" stroke-width="1.5"/>
+<line x1="780" y1="337" x2="798" y2="337" stroke="#2ca02c" stroke-width="2"/>
+<text x="802" y="341">p99 LoadBalancer={alb-dimension},TargetGroup={alb-target-group-query}</text>
+<polyline points="-112.2,493.4 -58.1,389.7" fill="none" stroke="#2ca02c" stroke-width="1.5"/>
+<polyline points="158.4,388.5 212.5,397.1 266.6,373.3 320.8,388.8 374.9,329.1 429.0,352.7 537.3,329.9 591.4,494.6 645.5,387.8" fill="none" stroke="#2ca02c" stroke-width="1.5"/>
+<text x="70" y="534" font-weight="bold">ECS CPUUtilization (CloudWatch)</text>
+<rect x="180.1" y="540" width="114.6" height="200" fill="#eeeeee"/>
+<text x="182.1" y="552" fill="#555">level 1</text>
+<rect x="354.1" y="540" width="121.8" height="200" fill="#eeeeee"/>
+<text x="356.1" y="552" fill="#555">level 2</text>
+<rect x="540.0" y="540" width="46.0" height="200" fill="#eeeeee"/>
+<text x="542.0" y="552" fill="#555">level 3</text>
+<rect x="644.6" y="540" width="14.4" height="200" fill="#eeeeee"/>
+<text x="646.6" y="552" fill="#555">level 4</text>
+<rect x="70" y="540" width="700" height="200" fill="none" stroke="#333"/>
+<line x1="70" y1="740.0" x2="770" y2="740.0" stroke="#ddd"/>
+<text x="66" y="744.0" text-anchor="end">0</text>
+<line x1="70" y1="700.0" x2="770" y2="700.0" stroke="#ddd"/>
+<text x="66" y="704.0" text-anchor="end">2.5</text>
+<line x1="70" y1="660.0" x2="770" y2="660.0" stroke="#ddd"/>
+<text x="66" y="664.0" text-anchor="end">5</text>
+<line x1="70" y1="620.0" x2="770" y2="620.0" stroke="#ddd"/>
+<text x="66" y="624.0" text-anchor="end">7.5</text>
+<line x1="70" y1="580.0" x2="770" y2="580.0" stroke="#ddd"/>
+<text x="66" y="584.0" text-anchor="end">10</text>
+<line x1="70" y1="540.0" x2="770" y2="540.0" stroke="#ddd"/>
+<text x="66" y="544.0" text-anchor="end">12.5</text>
+<text x="14" y="640" transform="rotate(-90 14 640)" text-anchor="middle">percent</text>
+<line x1="104.3" y1="540" x2="104.3" y2="740" stroke="#eee"/>
+<text x="104.3" y="754" text-anchor="middle">23:54</text>
+<line x1="212.5" y1="540" x2="212.5" y2="740" stroke="#eee"/>
+<text x="212.5" y="754" text-anchor="middle">23:56</text>
+<line x1="320.8" y1="540" x2="320.8" y2="740" stroke="#eee"/>
+<text x="320.8" y="754" text-anchor="middle">23:58</text>
+<line x1="429.0" y1="540" x2="429.0" y2="740" stroke="#eee"/>
+<text x="429.0" y="754" text-anchor="middle">00:00</text>
+<line x1="537.3" y1="540" x2="537.3" y2="740" stroke="#eee"/>
+<text x="537.3" y="754" text-anchor="middle">00:02</text>
+<line x1="645.5" y1="540" x2="645.5" y2="740" stroke="#eee"/>
+<text x="645.5" y="754" text-anchor="middle">00:04</text>
+<line x1="753.8" y1="540" x2="753.8" y2="740" stroke="#eee"/>
+<text x="753.8" y="754" text-anchor="middle">00:06</text>
+<line x1="780" y1="554" x2="798" y2="554" stroke="#1f77b4" stroke-width="2"/>
+<text x="802" y="558">Average ClusterName=scholarchain-course-runtime,ServiceName=query</text>
+<polyline points="-112.2,738.0 -58.1,725.1 -4.0,738.0 50.2,738.1 104.3,738.2 158.4,707.9 212.5,632.3 266.6,719.6 320.8,738.1 374.9,583.9 429.0,681.8 483.1,730.4 537.3,679.4 591.4,704.6 645.5,702.0 699.6,737.5 753.8,737.1 807.9,738.1" fill="none" stroke="#1f77b4" stroke-width="1.5"/>
+<line x1="780" y1="568" x2="798" y2="568" stroke="#d62728" stroke-width="2"/>
+<text x="802" y="572">Average ClusterName=scholarchain-course-runtime,ServiceName=evidence</text>
+<polyline points="-112.2,736.3 -58.1,724.4 -4.0,736.4 50.2,736.2 104.3,736.1 158.4,736.3 212.5,736.4 266.6,707.5 320.8,736.0 374.9,735.7 429.0,736.3 483.1,713.1 537.3,723.0 591.4,710.5 645.5,727.5 699.6,736.0 753.8,736.3 807.9,736.4" fill="none" stroke="#d62728" stroke-width="1.5"/>
+<line x1="780" y1="582" x2="798" y2="582" stroke="#2ca02c" stroke-width="2"/>
+<text x="802" y="586">Average ClusterName=scholarchain-course-runtime,ServiceName=graph</text>
+<polyline points="-112.2,735.3 -58.1,735.9 -4.0,735.8 50.2,735.8 104.3,735.8 158.4,735.4 212.5,735.2 266.6,735.8 320.8,736.0 374.9,735.7 429.0,735.3 483.1,735.5 537.3,736.0 591.4,735.4 645.5,735.8 699.6,735.8 753.8,735.8 807.9,735.9" fill="none" stroke="#2ca02c" stroke-width="1.5"/>
+<text x="70" y="779" font-weight="bold">ECS MemoryUtilization (CloudWatch)</text>
+<rect x="180.1" y="785" width="114.6" height="200" fill="#eeeeee"/>
+<text x="182.1" y="797" fill="#555">level 1</text>
+<rect x="354.1" y="785" width="121.8" height="200" fill="#eeeeee"/>
+<text x="356.1" y="797" fill="#555">level 2</text>
+<rect x="540.0" y="785" width="46.0" height="200" fill="#eeeeee"/>
+<text x="542.0" y="797" fill="#555">level 3</text>
+<rect x="644.6" y="785" width="14.4" height="200" fill="#eeeeee"/>
+<text x="646.6" y="797" fill="#555">level 4</text>
+<rect x="70" y="785" width="700" height="200" fill="none" stroke="#333"/>
+<line x1="70" y1="985.0" x2="770" y2="985.0" stroke="#ddd"/>
+<text x="66" y="989.0" text-anchor="end">0</text>
+<line x1="70" y1="945.0" x2="770" y2="945.0" stroke="#ddd"/>
+<text x="66" y="949.0" text-anchor="end">5</text>
+<line x1="70" y1="905.0" x2="770" y2="905.0" stroke="#ddd"/>
+<text x="66" y="909.0" text-anchor="end">10</text>
+<line x1="70" y1="865.0" x2="770" y2="865.0" stroke="#ddd"/>
+<text x="66" y="869.0" text-anchor="end">15</text>
+<line x1="70" y1="825.0" x2="770" y2="825.0" stroke="#ddd"/>
+<text x="66" y="829.0" text-anchor="end">20</text>
+<line x1="70" y1="785.0" x2="770" y2="785.0" stroke="#ddd"/>
+<text x="66" y="789.0" text-anchor="end">25</text>
+<text x="14" y="885" transform="rotate(-90 14 885)" text-anchor="middle">percent</text>
+<line x1="104.3" y1="785" x2="104.3" y2="985" stroke="#eee"/>
+<text x="104.3" y="999" text-anchor="middle">23:54</text>
+<line x1="212.5" y1="785" x2="212.5" y2="985" stroke="#eee"/>
+<text x="212.5" y="999" text-anchor="middle">23:56</text>
+<line x1="320.8" y1="785" x2="320.8" y2="985" stroke="#eee"/>
+<text x="320.8" y="999" text-anchor="middle">23:58</text>
+<line x1="429.0" y1="785" x2="429.0" y2="985" stroke="#eee"/>
+<text x="429.0" y="999" text-anchor="middle">00:00</text>
+<line x1="537.3" y1="785" x2="537.3" y2="985" stroke="#eee"/>
+<text x="537.3" y="999" text-anchor="middle">00:02</text>
+<line x1="645.5" y1="785" x2="645.5" y2="985" stroke="#eee"/>
+<text x="645.5" y="999" text-anchor="middle">00:04</text>
+<line x1="753.8" y1="785" x2="753.8" y2="985" stroke="#eee"/>
+<text x="753.8" y="999" text-anchor="middle">00:06</text>
+<line x1="780" y1="799" x2="798" y2="799" stroke="#1f77b4" stroke-width="2"/>
+<text x="802" y="803">Average ClusterName=scholarchain-course-runtime,ServiceName=query</text>
+<polyline points="-112.2,925.2 -58.1,924.5 -4.0,924.1 50.2,924.1 104.3,924.1 158.4,923.0 212.5,918.3 266.6,916.8 320.8,916.6 374.9,912.8 429.0,908.6 483.1,908.0 537.3,907.7 591.4,906.9 645.5,906.6 699.6,906.1 753.8,906.1 807.9,906.1" fill="none" stroke="#1f77b4" stroke-width="1.5"/>
+<line x1="780" y1="813" x2="798" y2="813" stroke="#d62728" stroke-width="2"/>
+<text x="802" y="817">Average ClusterName=scholarchain-course-runtime,ServiceName=evidence</text>
+<polyline points="-112.2,846.7 -58.1,846.3 -4.0,845.9 50.2,845.9 104.3,845.9 158.4,843.9 212.5,842.8 266.6,842.2 320.8,838.1 374.9,837.9 429.0,837.3 483.1,828.5 537.3,824.8 591.4,820.5 645.5,818.1 699.6,816.2 753.8,816.0 807.9,815.5" fill="none" stroke="#d62728" stroke-width="1.5"/>
+<line x1="780" y1="827" x2="798" y2="827" stroke="#2ca02c" stroke-width="2"/>
+<text x="802" y="831">Average ClusterName=scholarchain-course-runtime,ServiceName=graph</text>
+<polyline points="-112.2,839.7 -58.1,839.4 -4.0,838.9 50.2,838.9 104.3,838.3 158.4,838.1 212.5,837.9 266.6,837.3 320.8,837.2 374.9,836.6 429.0,836.6 483.1,835.9 537.3,835.8 591.4,835.5 645.5,835.0 699.6,835.0 753.8,834.3 807.9,834.2" fill="none" stroke="#2ca02c" stroke-width="1.5"/>
+<text x="70" y="1040" fill="#555">events: green dashed = scale-out, red dashed = scale-in, gray dashed = lifecycle record</text>
+<text x="70" y="1054" fill="#555">shaded bands: level windows; scale events from desired-count changes</text>
+<text x="70" y="1068" fill="#555">metrics from experiments/raw/p15-d-query-load/20261120T235521Z-ff00cfa278c8-ca0c/metrics</text>
+</svg>

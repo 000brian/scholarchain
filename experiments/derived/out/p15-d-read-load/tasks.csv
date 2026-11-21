@@ -1,0 +1,13 @@
+manifest,attempt,level,service,samples,desired_min,desired_max,running_min,running_max
+p15-d-read-load,20261121T001529Z-abe4764a8293-b3f0,1,evidence,7,1,1,1,1
+p15-d-read-load,20261121T001529Z-abe4764a8293-b3f0,1,graph,7,1,1,1,1
+p15-d-read-load,20261121T001529Z-abe4764a8293-b3f0,1,query,7,1,1,1,1
+p15-d-read-load,20261121T001529Z-abe4764a8293-b3f0,2,evidence,2,1,1,1,1
+p15-d-read-load,20261121T001529Z-abe4764a8293-b3f0,2,graph,2,1,1,1,1
+p15-d-read-load,20261121T001529Z-abe4764a8293-b3f0,2,query,2,1,1,1,1
+p15-d-read-load,20261121T001529Z-abe4764a8293-b3f0,3,evidence,1,1,1,1,1
+p15-d-read-load,20261121T001529Z-abe4764a8293-b3f0,3,graph,1,1,1,1,1
+p15-d-read-load,20261121T001529Z-abe4764a8293-b3f0,3,query,1,1,1,1,1
+p15-d-read-load,20261121T001529Z-abe4764a8293-b3f0,4,evidence,1,1,1,1,1
+p15-d-read-load,20261121T001529Z-abe4764a8293-b3f0,4,graph,1,1,1,1,1
+p15-d-read-load,20261121T001529Z-abe4764a8293-b3f0,4,query,1,1,1,1,1

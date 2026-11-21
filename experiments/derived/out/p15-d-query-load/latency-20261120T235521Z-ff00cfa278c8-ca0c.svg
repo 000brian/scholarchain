@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="438" font-family="sans-serif" font-size="11">
+<rect x="0" y="0" width="900" height="438" fill="white"/>
+<text x="70" y="20" font-size="14" font-weight="bold">p15-d-query-load 20261120T235521Z-ff00cfa278c8-ca0c: latency per level (nearest-rank percentiles)</text>
+<rect x="70" y="50" width="600" height="300" fill="none" stroke="#333"/>
+<line x1="70" y1="350.0" x2="670" y2="350.0" stroke="#ddd"/>
+<text x="66" y="354.0" text-anchor="end">0</text>
+<line x1="70" y1="250.0" x2="670" y2="250.0" stroke="#ddd"/>
+<text x="66" y="254.0" text-anchor="end">10</text>
+<line x1="70" y1="150.0" x2="670" y2="150.0" stroke="#ddd"/>
+<text x="66" y="154.0" text-anchor="end">20</text>
+<line x1="70" y1="50.0" x2="670" y2="50.0" stroke="#ddd"/>
+<text x="66" y="54.0" text-anchor="end">30</text>
+<text x="145.0" y="364" text-anchor="middle">L1: 1 clients</text>
+<text x="295.0" y="364" text-anchor="middle">L2: 2 clients</text>
+<text x="445.0" y="364" text-anchor="middle">L3: 4 clients</text>
+<text x="595.0" y="364" text-anchor="middle">L4: 8 clients</text>
+<text x="370" y="380" text-anchor="middle">load level</text>
+<text x="14" y="200" transform="rotate(-90 14 200)" text-anchor="middle">seconds (curl time_total)</text>
+<line x1="680" y1="60" x2="698" y2="60" stroke="#1f77b4" stroke-width="2"/>
+<text x="702" y="64">p50 all</text>
+<circle cx="145.0" cy="232.7" r="3" fill="#1f77b4"/>
+<circle cx="295.0" cy="220.7" r="3" fill="#1f77b4"/>
+<circle cx="445.0" cy="348.4" r="3" fill="#1f77b4"/>
+<circle cx="595.0" cy="348.5" r="3" fill="#1f77b4"/>
+<polyline points="145.0,232.7 295.0,220.7 445.0,348.4 595.0,348.5" fill="none" stroke="#1f77b4" stroke-width="1.5"/>
+<line x1="680" y1="74" x2="698" y2="74" stroke="#d62728" stroke-width="2"/>
+<text x="702" y="78">p95 all</text>
+<circle cx="145.0" cy="164.9" r="3" fill="#d62728"/>
+<circle cx="295.0" cy="98.3" r="3" fill="#d62728"/>
+<circle cx="445.0" cy="98.4" r="3" fill="#d62728"/>
+<circle cx="595.0" cy="267.5" r="3" fill="#d62728"/>
+<polyline points="145.0,164.9 295.0,98.3 445.0,98.4 595.0,267.5" fill="none" stroke="#d62728" stroke-width="1.5"/>
+<line x1="680" y1="88" x2="698" y2="88" stroke="#2ca02c" stroke-width="2"/>
+<text x="702" y="92">p99 all</text>
+<circle cx="145.0" cy="164.9" r="3" fill="#2ca02c"/>
+<circle cx="295.0" cy="98.3" r="3" fill="#2ca02c"/>
+<circle cx="445.0" cy="96.3" r="3" fill="#2ca02c"/>
+<circle cx="595.0" cy="186.5" r="3" fill="#2ca02c"/>
+<polyline points="145.0,164.9 295.0,98.3 445.0,96.3 595.0,186.5" fill="none" stroke="#2ca02c" stroke-width="1.5"/>
+<line x1="680" y1="102" x2="698" y2="102" stroke="#9467bd" stroke-width="2"/>
+<text x="702" y="106">p50 answered</text>
+<circle cx="145.0" cy="232.7" r="3" fill="#9467bd"/>
+<circle cx="295.0" cy="229.7" r="3" fill="#9467bd"/>
+<circle cx="445.0" cy="238.2" r="3" fill="#9467bd"/>
+<circle cx="595.0" cy="226.7" r="3" fill="#9467bd"/>
+<polyline points="145.0,232.7 295.0,229.7 445.0,238.2 595.0,226.7" fill="none" stroke="#9467bd" stroke-width="1.5"/>
+<line x1="680" y1="116" x2="698" y2="116" stroke="#ff7f0e" stroke-width="2"/>
+<text x="702" y="120">p95 answered</text>
+<circle cx="145.0" cy="164.9" r="3" fill="#ff7f0e"/>
+<circle cx="295.0" cy="134.5" r="3" fill="#ff7f0e"/>
+<circle cx="445.0" cy="174.3" r="3" fill="#ff7f0e"/>
+<circle cx="595.0" cy="186.5" r="3" fill="#ff7f0e"/>
+<polyline points="145.0,164.9 295.0,134.5 445.0,174.3 595.0,186.5" fill="none" stroke="#ff7f0e" stroke-width="1.5"/>
+<line x1="680" y1="130" x2="698" y2="130" stroke="#8c564b" stroke-width="2"/>
+<text x="702" y="134">p99 answered</text>
+<circle cx="145.0" cy="164.9" r="3" fill="#8c564b"/>
+<circle cx="295.0" cy="134.5" r="3" fill="#8c564b"/>
+<circle cx="445.0" cy="174.3" r="3" fill="#8c564b"/>
+<circle cx="595.0" cy="186.5" r="3" fill="#8c564b"/>
+<polyline points="145.0,164.9 295.0,134.5 445.0,174.3 595.0,186.5" fill="none" stroke="#8c564b" stroke-width="1.5"/>
+<text x="70" y="398" fill="#555">all = every attempted request with a measured time; n/a = no value</text>
+<text x="70" y="412" fill="#555">fewer than 20 values per population: few samples (levels.csv)</text>
+</svg>

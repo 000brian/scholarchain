@@ -1,0 +1,3 @@
+manifest,attempt,status,exit_code,action_start_utc,action_end_utc,cluster,running_metric,running_first,running_max,running_max_utc,requested_max,scale_out,scale_in_while_running,release,classification,metrics_source
+p15-a-hadoop,20261120T215912Z-b0c92f533c70-5a01,failed,5,2026-11-20T21:59:13Z,2026-11-20T21:59:21Z,,,,,,,missing,missing,,missing,experiments/raw/p15-a-hadoop/20261120T215912Z-b0c92f533c70-5a01/metrics
+p15-a-hadoop,20261120T225632Z-eb786c5275a3-5c75,succeeded,0,2026-11-20T22:56:32Z,2026-11-21T00:29:21Z,j-05949161IHEKG5O4KFOD,CoreNodesRunning,2.000,2.000,2026-11-20T23:05:00Z,,no scale-out observed,no,cluster ended 2026-11-21T00:17:23Z (lifecycle record),no scale-out observed,experiments/raw/p15-a-hadoop/20261120T225632Z-eb786c5275a3-5c75/metrics

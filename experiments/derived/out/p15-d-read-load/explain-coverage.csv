@@ -1,0 +1,9 @@
+spec_item,explain_stage_keys,status
+planner,planner (+ plannerFallback when the model planner fell back),recorded
+graph,"resolver, metrics, paths, community (stores reached through the graph templates)",recorded
+vector,semantic (Voyage query embedding and S3 Vectors query together),recorded
+LLM,synthesis (+ planner when the model planner ran; synthesisFallback),recorded
+verification,verification,recorded
+retries,"none: explain carries logical model calls, not HTTP retries (ExplainView.AttemptsNote)",missing
+Neptune latency separate from the graph stage,none,missing
+Voyage latency separate from the S3 Vectors query,none,missing
