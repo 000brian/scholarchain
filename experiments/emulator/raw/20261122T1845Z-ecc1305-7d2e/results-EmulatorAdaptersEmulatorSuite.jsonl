@@ -1,0 +1,54 @@
+{"service":"s3","operation":"PutObject","class":"implemented-passed","httpStatus":null,"latencyMillis":182,"step":"s3-put-if-absent","observation":"Created"}
+{"service":"s3","operation":"PutObject","class":"implemented-passed","httpStatus":null,"latencyMillis":44,"step":"s3-put-if-absent","observation":"AlreadyPresent"}
+{"service":"s3","operation":"PutObject","class":"implemented-passed","httpStatus":null,"latencyMillis":9,"step":"s3-put-if-absent","observation":"Conflict"}
+{"service":"s3","operation":"ListObjectsV2","class":"implemented-passed","httpStatus":null,"latencyMillis":31,"step":"s3-put-if-absent"}
+{"service":"dynamodb","operation":"PutItem","class":"implemented-passed","httpStatus":null,"latencyMillis":51,"step":"dynamodb-conditional","observation":"Written"}
+{"service":"dynamodb","operation":"PutItem","class":"implemented-passed","httpStatus":null,"latencyMillis":9,"step":"dynamodb-conditional","observation":"ConditionFailed"}
+{"service":"dynamodb","operation":"GetItem","class":"implemented-passed","httpStatus":null,"latencyMillis":9,"step":"dynamodb-conditional"}
+{"service":"dynamodb","operation":"Query","class":"implemented-passed","httpStatus":null,"latencyMillis":11,"step":"dynamodb-conditional"}
+{"service":"s3vectors","operation":"GetIndex","class":"implemented-passed","httpStatus":null,"latencyMillis":19,"step":"s3vectors-round-trip","observation":"researcher-profile-v1"}
+{"service":"s3vectors","operation":"GetIndex","class":"implemented-passed","httpStatus":null,"latencyMillis":3,"step":"s3vectors-round-trip","observation":"collaboration-community-v1"}
+{"service":"s3vectors","operation":"GetIndex","class":"implemented-passed","httpStatus":null,"latencyMillis":4,"step":"s3vectors-round-trip","observation":"paper-abstract-v1"}
+{"service":"s3vectors","operation":"GetIndex","class":"implemented-passed","httpStatus":null,"latencyMillis":4,"step":"s3vectors-round-trip","observation":"collaboration-path-v1"}
+{"service":"s3vectors","operation":"GetIndex","class":"implemented-passed","httpStatus":null,"latencyMillis":3,"step":"s3vectors-round-trip","observation":"topic-institution-summary-v1"}
+{"service":"s3vectors","operation":"PutVectors","class":"implemented-passed","httpStatus":null,"latencyMillis":21,"step":"s3vectors-round-trip"}
+{"service":"s3vectors","operation":"GetVectors","class":"implemented-passed","httpStatus":null,"latencyMillis":12,"step":"s3vectors-round-trip"}
+{"service":"s3vectors","operation":"QueryVectors","class":"implemented-passed","httpStatus":null,"latencyMillis":15,"step":"s3vectors-round-trip"}
+{"service":"dynamodb","operation":"GetItem","class":"implemented-passed","httpStatus":null,"latencyMillis":8,"step":"environment-reads"}
+{"service":"s3","operation":"HeadObject","class":"implemented-passed","httpStatus":null,"latencyMillis":4,"step":"environment-reads"}
+{"service":"s3vectors","operation":"GetIndex","class":"implemented-passed","httpStatus":null,"latencyMillis":4,"step":"environment-reads"}
+{"service":"sqs","operation":"GetQueueUrl","class":"implemented-passed","httpStatus":null,"latencyMillis":11,"step":"sqs-round-trip"}
+{"service":"sqs","operation":"SendMessageBatch","class":"implemented-passed","httpStatus":null,"latencyMillis":15,"step":"sqs-round-trip"}
+{"service":"sqs","operation":"ReceiveMessage","class":"implemented-passed","httpStatus":null,"latencyMillis":8,"step":"sqs-round-trip"}
+{"service":"sqs","operation":"DeleteMessage","class":"implemented-passed","httpStatus":null,"latencyMillis":5,"step":"sqs-round-trip"}
+{"service":"sqs","operation":"GetQueueUrl","class":"implemented-passed","httpStatus":null,"latencyMillis":3,"step":"sqs-dead-letter"}
+{"service":"sqs","operation":"GetQueueUrl","class":"implemented-passed","httpStatus":null,"latencyMillis":2,"step":"sqs-dead-letter"}
+{"service":"sqs","operation":"GetQueueAttributes","class":"implemented-passed","httpStatus":null,"latencyMillis":5,"step":"sqs-dead-letter","observation":"maxReceiveCount 5"}
+{"service":"sqs","operation":"SendMessageBatch","class":"implemented-passed","httpStatus":null,"latencyMillis":3,"step":"sqs-dead-letter"}
+{"service":"sqs","operation":"ReceiveMessage","class":"implemented-passed","httpStatus":null,"latencyMillis":3,"step":"sqs-dead-letter"}
+{"service":"sqs","operation":"ChangeMessageVisibility","class":"implemented-passed","httpStatus":null,"latencyMillis":4,"step":"sqs-dead-letter"}
+{"service":"sqs","operation":"ReceiveMessage","class":"implemented-passed","httpStatus":null,"latencyMillis":3,"step":"sqs-dead-letter"}
+{"service":"sqs","operation":"ChangeMessageVisibility","class":"implemented-passed","httpStatus":null,"latencyMillis":2,"step":"sqs-dead-letter"}
+{"service":"sqs","operation":"ReceiveMessage","class":"implemented-passed","httpStatus":null,"latencyMillis":2,"step":"sqs-dead-letter"}
+{"service":"sqs","operation":"ChangeMessageVisibility","class":"implemented-passed","httpStatus":null,"latencyMillis":3,"step":"sqs-dead-letter"}
+{"service":"sqs","operation":"ReceiveMessage","class":"implemented-passed","httpStatus":null,"latencyMillis":3,"step":"sqs-dead-letter"}
+{"service":"sqs","operation":"ChangeMessageVisibility","class":"implemented-passed","httpStatus":null,"latencyMillis":4,"step":"sqs-dead-letter"}
+{"service":"sqs","operation":"ReceiveMessage","class":"implemented-passed","httpStatus":null,"latencyMillis":3,"step":"sqs-dead-letter"}
+{"service":"sqs","operation":"ChangeMessageVisibility","class":"implemented-passed","httpStatus":null,"latencyMillis":2,"step":"sqs-dead-letter"}
+{"service":"sqs","operation":"ReceiveMessage","class":"implemented-passed","httpStatus":null,"latencyMillis":1007,"step":"sqs-dead-letter"}
+{"service":"sqs","operation":"ReceiveMessage","class":"implemented-passed","httpStatus":null,"latencyMillis":1012,"step":"sqs-dead-letter"}
+{"service":"sqs","operation":"ReceiveMessage","class":"implemented-passed","httpStatus":null,"latencyMillis":8,"step":"sqs-dead-letter"}
+{"service":"sqs","operation":"DeleteMessage","class":"implemented-passed","httpStatus":null,"latencyMillis":5,"step":"sqs-dead-letter","observation":"dead letter after 5 receives"}
+{"service":"s3","operation":"PutObject","class":"implemented-passed","httpStatus":403,"latencyMillis":11,"step":"s3-policy-probe","observation":"refused (AccessDenied)","errorCode":"AccessDenied"}
+{"service":"s3","operation":"GetObject","class":"implemented-passed","httpStatus":403,"latencyMillis":12,"step":"s3-policy-probe","observation":"refused (AccessDenied)","errorCode":"AccessDenied"}
+{"service":"s3","operation":"PutObject","class":"implemented-passed","httpStatus":null,"latencyMillis":6,"step":"reembed-demonstration","observation":"Created"}
+{"service":"s3vectors","operation":"PutVectors","class":"implemented-passed","httpStatus":null,"latencyMillis":6,"step":"reembed-demonstration"}
+{"service":"s3vectors","operation":"GetVectors","class":"implemented-passed","httpStatus":null,"latencyMillis":4,"step":"reembed-demonstration"}
+{"service":"dynamodb","operation":"GetItem","class":"implemented-passed","httpStatus":null,"latencyMillis":10,"step":"reembed-demonstration"}
+{"service":"s3","operation":"GetObject","class":"implemented-passed","httpStatus":null,"latencyMillis":6,"step":"reembed-demonstration"}
+{"service":"s3vectors","operation":"PutVectors","class":"implemented-passed","httpStatus":null,"latencyMillis":8,"step":"reembed-demonstration"}
+{"service":"dynamodb","operation":"PutItem","class":"implemented-passed","httpStatus":null,"latencyMillis":3,"step":"reembed-demonstration"}
+{"service":"s3vectors","operation":"GetVectors","class":"implemented-passed","httpStatus":null,"latencyMillis":10,"step":"reembed-demonstration"}
+{"service":"dynamodb","operation":"GetItem","class":"implemented-passed","httpStatus":null,"latencyMillis":4,"step":"reembed-demonstration"}
+{"service":"s3vectors","operation":"GetVectors","class":"implemented-passed","httpStatus":null,"latencyMillis":3,"step":"reembed-demonstration"}
+{"service":"dynamodb","operation":"GetItem","class":"implemented-passed","httpStatus":null,"latencyMillis":3,"step":"reembed-demonstration"}

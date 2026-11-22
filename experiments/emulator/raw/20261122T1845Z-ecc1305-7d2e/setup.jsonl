@@ -1,0 +1,36 @@
+{"service":"s3","operation":"HeadBucket","class":"implemented-passed","httpStatus":null,"latencyMillis":393,"resource":"scholarchain-emu-data","observation":"absent"}
+{"service":"s3","operation":"CreateBucket","class":"implemented-passed","httpStatus":null,"latencyMillis":382,"resource":"scholarchain-emu-data","outcome":"created"}
+{"service":"s3","operation":"HeadBucket","class":"implemented-passed","httpStatus":null,"latencyMillis":387,"resource":"scholarchain-emu-policy-probe","observation":"absent"}
+{"service":"s3","operation":"CreateBucket","class":"implemented-passed","httpStatus":null,"latencyMillis":398,"resource":"scholarchain-emu-policy-probe","outcome":"created"}
+{"service":"s3","operation":"PutBucketPolicy","class":"implemented-passed","httpStatus":null,"latencyMillis":384,"resource":"scholarchain-emu-policy-probe","outcome":"created"}
+{"service":"dynamodb","operation":"CreateTable","class":"implemented-passed","httpStatus":null,"latencyMillis":375,"resource":"scholarchain-emu-run-ledger","outcome":"created"}
+{"service":"dynamodb","operation":"CreateTable","class":"implemented-passed","httpStatus":null,"latencyMillis":319,"resource":"scholarchain-emu-entity-link-cache","outcome":"created"}
+{"service":"dynamodb","operation":"CreateTable","class":"implemented-passed","httpStatus":null,"latencyMillis":376,"resource":"scholarchain-emu-query-session","outcome":"created"}
+{"service":"dynamodb","operation":"DescribeTable","class":"implemented-passed","httpStatus":null,"latencyMillis":2966,"resource":"scholarchain-emu-query-session","observation":"ACTIVE after 1 tries"}
+{"service":"dynamodb","operation":"UpdateTimeToLive","class":"implemented-passed","httpStatus":null,"latencyMillis":410,"resource":"scholarchain-emu-query-session","outcome":"created"}
+{"service":"dynamodb","operation":"CreateTable","class":"implemented-passed","httpStatus":null,"latencyMillis":335,"resource":"scholarchain-emu-evidence-bundle","outcome":"created"}
+{"service":"dynamodb","operation":"CreateTable","class":"implemented-passed","httpStatus":null,"latencyMillis":371,"resource":"scholarchain-emu-artifact-registry","outcome":"created"}
+{"service":"dynamodb","operation":"CreateTable","class":"implemented-passed","httpStatus":null,"latencyMillis":319,"resource":"scholarchain-emu-researcher-metric-cache","outcome":"created"}
+{"service":"s3vectors","operation":"CreateVectorBucket","class":"implemented-passed","httpStatus":null,"latencyMillis":364,"resource":"scholarchain-emu-vectors","outcome":"created"}
+{"service":"s3vectors","operation":"GetIndex","class":"implemented-passed","httpStatus":null,"latencyMillis":358,"resource":"researcher-profile-v1","observation":"absent"}
+{"service":"s3vectors","operation":"CreateIndex","class":"implemented-passed","httpStatus":null,"latencyMillis":356,"resource":"researcher-profile-v1","outcome":"created"}
+{"service":"s3vectors","operation":"GetIndex","class":"implemented-passed","httpStatus":null,"latencyMillis":362,"resource":"collaboration-community-v1","observation":"absent"}
+{"service":"s3vectors","operation":"CreateIndex","class":"implemented-passed","httpStatus":null,"latencyMillis":368,"resource":"collaboration-community-v1","outcome":"created"}
+{"service":"s3vectors","operation":"GetIndex","class":"implemented-passed","httpStatus":null,"latencyMillis":368,"resource":"paper-abstract-v1","observation":"absent"}
+{"service":"s3vectors","operation":"CreateIndex","class":"implemented-passed","httpStatus":null,"latencyMillis":307,"resource":"paper-abstract-v1","outcome":"created"}
+{"service":"s3vectors","operation":"GetIndex","class":"implemented-passed","httpStatus":null,"latencyMillis":357,"resource":"collaboration-path-v1","observation":"absent"}
+{"service":"s3vectors","operation":"CreateIndex","class":"implemented-passed","httpStatus":null,"latencyMillis":353,"resource":"collaboration-path-v1","outcome":"created"}
+{"service":"s3vectors","operation":"GetIndex","class":"implemented-passed","httpStatus":null,"latencyMillis":376,"resource":"topic-institution-summary-v1","observation":"absent"}
+{"service":"s3vectors","operation":"CreateIndex","class":"implemented-passed","httpStatus":null,"latencyMillis":324,"resource":"topic-institution-summary-v1","outcome":"created"}
+{"service":"sqs","operation":"GetQueueUrl","class":"implemented-passed","httpStatus":null,"latencyMillis":361,"resource":"scholarchain-emu-jobs-dlq","observation":"absent"}
+{"service":"sqs","operation":"CreateQueue","class":"implemented-passed","httpStatus":null,"latencyMillis":358,"resource":"scholarchain-emu-jobs-dlq","outcome":"created"}
+{"service":"sqs","operation":"GetQueueAttributes","class":"implemented-passed","httpStatus":null,"latencyMillis":381,"resource":"scholarchain-emu-jobs-dlq","observation":"QueueArn read"}
+{"service":"sqs","operation":"GetQueueUrl","class":"implemented-passed","httpStatus":null,"latencyMillis":376,"resource":"scholarchain-emu-jobs","observation":"absent"}
+{"service":"sqs","operation":"CreateQueue","class":"implemented-passed","httpStatus":null,"latencyMillis":366,"resource":"scholarchain-emu-jobs","outcome":"created"}
+{"service":"sqs","operation":"GetQueueAttributes","class":"implemented-passed","httpStatus":null,"latencyMillis":358,"resource":"scholarchain-emu-jobs","observation":"maxReceiveCount 5"}
+{"service":"sqs","operation":"GetQueueUrl","class":"implemented-passed","httpStatus":null,"latencyMillis":364,"resource":"scholarchain-emu-embedding-dlq","observation":"absent"}
+{"service":"sqs","operation":"CreateQueue","class":"implemented-passed","httpStatus":null,"latencyMillis":362,"resource":"scholarchain-emu-embedding-dlq","outcome":"created"}
+{"service":"sqs","operation":"GetQueueAttributes","class":"implemented-passed","httpStatus":null,"latencyMillis":313,"resource":"scholarchain-emu-embedding-dlq","observation":"QueueArn read"}
+{"service":"sqs","operation":"GetQueueUrl","class":"implemented-passed","httpStatus":null,"latencyMillis":351,"resource":"scholarchain-emu-embedding","observation":"absent"}
+{"service":"sqs","operation":"CreateQueue","class":"implemented-passed","httpStatus":null,"latencyMillis":308,"resource":"scholarchain-emu-embedding","outcome":"created"}
+{"service":"sqs","operation":"GetQueueAttributes","class":"implemented-passed","httpStatus":null,"latencyMillis":365,"resource":"scholarchain-emu-embedding","observation":"maxReceiveCount 5"}

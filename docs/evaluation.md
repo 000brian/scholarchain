@@ -1,8 +1,8 @@
 # ScholarChain evaluation (Phase 16)
 
-Owner: `documentation-engineer`. **Status: METHODS DRAFT (Phase 16 session 2, step W1).** This file describes how ScholarChain is evaluated. It holds no measured result and no conclusion. Every results section below is marked `RESULTS PENDING FREEZE (E12)`. The results are written at step E13, from the raw outputs frozen at step E12, and code-reviewer then reviews them against those frozen files.
+Owner: `documentation-engineer`. **Status: RESULTS (Phase 16 session 3, step E13), written from the raw outputs frozen at step E12 (freeze commit ecc13052b09e0b0396f47894e8858c6029632886).** code-reviewer reviewed this text against the frozen files (E13, APPROVE with six minor findings, repaired in one pass; section 10.9). The orchestrator states the spec gate items at E15. Until then, nothing here is a gate verdict.
 
-Work order: `docs/agent-runs/phase-16/prompt.md` (decisions 3, 13, 14, 16, 17, 23). Evaluation suite: [`experiments/evaluation/suite-v1.json`](../experiments/evaluation/suite-v1.json). Evaluation code: [`experiments/evaluation/evaluate.py`](../experiments/evaluation/evaluate.py). Both are drafts until the human signs the suite at E3. In this draft, a "suite :N" reference is a line number in `suite-v1.json` at the time of writing. Session 2's repair round may move those lines.
+Work order: `docs/agent-runs/phase-16/prompt.md` (decisions 3, 13, 14, 16, 17, 23). Evaluation suite: [`experiments/evaluation/suite-v1.json`](../experiments/evaluation/suite-v1.json) (suiteId suite-v1, evaluation code evaluate-v1-r3). It was signed at E3 with the line `APPROVED-EVALUATION-SUITE-SHA256: 0f7f7d336433e00363a94d522a2bbbfdc93274cd32605cb411d445b98a339970` in [`docs/agent-runs/phase-16/approvals.md`](agent-runs/phase-16/approvals.md):3. Evaluation code: [`experiments/evaluation/evaluate.py`](../experiments/evaluation/evaluate.py), sha256 8e7f3e7478266a3de43ece14e40c351aa44262a61fd46e0058e01f95e5df96b3 (suite :15, :42). A "suite :N" reference is a line number in the signed `suite-v1.json`. Session facts (who ran what, exit codes, attempts) come from [`docs/agent-runs/phase-16/runbook-log.md`](agent-runs/phase-16/runbook-log.md), cited as "runbook-log :N".
 
 ## 0. How to read this document
 
@@ -18,36 +18,42 @@ Every metric carries one kind, and the kinds are never pooled (decision 3; suite
 
 ### 0.2 Facts and interpretation
 
-Every results section has two subsections. **Measured facts** holds values computed by a tool from a frozen file, each with its source file, the tool that produced it, the numerator, denominator and inclusion rule, and the kind. **Interpretation** holds what the facts may mean. It is labelled as interpretation and never introduces a new number.
+Every results section has two subsections:
+- **Measured facts** holds values read from a frozen file. Each value names its file, its kind, and its numerator, denominator and inclusion rule where it is a rate. A value computed by hand from a committed file (for example a median of six ratings) is labelled "computed by hand from FILE".
+- **Interpretation** says what the facts may mean. It is labelled as interpretation and introduces no new number.
 
 ### 0.3 Three statuses per evaluation
 
 These three are reported separately (work order, "How the run ends"):
 - **execution**: did the tool run and produce valid evidence;
 - **measured outcome**: what the data show, including `not measurable from the frozen evidence (REASON)`;
-- **spec item**: whether a spec work-order or gate item is satisfied.
+- **spec item**: whether a spec work-order or gate item is satisfied (stated at E15, not here).
 
 A tool that ran correctly and reports a failed check has completed its measurement. The property is then recorded as failed; the run is not called an execution failure.
 
-### 0.4 Numbers in this draft
+### 0.4 Numbers in this document
 
-The only numbers in this draft are method parameters and dataset sizes: seeds, resample counts, sample sizes, file counts and label counts. Each one cites the committed (or session 2) file it comes from. A missing value is never filled; it is written `not measurable from the frozen evidence (REASON)`.
+Sections 1 to 9 hold only method parameters and dataset sizes, each with its source. Section 10 holds the measured results. Every number there cites a frozen file under `experiments/evaluation/raw/` or a committed Phase 15 file. Values are copied as the files hold them (floats at up to 6 decimals, as the tool writes them); none is rounded further. A missing value is never filled. It is written `not measurable from the frozen evidence (REASON)` or `not available`.
+
+### 0.5 Fix status
+
+Every Phase 16 code fix named in this document is **fixed in code, tested offline, not validated live**. There has been no AWS environment since Nov 21 (work order, "Where things stand"), so no fix could be run against the live system.
 
 ## 1. What is evaluated and how
 
-The spec work order has seven groups (work order, "Spec work order, Phase 16"). Every group has an entry in the suite, run by the human in session 3 (planned deviation 1: agents run nothing).
+The spec work order has seven groups (work order, "Spec work order, Phase 16"). Every group has an entry in the signed suite. The human ran each one in session 3 (planned deviation 1: agents run nothing).
 
 | Group | Suite entry (step) | Tool | Kind | Variability |
 |---|---|---|---|---|
 | 1 Entity resolution | `E4-er` (E4), suite :67-84 | `evaluate.py er` (reduced plan) | (b), with (a) recomputation checks | Wilson score 95 % (unweighted) and the stratified bootstrap of Phase 5, as printed |
 | 2 Graph correctness | `E5-graph` (E5), suite :86-108; `E5-bounded-pipeline`, suite :282-290 | `evaluate.py graph`; sbt run of the Spark suites | (b) hand-worked small graphs; (a) invariant counts and provenance fields | counts and descriptive proportions only |
-| 3 Retrieval | `E6-retrieval` (E6), suite :111-129 | `evaluate.py retrieval` | (a), with label caveats | percentile bootstrap over questions, headed EXPLORATORY (n = 11) |
-| 4 Answer quality | `E8-answers` (E8), suite :150-172; `E11-ratings-sheet` (E11), suite :248-270 | `evaluate.py answers`; `evaluate.py ratings-sheet` plus the human's ratings | (a) verifier and answer key; (b) optional dblp.org check; (c) ratings | bootstrap over answers where per-answer values exist; Wilson for answer-level rates |
+| 3 Retrieval | `E6-retrieval` (E6), suite :111-129 | `evaluate.py retrieval` | (a), with label caveats | percentile bootstrap over questions, headed EXPLORATORY (n = 11); the questions are not a random sample, so the interval only illustrates variability and is not a confidence interval for the system |
+| 4 Answer quality | `E8-answers` (E8), suite :150-172; `E11-ratings-sheet` (E11), suite :248-270 | `evaluate.py answers`; `evaluate.py ratings-sheet` plus the human's ratings | (a) verifier and answer key; (b) dblp.org existence column; (c) ratings | intervals only over independent answers (at least 2, each answering a distinct question; suite :170), all EXPLORATORY; the answers are not a random sample, so the interval only illustrates variability and is not a confidence interval for the system. The D-query explain rows, clip 01 after its attempts are collapsed, and demo answers that repeat a question are descriptive (k, n, proportion, no interval). No tool summarizes the ratings (section 10.4) |
 | 5 Performance and elasticity | `E6-performance` (E6), suite :131-148 | `evaluate.py performance` | (a); costs are estimates | percentiles with sample counts; "few samples" below 20 |
 | 6 Agentic factory | `E9-factory` (E9), suite :174-191 | `evaluate.py factory` plus the human's 20-event audit | (a), audited by (c) | counts with denominators; audit agreement rate |
 | 7 Reproducibility | `E2-clean-checkout` (E2), suite :272-280; `E5-bounded-pipeline` (E5); `E10-reproduce-historical`, `E10-release-records`, `E10-reproduce-current` (E10), suite :193-246 | `scripts/check.sh` in a fresh clone; local Hadoop pipeline and Spark suites; `evaluate.py reproduce` | (a) | exact match, or listed differences marked intended or unexplained |
 
-The spec names some items that are not implemented in ScholarChain or that no frozen label supports. They are recorded as such (decision 23):
+The spec names some items that ScholarChain does not implement or that no frozen label supports. They are recorded as such (decision 23):
 - Optional OpenSearch comparison (group 3): **not implemented**. There is no OpenSearch tier.
 - nDCG (group 3): **not computed**. No graded relevance labels exist.
 - Precision@K (group 3): **not measurable**. Retrieved IDs outside the labels are unjudged, not negatives.
@@ -55,37 +61,42 @@ The spec names some items that are not implemented in ScholarChain or that no fr
 
 ## 2. Data sources
 
-Every input is a committed file. Its sha256 is pinned in the suite, and `evaluate.py` refuses a run whose input differs from the pin (exit 3; S/agent-report-experiment-X1.md interface handoff, suite `treeDigestRule` :57). "Added in" is the commit that added the file (`git log --diff-filter=A`).
+Every input is a committed file. Its sha256 is pinned in the suite, and `evaluate.py` refuses a run whose input differs from the pin (exit 3; [agent-report-experiment-X1.md](agent-runs/phase-16/agent-report-experiment-X1.md) interface handoff, suite `treeDigestRule` :57). At E3 the orchestrator checked with `shasum` that all 19 fixed-sha256 inputs matched the signed suite (runbook-log :32). "Added in" is the commit that added the file (`git log --diff-filter=A`).
 
 | Source | Path | Added in | Size (source of the number) | Used by |
 |---|---|---|---|---|
 | Entity-resolution gold labels | [`docs/agent-runs/phase-05/gold/gold-labels.csv`](agent-runs/phase-05/gold/gold-labels.csv) | 7070f6116167cd5beb8792a197a75793003b38ca | 300 pairs: 112 MATCH, 135 NON_MATCH, 53 UNSURE (suite :27; the file has 300 data lines plus a header) | group 1 |
 | Phase 5 ER evaluation report (final summary reproduced verbatim) | [`docs/agent-runs/phase-05/agent-report-er-eval.md`](agent-runs/phase-05/agent-report-er-eval.md) | 7070f6116167cd5beb8792a197a75793003b38ca | Phase 5 run `run:v1:9f96c70b5115294dcc9d3b2d1d4438b9`, policy er-v1 (suite :83) | group 1 |
 | Spark known-graph and fixture suites | `modules/spark/src/test/scala/org/scholarchain/spark/KnownGraphSuite.scala`, `PipelineFixtureSuite.scala` | KnownGraphSuite.scala: 29661e98c4791b3e59a1c52c641cbea6bf609df1 | 43 tests in spark-engineer's table (suite :47) | group 2 |
-| Group 2 suite table | [`experiments/evaluation/spark-suite-table-v1.csv`](../experiments/evaluation/spark-suite-table-v1.csv) | session 2 (uncommitted at draft time) | 43 rows (suite :47) | group 2 |
+| Group 2 suite table | [`experiments/evaluation/spark-suite-table-v1.csv`](../experiments/evaluation/spark-suite-table-v1.csv) | d37389bf764c6b6fe2c579167a35919973409cb6 | 43 rows (suite :47) | group 2 |
 | Phase 15 Spark output counts (A and B runs) | [`experiments/raw/p15-a-spark/20261120T225850Z-eb786c5275a3-4f7e/spark-outputs.csv`](../experiments/raw/p15-a-spark/20261120T225850Z-eb786c5275a3-4f7e/spark-outputs.csv), [`experiments/raw/p15-b-spark-burst/20261120T225913Z-eb786c5275a3-fac6/spark-outputs.csv`](../experiments/raw/p15-b-spark-burst/20261120T225913Z-eb786c5275a3-fac6/spark-outputs.csv) | e86449aabe5205ba339345b49b55c3204468700d | both pinned to the same sha256, so one observation of one graph run (suite :96-97, :105) | group 2 |
-| DynamoDB samples | [`docs/agent-runs/phase-15/dynamodb-sample/`](agent-runs/phase-15/dynamodb-sample/) | ade54326a63e9c2dd00d1ae41c9b0dbb21842e06 | 25 items each of EvidenceBundle, ResearcherMetricCache, EntityLinkCache; 4 RunLedger items of clip 01 (file names; `"pk"` count per file). The selection method is not recorded (work order, "Where things stand") | groups 2 and 4 |
+| DynamoDB samples | [`docs/agent-runs/phase-15/dynamodb-sample/`](agent-runs/phase-15/dynamodb-sample/) | ade54326a63e9c2dd00d1ae41c9b0dbb21842e06 | 25 items each of EvidenceBundle, ResearcherMetricCache, EntityLinkCache; 4 RunLedger items of clip 01. The selection method is not recorded (work order, "Where things stand") | groups 2 and 4 |
 | Benchmark questions and labels | [`modules/rag/src/test/resources/benchmark/benchmark-v1.json`](../modules/rag/src/test/resources/benchmark/benchmark-v1.json) | 9a9174dffecf8a37ed7105d3533a507881079a27 | 30 questions (`"id": "q` count in the file) | groups 3 and 4 |
 | Retrieval report of experiment E | [`experiments/raw/p15-e-retrieval-modes/20261120T221402Z-6a6c31a06d60-b6c7/retrieval-eval-report.json`](../experiments/raw/p15-e-retrieval-modes/20261120T221402Z-6a6c31a06d60-b6c7/retrieval-eval-report.json) | 2cc5804baaced06850ed4f4ce79287c6b82643c7 | universe 11 questions, 100 labels (report lines 48-49); 19 questions not comparable (work order decision 3) | group 3 |
-| Phase 10 benchmark run, attempt 06 | [`docs/agent-runs/phase-10/run-report-attempt-06-anthropic.json`](agent-runs/phase-10/run-report-attempt-06-anthropic.json) | 6bc95d53775661914fad62d1588801a2905ce856 | 30 questions (report line 291); aggregated counts only (S/agent-report-rag.md field table) | group 4 |
+| Phase 10 benchmark run, attempt 06 | [`docs/agent-runs/phase-10/run-report-attempt-06-anthropic.json`](agent-runs/phase-10/run-report-attempt-06-anthropic.json) | 6bc95d53775661914fad62d1588801a2905ce856 | 30 questions (report line 291); aggregated counts only ([agent-report-rag.md](agent-runs/phase-16/agent-report-rag.md) field table) | group 4 |
 | D-query explains | [`experiments/raw/p15-d-query-load/20261120T235521Z-ff00cfa278c8-ca0c/load-explain.csv`](../experiments/raw/p15-d-query-load/20261120T235521Z-ff00cfa278c8-ca0c/load-explain.csv) | abe4764a8293… (short form, to keep a long digit run out of the commit scan) | 40 data rows (41 lines with the header) | group 4 |
-| Clip 01 query audit | [`docs/agent-runs/phase-15/dynamodb-sample/run-ledger-clip01-query.json`](agent-runs/phase-15/dynamodb-sample/run-ledger-clip01-query.json) | ade54326a63e9c2dd00d1ae41c9b0dbb21842e06 | 4 items, 2 attempts of one question (S/agent-report-rag.md field table) | group 4 |
-| Saved demo answers (optional, E7) | `experiments/evaluation/raw/answers/p15-demo/` (only if the human copies them after the identifier scan) | not committed at draft time | sha256 recorded at run; provenance recorded before scoring (suite :165) | group 4 |
+| Clip 01 query audit | [`docs/agent-runs/phase-15/dynamodb-sample/run-ledger-clip01-query.json`](agent-runs/phase-15/dynamodb-sample/run-ledger-clip01-query.json) | ade54326a63e9c2dd00d1ae41c9b0dbb21842e06 | 4 items; 2 query-audit attempts of one question ([agent-report-rag.md](agent-runs/phase-16/agent-report-rag.md) field table) | group 4 |
+| Saved demo answers (E7) | [`experiments/evaluation/raw/answers/p15-demo/`](../experiments/evaluation/raw/answers/p15-demo/) | ecc13052b09e0b0396f47894e8858c6029632886 | 6 answer files plus `PROVENANCE.txt` (sha256 at copy, recorded before scoring; runbook-log :43). Saved by the human from the live Phase 15 API before the teardown; not a random sample | group 4 |
 | Phase 15 raw experiment data A to F | [`experiments/raw/`](../experiments/raw/) | per folder: 6a6c31a, 2cc5804, 70876eb, d872d12, e86449a, abe4764, ee3bce8 ([`experiments/results-summary.md`](../experiments/results-summary.md) section 1) | 145 files under the tree pin (suite :140) | group 5 |
 | Phase 15 derived tables and plots | [`experiments/derived/out/`](../experiments/derived/out/) | 08bbb9d629ef2f11eea98bdfbc699179c2f1f107 | 59 files under the tree pin (suite :141) | groups 5 and 7 |
 | Agent-run records | [`docs/agent-runs/`](agent-runs/) phase-00 to phase-15, amendment-01, amendment-02 | population ends at the Phase 15 gate commit 9da45ab616a764e449f74f25feca85ed77d6dfe4 (suite :11) | 254 `.md` files (suite :184); phase-16 excluded as incomplete | group 6 |
 | Release records | [`releases/course/`](../releases/course/) | written by the deploy script in Phases 13 to 15 | 7 records (suite :218) | group 7 |
 
-Graph runs behind the data, as recorded in the sources: the benchmark labels come from the Phase 7 graph run (3r R2; suite :128). The stores in Phase 15 held Phase 14's graph run `run:v1:f2625d504b12749389cf4f5b1a26aed4` (results-summary section 0). The Phase 15 Spark A and B runs wrote `run:v1:0f02b5f22d1187932df0fc1decd7e6a5` (suite :105). Every result names the graph run of its source.
+Graph runs behind the data, as recorded in the sources:
+- The benchmark labels come from the Phase 7 graph run (3r R2; suite :128).
+- The stores in Phase 15 held Phase 14's graph run `run:v1:f2625d504b12749389cf4f5b1a26aed4` (results-summary section 0). The six demo answers carry the same graph run (sources.csv of the E8 run).
+- The Phase 15 Spark A and B runs wrote `run:v1:0f02b5f22d1187932df0fc1decd7e6a5` (suite :105).
 
-**Gone, not used:** the Phase 7 export and Neptune CSVs, the Phase 14 export (removed with the data bucket on Nov 21), and the Phase 5 ER run folder with its review queue, review key and er-v1 decision set (work order, "Where things stand"; S/agent-report-er.md group 1 plan). No graph export exists anywhere.
+Every result names the graph run of its source.
+
+**Gone, not used:** the Phase 7 export and Neptune CSVs, the Phase 14 export (removed with the data bucket on Nov 21), and the Phase 5 ER run folder with its review queue, review key and er-v1 decision set (work order, "Where things stand"; [agent-report-er.md](agent-runs/phase-16/agent-report-er.md) group 1 plan). No graph export exists anywhere.
 
 ## 3. Versioning and freezing
 
-- **Versioned inputs** (spec gate 2): benchmark-v1 (questions and relevance labels), the Phase 5 gold labels, [`rubric-v1.md`](../experiments/evaluation/rubric-v1.md), the rating-sheet generator (the `ratings-sheet` subcommand of `evaluate.py`), [`spark-suite-table-v1.csv`](../experiments/evaluation/spark-suite-table-v1.csv) and [`intended-differences-v1.csv`](../experiments/evaluation/intended-differences-v1.csv). Each carries a version and a sha256 in the suite (suite :19-56).
-- **Approval:** the suite has no approval field. The human's line `APPROVED-EVALUATION-SUITE-SHA256: HEX64` in `docs/agent-runs/phase-16/approvals.md` (E3) is the only approval. Any change to the code, the suite, the rubric or an approved input after signing creates `suite-v2.json` with a new signed line. Runs made before the change stay in the record (decision 17, E3).
-- **Freeze:** at E12 the human commits every raw output under `experiments/evaluation/raw/**`, including the completed ratings, and the regenerated derived outputs. The orchestrator records the freeze commit and the sha256 of every frozen file. After E12 no raw file changes, and a re-run writes a new run folder.
-- **Run metadata:** each run writes `run.json` (tool sha256, suite sha256, entry, inputs and outputs with sha256), kept apart from the computed results (S/agent-report-experiment-X1.md interface handoff).
+- **Versioned inputs** (spec gate 2): benchmark-v1 (questions and relevance labels), the Phase 5 gold labels, [`rubric-v1.md`](../experiments/evaluation/rubric-v1.md), the rating-sheet generator (the `ratings-sheet` subcommand of `evaluate.py`, version `evaluate-v1-r3 ratings-sheet`, suite :41-42), [`spark-suite-table-v1.csv`](../experiments/evaluation/spark-suite-table-v1.csv) and [`intended-differences-v1.csv`](../experiments/evaluation/intended-differences-v1.csv). Each carries a version and a sha256 in the suite (suite :19-56).
+- **Approval:** the suite has no approval field. The human's signed line in `docs/agent-runs/phase-16/approvals.md`:3 is the only approval. It was committed in 7e551c8003c3fd2a1491caa69d4f7270afbdcd77 (E3; runbook-log :32). It covers runs E4 to E11. No change to the code, the suite, the rubric or an approved input was made after signing, so no `suite-v2.json` exists.
+- **Freeze:** at E12 the human committed every raw output under `experiments/evaluation/raw/**`, including the completed ratings and the audit, plus the regenerated derived outputs, in the freeze commit ecc13052b09e0b0396f47894e8858c6029632886. The E2 raw records were committed earlier, in 7e551c8 (E3). After E12 no raw file changes, and a re-run writes a new run folder.
+- **Run metadata:** each `evaluate.py` run writes `run.json` (tool sha256, suite sha256, entry, inputs and outputs with sha256), kept apart from the computed results ([agent-report-experiment-X1.md](agent-runs/phase-16/agent-report-experiment-X1.md) interface handoff).
 
 ## 4. Methods by group
 
@@ -93,11 +104,11 @@ Each subsection gives the data, the metrics with their kind, the variability met
 
 ### 4.1 Group 1: entity resolution
 
-- **Plan:** the reduced plan of decision 3. The Phase 5 ER run folder, its review queue and key, and the er-v1 decision set are gone. So there is no `EvalMain` run at E4 and no comparison of er-v1 with er-v2 decisions (S/agent-report-er.md group 1 plan; suite :72).
+- **Plan:** the reduced plan of decision 3. The Phase 5 ER run folder, its review queue and key, and the er-v1 decision set are gone. So there is no `EvalMain` run at E4 and no comparison of er-v1 with er-v2 decisions ([agent-report-er.md](agent-runs/phase-16/agent-report-er.md) group 1 plan; suite :72).
 - **Method** (suite :80): `evaluate.py er` reads the final Phase 5 `summary.md` that the committed Phase 5 report reproduces verbatim. It copies the researcher-resolution table as printed: all rows unweighted, the weighted estimate, and rows per matching path, per name family and per evidence class, each with its interval method. It also copies the weighted bootstrap line, the zero-event bounds and both confusion matrices. It then recomputes precision, recall, F1, coverage and unresolved rate for the all-rows row, with numerator and denominator from the unweighted confusion matrix, and compares them with the printed values at one decimal. Finally it checks the gold file's label counts and sha256.
 - **Metrics:** precision, recall, F1, confusion matrix, coverage, unresolved rate, and metrics by matching path (decision 23). Kind (b) for the human's labels on er-v1 decisions; kind (a) for the recomputation and count checks (suite :81).
 - **Variability** (suite :82): as printed in Phase 5. Wilson score 95 % for unweighted rows; stratified percentile bootstrap (seed 20261114, 1,000 resamples; `docs/agent-runs/phase-05/agent-report-er-eval.md:40`) for the weighted estimate, with its unreliable flags and zero-event bounds. Only point estimates are recomputed.
-- **Known gap:** the labels judge er-v1 decisions. er-v2 accuracy is `not measurable from the frozen evidence`: equal counts are not equal decisions, and the er-v1 decision set is gone. Numerators and denominators exist only for the all-rows row. M3 and M4 are fixed in code in Phase 16 but not re-rendered, so the table keeps the Phase 5 wording (suite :83; S/agent-report-er.md risk 3).
+- **Known gap:** the labels judge er-v1 decisions. er-v2 accuracy is `not measurable from the frozen evidence`: equal counts are not equal decisions, and the er-v1 decision set is gone. Numerators and denominators exist only for the all-rows row. M3 and M4 are fixed in code in Phase 16 (fixed in code, tested offline, not validated live) but not re-rendered, so the table keeps the Phase 5 wording (suite :83; [agent-report-er.md](agent-runs/phase-16/agent-report-er.md) risk 3).
 
 ### 4.2 Group 2: graph correctness
 
@@ -105,38 +116,45 @@ Each subsection gives the data, the metrics with their kind, the variability met
   1. A recount of spark-engineer's suite table: per group 2 check (degree, weighted degree, components, paths, communities, bridges, k-core, integrity, duplicates, orphans), the tests asserting it, split by how the expected value was obtained (worked out by hand, mixed, or a property of the code's own output).
   2. The invariant checks of the Phase 15 `spark-outputs.csv`, computed once per distinct file content.
   3. For each DynamoDB sample table, the share of sampled items that carry each provenance field of the `CLAUDE.md` provenance invariant (run ID, snapshot, dataset, source record IDs, policy version, schema version, item hash, content hash). Schema version counts only the `schemaVersion` attribute or record field, never the top-level `version` attribute, which is the storage layer's conditional-write item version.
-  4. Optionally, the sbt summary line of the E5 run of the two Spark suites.
+  4. The sbt summary line of the E5 run of the two Spark suites, compared with the table's 43 tests.
 - **Kinds** (suite :106): (b) for hand-worked small graphs. The E5 sbt run shows whether those tests pass, and spark-engineer's classification says which expected values were worked out by hand. (a) for invariant counts and provenance-field presence.
 - **Variability** (suite :107): counts and descriptive proportions with numerator and denominator. **No confidence interval**: the DynamoDB samples were not drawn at random, and the two `spark-outputs.csv` files are one observation.
-- **Known gap** (suite :108): full-graph referential integrity, duplicate rate, orphan rate and coauthor-edge support rate are `not measurable` beyond what the invariant counts cover, because no export exists. The invariant table names what each count measures (S/agent-report-spark.md invariant table). Duplicate edge rows, edge support and per-check integrity counts are listed there as not measurable from the CSV.
+- **Known gap** (suite :108): full-graph referential integrity, duplicate rate, orphan rate and coauthor-edge support rate are `not measurable` beyond what the invariant counts cover, because no export exists. The invariant table names what each count measures ([agent-report-spark.md](agent-runs/phase-16/agent-report-spark.md) invariant table).
 
 ### 4.3 Group 3: retrieval
 
 - **Method** (suite :125): recomputed from experiment E's `targetRanks`. For each universe question and each mode (graph-only, vector-only, fused), recall@K for K = 1, 5, 10, 30 is the number of labelled targets ranked at or above K divided by the question's labelled targets. Reciprocal rank is 1 / best labelled rank, or 0 if none. Means are taken over questions. The tool also checks that its recomputation equals the report's own numbers.
-- **Universe:** 11 questions with 100 labelled researcher IDs (report lines 48-49). The same 11 questions and labels are the denominator for every mode. 19 further questions are labelled only with works, paths or numbers; they are `not-comparable` and are excluded from every mode by Phase 15's design (decision 3).
+- **Universe:** 11 questions with 100 labelled researcher IDs (report lines 48-49). The same 11 questions and labels are the denominator for every mode. 19 further questions are labelled only with works, paths or numbers. They are `not-comparable` and are excluded from every mode by Phase 15's design (decision 3).
 - **Kind:** (a), with label caveats (suite :126).
 - **Not measured:** precision@K is `not measurable (unjudged retrievals)`. nDCG is not computed (no graded labels). No OpenSearch tier exists.
-- **Variability** (suite :127): percentile bootstrap over questions, paired across modes and metrics, seed 20261122, 2,000 resamples, nearest-rank 2.5 % and 97.5 %. Every table is headed **EXPLORATORY (n = 11)** and is never read as generalization.
+- **Variability** (suite :127): percentile bootstrap over questions, paired across modes and metrics, seed 20261122, 2,000 resamples, nearest-rank 2.5 % and 97.5 %. Every table is headed **EXPLORATORY (n = 11)** and is never read as generalization. The questions are not a random sample, so the interval only illustrates variability and is not a confidence interval for the system.
 - **Known gap** (suite :128): see threats T1 and T2. Fused ranking is experiment-only (`fusion-exp-v1`; results-summary section 7, deviation 4).
 
 ### 4.4 Group 4: answer quality
 
 - **Sources, never pooled** (suite :168). Each source is labelled with its code version, prompt set and graph run, and with the origin of each label (from the file, from an argument, or not available):
   - Phase 10 attempt-06: aggregated claim counts only; abstention fields; planted-error counts.
-  - D-query explains: one row per explain read; an `abstained` column; no verification counts or codes.
-  - Clip 01's query audit: per-answer verification counts, abstained flag and abstention codes for two attempts at one question.
-  - The E7 demo answers, if copied: per-claim statuses.
-- **Metrics** (S/agent-report-experiment-X2.md interface handoff):
-  - verifier-reported claim support rate (verified ÷ all claims) and contradiction rate. The verifier's contradiction status is named `conflicting` (S/agent-report-rag.md field table);
+  - D-query explains: one row per explain read; an `abstained` column; no verification counts or codes. Rows repeat questions across load levels; they are descriptive (k, n), never an interval.
+  - Clip 01's query audit: per-answer verification counts, abstained flag and abstention codes. Its two attempts answer one question, so the tool collapses them into one answer that keeps the last attempt's outcome (suite :168). One answer gets no interval.
+  - The E7 demo answers: per-claim statuses. They are not collapsed. A demo answer that repeats a question would be descriptive (suite :168, :170); the six frozen demo answers answer six distinct questions (sources.csv of the E8 run: 6 answers, 6 distinct questions).
+- **Metrics** ([agent-report-experiment-X2.md](agent-runs/phase-16/agent-report-experiment-X2.md) interface handoff):
+  - verifier-reported claim support rate (verified ÷ all claims) and contradiction rate. The verifier's contradiction status is named `conflicting` ([agent-report-rag.md](agent-runs/phase-16/agent-report-rag.md) field table);
   - shares of the other statuses;
   - abstention rate, abstention recall on the questions benchmark-v1 labels to abstain, and false-abstention rate;
   - abstention codes;
   - for attempt-06: answer-key agreement per claim (`not available`: the report holds no per-claim values); answer key against the evidence bundle (retrieval agreement, not claim accuracy); planted-error catch rate (a test of the verifier);
   - breakdown by claim or evidence type (coauthor-edge, graph-path, supporting-publication, identifier, number), `not measurable` wherever the frozen fields hold no type.
-- **Kinds:** every verifier-derived and answer-key value is (a). The answer key is a deterministic generator over the same Phase 7 graph: independent of the model, not of the pipeline's data. The optional "named people and papers exist on dblp.org" column on the rating sheet is (b). The ratings are (c).
-- **Human ratings** (E11, suite :248-270): rubric-v1 rates usefulness and clarity from 1 to 5, with an anchor sentence per score and a "not rateable" option. The sheet shows only the question and the answer text, never a verification status. At most 20 answers, in an order set by the suite's seed. Only the E7 demo answers hold answer texts: attempt-06 is aggregated and clip 01 holds only an answer hash (suite :253, :261-264). Without E7, the rating result is `not measurable from the frozen evidence (no answer text)`.
-- **Variability** (suite :170): claim rates use a percentile bootstrap over answers (ratio of sums, seed 20261122, 2,000 resamples), only where per-answer counts exist; otherwise the result is written `no dependence-aware interval`. Claims within one answer are not independent. Answer-level rates (abstention, the dblp.org check) use Wilson score 95 %. Clip 01's two attempts answer one question and are not independent. The ratings have no interval (one rater; n is reported).
-- **Known gap:** independent factual accuracy of answers is `not independently measurable`, except through the optional dblp.org existence check (decision 3; suite :171).
+- **Kinds:** every verifier-derived and answer-key value is (a). The answer key is a deterministic generator over the same Phase 7 graph: independent of the model, not of the pipeline's data. The "named people and papers exist on dblp.org" column on the rating sheet is (b). The ratings are (c).
+- **Human ratings** (E11, suite :248-270): rubric-v1 rates usefulness and clarity from 1 to 5, with an anchor sentence per score and a "not rateable" option. The sheet shows only the question and the answer text, never a verification status field. The answer text can itself name a status; section 6 states where it did. At most 20 answers, in an order set by the suite's seed. Only the E7 demo answers hold answer texts: attempt-06 is aggregated and clip 01 holds only an answer hash (suite :253, :261-264).
+- **Variability** (suite :170, the human's decision on P16-C-02, runbook-log :10):
+  - Intervals are computed only over independent answers: at least 2 answers, each answering a distinct question.
+  - Claim rates use a percentile bootstrap over answers (ratio of sums, seed 20261122, 2,000 resamples). This applies only where per-answer counts exist and at least 2 independent answers have claims in the rate's set. With exactly 1 such answer the set is descriptive; with 0 its rows are `not measurable`. Attempt-06's aggregated counts get `no dependence-aware interval`.
+  - Answer-level rates (abstention) use Wilson score 95 %, only over independent answers. A denominator of 1 gets no interval.
+  - Every group 4 interval is EXPLORATORY: attempt-06's are over a fixed hand-written benchmark (n = 30), the demo answers' over a hand-saved, non-random set (n = 6). The answers are not a random sample, so the interval only illustrates variability and is not a confidence interval for the system.
+  - Every other rate is descriptive (k, n, proportion, no interval): the D-query explain rows always ("explain rows are neither independent nor a random sample"), clip 01's audit after collapsing (one answer), and demo answers that repeat a question.
+  - Claims within one answer are not independent. Nothing is pooled across sources or code versions.
+  - **No tool summarizes the completed ratings or the dblp.org column** (review finding P16-C-04; proposed later in [orchestrator-summary-s2.md](agent-runs/phase-16/orchestrator-summary-s2.md), "ratings summarizer subcommand"). Section 10.4 states the ratings directly from `sheet.csv`. Any summary value there is labelled "computed by hand", with no interval (one rater, n = 6).
+- **Known gap:** independent factual accuracy of answers is `not independently measurable`, except through the dblp.org existence column (decision 3; suite :171).
 
 ### 4.5 Group 5: performance and elasticity
 
@@ -160,11 +178,11 @@ Each subsection gives the data, the metrics with their kind, the variability met
   - an agent execution is phase + step + agent + attempt;
   - a repair is one `repair-*.md` file;
   - BLOCKED-ON is two numbers: terminal BLOCKED-ON reports, and summary or runbook rows deduplicated by phase, step and agent (an empty step matches any step). A row that matches a terminal report, or an earlier row in source precedence (summaries, then runbook logs), is marked `duplicate_of` and not counted. Rows naming no agent are counted;
-  - first-pass acceptance is an execution with no repair and no blocking or major finding against it;
+  - first-pass acceptance is a done execution with no repair and no critical or major finding against that agent in that phase;
   - manual interventions, hook blocks, ownership violations and human rewrites come from the gate's or summary's own list rows (list items and table body rows, never prose). A row repeating a still unmatched row of the same phase, event type and agent in a higher-precedence file (the gate, then summaries in file order) is marked `duplicate_of` and not counted, one to one.
-  
-  Rows the rules cannot place go to `unclassified.csv`, never guessed. Session 2's repair round changed the extractor's deduplication as described above (review finding P16-B-02; S/repair-01-experiment-engineer.md); the frozen method is the one in the signed suite.
-- **Audit:** a fixed-seed sample of 20 counted events (suite :181), stratified by event type. The human checks each event for being real and correctly classified (E11). The audit measures classification agreement, not completeness of extraction.
+
+  Rows the rules cannot place go to `unclassified.csv`, never guessed. Session 2's repair round changed the extractor's deduplication as described above (review finding P16-B-02; [repair-01-experiment-engineer.md](agent-runs/phase-16/repair-01-experiment-engineer.md)). The frozen method is the one in the signed suite.
+- **Audit:** a fixed-seed sample of 20 counted events (suite :181), stratified by event type. The human checked each event for being real and correctly classified (E11). The audit measures classification agreement, not completeness of extraction.
 - **Kind:** (a), the project's own records, audited by (c) (suite :188).
 - **Variability:** counts with denominators. No interval: the records are a full population, not a random sample. The audit's agreement rate is reported (suite :189).
 - **Known gap** (suite :190): report formats changed over the phases. Findings outside markdown tables, the prose step log of phase 11, and per-agent first-pass attribution at phase granularity are limits of the rules.
@@ -175,8 +193,8 @@ There are four separate results plus one record check, never merged:
 1. **Clean-checkout build and tests of the current commit** (E2): `scripts/check.sh` in a fresh local clone. The orchestrator records the tested SHA. If a later commit changes a `check.sh` input, E2 is repeated at the final HEAD (decision 17).
 2. **Historical regeneration** (E10, suite :193-207): the five derive scripts in a fresh clone at 08bbb9d629ef2f11eea98bdfbc699179c2f1f107, compared file by file by sha256 with the committed outputs. Every expected file must be regenerated and byte-equal, with no intended-differences list. An empty or missing regenerated folder is a failure.
 3. **Current-version regeneration** (E10, suite :230-246): the current derive scripts in this working tree. Each difference is marked intended if it is on `intended-differences-v1.csv` (8 files changed by AB-4, J-03 and L-08: 8 data lines plus a header in that file), else unexplained.
-4. **Bounded pipeline** (E5): a fresh local Hadoop pipeline run, as Phase 15 clip 19c ran it, plus the Spark fixture suites. Phase 14's and Phase 15's committed AWS runs are cited as historical evidence only.
-5. **Deployment from approved plans** (E10, suite :209-228): per release record, its plan checksum against the signed `APPROVED-PLAN-SHA256:` lines, and what the record itself says about the deploy run. This is worded as record consistency; `deployment not independently verified` applies wherever the record lacks execution evidence.
+4. **Bounded pipeline** (E5): a fresh local Hadoop pipeline run, with the runner Phase 15 clip 19c used, plus the Spark fixture suites. Phase 14's and Phase 15's committed AWS runs are cited as historical evidence only.
+5. **Deployment from approved plans** (E10, suite :209-228): per release record, its plan checksum against the signed `APPROVED-PLAN-SHA256:` lines, and what the record itself says about the deploy run. This is worded as record consistency; `deployment not independently verified` applies because the records are written by the deploy script itself (suite :227).
 
 Kind (a) throughout. Variability: exact match or listed differences. No new cloud deployment is possible.
 
@@ -184,10 +202,11 @@ Kind (a) throughout. Variability: exact match or listed differences. No new clou
 
 | Method | Where | Parameters (source) |
 |---|---|---|
-| Wilson score 95 % | group 1 unweighted rows (as printed); group 4 answer-level rates | z = 1.959964 (`evaluate.py:198`, `wilson`) |
+| Wilson score 95 % | group 1 unweighted rows (as printed in Phase 5); group 4 answer-level rates over independent answers only: attempt-06's three abstention rows and the demo answers' abstention row (each answer answers a distinct question; a denominator of 1 gets none). The two group 4 sets are EXPLORATORY: the answers are not a random sample, so the interval only illustrates variability and is not a confidence interval for the system | z = 1.959964 (`evaluate.py:201`, `wilson`) |
 | Stratified percentile bootstrap (Phase 5, as printed) | group 1 weighted estimate | seed 20261114, 1,000 resamples (`agent-report-er-eval.md:40`; suite :82) |
-| Percentile bootstrap over questions, paired across modes | group 3 | seed 20261122, 2,000 resamples, nearest-rank 2.5 % / 97.5 % (suite :118-119, :127) |
-| Percentile bootstrap over answers, ratio of sums | group 4 claim rates, only where per-answer counts exist | seed 20261122, 2,000 resamples (suite :158-159, :170) |
+| Percentile bootstrap over questions, paired across modes | group 3 (EXPLORATORY: the questions are not a random sample, so the interval only illustrates variability and is not a confidence interval for the system) | seed 20261122, 2,000 resamples, nearest-rank 2.5 % / 97.5 % (suite :118-119, :127) |
+| Percentile bootstrap over answers, ratio of sums | group 4 claim rates, only where per-answer counts exist and at least 2 independent answers have claims in the set (in practice the demo answers only; EXPLORATORY: the answers are not a random sample, so the interval only illustrates variability and is not a confidence interval for the system) | seed 20261122, 2,000 resamples (suite :158-159, :170) |
+| Descriptive (k, n, proportion), no interval | group 4: D-query explain rows, clip 01 after collapsing, sets with 1 answer with claims; group 4 ratings and dblp.org column (no tool) | suite :170; section 4.4 |
 | Percentiles with sample counts | group 5 | "few samples" below 20 (suite :146) |
 | Counts and descriptive proportions, no interval | groups 2, 6 and 7 | non-random samples, full populations or single observations (suite :107, :189, :205) |
 
@@ -196,45 +215,60 @@ No repeated live runs are feasible (there is no AWS environment after Nov 21), s
 ## 6. Independence (spec gate 1)
 
 - No evaluation value is produced by the prompt or model that produced an answer. No LLM judge is used.
-- Independent evidence (b) is only: the human's gold labels, made before the matcher saw them (decision 3); the optional dblp.org existence check (E11).
-- The human's ratings (c) are made blind to verification statuses: the sheet hides them, and the rubric tells the rater not to look (suite :266; `rubric-v1.md:8`).
+- Independent evidence (b) is only: the human's gold labels, made before the matcher saw them (decision 3); the dblp.org existence column the human filled at E11.
+- The human's ratings (c) were made on a sheet that holds no verification status field, and the rubric tells the rater not to look at statuses (suite :266; `rubric-v1.md:8`). Limit: the answer texts are the user-facing texts, and they carry the system's own wording. One rated answer (R05) prints a removed claim as "claim-1: conflicting: …" (runbook-log :46; [`sheet.csv`](../experiments/evaluation/raw/ratings/20261122T173416Z-7e551c8003c3-c89f/sheet.csv):76). The same text marks claim-2 and claim-6 "Partially supported: a number is bound to a field the cited item does not have." (sheet.csv:68, :72). These three are the only non-verified statuses in the rated set: per-answer.csv gives R05's file `p15-demo-n.json` 2 partially supported and 1 conflicting claim (row 43), and the other five rated answers have every claim verified (section 10.4). So **every non-verified status in the rated set was visible in the answer texts**. The rubric tells the rater to ignore such words (`rubric-v1.md:8`). The rater was blind to the sheet's status fields (there are none), not to the texts. This limit is an input to spec gate 1 (E15), and it qualifies the 10.4 join of ratings with verifier statuses.
 - The verifier and the answer key are code. They are reported as internal consistency (a), never as accuracy.
-- code-reviewer reviews the final version of this document against the frozen outputs (E13).
+- code-reviewer reviews this document against the frozen outputs (E13).
 
 ## 7. Threats to validity
 
-Each threat names the evaluations it affects. None is resolved by this draft.
+Each threat names the evaluations it affects.
 
 - **T1. Benchmark labels from the pipeline's own rankings.** benchmark-v1's relevance labels were generated from the Phase 7 graph's own rankings, so graph-only retrieval agrees with them partly by construction (groups 3, 4; suite :128).
-- **T2. Labels from a different graph run.** The labels come from the Phase 7 graph run, while Phase 15 ran against the deployed Phase 14 graph (3r R2). A labelled researcher or path may be absent from the deployed graph. This data drift is also the likely underlying cause named in the G-28 statement (S/agent-report-rag.md, G-28 final statement). Groups 3, 4.
+- **T2. Labels from a different graph run.** The labels come from the Phase 7 graph run, while Phase 15 ran against the deployed Phase 14 graph (3r R2). A labelled researcher or path may be absent from the deployed graph. This data drift is also the likely underlying cause named in the G-28 statement ([agent-report-rag.md](agent-runs/phase-16/agent-report-rag.md), G-28 root cause section). Groups 3, 4.
 - **T3. Small retrieval universe.** Experiment E's comparable universe is 11 questions, below 15. Every retrieval table is exploratory and is never read as generalization (group 3).
-- **T4. Answer accuracy not independently measurable.** Verifier statuses and answer-key agreement are internal consistency. Only the optional dblp.org existence check is independent, and it checks existence, not correctness (group 4).
-- **T5. One human rater.** There is no inter-rater agreement (planned deviation 6). The ratings are the judgment of one person, and n is small; it is reported (group 4).
+- **T4. Answer accuracy not independently measurable.** Verifier statuses and answer-key agreement are internal consistency. Only the dblp.org existence column is independent, and it checks existence, not correctness (group 4).
+- **T5. One human rater.** There is no inter-rater agreement (planned deviation 6). The ratings are the judgment of one person on 6 answers (group 4).
 - **T6. er-v1 gold labels against er-v2.** The gold metrics are Phase 5's labels on er-v1 decisions. The deployed code applies er-v2, and er-v2 accuracy cannot be measured from the frozen evidence (planned deviation 5; group 1).
-- **T7. No live system after Nov 21.** Phase 15 removed the AWS environment. Every Phase 16 code fix (FECD-1, L1, L2, M3, M4, N-1 and others) is `fixed in code, tested offline, not validated live`. Measured Phase 15 values describe the code of build 684636ef, not the Phase 16 code (planned deviations 2, 3; all groups).
-- **T8. FECD-1.** Under 5 or more concurrent clients, the Phase 15 graph neighbors route returned 502 and then 503 `CIRCUIT_OPEN`. The Phase 16 diagnosis attributes the Neptune errors most plausibly to the instance's concurrent-query limit. It attributes the rejections to the shared circuit breaker, and the lack of recovery to the missing graph-read retry and the dropped error class. The Neptune-side cause is not decidable from the frozen evidence (S/agent-report-storage-D.md, section 2 summary). The load shape (a synchronized burst after 60 s idle at each level) means steady-state Neptune behavior under concurrency was never measured (same report, f3). Group 5 D-read results describe the old code. The fixes are not validated live (T7).
-- **T9. FECD-3: explains show the latest execution only.** Explain is keyed by a deterministic query ID per question, so per-stage latencies and explain rows show only the latest execution of a question (`agent-report-experiment-FECD.md:477`). This affects D-query rows in groups 4 and 5.
+- **T7. No live system after Nov 21.** Phase 15 removed the AWS environment. Every Phase 16 code fix (FECD-1, L1, L2, M3, M4, N-1, P16-L-16 and others) is `fixed in code, tested offline, not validated live`. Measured Phase 15 values describe the code of build 684636ef, not the Phase 16 code (planned deviations 2, 3; all groups).
+- **T8. FECD-1.** Under 5 or more concurrent clients, the Phase 15 graph neighbors route returned 502 and then 503 `CIRCUIT_OPEN` (section 10.5). The Phase 16 step D diagnosis reads the facts this way ([agent-report-storage-D.md](agent-runs/phase-16/agent-report-storage-D.md), section 2, rows (a), (b), (d), (f1), (f2), (f3) and summary :87-90):
+  - The 28 Neptune server errors are attributed most plausibly to the instance's concurrent-query limit (d). That cause is not decidable from the frozen evidence.
+  - The shared circuit breaker turned them into 526 rejections that never reached Neptune (b), a code fact.
+  - Storage did not retry graph reads (a), a code fact. **No retry was attempted. Whether a retry would have recovered is not decidable.**
+  - The load shape (a synchronized burst after 60 s idle at each level) means steady-state Neptune behavior under concurrency was never measured (same report, row f3).
+  - The storage port drops the error class (row f1, a code fact; [agent-report-storage-D.md](agent-runs/phase-16/agent-report-storage-D.md):82). No layer can tell a transient Neptune error from a permanent one, and FECD-1's server errors have no recorded error class.
+  - rag's researcher resolver silently swallows graph failures (row f2, a code fact; agent-report-storage-D.md:83). Step D reads about 14 Neptune server errors during D-query, with no abstained answer and no other-5xx answer; failures inside the resolver degrade to identity outcome "unknown" with no top coauthors. Which calls failed is not recorded. **This is a threat to the D-query reading "abstention 0 of 40 rows" in section 10.4:** some of those answers may have been degraded silently instead of abstaining, and the frozen evidence cannot say which.
+
+  Group 5 D-read results describe the old code. The Phase 16 fixes (bounded graph-read retry, breaker changes) are fixed in code, tested offline, not validated live (T7).
+- **T9. FECD-3: explains show the latest execution only.** Explain is keyed by a deterministic query ID per question, so per-stage latencies and explain rows show only the latest execution of a question (`agent-report-experiment-FECD.md:477`). This affects D-query rows in groups 4 and 5: per-answer.csv of the E8 run shows the same query ID on several rows of one question.
 - **T10. Non-random DynamoDB samples.** The 25-item samples and clip 01's 4 RunLedger items were copied by hand, and the selection method is not recorded. Provenance shares are descriptive, per table, with no confidence interval (groups 2, 4).
-- **T11. Phase 15 limitations** (`experiments/results-summary.md` section 7, carried as listed there):
+- **T11. Phase 15 limitations.** These are the items of `experiments/results-summary.md` section 7, "Limitations the runs showed" (:435-452), all carried here (P16-C-03 repaired: the F, FECD-4 and FECD-5 items are now listed):
   - A: no requested EMR series by design (maximum = minimum sends no managed-scaling policy); sparse CoreNodes points, cause not determined.
   - B: confounded and n = 1 (partitions and maximum changed together; one run each; clusters overlapped). B is observational, and compared only with A-Spark.
-  - A's Spark half and B read Phase 14's export and ER output at a different build; A's two halves are not one chained run.
+  - A's Spark half and B read Phase 14's export and ER output at a different build; A's two halves are not one chained run (section 7 deviation 3).
   - Hadoop shuffle counters and reduce task counts are not logged; map tasks are planned splits.
   - Collector field misreadings AB-1 to AB-4 (raw unchanged).
   - Step-end to Step Functions lag (AB-5, cause not determined).
-  - D: several series have no datapoints (not measured zeros); Neptune latency not separable; vector-query latency has 7 samples.
+  - D: several series have no datapoints (not measured zeros); Neptune latency not separable; vector-query latency has 7 samples; FECD-3; FECD-8.
+  - D-read graph route: 502 then 503 `CIRCUIT_OPEN` from 5 clients on (FECD-1; T8).
+  - C: drain measured under concurrent enqueue (FECD-6; T12); the scale-in activity's end status is missing (FECD-5); worker counters not exported (FECD-9; T14).
+  - **F: user-visible impact not measured; API event epochs appear to be end times (FECD-7); overlapping duplicates are a unit-test matter and concurrent duplicates are not observable.**
+  - **D-read attempt 2: started by accident without the key; its run record has exit 5 with signal INT at `metrics-settle`, against the exit table's signal row, and its folder was not made read-only (FECD-4; `agent-report-experiment-FECD.md:478`).**
   - Task counts from 15 s samples (Container Insights off).
   - Clock resolution of 1 s, and CloudWatch 60 s periods.
+  - E: universe 11 questions, exploratory; researcher IDs only (T3).
   - C's re-embed rate covers the re-embed path only.
   - No Neptune CPU alarm.
-  - Per-experiment costs are estimates from unverified rates.
+  - Fixtures under `experiments/derived/fixtures/**` are hand-written test data, never results.
+  - Per-experiment costs are estimates from unverified rates; billing cannot split Phase 14 lag from Phase 15 usage.
 - **T12. FECD-6: C's drain time under concurrent enqueue.** Experiment C measured drain while messages were still being sent, so the drain time is bounded by the send duration. It is not a pre-filled-backlog drain (`agent-report-experiment-FECD.md:480`). Group 5.
-- **T13. FECD-8: Neptune metric alignment.** The Neptune per-minute series differ from the tool's minutes by up to one period, so Neptune values are attributed to load levels with that caveat (`agent-report-experiment-FECD.md:482`). The Phase 16 diagnosis refines this: the lag is tens of seconds and not constant, and Neptune documents 5-minute aggregation for some metrics (S/agent-report-storage-D.md M3, M6). Group 5.
+- **T13. FECD-8: Neptune metric alignment.** The Neptune per-minute series differ from the tool's minutes by up to one period, so Neptune values are attributed to load levels with that caveat (`agent-report-experiment-FECD.md:482`). The Phase 16 diagnosis refines this: the lag is tens of seconds and not constant, and Neptune documents 5-minute aggregation for some metrics ([agent-report-storage-D.md](agent-runs/phase-16/agent-report-storage-D.md) M3, M6). Group 5.
 - **T14. FECD-9: worker counters not exported.** The worker's in-process counters (U-11) are not exported. Exactness of the C re-embed run rests on log lines, SQS counts and DynamoDB counts agreeing, not on a counter (`agent-report-experiment-FECD.md:483`). Group 5.
 - **T15. Answer key and verifier share the pipeline's data.** The attempt-06 answer key is generated from the same Phase 7 graph the answers were built from. Agreement with it shows consistency with that graph, not with the world (group 4).
-- **T16. Code-version mix in group 4.** attempt-06 is rag-runtime/2 with Phase 10 prompts on the Phase 7 export with fake embeddings. D-query and clip 01 are Phase 15 code on the Phase 14 graph. Rates are never pooled across sources. Some labels (D-query prompt set, clip 01 code version) are not recorded in the frozen files and are reported `not available` (suite :171).
+- **T16. Code-version mix in group 4.** attempt-06 is rag-runtime/2 with Phase 10 prompts on the Phase 7 export with fake embeddings. D-query, clip 01 and the demo answers are Phase 15 code on the Phase 14 graph. Rates are never pooled across sources. Some labels are not recorded in the frozen files and are reported `not available`: the D-query prompt set, clip 01's code version, and the demo answers' code version (sources.csv of the E8 run; suite :171).
 - **T17. Factory records were not designed for measurement.** Report formats changed across phases; the extractor's rules have known limits, and the 20-event audit checks classification, not completeness (group 6).
-- **T18. Hand-copied inputs.** The group 2 suite table is spark-engineer's classification, copied verbatim. Whether an expected value was "worked out by hand" rests on the suite's own statement plus spark-engineer's spot checks (S/agent-report-spark.md assumptions). Groups 1 and 4 read values printed in committed reports, not recomputed from lost run folders.
+- **T18. Hand-copied inputs.** The group 2 suite table is spark-engineer's classification, copied verbatim and not re-verified by the tool (suite-coverage.csv `kind` column). Whether an expected value was "worked out by hand" rests on the suite's own statement plus spark-engineer's spot checks ([agent-report-spark.md](agent-runs/phase-16/agent-report-spark.md) assumptions). Group 1 reads values printed in a committed report, not recomputed from lost run folders.
+- **T19. Demo answers are a hand-saved set.** The six demo answers were saved by the human for the Phase 15 demo (PROVENANCE.txt), not drawn at random. One of them (R04, `p15-demo-q.json`) carries the same query ID as clip 01's audit, and three (q02, q11, q17) carry the same query IDs as D-query explain rows (per-answer.csv of the E8 run). The sources are kept apart and never pooled. Group 4.
 
 ## 8. Missing data
 
@@ -242,135 +276,575 @@ Each item is reported as `not measurable from the frozen evidence (REASON)` or `
 
 | Item | Group | Reason |
 |---|---|---|
-| er-v2 accuracy on the gold pairs | 1 | er-v1 decision set, Phase 5 review queue and key are gone; no decision comparison is possible |
+| er-v2 accuracy on the gold pairs | 1 | er-v1 decision set, Phase 5 review queue and key are gone; no decision comparison is possible (notes.csv of the E4 run) |
 | Numerators and denominators for rows other than all-rows | 1 | the committed Phase 5 table prints percentages only |
 | M3 and M4 wording in the group 1 table | 1 | fixed in code, but the Phase 5 summary cannot be re-rendered (inputs gone) |
-| Full-graph referential integrity, duplicate, orphan and edge-support rates | 2 | no graph export exists; only the invariant counts of `spark-outputs.csv` |
-| Per-check integrity counts | 2 | the CSV carries only the total; `_run_report.json` is not in the frozen data |
+| Full-graph referential integrity, duplicate, orphan and edge-support rates | 2 | no graph export exists; only the invariant counts of `spark-outputs.csv` (not-measurable.csv of the E5 graph run) |
+| Per-check integrity counts | 2 | the CSV carries only the total |
 | Confidence intervals on DynamoDB provenance shares | 2 | samples not drawn at random |
 | Precision@K | 3 | retrieved IDs outside the labels are unjudged |
 | nDCG | 3 | no graded relevance labels |
 | OpenSearch comparison | 3 | not implemented |
-| Per-claim statuses, claim texts, numbers and identifiers | 4 | attempt-06 is aggregated; D-query has no claim columns; clip 01 has counts only |
+| Per-claim statuses, claim texts, numbers and identifiers for attempt-06, D-query and clip 01 | 4 | attempt-06 is aggregated; D-query has no claim columns; clip 01 has counts only |
 | Answer-key agreement per claim | 4 | attempt-06 holds no per-claim values |
-| Claim-type breakdown | 4 | no source stores a claim or evidence type per claim, except the cited evidence types in the E7 demo answers if copied; `identifier` is never measurable |
-| Abstention codes for attempt-06 and D-query | 4 | codes began in Phase 15 (attempt-06 is rag-runtime/2); the D-query CSV has no code column |
+| Claim-type breakdown, except through cited evidence types in the demo answers | 4 | no source stores a claim or evidence type per claim; `identifier` is never measurable |
+| Abstention codes for attempt-06, D-query and the demo answers | 4 | attempt-06 has none (rag-runtime/2); the D-query CSV has no code column; the demo answer view holds a reason text, not codes |
+| Abstention recall and false-abstention rate for clip 01 and the demo answers | 4 | neither holds a benchmark question ID |
 | Verification counts for D-query explains | 4 | no column in the CSV |
-| Human ratings, if E7 does not copy the demo answers | 4 | no other source holds answer texts |
-| Independent factual accuracy of answers | 4 | not independently measurable beyond the optional dblp.org existence check |
+| A summary of the ratings by a tool; an interval on the ratings or the dblp.org column | 4 | no tool reads the completed sheet (P16-C-04); one rater, n = 6 |
+| Independent factual accuracy of answers | 4 | not independently measurable beyond the dblp.org existence column |
 | The attempt-07 live benchmark | 4 | not run: its inputs (the Phase 7 export) are gone |
 | Any new performance run; Neptune steady-state behavior under concurrency | 5 | no AWS environment; Phase 15 load shape (T8) |
+| D-read attempt 2 requests and metrics | 5 | `load-requests.csv`, `metrics/metric-data.json` and `metrics/queries.json` absent (missing.csv of the E6 performance run) |
+| A named "recovery time" metric | 5 | no Phase 15 derived table has such a column; section 10.5 gives the measured times that exist |
 | Hadoop shuffle and reduce counters; scale-in end status of C (FECD-5) | 5 | not logged or not collected in Phase 15 |
-| BLOCKED-ON incidence for phases without a summary step table or runbook log | 6 | never inferred from prose |
+| BLOCKED-ON incidence for phases without a summary step table or runbook log | 6 | never inferred from prose (phase-00 to phase-10, amendment-01, amendment-02; counts-by-phase.csv) |
 | Any new cloud deployment | 7 | no environment; deployment is assessed from historical release records only |
 
 ## 9. Negative results named in advance
 
-These results stay in this document and in the submission whatever their size (spec gate "Negative results remain in the submission"; decision 23). They are named here before the freeze so that none can be dropped later:
-- Experiment E's vector-only retrieval result and any mode with low recall or MRR (group 3).
-- Experiment D's overload behavior and FECD-1 (graph route 502 and 503 under concurrency) (group 5).
-- Failed attempts: A-Hadoop attempt 1, D-read attempt 2, and the D9a preflight failure (results-summary section 1). Also any failed or repaired run in session 3, which counts by its last attempt with every earlier attempt listed.
-- Any group 1 metric the Phase 5 report flags as unreliable, with its zero-event bound.
-- Any invariant count, provenance share or Spark suite test that fails or is not covered by hand-worked expectations (group 2).
-- Any verifier status other than verified (partially supported, unsupported, conflicting), missed or false abstentions, and planted errors the verifier did not catch (group 4).
-- Low human ratings and "not rateable" answers (group 4).
-- Factory events: reviewer findings, repairs, BLOCKED-ON events, hook blocks, ownership violations, human rewrites, and unclassified rows (group 6).
-- Any failed clean-checkout gate (pre-existing failures included), unexplained regeneration differences, release records without a matching signed plan, and `deployment not independently verified` (group 7).
+These results stay in this document and in the submission whatever their size (spec gate "Negative results remain in the submission"; decision 23). They were named here before the freeze, and section 10 reports each one:
+- Experiment E's vector-only retrieval result and any mode with low recall or MRR (group 3; section 10.3).
+- Experiment D's overload behavior and FECD-1 (graph route 502 and 503 under concurrency) (group 5; section 10.5).
+- Failed attempts: A-Hadoop attempt 1, D-read attempt 2, and the D9a preflight failure (results-summary section 1; section 10.5). Session 3's failed or superseded runs: E2 attempt 1 (P16-L-16; section 10.7) and the superseded first attempt of E4/E6/E9 (section 10.9).
+- Any group 1 metric the Phase 5 report flags as unreliable, with its zero-event bound (section 10.1).
+- Any invariant count, provenance share or Spark suite test that fails or is not covered by hand-worked expectations (group 2; section 10.2).
+- Any verifier status other than verified (partially supported, unsupported, conflicting), missed or false abstentions, and planted errors the verifier did not catch (group 4; section 10.4).
+- Low human ratings and "not rateable" answers (group 4; section 10.4).
+- Factory events: reviewer findings, repairs, BLOCKED-ON events, hook blocks, ownership violations, human rewrites, and unclassified rows (group 6; section 10.6).
+- Any failed clean-checkout gate (pre-existing failures included), unexplained regeneration differences, release records without a matching signed plan, and `deployment not independently verified` (group 7; section 10.7).
 - Every `not measurable` and `not available` item of section 8.
-- Emulator `not-implemented` operations and `not demonstrated` demonstrations (see [`emulator.md`](emulator.md); not part of the seven groups).
+- Open findings against the Phase 16 code (section 10.9).
+- Emulator `not-implemented` operations and `not demonstrated` demonstrations (see [`emulator.md`](emulator.md); not part of the seven groups, completed at E14).
 
 ## 10. Results
 
-`RESULTS PENDING FREEZE (E12)` applies to every subsection below. Nothing is written here until the freeze commit exists. Then each subsection is filled from the frozen files only, each number with its file, tool and kind.
+Every value below comes from a file frozen at E12 (commit ecc13052b09e0b0396f47894e8858c6029632886) or committed earlier. File paths are relative to the repository root. "RAW" stands for `experiments/evaluation/raw/`.
 
 ### 10.1 Group 1: entity resolution
 
-RESULTS PENDING FREEZE (E12).
+Execution: done, exit 0. Run `RAW/er/20261122T170516Z-7e551c8003c3-91dd/`. Pins matched; reduced plan; 13 table rows (runbook-log :35). No superseded attempt exists for E4: the first grouped attempt wrote no er folder (runbook-log :34).
+
+Source of every value: the committed Phase 5 report, policy er-v1, ER run `run:v1:9f96c70b5115294dcc9d3b2d1d4438b9`, code version `phase05-1279c37-02-dirty` ([`notes.csv`](../experiments/evaluation/raw/er/20261122T170516Z-7e551c8003c3-91dd/notes.csv)). Kind (b): the human's gold labels on er-v1 decisions. The recomputation and count checks are kind (a).
 
 #### Measured facts
 
-RESULTS PENDING FREEZE (E12).
+**Unweighted confusion matrix** (300 labelled pairs; [`confusion.csv`](../experiments/evaluation/raw/er/20261122T170516Z-7e551c8003c3-91dd/confusion.csv); kind b):
+
+| Decision | MATCH | NON_MATCH | UNSURE |
+|---|---|---|---|
+| accepted | 93 | 1 | 4 |
+| rejected | 1 | 49 | 2 |
+| unresolved | 12 | 59 | 38 |
+| conflict | 6 | 26 | 9 |
+
+The weighted matrix is in the same file (accepted/MATCH 11155611.5, accepted/NON_MATCH 20.0, rejected/MATCH 1514.0; all values as printed in Phase 5).
+
+**All rows, unweighted, recomputed** ([`recomputed.csv`](../experiments/evaluation/raw/er/20261122T170516Z-7e551c8003c3-91dd/recomputed.csv); kind b for the value, kind a for the equality check):
+
+| Metric | Numerator / denominator | Recomputed | Printed (%) | Equal at report precision | Inclusion rule (from the file) |
+|---|---|---|---|---|---|
+| precision | 93 / 94 | 0.989362 | 98.9 | yes | accepted pairs labelled MATCH or NON_MATCH; positive = accepted and MATCH |
+| recall | 93 / 112 | 0.830357 | 83.0 | yes | pairs labelled MATCH |
+| F1 | 186 / 206 | 0.902913 | 90.3 | yes | 2 TP / (2 TP + FP + FN), FN = MATCH pairs not accepted |
+| coverage | 144 / 247 | 0.582996 | 58.3 | yes | pairs labelled MATCH or NON_MATCH; covered = accepted or rejected |
+| unresolved rate | 109 / 300 | 0.363333 | 36.3 | yes | all labelled pairs, UNSURE included |
+
+**Researcher-resolution table as printed** ([`table.csv`](../experiments/evaluation/raw/er/20261122T170516Z-7e551c8003c3-91dd/table.csv); percentages; interval Wilson score 95 % unless marked; kind b; counts are not printed except the units):
+
+| Set | Units | Precision [95 %] | Recall [95 %] | F1 | Coverage | Unresolved |
+|---|---|---|---|---|---|---|
+| All rows (unweighted) | 300 | 98.9 [94.2, 99.8] | 83.0 [75.0, 88.9] | 90.3 | 58.3 | 36.3 |
+| Weighted estimate (bootstrap) | 300 | 100.0 [100.0, 100.0] **unreliable** | 95.3 [91.6, 98.4] **unreliable** | 97.6 | 92.5 | 4.3 |
+| path deterministic | 106 | 100.0 [95.1, 100.0] | 94.9 [87.7, 98.0] | 97.4 | 91.9 | 0.0 |
+| path exact_id | 34 | 100.0 [80.6, 100.0] | 80.0 [58.4, 91.9] | 88.9 | 48.5 | 8.8 |
+| path llm | 7 | n/a | n/a | n/a | 0.0 | 100.0 |
+| path probabilistic | 153 | 66.7 [20.8, 93.9] | 15.4 [4.3, 42.2] | 25.0 | 33.9 | 64.7 |
+| family dblp-base-name | 122 | 100.0 [88.3, 100.0] | 90.6 [75.8, 96.8] | 95.1 | 45.6 | 53.3 |
+| family dblp-base-name.coauthor | 10 | 100.0 [43.9, 100.0] | 100.0 [43.9, 100.0] | 100.0 | 66.7 | 20.0 |
+| family dblp-prior.numbered-name | 30 | 100.0 [85.1, 100.0] | 84.6 [66.5, 93.8] | 91.7 | 84.6 | 0.0 |
+| family initials-surname | 87 | 100.0 [86.7, 100.0] | 69.4 [53.1, 82.0] | 82.0 | 69.3 | 26.4 |
+| family initials-surname.coauthor | 51 | 93.3 [70.2, 98.8] | 93.3 [70.2, 98.8] | 93.3 | 50.0 | 37.3 |
+| evidence: dblp_numbered_name only | 4 | 100.0 [20.7, 100.0] | 50.0 [9.5, 90.5] | 66.7 | 75.0 | 0.0 |
+| evidence: independent | 243 | 98.9 [94.2, 99.8] | 83.6 [75.6, 89.4] | 90.6 | 58.0 | 29.2 |
+
+The weighted row's interval is the stratified percentile bootstrap 95 % as printed (seed 20261114, 1,000 resamples).
+
+**Weighted bootstrap and zero-event bounds, as printed, not recomputed** ([`weighted-intervals.csv`](../experiments/evaluation/raw/er/20261122T170516Z-7e551c8003c3-91dd/weighted-intervals.csv); kind b):
+
+| Metric | Bootstrap 95 % (%) | Flag | Zero-event bound (%) |
+|---|---|---|---|
+| precision | 100.0 to 100.0 | unreliable | 82.9 to 100.0 |
+| recall | 91.6 to 98.4 | unreliable | 84.9 to 95.3 |
+| F1 | 95.6 to 99.2 | unreliable | 83.9 to 97.6 |
+| coverage | 90.1 to 94.5 | (none) | 91.8 to 93.4 |
+| unresolved rate | 4.3 to 4.3 | design-determined | 4.3 to 5.9 |
+
+The flag text is Phase 5's wording. M3 and M4 are fixed in code in Phase 16 but not re-rendered (notes.csv).
+
+**Checks** ([`checks.csv`](../experiments/evaluation/raw/er/20261122T170516Z-7e551c8003c3-91dd/checks.csv); kind a): 11 of 11 checks equal. The gold file holds 300 rows: 112 MATCH, 135 NON_MATCH, 53 UNSURE, and 0 other labels. These counts equal the confusion-matrix column sums and the report's counts. The gold file's sha256 equals the report's gold input sha256 (fc39c15fba1ab7b8cb2ed8337a439683dce4e457ed52d08b294cfb2feba71fa9).
+
+**Not measurable:** er-v2 accuracy on the gold pairs. The reason is in notes.csv: no gold-pair decision comparison input exists, and the tool version has no `--compare-decisions`.
 
 #### Interpretation
 
-RESULTS PENDING FREEZE (E12).
+- On the 300 human-labelled pairs, er-v1 rarely accepted a wrong match: 1 accepted NON_MATCH. It left many pairs unresolved or in conflict. Precision is high and coverage moderate.
+- The probabilistic path carries most of the weakness: its recall interval is wide and low, and most of its pairs stay unresolved. The llm path resolved none of its 7 pairs.
+- The weighted estimate looks better than the unweighted rows. Phase 5 flags three of its metrics as unreliable (precision, recall and F1), and for those three the zero-event bounds are much wider than the bootstrap intervals. This does not hold for coverage: its zero-event bound (91.8 to 93.4) lies inside its bootstrap interval (90.1 to 94.5). The weighted figures should therefore not be read as precise.
+- These are statements about er-v1 decisions. Nothing here measures er-v2, which the deployed code applies (T6).
 
 ### 10.2 Group 2: graph correctness
 
-RESULTS PENDING FREEZE (E12).
+Execution:
+- Spark suites: done, exit 0, in the main checkout at HEAD 7e551c8 ([`RAW/graph/e5-sbt-20261122T1715Z-7e551c8/spark-suites.log`](../experiments/evaluation/raw/graph/e5-sbt-20261122T1715Z-7e551c8/spark-suites.log); runbook-log :39).
+- `evaluate.py graph`: done, exit 0, run `RAW/graph/20261122T172641Z-7e551c8003c3-a0dc/`. Code and all 7 pinned inputs matched (runbook-log :40).
 
 #### Measured facts
 
-RESULTS PENDING FREEZE (E12).
+**Spark suites (E5 sbt run; kind b for the hand-worked tests, per spark-engineer's classification):** the log's summary line (spark-suites.log:77) reads "Passed: Total 43, Failed 0, Errors 0, Passed 43". KnownGraphSuite ran 15 tests with 0 failed (:40). PipelineFixtureSuite ran 28 tests with 0 failed (:76). The total equals the suite table's 43 tests ([`test-log.csv`](../experiments/evaluation/raw/graph/20261122T172641Z-7e551c8003c3-a0dc/test-log.csv)).
+
+**How the expected values were obtained** ([`suite-summary.csv`](../experiments/evaluation/raw/graph/20261122T172641Z-7e551c8003c3-a0dc/suite-summary.csv); classification by spark-engineer, not re-verified by the tool):
+
+| Suite | Tests | Worked out by hand (independent) | Mixed | Property of the code's own output |
+|---|---|---|---|---|
+| KnownGraphSuite | 15 | 15 | 0 | 0 |
+| PipelineFixtureSuite | 28 | 22 | 4 | 2 |
+| all | 43 | 37 | 4 | 2 |
+
+**Coverage per group 2 check** ([`suite-coverage.csv`](../experiments/evaluation/raw/graph/20261122T172641Z-7e551c8003c3-a0dc/suite-coverage.csv); a test can assert several checks):
+
+| Check | Tests | Independent | Mixed | Property | Covered by a hand-worked test |
+|---|---|---|---|---|---|
+| degree | 12 | 12 | 0 | 0 | yes |
+| weighted degree | 11 | 11 | 0 | 0 | yes |
+| components | 8 | 8 | 0 | 0 | yes |
+| paths | 3 | 2 | 1 | 0 | yes |
+| communities | 3 | 3 | 0 | 0 | yes |
+| bridges | 2 | 2 | 0 | 0 | yes |
+| k-core | 6 | 6 | 0 | 0 | yes |
+| integrity | 11 | 9 | 2 | 0 | yes |
+| duplicates | 4 | 4 | 0 | 0 | yes |
+| orphans | 4 | 4 | 0 | 0 | yes |
+| (no group 2 check) | 11 | 8 | 1 | 2 | not a group 2 check |
+
+**Invariant counts of the Phase 15 Spark run** ([`invariants.csv`](../experiments/evaluation/raw/graph/20261122T172641Z-7e551c8003c3-a0dc/invariants.csv); graph run `run:v1:0f02b5f22d1187932df0fc1decd7e6a5`; kind a):
+- The two `spark-outputs.csv` files have the same sha256 (ad70f64017cd4a071d1ab1a8dd8b7b121149e342059e8e1a856da3a695dedc6d), 65 data rows each: one observation, not two ([`spark-files.csv`](../experiments/evaluation/raw/graph/20261122T172641Z-7e551c8003c3-a0dc/spark-files.csv)).
+- 44 checks in the file. Four zero checks are all 0: `invalid_records` total over 65 tables, `integrity_violations` records, `rejects` records, `unresolved_mention` records. The file notes that `integrity_violations` is the sum of the referential, orphan, duplicate-assignment and consistency checks, with no per-check counts.
+- 39 equal-count checks are all equal, among them:
+  - researcher nodes 200484 = canonical researchers 200484;
+  - work nodes 155978 = published_in edges 155978;
+  - coauthor edges = graph edges in every window: 1612421 (full 2015-2025), 104067 (2015-2017), 248445 (2018-2020), 569486 (2021-2023), 826665 (2024-2025);
+  - one metric row per active researcher in each of six metric tables per window: 200484 (full), 33768, 58729, 94166, 116301;
+  - path evidence 64 = path summaries 64.
+- 1 difference that is not an invariant: authorship rows 758328, authored edges 758314, difference 14. The file explains that a researcher with two mentions on one work gives one edge but two authorship rows. The tool did not check this further.
+
+Counts of the check results (4 zero, 39 equal, 1 difference): computed by hand from invariants.csv with `grep -c`.
+
+**Provenance fields in the DynamoDB samples** ([`provenance.csv`](../experiments/evaluation/raw/graph/20261122T172641Z-7e551c8003c3-a0dc/provenance.csv); items carrying the field ÷ sampled items; presence only, values not validated; samples not drawn at random, so no interval; kind a):
+
+| Field | ResearcherMetricCache (25) | EvidenceBundle (25) | EntityLinkCache (25) | RunLedger, clip 01 (4) |
+|---|---|---|---|---|
+| run ID | 25/25 | 25/25 | 25/25 | 4/4 |
+| snapshot | 25/25 | 25/25 | 0/25 | 2/4 |
+| dataset | 0/25 | 25/25 | 0/25 | 2/4 |
+| source record IDs | 0/25 | 25/25 | 0/25 | 2/4 |
+| policy version | 25/25 | 25/25 | 25/25 | 2/4 |
+| schema version | 0/25 | 25/25 | 0/25 | 2/4 |
+| item hash | 25/25 | 25/25 | 25/25 | 4/4 |
+| content hash | 0/25 | 19/25 (0.76) | 0/25 | 0/4 |
+
+No record in any sample was unparseable (provenance.csv `records_unparseable` 0 on every row).
+
+**Not measurable** ([`not-measurable.csv`](../experiments/evaluation/raw/graph/20261122T172641Z-7e551c8003c3-a0dc/not-measurable.csv)): referential integrity rate over the full graph; duplicate coauthor-edge rate; orphan rate; coauthor-edge support rate; per-check integrity breakdown. The reason in each case: no graph export exists, and the CSV holds table counts and the integrity total only.
 
 #### Interpretation
 
-RESULTS PENDING FREEZE (E12).
+- Every group 2 check named by the spec has at least one test whose expected values spark-engineer classifies as worked out by hand, and all 43 tests passed at HEAD 7e551c8. On small known graphs, degree, components, paths, communities, bridges and k-core behave as the hand-worked expectations say. This is kind (b) only as far as spark-engineer's classification holds (T18).
+- On the full Phase 15 graph, the Spark job's own invariants are consistent: zero integrity violations, zero invalid records, and the expected equalities. These are the job's checks of itself (kind a). They do not replace an external integrity audit, which needs an export that no longer exists.
+- The DynamoDB samples show that the cache tables carry run ID, policy version and item hash, but not dataset, source record IDs or a schema version. EvidenceBundle carries every field on every sampled item except content hash, which 19 of 25 items carry. Against the `CLAUDE.md` provenance invariant, ResearcherMetricCache and EntityLinkCache items are incomplete in these samples. Whether that holds for the whole tables is unknown (non-random samples, T10).
 
 ### 10.3 Group 3: retrieval (EXPLORATORY, n = 11)
 
-RESULTS PENDING FREEZE (E12).
+Execution: done, exit 0, run `RAW/retrieval/20261122T170516Z-7e551c8003c3-1864/` (runbook-log :36). Pins matched. Every table below is **EXPLORATORY (n = 11)** and is never read as generalization. Source report: experiment E (Phase 15), labels from the Phase 7 graph run, stores on the Phase 14 graph run (T1, T2). Kind (a), with label caveats.
 
 #### Measured facts
 
-RESULTS PENDING FREEZE (E12).
+**Means over the 11 universe questions, EXPLORATORY (n = 11)** ([`summary.csv`](../experiments/evaluation/raw/retrieval/20261122T170516Z-7e551c8003c3-1864/summary.csv); numerator = sum of per-question values, denominator = 11 questions; inclusion rule: questions of the report universe with a result for this mode, errored or empty results score 0; interval: percentile bootstrap over questions, seed 20261122, 2,000 resamples):
+
+| Mode | recall@1 | recall@5 | recall@10 | recall@30 | MRR |
+|---|---|---|---|---|---|
+| graph-only | 0.1 [0.063636, 0.136364] | 0.5 [0.318182, 0.681818] | 0.818182 [0.545455, 1] | 0.818182 [0.545455, 1] | 0.818182 [0.545455, 1] |
+| vector-only | 0 [0, 0] | 0 [0, 0] | 0 [0, 0] | 0.009091 [0, 0.027273] | 0.003247 [0, 0.00974] |
+| fused | 0.090909 [0.054545, 0.127273] | 0.409091 [0.227273, 0.6] | 0.636364 [0.409091, 0.863636] | 0.827273 [0.572727, 1] | 0.775974 [0.548701, 1] |
+
+The questions are not a random sample, so the interval only illustrates variability and is not a confidence interval for the system.
+
+**Retrieved IDs outside the labels (unjudged)** (summary.csv `unjudged_share`): graph-only 0 of 80; vector-only 179 of 180 (0.994444); fused 139 of 220 (0.631818).
+
+**Not measured:** precision@K is `not measurable (unjudged retrievals)` and nDCG is `not computed (no graded relevance labels)`, for every mode (summary.csv).
+
+**Per question** ([`per-question.csv`](../experiments/evaluation/raw/retrieval/20261122T170516Z-7e551c8003c3-1864/per-question.csv)):
+- Vector-only returned nothing for 5 of 11 questions (q02, q03, q20, q21, q30) and judged 1 retrieved ID in total (q25, reciprocal rank 0.035714).
+- Graph-only returned nothing for 2 of 11 questions (q25, q26, both `topic_filtered_ranking`, abstention code `topic-candidates-failed`). On these two questions fused judged 1 retrieved ID for q25 (reciprocal rank 0.035714) and 0 for q26.
+- The file marks vector-only "by design weak" on 9 of 11 questions and graph-only on 2.
+
+These counts were computed by hand from per-question.csv with `grep -c`.
+
+**Checks** ([`checks.csv`](../experiments/evaluation/raw/retrieval/20261122T170516Z-7e551c8003c3-1864/checks.csv); kind a): the benchmark sha256 equals the report's (b58c5e1a6cb29e192035ce77308c20e2597d2d1dbaf8d136761ae5c3316ff3ac). The universe size equals 11. All 15 recomputed means and MRRs equal the report's own values.
 
 #### Interpretation
 
-RESULTS PENDING FREEZE (E12).
+- **Vector-only retrieval failed on this benchmark** (negative result, kept): mean recall@30 0.009091 and MRR 0.003247, and nearly every retrieved ID unjudged. Unjudged IDs are not negatives, so this does not prove vector-only results are wrong. It does show that vector-only did not find the labelled researchers.
+- Graph-only scores highest at K ≤ 10. Part of this agreement comes from construction: the labels were generated from the Phase 7 graph's own rankings (T1). Graph-only failed outright on the two topic-filtered questions.
+- Fused finds a labelled ID for one of the two topic-filtered questions (q25), at a low rank, and reaches a slightly higher recall@30 than graph-only. It is lower at K = 5 and 10. A plausible reading, not measured here, is that vector-only IDs take ranks there.
+- With n = 11 hand-written questions, the intervals are wide and overlap for graph-only and fused. No mode ranking beyond "vector-only is far below the others" is supported (T3).
 
 ### 10.4 Group 4: answer quality
 
-RESULTS PENDING FREEZE (E12).
+Execution:
+- E7 copy: done; scans before and after the copy found no identifier (runbook-log :41-43).
+- E8 `evaluate.py answers`: done, exit 0, run `RAW/answers/20261122T173416Z-7e551c8003c3-8128/`; code and 4 pinned inputs matched (runbook-log :45).
+- E11 rating sheet: done, exit 0, run `RAW/ratings/20261122T173416Z-7e551c8003c3-c89f/`; 6 answers of 6; rubric pin matched (runbook-log :46).
+- E11 ratings: done by the human; 6 of 6 rated (runbook-log :47).
 
-#### Measured facts
+#### Measured facts: sources
 
-RESULTS PENDING FREEZE (E12).
+From [`sources.csv`](../experiments/evaluation/raw/answers/20261122T173416Z-7e551c8003c3-8128/sources.csv). The sources are never pooled.
+
+| Source | Granularity | Answers (distinct questions) | Code version | Prompt set | Graph run |
+|---|---|---|---|---|---|
+| attempt-06 (`run-report`) | aggregated counts only | 30 (30) | rag-runtime/2 (file) | query-planner-v2, answer-synthesis-v2 (file) | Phase 7 export (export manifest sha256 in the file) |
+| D-query explains (`explain-csv`) | per explain row; no claim counts | 40 rows (19) | build 684636ef (argument) | not available | `run:v1:f2625d504b12749389cf4f5b1a26aed4` (argument) |
+| clip 01 audit (`audit`) | per answer; 2 attempt records collapsed into 1 answer (last attempt kept) | 1 (1) | not available | answer-synthesis-v3, query-planner-v2 (file) | `run:v1:f2625d504b12749389cf4f5b1a26aed4` (file) |
+| demo answers (`demo`) | per claim | 6 (6) | not recorded in the answer files | answer-synthesis-v3 (argument) | `run:v1:f2625d504b12749389cf4f5b1a26aed4` (file) |
+
+#### Measured facts: verifier and answer key (kind a)
+
+All rows are from [`rates.csv`](../experiments/evaluation/raw/answers/20261122T173416Z-7e551c8003c3-8128/rates.csv). Inclusion rule for claim rates: all claims of the source's answers, every verification status. Claims of one answer are not independent.
+
+**attempt-06** (aggregated; `no dependence-aware interval` on claim rates):
+
+| Metric | k / n | Value | Interval |
+|---|---|---|---|
+| claim support rate (verified) | 111 / 136 | 0.816176 | none (aggregated) |
+| partially supported share | 19 / 136 | 0.139706 | none |
+| contradiction rate (conflicting) | 5 / 136 | 0.036765 | none |
+| unsupported share | 1 / 136 | 0.007353 | none |
+| answer key against the evidence bundle | 110 / 110 | 1 | none (retrieval agreement, not claim accuracy) |
+| paths against Spark path evidence | 4 / 4 | 1 | none (evidence-bundle paths, not claims) |
+| planted-error catch rate, all kinds | 85 / 86 | 0.988372 | none (a verifier test, not answer accuracy) |
+| planted errors: fabricated evidence ID | 30 / 30 | 1 | none |
+| planted errors: semantic item cited for a number | 2 / 2 | 1 | none |
+| planted errors: wrong hop count | 3 / 3 | 1 | none |
+| planted errors: wrong number | 28 / 28 | 1 | none |
+| planted errors: wrong window year | 22 / 23 | 0.956522 | none |
+
+**attempt-06 answer-level rates** (same file, rows 20-22):
+
+| Metric | k / n | Value | Wilson 95 % (EXPLORATORY: fixed hand-written benchmark, n = 30) |
+|---|---|---|---|
+| abstention rate | 3 / 30 | 0.1 | [0.0346, 0.256211] |
+| abstention recall on abstain-labelled questions | 3 / 3 | 1 | [0.438503, 1] |
+| false-abstention rate on questions labelled not to abstain | 0 / 27 | 0 | [0, 0.124555] |
+
+The answers are not a random sample, so the interval only illustrates variability and is not a confidence interval for the system.
+
+The Wilson intervals are allowed by decision 3 and the review note N1 ([review-report-P16-L-02.md](agent-runs/phase-16/review-report-P16-L-02.md) N1): each of the 30 answers answers a distinct benchmark question. The 30 questions are a fixed hand-written benchmark, not a random sample, so the intervals are exploratory, like group 3's. Not available: answer-key agreement per claim (no per-claim values), abstention codes (none in the file), and the claim-type breakdown (no type stored per claim). The [`checks.csv`](../experiments/evaluation/raw/answers/20261122T173416Z-7e551c8003c3-8128/checks.csv) consistency checks are all equal: abstentions expected 3 = happened + missed 3; 30 questions; the benchmark sha256 matches.
+
+**D-query explains** (descriptive; explain rows are neither independent nor a random sample): abstention rate 0 of 40 rows. False-abstention rate 0 of 40 rows, for questions labelled not to abstain. Abstention recall is `not measurable` (no explain row for an abstain-labelled question). The 0 of 40 is subject to threat T8: rag's resolver silently swallows graph failures, so a degraded answer can show no abstention (agent-report-storage-D.md:83). Claim rates and abstention codes are `not available` (no verification-count or code column). 0 explain rows name a question outside the benchmark (checks.csv).
+
+**Clip 01 audit** (descriptive; 1 answer after collapsing its 2 attempts, last attempt kept): claim support 2 of 2; partially supported, conflicting and unsupported 0 of 2 each; abstention 0 of 1; no abstention code. Abstention recall and false-abstention rate are `not measurable` (no benchmark question ID).
+
+**Demo answers** (6 answers to 6 distinct questions; per claim):
+
+| Metric (claim set) | k / n | Value | Tool's interval (EXPLORATORY: hand-saved demo set, non-random, n = 6) |
+|---|---|---|---|
+| claim support rate, all claims | 28 / 31 | 0.903226 | bootstrap [0.71875, 1] (6 answers with claims) |
+| partially supported share, all claims | 2 / 31 | 0.064516 | bootstrap [0, 0.1875] |
+| contradiction rate (conflicting), all claims | 1 / 31 | 0.032258 | bootstrap [0, 0.09375] |
+| unsupported share, all claims | 0 / 31 | 0 | bootstrap [0, 0] |
+| support, claims citing coauthor_edge evidence | 10 / 10 | 1 | bootstrap [1, 1] (3 answers with claims) |
+| support, claims citing graph_path evidence | 1 / 1 | 1 | descriptive (1 answer with claims) |
+| support, claims citing work or authorship evidence | 1 / 1 | 1 | descriptive (1 answer with claims) |
+| support, claims citing metric evidence | 13 / 15 | 0.866667 | bootstrap [0.555556, 1] (5 answers with claims) |
+| partially supported, claims citing metric evidence | 2 / 15 | 0.133333 | bootstrap [0, 0.444444] |
+| abstention rate | 0 / 6 | 0 | Wilson 95 % [0, 0.390334] |
+
+The answers are not a random sample, so the interval only illustrates variability and is not a confidence interval for the system.
+
+The evidence-type rows are a proxy: a claim is typed by the evidence it cites. `identifier` claims are `not measurable` (no evidence type identifies them). Abstention codes are `not available` (the answer view holds a reason text). Abstention recall and false-abstention rate are `not measurable` (no benchmark question ID).
+
+The tool wrote these intervals under the signed rule: at least 2 independent answers, each answering a distinct question (suite :170). The six demo answers were saved by hand for a demo, not sampled (T19). The intervals describe resampling of these six answers only. They are not an estimate for ScholarChain answers in general.
+
+Per answer ([`per-answer.csv`](../experiments/evaluation/raw/answers/20261122T173416Z-7e551c8003c3-8128/per-answer.csv)):
+- `p15-demo-n.json`: 7 claims (4 verified, 2 partially supported, 1 conflicting).
+- `p15-demo-q.json`: 2 of 2 verified.
+- `p15-demo-q02.json`: 5 of 5 verified.
+- `p15-demo-q11.json`: 5 of 5 verified.
+- `p15-demo-q17.json`: 11 of 11 verified.
+- `p15-demo-v.json`: 1 of 1 verified.
+
+None abstained.
+
+#### Measured facts: human ratings (kind c) and dblp.org column (kind b)
+
+No tool summarizes the completed sheet (P16-C-04). The values below are read directly from [`sheet.csv`](../experiments/evaluation/raw/ratings/20261122T173416Z-7e551c8003c3-c89f/sheet.csv), rated by the human (one rater) with rubric-v1. The sheet's order comes from the suite seed 20261122, and the sheet includes 6 of 6 answers found, with 0 excluded ([`summary.csv`](../experiments/evaluation/raw/ratings/20261122T173416Z-7e551c8003c3-c89f/summary.csv), [`excluded.csv`](../experiments/evaluation/raw/ratings/20261122T173416Z-7e551c8003c3-c89f/excluded.csv)).
+
+| Row | Question (short) | Usefulness (1-5) | Clarity (1-5) | Not rateable | dblp.org names exist | Rater note |
+|---|---|---|---|---|---|---|
+| R01 | highest weighted degree among SIGIR-profile researchers, 2015-2025 | 4 | 4 | (empty) | yes | (empty) |
+| R02 | top 5 by distinct coauthors, 2018-2020 | 5 | 4 | (empty) | yes | (empty) |
+| R03 | community of a named researcher, 2021-2023 | 4 | 3 | (empty) | yes | (empty) |
+| R04 | paper of a named researcher with the most coauthors | 2 | 2 | (empty) | yes | does not name the paper; the maximum of 19 against a listed team of 20 is unexplained |
+| R05 | a false-premise question (a prize the researcher did not win) | 4 | 2 | (empty) | yes | correct abstention, but buried in the notes; leads with unrelated statistics |
+| R06 | how two named researchers are connected | 5 | 4 | (empty) | yes | (empty) |
+
+The rater notes are paraphrased; the exact text is in sheet.csv.
+
+Computed by hand from sheet.csv (n = 6, one rater, no interval):
+- usefulness: one 2, three 4s, two 5s; median 4;
+- clarity: two 2s, one 3, three 4s; median 3.5;
+- not rateable: 0 of 6;
+- dblp.org names exist: "yes" on 6 of 6 (kind b: the human checked that the named people and papers exist on dblp.org; existence, not correctness).
+
+**Join with the verifier statuses (an analysis, not something the rater saw as data):** this join uses [`key.csv`](../experiments/evaluation/raw/ratings/20261122T173416Z-7e551c8003c3-c89f/key.csv), which maps rows to files, and per-answer.csv. The rater worked from sheet.csv, which has no status field.
+- R05 is `p15-demo-n.json`, the one demo answer with a conflicting claim and 2 partially supported claims. Its answer text itself shows all three statuses: the removed claim as "conflicting" and claim-2 and claim-6 as "Partially supported" (sheet.csv:68, :72, :76; section 6).
+- Caveat on this join: every non-verified status in the rated set was visible to the rater in the answer texts, so the rater was not blind to the statuses of R05 (section 6; input to spec gate 1).
+- R04 is `p15-demo-q.json`, 2 of 2 claims verified, the same query ID as clip 01's audit. It received the lowest ratings (2 and 2).
+- The other four rows have every claim verified.
 
 #### Interpretation
 
-RESULTS PENDING FREEZE (E12).
+- Within each source, the verifier reports most claims supported: attempt-06 0.816176, the demo answers 0.903226, clip 01 2 of 2. The sources differ in code, prompts and graph, so the figures are not comparable as one rate (T16). They are internal consistency only (T4, T15).
+- In attempt-06 the verifier caught 85 of 86 planted errors; the miss was a wrong window year. The benchmark expected 3 abstentions, and all 3 happened, with no false abstention. These are tests of the pipeline against its own answer key.
+- The verifier labels some claims partially supported or conflicting (attempt-06 19 and 5 of 136; demo 2 and 1 of 31). These statuses are kept as negative results.
+- The ratings show that a fully verified answer can still be poorly useful (R04). On R05, a false-premise question, the rater judged the refusal correct ("Correct abstention but it's buried in the notes", sheet.csv:86; kind c) and still rated clarity 2. Verification and usefulness measure different things. Caveat: the rater could read R05's non-verified statuses in its answer text (section 6), so this reading is not blind to the verifier. With one rater and six hand-saved answers, this is an observation, not a rate.
+- **Negative result (descriptive, kind a):** the system did not set its abstention flag on this false-premise question. `p15-demo-n.json` has `"abstained": false` ([`p15-demo-n.json`](../experiments/evaluation/raw/answers/p15-demo/p15-demo-n.json):3), per-answer.csv row 43 has `abstained` = no, and the demo abstention rate is 0 of 6 (rates.csv:71). The answer leads with 6 claims and states that the premise is "Not supported" and "is not in the coauthorship graph" only in its notes (sheet.csv:82). The "correct abstention" is the rater's judgment of the text, not a system abstention. Formal abstention recall stays `not measurable` for the demo answers (no benchmark question ID; benchmark-v1 has no false-premise category).
+- Independent factual accuracy of the answers is not independently measurable beyond the dblp.org existence column (T4).
 
 ### 10.5 Group 5: performance and elasticity
 
-RESULTS PENDING FREEZE (E12).
+Execution: done, exit 0, run `RAW/performance/20261122T170516Z-7e551c8003c3-78bc/` (runbook-log :37). Pinned trees matched: `experiments/raw` with 145 files and `experiments/derived/out` with 59 files. The run wrote 32 measures, 39 route rows, 51 Sum series and 2 missing items. It printed 19 WARN lines "period has no worker sample" (C and F runs; runbook-log :37). It ran before E10, as required. All values describe Phase 15's build 684636ef on the Phase 14 graph, not the Phase 16 code (T7). Kind (a); costs are estimates.
 
 #### Measured facts
 
-RESULTS PENDING FREEZE (E12).
+**D-read load** (attempt `20261121T001529Z-abe4764a8293-b3f0`; [`derived-values.csv`](../experiments/evaluation/raw/performance/20261122T170516Z-7e551c8003c3-78bc/derived-values.csv), table `p15-d-read-load/levels.csv`; latencies in seconds over all timed requests):
+
+| Level (clients) | Wall s | Completed | Completed/s | ok | Throttled 429 | Overloaded 503 | Other 5xx | Error rate | p50 / p95 / p99 (n) |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 (1) | 120 | 451 | 3.758 | 451 | 0 | 0 | 0 | 0.000 | 0.198 / 0.307 / 0.455 (451) |
+| 2 (5) | 24 | 600 | 25.000 | 34 | 397 | 166 | 3 | 0.943 | 0.139 / 0.186 / 0.282 (600) |
+| 3 (10) | 13 | 600 | 46.154 | 34 | 356 | 203 | 7 | 0.943 | 0.138 / 0.191 / 0.278 (600) |
+| 4 (20) | 10 | 600 | 60.000 | 50 | 375 | 157 | 18 | 0.917 | 0.152 / 0.280 / 0.541 (600) |
+
+Success-only latencies (same table) are at levels 2 to 4: p50 0.161, 0.160 and 0.206 s, over 34, 34 and 50 successes.
+
+**D-read per route, all levels** ([`route-classes.csv`](../experiments/evaluation/raw/performance/20261122T170516Z-7e551c8003c3-78bc/route-classes.csv)):
+- Graph neighbors route: 449 ok, 1012 throttled (429), 526 overloaded (503 `CIRCUIT_OPEN`), 28 other 5xx (502 `DOWNSTREAM_FAILURE`).
+- Evidence route: 120 ok, 116 throttled (429).
+- Per level, the 502s on the graph route were 3, 7 and 18, and the `CIRCUIT_OPEN` 503s were 166, 203 and 157 (levels 2, 3, 4). Level 1 had no error.
+
+D ran under the deployed limits: API throttle 5/s burst 10, 4 concurrent queries per task (results-summary section 7, deviation 5).
+
+**D-query load** (attempt `20261120T235521Z-ff00cfa278c8-ca0c`; derived-values.csv, table `p15-d-query-load/levels.csv`):
+
+| Level (clients) | Wall s | Completed | Completed/s | Overloaded 503 | Timeout 504 | Throttled 429 | Error rate | p50 / p95 / p99 all (n; note) | p50 success (n) |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 (1) | 127 | 10 | 0.079 | 0 | 0 | 0 | 0.000 | 11.730 / 18.509 / 18.509 (10; few samples) | 11.730 (10) |
+| 2 (2) | 135 | 19 | 0.141 | 0 | 1 | 0 | 0.053 | 12.934 / 25.170 / 25.170 (19; few samples) | 12.035 (18) |
+| 3 (4) | 51 | 60 | 1.176 | 48 | 4 | 0 | 0.867 | 0.160 / 25.162 / 25.372 (60) | 11.181 (8; few samples) |
+| 4 (8) | 16 | 60 | 3.750 | 53 | 0 | 3 | 0.933 | 0.153 / 8.245 / 16.351 (60) | 12.332 (4; few samples) |
+
+Totals over all levels (route-classes.csv, `POST /v1/query`): 40 answered (200), 101 overloaded (503 `OVERLOADED`), 5 timeouts (504 `WORKFLOW_TIMEOUT`), 3 throttled (429).
+
+**C, embedding backlog** (attempt `20261120T225730Z-eb786c5275a3-ab26`; derived-values.csv, table `p15-c-embedding-backlog/observed.csv`):
+- The worker's desired and running sequences were both 0 -> 1 -> 2 -> 0, with scaling activities out = 2, in = 1.
+- The backlog was first seen at 22:58:49Z, the first scale-out came at 23:01:39Z, desired 2 at 23:04:26Z, the queue drained at 23:18:21Z, and the worker was back to 0 at 23:24:59Z. drain_s is 1172.
+- Embedding queue visible maximum 5370; deleted messages (CloudWatch) 19200; 982.935 deleted per minute; dead-letter queue 1 at the first and last reading.
+- Computed by hand from those timestamps: backlog to first scale-out 170 s; drain to back-to-0 398 s.
+- Worker throughput by running task count ([`throughput-by-tasks.csv`](../experiments/evaluation/raw/performance/20261122T170516Z-7e551c8003c3-78bc/throughput-by-tasks.csv); every row marked "few samples"): with 2 running, 19 periods, 17580 deleted, mean 15.421053 per second; with 1 running, 3 periods, 1620 deleted, mean 9 per second; with 0 running, 3 periods, 0.
+
+**F, poison message and replay** (attempt `20261120T223908Z-e94df52ca8fb-b4c0`; derived-values.csv, tables `p15-f-poison-replay/observed.csv` and `parts.csv`):
+- Poison part verdict: `dlq-received`. The dead-letter queue went from 0 to 1.
+- Replay part verdict: "processed then replayed (worker log or completion record)".
+- API part: statuses 200 and 409 seen.
+- Worker sequence 0 -> 1; drain_s 151.
+- F's scale-in evidence is `missing` ("not reached"). Worker throughput periods are all "few samples".
+
+**A and B, EMR** (derived-values.csv attempts tables and [`computed.csv`](../experiments/evaluation/raw/performance/20261122T170516Z-7e551c8003c3-78bc/computed.csv)):
+
+| Run | Status | Step seconds | Instances | Instance-seconds | Estimated cost (USD) | Scaling (from the attempts table) |
+|---|---|---|---|---|---|---|
+| A-Hadoop attempt 1 | failed, exit 5 | – | – | – | – | `missing` |
+| A-Hadoop attempt 2 | succeeded | 4122 (Hadoop pipeline) | 3 | 14319 | 0.9546 (estimate) | no scale-out observed (maximum = minimum by design) |
+| A-Spark | succeeded | 1488 (graph analytics) + 2 (job config) | 3 | 6576 | 0.4384 (estimate) | no scale-out observed |
+| B Spark burst | succeeded | 1416 (graph analytics) + 4 (job config) | 5 | 8380 | 0.558667 (estimate) | scale-out observed (CoreNodesRunning 2 to maximum 4 at 23:12:00Z); no scale-in while running |
+
+Cost rule (computed.csv): instance-seconds / 3600 × 0.24 USD per instance-hour (`infra/terraform/COSTS.md` EMR row, unverified), EBS excluded.
+
+Other A and B values from computed.csv:
+- A-Hadoop: 348 planned map splits; 2231914 coauthor-pair-candidate records.
+- A-Spark: 33112 tasks, 3866 stages, 0 disk and memory spill.
+- B: 55573 tasks, 3877 stages, 0 spill.
+- Computed by hand from the B attempts table: action start 22:59:13Z to running maximum 23:12:00Z is 767 s. This is not a scaling delay measured from a scaling request.
+
+**Missing** ([`missing.csv`](../experiments/evaluation/raw/performance/20261122T170516Z-7e551c8003c3-78bc/missing.csv)): D-read attempt 2 (`20261121T002254Z-abe4764a8293-db0d`) has no `load-requests.csv` and no metrics files, so it is `not measurable from the frozen evidence (file absent)`.
+
+**Failed attempts** (negative results, kept):
+- A-Hadoop attempt 1: failed, exit 5 (derived-values.csv).
+- D-read attempt 2: started without the key; exit 5 with signal INT (FECD-4; T11).
+- The D9a preflight failure: exit 5, nothing sent, no folder (results-summary.md:45).
 
 #### Interpretation
 
-RESULTS PENDING FREEZE (E12).
+- **Overload is the main negative result.** From 5 concurrent readers on, the D-read error rate was 0.917 to 0.943. Most rejections were the API throttle (429) and the graph breaker (503 `CIRCUIT_OPEN`). The 28 Neptune-side failures (502) were few but opened the breaker (FECD-1, T8). From 4 concurrent query clients on, most queries were rejected with 503 `OVERLOADED`. The query p50 over all requests falls at levels 3 and 4 only because fast rejections dominate. The success-only p50 stayed between 11.181 and 12.332 s at every level.
+- These were deliberate limits (5/s throttle, 4 queries per task) acting together with a defect class (FECD-1). Phase 16 code changes address the breaker and retry side, but they are fixed in code, tested offline, not validated live. No new run is possible (T7, T8).
+- Elasticity was shown where it was designed to happen. The embedding worker went 0 -> 1 -> 2 -> 0 under a backlog in C. B's Spark cluster scaled out from 2 to 4 core nodes, while A by design did not. The scaling times above are single observations with few samples and no interval.
+- Recovery: F shows a poison message reaching the dead-letter queue and a replay processed, and C drains and scales back to 0. No frozen table defines a recovery-time metric, so none is claimed.
+- The costs are estimates from an unverified rate.
 
 ### 10.6 Group 6: agentic software factory
 
-RESULTS PENDING FREEZE (E12).
+Execution: done, exit 0, run `RAW/factory/20261122T170517Z-7e551c8003c3-d311/` (runbook-log :38). The pinned tree matched: 254 `.md` files. Kind (a), audited by (c). The population is phase-00 to phase-15, amendment-01 and amendment-02: 18 phases ([`totals.csv`](../experiments/evaluation/raw/factory/20261122T170517Z-7e551c8003c3-d311/totals.csv)).
 
 #### Measured facts
 
-RESULTS PENDING FREEZE (E12).
+**Totals** (totals.csv; every count with the inclusion rule written in that file):
+
+| Metric | Value |
+|---|---|
+| agent executions | 87 |
+| first-pass acceptance | 38 of 80 done executions (0.475) |
+| reviewer findings | 196: critical 0, major 30, minor 149, advisory 17 |
+| repairs (repair files) | 62; 62 over 18 phases = 3.444444 per phase |
+| BLOCKED-ON, terminal reports | 5 |
+| BLOCKED-ON, summary or log rows not matching a terminal report | 3 |
+| BLOCKED-ON total, measurable phases only | 5 over 5 measurable phases (phase-11 to phase-15) |
+| manual interventions | 3 |
+| hook or guard blocks | 6 |
+| ownership violations caught | 0 |
+| artifacts needing substantial human rewrite | 0 |
+| unclassified rows | 27 |
+
+Per-phase BLOCKED-ON totals ([`counts-by-phase.csv`](../experiments/evaluation/raw/factory/20261122T170517Z-7e551c8003c3-d311/counts-by-phase.csv)): phase-11 2, phase-12 1, phase-13 0, phase-14 1, phase-15 1. Every other phase is `not measurable (no summary step table or runbook log)`. The file has 388 event rows ([`events.csv`](../experiments/evaluation/raw/factory/20261122T170517Z-7e551c8003c3-d311/events.csv)), of which 362 are counted (runbook-log :38). The sum of the counted types is 87 + 196 + 62 + 5 + 3 + 3 + 6 = 362, computed by hand from [`audit-strata.csv`](../experiments/evaluation/raw/factory/20261122T170517Z-7e551c8003c3-d311/audit-strata.csv).
+
+**First-pass acceptance by agent** ([`counts-by-agent.csv`](../experiments/evaluation/raw/factory/20261122T170517Z-7e551c8003c3-d311/counts-by-agent.csv); first-pass accepted ÷ done executions):
+
+| Agent | Executions (done) | First-pass accepted | Rate | Repairs | Findings owned (major / minor) |
+|---|---|---|---|---|---|
+| build-engineer | 7 (6) | 6 | 1 | 3 | 0 / 12 |
+| code-reviewer | 16 (15) | 15 | 1 | 0 | 0 / 0 |
+| dataset-engineer | 2 (2) | 1 | 0.5 | 1 | 0 / 0 |
+| documentation-engineer | 0 (0) | 0 | – | 0 | 0 / 0 |
+| domain-engineer | 9 (8) | 5 | 0.625 | 3 | 0 / 2 |
+| entity-resolution-engineer | 3 (3) | 0 | 0 | 8 | 3 / 6 |
+| experiment-engineer | 4 (4) | 1 | 0.25 | 2 | 1 / 8 |
+| factory-engineer | 3 (3) | 1 | 0.333333 | 5 | 2 / 5 |
+| hadoop-engineer | 5 (4) | 0 | 0 | 9 | 1 / 3 |
+| infra-engineer | 14 (14) | 0 | 0 | 13 | 5 / 41 |
+| rag-engineer | 8 (8) | 5 | 0.625 | 5 | 8 / 18 |
+| service-engineer | 3 (2) | 0 | 0 | 3 | 0 / 3 |
+| spark-engineer | 3 (3) | 2 | 0.666667 | 2 | 1 / 3 |
+| storage-engineer | 8 (8) | 2 | 0.25 | 5 | 3 / 10 |
+| test-engineer | 1 (0) | 0 | – | 1 | 0 / 7 |
+| unknown | 1 (0) | 0 | – | 2 | 0 / 0 |
+
+**Audit of 20 sampled events** (E11; [`audit-sample.csv`](../experiments/evaluation/raw/factory/20261122T170517Z-7e551c8003c3-d311/audit-sample.csv); strata in audit-strata.csv: 11 findings, 3 executions, 2 repairs, 1 each of blocked-row, blocked-terminal, hook-block and manual-intervention):
+- The human wrote 1 in both audit columns on all 20 rows, recorded as yes (runbook-log :47).
+- Event is real: 20 of 20. Correctly classified: 20 of 20. Agreement 20/20, computed by hand from audit-sample.csv (`grep -c` of rows ending `,1,1,`). Kind (c).
+- No interval: the 20 events are a stratified fixed-seed sample of a full population (suite :189).
 
 #### Interpretation
 
-RESULTS PENDING FREEZE (E12).
+- Review caught problems often: 196 findings, 30 of them major and none critical. First-pass acceptance was below one half overall. Agents that write infrastructure, Hadoop and entity-resolution code needed the most repair rounds; build and review steps were mostly accepted first time.
+- The zeros for ownership violations and human rewrites mean that no gate or summary list row recorded such an event under the extractor's rules. They do not show that none happened (prose is not counted; T17). Hook blocks (6) are recorded events where the guard stopped an action.
+- The audit found every sampled event real and correctly classified. It checks classification, not completeness: events the rules missed (27 unclassified rows, and prose) are not covered.
+- BLOCKED-ON incidence is measurable only for phases 11 to 15.
 
 ### 10.7 Group 7: reproducibility
 
-RESULTS PENDING FREEZE (E12).
+Kind (a) throughout. The four results and the record check are kept apart.
 
 #### Measured facts
 
-RESULTS PENDING FREEZE (E12).
+**Result 1: clean-checkout build and tests (E2).**
+- **Attempt 1** (negative result, kept): fresh clone at 7951f94cca7da7d9bf30a5b22dce1639a156e330. `check.sh` exit 6. Eight gates passed: constitution, json, hook-syntax, shell, datasets, terraform, script-contracts and probes. Gate 8, script-contracts, passing means L-09 was closed in the clone. The sbt gate failed (exit 1, 1038 s; module_tests=null, contract_tests=null). The failing suites were `RagIngestJobSuite` and `RetrievalEvalSuite` ([`check-gates.txt`](../experiments/evaluation/raw/repro/20261122T150259Z-7951f94-9a3d/check-gates.txt):11085-11086, :11740-11746; [`run.txt`](../experiments/evaluation/raw/repro/20261122T150259Z-7951f94-9a3d/run.txt)). The tool ran correctly; the measured property, a clean build, failed.
+- **Diagnosis and repair:** the same 6 tests failed in the main checkout from the same terminal. The tests were not hermetic against `SCHOLARCHAIN_CFG_*` overrides exported in the human's shell (finding P16-L-16, major, rag-engineer; runbook-log :27). It was not a clone or missing-file problem. repair-E02-rag gave the rag jobs a configuration-environment seam, so the tests pass explicit maps, and added override tests. It was reviewed APPROVE, RESOLVED ([review-report-P16-L-16.md](agent-runs/phase-16/review-report-P16-L-16.md)) and committed in 79b558375162b758d35a580781c3f169e202b965 (runbook-log :28-30). Fixed in code, tested offline, not validated live.
+- **Attempt 2:** fresh clone at 79b558375162b758d35a580781c3f169e202b965, run from the same terminal with the same exports (a hostile-environment run). `check.sh` exit 0, and all 9 gates passed. The sbt gate took 1092 s with module_tests=2306 and contract_tests=399 ([`check-gates.txt`](../experiments/evaluation/raw/repro/20261122T160611Z-79b5583-4c1e/check-gates.txt):11694-11707; [`run.txt`](../experiments/evaluation/raw/repro/20261122T160611Z-79b5583-4c1e/run.txt)).
+- The full logs are kept outside Git; their sha256 are in each folder's `check-log.sha256`.
+- No commit after 79b5583 changed a `check.sh` input (build.sbt, project, modules, tests, prompts, docker, config, scripts, infra): `git diff --stat 79b5583 HEAD` over those paths printed nothing at HEAD ecc1305. So the attempt 2 result applies to the frozen tree's code.
+
+**Result 2: historical regeneration (E10).** A fresh clone at 08bbb9d629ef2f11eea98bdfbc699179c2f1f107; the five derive scripts all exited 0. 59 files expected, 59 regenerated, 59 equal; 0 different, 0 missing, 0 extra. Verdict "reproduced exactly" ([`summary.csv`](../experiments/evaluation/raw/repro/20261122T181639Z-7e551c8003c3-d603/summary.csv)). The clone's `git status --short` was empty (runbook-log :49).
+
+**Result 3: current-version regeneration (E10).** 59 expected, 59 regenerated; 51 equal, 8 different. All 8 differences are intended; 0 unexplained, 0 missing, 0 extra, 0 intended-not-observed. Verdict "reproduced except intended differences" ([`summary.csv`](../experiments/evaluation/raw/repro/20261122T181639Z-7e551c8003c3-a9a7/summary.csv)). The 8 files are listed in [`comparison.csv`](../experiments/evaluation/raw/repro/20261122T181639Z-7e551c8003c3-a9a7/comparison.csv):
+- three `missing.csv` files and three capacity SVGs (AB-4/J-03);
+- two queue SVGs (L-08).
+
+The orchestrator opened each difference and found it matches its reason. In particular, data points were unchanged in the redrawn plots (runbook-log :51).
+
+**Result 4: bounded pipeline (E5).**
+- Local Hadoop pipeline: the Phase 15 clip 19c runner (`LocalBoundedPipeline`), run in the E2 attempt 2 clone (79b5583, no hadoop, spark or core change since) into a fresh output folder. Exit 0, 127 s ([`run.txt`](../experiments/evaluation/raw/repro/e5-pipeline-20261122T1715Z-79b5583/run.txt); [`hadoop-pipeline.log`](../experiments/evaluation/raw/repro/e5-pipeline-20261122T1715Z-79b5583/hadoop-pipeline.log):476).
+- [`local-run-report.json`](../experiments/evaluation/raw/repro/e5-pipeline-20261122T1715Z-79b5583/local-run-report.json), real-samples run: maximum team size 7, 33 pair instances generated, 33 consolidated pairs, 67 links.
+- Same file, synthetic-dblp run: maximum team size 5, 11 pair instances, 7 consolidated pairs, 0 links.
+- The orchestrator recorded the real-samples values as equal to Phase 15 take 3's reported values (runbook-log :39). The Phase 15 command text was not in its runbook row; the runner was identified from `LocalBoundedPipeline.scala:19`.
+- Spark fixture suites: 43 of 43 passed (section 10.2).
+- Phase 14's and Phase 15's AWS pipeline runs are historical evidence only.
+
+**Record check: deployment from approved plans (E10, historical).** From [`summary.csv`](../experiments/evaluation/raw/repro/20261122T181639Z-7e551c8003c3-37b5/summary.csv) and [`release-records.csv`](../experiments/evaluation/raw/repro/20261122T181639Z-7e551c8003c3-37b5/release-records.csv):
+- 7 release records, 0 unreadable. All 7 carry a plan checksum, and all 7 are linked to a signed `APPROVED-PLAN-SHA256:` line (Phase 14 approvals for 4, Phase 15 approvals for 3); 0 are not linked.
+- All 7 records carry execution fields and report `verified` = yes. `verified` = yes does not mean that the image digests were verified. The `digest_checks` column (release-records.csv rows 2-8) reads "verified 0; not-applicable 4; no running task 0; other 0" on 4 records (rows 2, 3, 4, 8) and "verified 3; not-applicable 0; no running task 1; other 0" on 3 records (rows 5, 6, 7). So 4 records verified no image digest (4 checks not applicable each), and 3 records verified 3 digests each, with 1 check per record finding no running task.
+- 10 approval lines were found, 3 of them used by no record ([`approvals.csv`](../experiments/evaluation/raw/repro/20261122T181639Z-7e551c8003c3-37b5/approvals.csv)).
+- Wording, from the file: "record consistency only; no deployment can be re-run or independently verified".
 
 #### Interpretation
 
-RESULTS PENDING FREEZE (E12).
+- **Clean checkout.** The current code builds and passes its tests from a fresh clone, even in a shell that exports the Phase 15 overrides. The first attempt found a real defect: tests that depended on the caller's environment. It was repaired, and both attempts stay in the record.
+- **Tables and plots.** The reported tables and plots regenerate exactly at their own commit. With the current scripts they change only where intended.
+- **Bounded pipeline.** The local Hadoop pipeline replays on the frozen tree.
+- **Deployment.** Every deployment record links to a human-signed plan. Execution evidence comes only from records written by the deploy script itself, so deployment is `not independently verified`.
 
 ### 10.8 Spec gate items (checked at E15)
 
-RESULTS PENDING FREEZE (E12). Four items, each to be stated `met (evidence)` or `not met`: evaluation data not generated by the answering prompt; benchmark questions and labels versioned; facts separated from interpretation; negative results kept.
+The orchestrator states each item at E15, `met (evidence)` or `not met`. This document gives the evidence it points to, not the verdict:
+1. **Evaluation data not generated by the answering prompt without independent review.** No LLM judge (section 1). Kind (b) evidence is the human's gold labels and the dblp.org column. The ratings are kind (c). Verifier and answer-key values are labelled (a). code-reviewer reviews this document (section 6, with its blindness limit: every non-verified status in the rated set, all on R05, was visible in the answer texts).
+2. **Benchmark questions and labels versioned.** benchmark-v1, the gold labels, rubric-v1 and the rating-sheet generator carry versions and sha256 in the signed suite (section 3). The benchmark sha256 was checked in groups 3 and 4 (checks.csv of both runs).
+3. **Facts separated from interpretation.** Every subsection of 10.1 to 10.7 has "Measured facts" and "Interpretation".
+4. **Negative results kept.** Section 9 lists them, and sections 10.1 to 10.7 and 10.9 report each one.
 
-## Sources not yet in the repository
+### 10.9 Session 3 attempts and open findings
 
-Some references above point to Phase 16 session 2 reports that are in the session scratchpad at draft time. The human copies them to `docs/agent-runs/phase-16/` under the same names. "S/" in the text stands for that folder. They are not linked here because the files do not exist in the repository yet: `agent-report-experiment-X1.md`, `agent-report-experiment-X2.md`, `agent-report-er.md`, `agent-report-rag.md`, `agent-report-spark.md`, `agent-report-storage-D.md`. E13 replaces each "S/" reference with a link once the copies exist.
+**Superseded attempts.** The first grouped attempt of E4, E6 and E9 (11:04:10 local) wrote three folders:
+- `RAW/retrieval/20261122T170410Z-7e551c8003c3-df76/`;
+- `RAW/performance/20261122T170410Z-7e551c8003c3-c22c/`;
+- `RAW/factory/20261122T170410Z-7e551c8003c3-4c9e/`.
+
+No er folder was written. The exit codes were not recorded (runbook-log :34). Every result file in these folders is byte-identical to the second attempt's (sha256 compared by the orchestrator, runbook-log :34; re-checked for E13 with `shasum -a 256`, run.json excluded). The one exception is `audit-sample.csv` in the factory folder: the human filled the audit columns only in the d311 copy. The folders are kept in the record. This document uses the second attempt's folders.
+
+**Phase 16 fixes and open findings** (each fix: fixed in code, tested offline, not validated live):
+- **L2 (absence claims in the verifier):**
+  - P16-L-01 (rag, carrying P16-K-01): its own inputs fixed, but the re-check was PARTIAL and raised P16-L-03 to P16-L-06 ([review-report-P16-L-01.md](agent-runs/phase-16/review-report-P16-L-01.md); runbook-log :12).
+  - P16-L-03 to P16-L-06 (rag): resolved in code by a fail-closed absence rule ([review-report-P16-L-round2.md](agent-runs/phase-16/review-report-P16-L-round2.md) :13-16).
+  - P16-L-10 (major, absence synonyms), P16-L-11 (major, a one-word third name), P16-L-12 (minor, inner path nodes) and P16-L-13 (minor, "before 2021-2023"): **open**. The reviewer classes them "within rule". The human decides them at the gate under the stopping rule (runbook-log :17, :21; review-report-P16-L-round2.md :59-62).
+  - P16-L-14 and P16-L-15 (minor, "outside rule"): Phase 17 (runbook-log :20-21; review-report-P16-L-round2.md :63-64).
+- **Evaluation tool:** P16-L-07 and P16-L-08 (experiment): resolved in code before signing (review-report-P16-L-round2.md :17-18).
+- **Clean checkout:** P16-L-16 (rag): resolved, APPROVE (section 10.7).
+- **This document:** P16-L-09, P16-C-03, P16-C-04, P16-C-05 and P16-K-03 are repaired in this text:
+  - L-09: the interval rules in sections 1, 4.4 and 5; `wilson` at `evaluate.py:201`.
+  - C-03: T11.
+  - C-04: section 10.4 states the ratings directly.
+  - C-05: T8.
+  - K-03: links replace the scratchpad references.
+
+  code-reviewer checked these at E13 (APPROVE) and raised six minor findings, P16-L-17 to P16-L-22, repaired in one pass:
+  - L-17: rater blindness limit in sections 4.4, 6, 10.4 (join) and 10.8.
+  - L-18: R05's "correct abstention" attributed to the rater; the system's abstention flag was not set (10.4).
+  - L-19: `digest_checks` counts per release record (10.7).
+  - L-20: EXPLORATORY labels in the group 4 table headers and the plain line on every EXPLORATORY interval (sections 1, 4.3, 4.4, 5, 10.3, 10.4).
+  - L-21: step D's (f1) and (f2) in T8, and the T8 caveat on D-query abstention (10.4).
+  - L-22: the zero-event sentence limited to precision, recall and F1 (10.1).
+
+  The re-check (APPROVE) raised two more minor findings, repaired in a touch-up: P16-L-23 (the section 5 Wilson row names the two group 4 sets as EXPLORATORY, not group 1) and P16-L-24 (the EXPLORATORY label and the plain line on the section 5 group 3 and group 4 bootstrap rows).
+
+## Sources
+
+The Phase 16 session 2 and session 3 reports cited above are in [`docs/agent-runs/phase-16/`](agent-runs/phase-16/) and are linked where they are cited. This includes [repair-01-experiment-engineer.md](agent-runs/phase-16/repair-01-experiment-engineer.md) (P16-K-03).

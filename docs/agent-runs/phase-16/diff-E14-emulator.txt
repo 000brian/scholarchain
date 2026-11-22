@@ -1,0 +1,310 @@
+diff --git a/docs/emulator.md b/docs/emulator.md
+index c28e297..ae71105 100644
+--- a/docs/emulator.md
++++ b/docs/emulator.md
+@@ -1,46 +1,55 @@
+ # ScholarChain on the AWS Emulator (Phase 16 bonus track)
+ 
+-Owner: `documentation-engineer`. **Status: DRAFT (Phase 16 session 2, step W1). Results `PENDING E14`.** Nothing in this file was run by an agent. The human runs the emulator in session 3, step E14, and this file is completed from the committed result files after that run. This file is the basis for the course Teams post, so it holds no source code, no prompt and no detailed design. It describes what was set up, what was exercised, what was not, and how results will be read.
++Owner: `documentation-engineer`. Status: completed after step E14 (Phase 16 session 3) from the committed result files of run `20261122T1845Z-ecc1305-7d2e`. The human architect ran every command in this file. No agent ran the emulator. This file is the basis for the course Teams post. It stays at service level: which AWS services and operations were exercised, what happened, the safety contract, and the limits. It has no source code, no prompts and no design detail.
++
++Results folder (committed by the human): [`experiments/emulator/raw/20261122T1845Z-ecc1305-7d2e/`](../experiments/emulator/raw/20261122T1845Z-ecc1305-7d2e/). Every count below is computed from the files in that folder. Facts about the session itself (image, package version, start time, terminal set-up) come from the orchestrator's record of the human's run and are labelled "as recorded".
+ 
+ ## 1. What the AWS Emulator is
+ 
+-The AWS Emulator is AWS's local emulator of the AWS APIs ([what is the AWS Emulator](https://docs.aws.amazon.com/emulator/latest/userguide/what-is-service.html)). It answers AWS API calls on one local HTTPS endpoint, with one account and one Region, and keeps all state in memory. Where it does not implement an operation yet, it answers HTTP 501 with the error code `NotImplemented`. The documentation says fidelity is closest for control-plane APIs and varies by service for data-plane APIs ([fidelity](https://docs.aws.amazon.com/emulator/latest/userguide/fidelity.html)).
++The AWS Emulator is AWS's local emulator of the AWS APIs ([what is the AWS Emulator](https://docs.aws.amazon.com/emulator/latest/userguide/what-is-service.html)). It answers AWS API calls on one local HTTPS endpoint, for one account and one Region, and keeps all state in memory. An operation it does not implement answers HTTP 501 with the error code `NotImplemented`. The documentation says fidelity is closest for control-plane APIs and varies by service for data-plane APIs ([fidelity](https://docs.aws.amazon.com/emulator/latest/userguide/fidelity.html)).
+ 
+-ScholarChain's real AWS environment was removed on Nov 21 at the end of Phase 15. The emulator is therefore the only place where ScholarChain's AWS-facing code can talk to an AWS API in Phase 16, at no cost and with no AWS account.
++ScholarChain's real AWS environment was removed on Nov 21, at the end of Phase 15. In Phase 16, the emulator is the only place where ScholarChain's AWS-facing code can talk to an AWS API. It costs nothing and needs no AWS account.
+ 
+ ## 2. Installation and configuration
+ 
+-Installation follows the AWS documentation ([getting started with Docker](https://docs.aws.amazon.com/emulator/latest/userguide/getting-started-docker.html)). The run book is the "AWS Emulator" section of [`scripts/README.md`](../scripts/README.md): one zsh line per step, from the repository root.
++Installation follows the AWS documentation ([getting started with Docker](https://docs.aws.amazon.com/emulator/latest/userguide/getting-started-docker.html)). The run book is the "AWS Emulator" section of [`scripts/README.md`](../scripts/README.md): one zsh line per step, run from the repository root, in two terminals. The emulator terminal runs only the emulator. The second terminal is the `[EMULATOR]` terminal, which runs everything else.
+ 
+ ### 2.1 The image
+ 
+-The documented Dockerfile has these parts:
++ScholarChain's copy of the documented Dockerfile is [`docker/emulator/Dockerfile`](../docker/emulator/Dockerfile). It follows the documented form:
+ - it starts from the Amazon Linux 2023 minimal image;
+-- it installs the emulator's `LTS/latest` RPM package from the documented download path. The Arm package (`aarch64`) is used, because the host is Apple silicon;
+-- it creates the home folder and runs as the documented non-root user (UID 1000) with `HOME` set;
+-- it sets `EMULATOR_BIND_ADDRESS=0.0.0.0`, so the emulator listens on every address inside the container and Docker can forward its port;
+-- it starts the `aws-emulator` program.
++- it installs the emulator's `LTS/latest` RPM package for Arm (`aarch64`), because the host is Apple silicon;
++- it runs as the documented non-root user;
++- it sets `EMULATOR_BIND_ADDRESS=0.0.0.0`, so Docker can forward the emulator's port from inside the container.
++
++Review finding P16-B-01 found that the first draft departed from this form. The file was repaired to the documented form in session 2 and checked statically against the documentation. The E14 run below is the first runtime use of the repaired file.
+ 
+-ScholarChain's copy is `docker/emulator/Dockerfile`. It is built locally as `scholarchain-emulator`, never pushed, and is not part of the application build. Session 2's review found that the first draft departed from the documented form (finding P16-B-01). It is being repaired to the documented form above. The installation described here is the documented one; the file's exact contents are not reproduced. Because the package is `LTS/latest`, the version the emulator prints at start and the image ID are recorded at E14.
++As recorded for the E14 run:
++- The human built the image locally as `scholarchain-emulator`. It was never pushed and is not part of the application build. Image ID: `sha256:39e57593567795809ded746bfd4e81c467fe66e7de72f78d87effa2313a5c57e`.
++- During the build, Docker printed the lint warning `FromPlatformFlagConstDisallowed` for the line `FROM --platform=linux/arm64`. The build still produced the image.
++- Emulator package: `aws-emulator-1.0.569-1.aarch64`, read with `rpm -q`. The emulator itself prints no version line at start.
+ 
+ ### 2.2 Starting it
+ 
+-- The emulator runs in its own terminal with a 2 GB memory limit. Its port, 9297, is published on `127.0.0.1` only. The documentation warns that leaving out the address opens the emulator to the whole network.
+-- The folder `~/.aws/emulator` is shared with the container. At start, the emulator writes four files into `~/.aws/emulator/9297/`: a credentials file, a config file, a CA certificate and a Java trust store.
+-- It is started with `--telemetry off`, so it sends no usage data ([telemetry](https://docs.aws.amazon.com/emulator/latest/userguide/telemetry.html)).
++- The emulator runs in its own terminal with a 2 GB memory limit. On the host, its port 9297 is published on `127.0.0.1` only. The documentation warns that publishing a port without an address opens the emulator to the whole network. Inside the container, the emulator listens on every address because of the documented `EMULATOR_BIND_ADDRESS=0.0.0.0` setting. This is an accepted deviation: only the host side is limited to loopback.
++- The human shared the folder `~/.aws/emulator` with the container. At start, the emulator writes four files into `~/.aws/emulator/9297/`: a credentials file, a config file, a CA certificate and a Java trust store.
++- It starts with `--telemetry off`, so it sends no usage data ([telemetry](https://docs.aws.amazon.com/emulator/latest/userguide/telemetry.html)).
+ - Readiness is checked with the documentation's bounded health wait: up to 30 tries against the health route, using the emulator's CA certificate ([pointing your SDK at the emulator](https://docs.aws.amazon.com/emulator/latest/userguide/point-sdk-to-emulator.html)).
+ - Ctrl+C stops it. The emulator then deletes its files and every emulated resource, because its state lives only in memory ([command reference](https://docs.aws.amazon.com/emulator/latest/userguide/cli-reference.html)).
+ 
++As recorded: started 2026-11-22T18:37:58Z, telemetry off, endpoint `https://127.0.0.1:9297`.
++
+ ### 2.3 Pointing ScholarChain at it
+ 
+-- A second terminal sources `scripts/emulator/env.sh`. That file sets the variables the documentation lists: the endpoint `https://127.0.0.1:9297`, the emulator's credentials and config files, the CA bundle, Region `us-east-1`, instance metadata off, and host-prefix injection off. It also unsets every variable that could select real AWS credentials, and prefixes the prompt with `[EMULATOR] `.
+-- ScholarChain reads a dedicated configuration, [`config/emulator.json`](../config/emulator.json). Every resource name in it starts with `scholarchain-emu-`, and it has no Neptune section.
+-- `scripts/emulator/setup.sh` creates the resources that configuration names: one data bucket, six DynamoDB tables, one vector bucket with five indexes, and two work queues, each with a dead-letter queue and a maximum receive count of 5. It also creates one bucket with a deny-all bucket policy, used by the policy probe ([`scripts/emulator/OPERATIONS.md`](../scripts/emulator/OPERATIONS.md), resource-name table).
+-- The Java test runs get the emulator's trust store only inside their own forked test JVM. `JAVA_TOOL_OPTIONS` is never set, because the documentation warns that a trust store set that way reaches every JVM started from the shell.
++- The `[EMULATOR]` terminal sources `scripts/emulator/env.sh`. That script sets the variables the documentation lists: the loopback endpoint, the emulator's credentials and config files, its CA bundle, and Region `us-east-1`. It also clears every variable that could select real AWS credentials, and marks the prompt with `[EMULATOR] `.
++- ScholarChain uses a separate emulator configuration, [`config/emulator.json`](../config/emulator.json). Every resource name in it starts with `scholarchain-emu-`, and it has no graph-store (Neptune) section.
++- `scripts/emulator/setup.sh` creates the resources that configuration names: one data bucket, six DynamoDB tables, one vector bucket with five indexes, and two work queues, each with a dead-letter queue and a maximum receive count of 5. It also creates one extra bucket with a deny-all bucket policy for the policy probe.
++
++As recorded: the human's shell still exported Phase 15 `SCHOLARCHAIN_CFG_*` configuration overrides. The human cleared them in the `[EMULATOR]` terminal with `unset -m 'SCHOLARCHAIN_CFG_*'`. `env.sh` does not clear these variables. This is a known gap (section 8), proposed for later.
+ 
+-### 2.4 Commands (from `scripts/README.md`)
++### 2.4 Commands
+ 
+-Two suites, one after the other, then the probes:
++After the emulator is healthy and `env.sh` is sourced, a run is these lines, one after another:
+ 
+ ```text
+ bash scripts/emulator/setup.sh
+@@ -49,133 +58,140 @@ sbt services/EmulatorTest/test
+ bash scripts/emulator/probes.sh
+ ```
+ 
+-The emulator tests carry their own tag. The normal build (`sbt check`) and the live-AWS test configuration both exclude them, so they never run by accident.
++The emulator tests carry their own tag. The normal build and the live-AWS test configuration both exclude them, so they never run by accident.
+ 
+-## 3. The safety contract, and why
++## 3. The safety contract
+ 
+-The real AWS environment is gone, but real AWS credentials can still exist on the laptop. The emulator work must never send a request to real AWS by mistake. Every emulator client, test and script checks one contract **before any client is built or any call is made**. If any rule fails, the run stops with nothing sent, and records which rule failed (by name only):
++The real AWS environment is gone, but real AWS credentials can still exist on the laptop. The emulator work must never send a request to real AWS by mistake. So every emulator test and script checks these rules **before it makes any call**. If one rule fails, the run stops with nothing sent and records which rule failed, by name only.
+ 
+-- **The endpoint is exactly `https://127.0.0.1:9297`.** `localhost` is refused, because with it the Java SDK puts the S3 bucket into the host name ([pointing your SDK at the emulator](https://docs.aws.amazon.com/emulator/latest/userguide/point-sdk-to-emulator.html)). Any other host or port is refused too. `AWS_ENDPOINT_URL` must equal it.
+-- **Credentials and config come only from the emulator's own files** under `$HOME/.aws/emulator/9297/`, and the credentials file must exist.
+-- **Every variable that could select other credentials is unset.** That means a profile name, access keys, a session token, a role, a web-identity token, or container credentials. A variable set to an empty value counts as set.
+-- **Paths handed to the forked test JVMs are absolute.** The tests run from the module's own folder.
+-- **The scripts also check** that the health route answers, and that the caller identity is the emulator's single account. The account number is compared, never printed or written to a file; the scripts print only `emulator account confirmed: yes|no`.
+-- **Every client gets an explicit endpoint.** Each emulator client is built with the validated loopback endpoint, host-prefix injection off and path-style S3 addressing. Its keys are read from the emulator's credentials file and nothing else. The production client setup is unchanged, and an offline test compares the two.
+-- **Every CLI call names the endpoint explicitly.** Each call in the scripts passes `--endpoint-url`, with short connect and read timeouts.
++- The endpoint must be exactly `https://127.0.0.1:9297`. `localhost` is refused, because with it the Java SDK puts the S3 bucket name into the host name ([pointing your SDK at the emulator](https://docs.aws.amazon.com/emulator/latest/userguide/point-sdk-to-emulator.html)). Any other host or port is refused too.
++- Credentials and config come only from the emulator's own files under `~/.aws/emulator/9297/`.
++- Every variable that could select other credentials must be unset: a profile name, access keys, a session token, a role, a web-identity token, or container credentials.
++- The scripts also check that the health route answers and that the caller is the emulator's single account. They compare the account number but never print it or write it to a file. They print only `emulator account confirmed: yes|no`.
++- Every call names the loopback endpoint explicitly. The normal production set-up is unchanged.
+ 
+-Unit tests in the normal build cover each refusal with fake environments and no network. Those tests ran in session 2; the emulator runs themselves have not (status lines below).
++Unit tests in the normal build cover each refusal, with fake environments and no network.
+ 
+-## 4. What is exercised
++## 4. What was exercised
+ 
+-Only ScholarChain's own code runs against the emulator, through its storage adapters and the embedding worker. No test calls the emulator through a hand-written HTTP client.
++Only ScholarChain's own code ran against the emulator, through its storage layer and its embedding worker. In addition, the set-up and probe scripts made AWS CLI calls.
+ 
+-| Area | What runs | Services touched |
++| Part | What it does | Services |
+ |---|---|---|
+-| Storage adapter suite (storage) | the bounded S3, DynamoDB, S3 Vectors and SQS tests of the live-AWS adapter suite, re-pointed at the emulator: at most 2 objects, 2 items and 2 vectors per test, 60 s per test | S3, DynamoDB, S3 Vectors, SQS |
+-| SQS dead-letter test (storage) | one message is received and released at once through the adapter's own release call until the queue's maximum receive count, and is then looked for on the dead-letter queue | SQS |
+-| Resource-policy probe (storage) | a read and a write on the bucket with the deny-all policy. The outcome (allowed or refused) is **recorded, not asserted**: the documentation says the emulator does not check S3 bucket policies ([security](https://docs.aws.amazon.com/emulator/latest/userguide/security.html)) | S3 |
+-| Re-embed demonstration (storage, application code) | ScholarChain's vector re-embed path, with a stub embedder (no model call): one vector with its metadata and text object; a re-embed that changes only the vector data; the completion record written; a second delivery of the same task reported `replayed`, with no embed call | S3, S3 Vectors, DynamoDB |
+-| Worker dead-letter demonstration (services, application code) | ScholarChain's real embedding-worker loop against the emulator's embedding queue and its dead-letter queue. One poison message is never acknowledged, is released at once on each receive, and reaches the dead-letter queue after the maximum receive count. This replays the path of Phase 15 experiment F. The embedder used fails the test if it is ever called. The suite was still being written when this draft was made; its exact steps and bounds are in service-engineer's step 7 report | SQS |
+-| Step Functions probes (scripts) | definition validation and a single-state test of the input-resolving state from a saved Phase 15 plan, with the same four inputs Phase 15 used on real AWS (step D4a). If the saved plan is not present locally, these are recorded `not-exercised (input missing)` | Step Functions |
+-| S3 Vectors probes (scripts) | reading the vector bucket and listing its indexes | S3 Vectors |
+-| Vector-bucket policy probe, M-01 (scripts) | a vector-bucket policy that denies the caller, then a read, recording whether the emulator refuses. In Phase 15, real AWS refused the equivalent read (finding M-01) | S3 Vectors |
++| Set-up script | creates the bucket, tables, vector bucket and indexes, and queues named in the emulator configuration | S3, DynamoDB, S3 Vectors, SQS |
++| Storage suite (8 tests) | conditional S3 writes (create, already present, conflict) and a listing; conditional DynamoDB writes and reads; an S3 Vectors write, read and similarity query; reads of the configured resources; an SQS send, receive and delete; the SQS dead-letter path; the S3 deny-all policy probe; the re-embed demonstration | S3, DynamoDB, S3 Vectors, SQS |
++| Services suite (1 test) | the worker dead-letter demonstration: ScholarChain's embedding worker receives a message it can never process, releases it at once on each receive, and the queue moves it to its dead-letter queue after the maximum receive count. The embedding model must never be called. | SQS |
++| Probe script | reads the vector bucket and lists its indexes; the M-01 sequence (a vector read before and after a vector-bucket policy that denies the caller); Step Functions definition validation and single-state tests | S3 Vectors, Step Functions |
+ 
+-Before the run, infra-engineer classified every operation these tests call against the emulator documentation ([`scripts/emulator/OPERATIONS.md`](../scripts/emulator/OPERATIONS.md)). Three are `documented supported`: caller identity, bucket creation and table creation. Twenty-nine are `unknown`, because the published per-operation fidelity scores are outside the documentation site and were not read in this phase. The two policy behaviors are `documented unsupported`. Every unknown operation is treated as a probe: its outcome is recorded, never assumed.
++The re-embed demonstration uses ScholarChain's vector re-embed path with a stub embedder, so no model is called. The path stores a vector with its metadata and its text, re-embeds it so that only the vector data changes, and writes a completion record. A second delivery of the same task must then be reported as already done (`replayed`), with no second embedding call.
+ 
+-State isolation: every stateful test tags each key, message, task and record it creates with a run ID, and asserts only on items that carry that ID. Every re-run starts from a restarted emulator, a new setup and a new run ID.
++Every stateful test tags what it creates with the run ID and checks only its own items.
+ 
+-## 5. What is not exercised
++## 5. Results
+ 
+-The emulator demonstration **does not show the full ScholarChain query working**. Specifically:
+-- **Neptune (the graph store): not exercised.** The emulator documentation says nothing about the Neptune data API specifically. It also says resources with their own endpoint, such as databases, listen on a separate port, which conflicts with the one-endpoint safety contract ([`OPERATIONS.md`](../scripts/emulator/OPERATIONS.md), Neptune row). There is no Neptune section in the emulator configuration.
+-- **The query pipeline: not exercised.** Planning, retrieval, evidence building, answer synthesis and claim verification do not run against the emulator. They depend on the graph store.
+-- **The language model and the embedding provider: not exercised.** No model is called. The re-embed demonstration uses a stub embedder, and the worker demonstration uses an embedder that must never be called.
+-- **The Hadoop and Spark jobs (EMR): not exercised.**
+-- **IAM, identity policies and resource policies: not evaluated** by the emulator (section 8). No test creates or relies on roles or policies.
+-- **Load and scaling: not tested.** The emulator is not built for load testing, and no ECS, autoscaling or alarm behavior exists on it.
++### 5.1 Run identity (as recorded)
+ 
+-## 6. How results are recorded
++| Item | Value |
++|---|---|
++| Run ID | `20261122T1845Z-ecc1305-7d2e` |
++| Repository commit (HEAD of the run) | `ecc13052b09e0b0396f47894e8858c6029632886` |
++| Image ID | `sha256:39e57593567795809ded746bfd4e81c467fe66e7de72f78d87effa2313a5c57e` |
++| Emulator package | `aws-emulator-1.0.569-1.aarch64` (from `rpm -q`) |
++| Emulator started | 2026-11-22T18:37:58Z, telemetry off |
++| Set-up | 20 resources created, 0 failed; `emulator account confirmed: yes` |
++| Suites | storage suite: 8 tests passed; services suite: 1 test passed |
+ 
+-Every operation a test or probe calls is recorded as exactly one outcome class:
++This is the first E14 run, so it replaces no earlier result.
+ 
+-| Class | Meaning | Counts as working functionality? |
+-|---|---|---|
+-| `implemented-passed` | the emulator answered and the test's check passed | yes |
+-| `implemented-failed` | the emulator answered, but the answer was wrong for the test | no (the test fails) |
+-| `not-implemented` | HTTP 501 `NotImplemented` | **no**: a recorded compatibility gap |
+-| `not-exercised` | skipped, because an earlier operation it needs did not succeed | no |
+-| `infrastructure-failure` | no answer, a TLS failure, or a refusal by the safety contract | no (the test fails) |
++### 5.2 How outcomes are classed
+ 
+-Each suite and script writes one JSON line per operation into its own file in the run's results folder (`experiments/emulator/raw/RUN_ID/`). A line carries the service, the operation, the class, the HTTP status and the latency, and never a host, account, ARN, queue URL or key. A suite's exit code says only that it ran; coverage is read from the result lines. A `not-implemented` operation lets a test pass as a recorded gap, never as validated functionality.
++Each operation call is recorded as exactly one outcome class: `implemented-passed` (the emulator answered and the check passed), `implemented-failed` (it answered, but wrongly), `not-implemented` (HTTP 501, a recorded compatibility gap, never counted as working), `not-exercised` (not run because something it needs was missing), or `infrastructure-failure` (no answer, a TLS failure, or a refusal by the safety contract). A suite's exit code shows only that the suite ran. Coverage is read from the result lines.
+ 
+-The two demonstrations each end with one line:
+-- `demonstration re-embed: demonstrated` or `demonstration re-embed: not demonstrated (REASON)`;
+-- `demonstration dead-letter: demonstrated` or `demonstration dead-letter: not demonstrated (REASON)`.
++### 5.3 Coverage by service and outcome class
+ 
+-`demonstrated` means every operation the path needs was `implemented-passed` and its final check passed. A `not demonstrated` caused by an operation the emulator does not implement is recorded as such. It is not a ScholarChain defect, but it is not a demonstration either.
++The table counts operation calls (one result line per call). The brackets give the number of distinct operations. Computed from `setup.jsonl` (36 lines), `results-EmulatorAdaptersEmulatorSuite.jsonl` (54 lines), `results-EmbeddingWorkerEmulatorSuite.jsonl` (18 lines) and `probes.jsonl` (14 lines) in the results folder: 122 lines in total.
+ 
+-## 7. Results
++| Service | implemented-passed | implemented-failed | not-implemented | not-exercised | infrastructure-failure |
++|---|---|---|---|---|---|
++| S3 | 14 (7) | 0 | 0 | 0 | 0 |
++| DynamoDB | 17 (6) | 0 | 0 | 0 | 0 |
++| S3 Vectors | 34 (9) | 0 | 0 | 0 | 0 |
++| SQS | 52 (7) | 0 | 0 | 0 | 0 |
++| Step Functions | 0 | 0 | 0 | 5 (2) | 0 |
++| STS (caller identity check) | no result line | – | – | – | – |
++| **Total** | **117** | **0** | **0** | **5** | **0** |
+ 
+-### 7.1 Run identity
++Operations per service, as named in the result files:
++- **S3:** HeadBucket, CreateBucket, PutBucketPolicy, PutObject, GetObject, HeadObject, ListObjectsV2.
++- **DynamoDB:** CreateTable, DescribeTable, UpdateTimeToLive, PutItem, GetItem, Query.
++- **S3 Vectors:** CreateVectorBucket, GetVectorBucket, PutVectorBucketPolicy, CreateIndex, GetIndex, ListIndexes, PutVectors, GetVectors, QueryVectors.
++- **SQS:** GetQueueUrl, CreateQueue, GetQueueAttributes, SendMessageBatch, ReceiveMessage, ChangeMessageVisibility, DeleteMessage.
++- **Step Functions (not exercised):** ValidateStateMachineDefinition (1 line), TestState (4 lines).
+ 
+-PENDING E14: emulator version printed at start; image ID; run ID; repository commit used; which earlier results a re-run supersedes.
++Every operation that was called got an answer, and every check passed. No operation came back `not-implemented`. The five Step Functions lines are `not-exercised` with the observation `input missing`: those probes need a saved Phase 15 deployment plan, and that plan is no longer on the laptop. The caller-identity check has no line in the result files. Its outcome is the set-up script's printed `emulator account confirmed: yes` (as recorded).
+ 
+-### 7.2 Coverage by outcome class
++Each result line also records a latency. These are single local calls on a laptop, not a performance measurement, so this file draws no conclusion from them.
+ 
+-PENDING E14. Filled from the committed result files only.
++### 5.4 Demonstrations
+ 
+-| Service | implemented-passed | implemented-failed | not-implemented | not-exercised | infrastructure-failure |
+-|---|---|---|---|---|---|
+-| S3 | PENDING E14 | PENDING E14 | PENDING E14 | PENDING E14 | PENDING E14 |
+-| DynamoDB | PENDING E14 | PENDING E14 | PENDING E14 | PENDING E14 | PENDING E14 |
+-| S3 Vectors | PENDING E14 | PENDING E14 | PENDING E14 | PENDING E14 | PENDING E14 |
+-| SQS | PENDING E14 | PENDING E14 | PENDING E14 | PENDING E14 | PENDING E14 |
+-| Step Functions | PENDING E14 | PENDING E14 | PENDING E14 | PENDING E14 | PENDING E14 |
+-| STS (safety check) | PENDING E14 | PENDING E14 | PENDING E14 | PENDING E14 | PENDING E14 |
++| Demonstration | Line read from the results | File |
++|---|---|---|
++| re-embed | `demonstration re-embed: demonstrated` | `demonstration-EmulatorAdaptersEmulatorSuite.txt` |
++| dead-letter | `demonstration dead-letter: demonstrated` | `demonstration-EmbeddingWorkerEmulatorSuite.txt` |
+ 
+-### 7.3 Demonstrations
++`demonstrated` means that every operation the path needed was `implemented-passed` and the path's final check passed. For re-embed, the final check is that the second delivery was reported `replayed` with exactly one embedding call. In both suites, the dead-letter path's last result line records the observation `dead letter after 5 receives`.
+ 
+-| Demonstration | Line read from the results | Notes |
+-|---|---|---|
+-| re-embed | PENDING E14 | PENDING E14 |
+-| dead-letter | PENDING E14 | PENDING E14 |
++### 5.5 Policy probes
+ 
+-### 7.4 Policy probes
++| Probe | Observed |
++|---|---|
++| S3 bucket with a deny-all bucket policy | PutObject and GetObject were both refused: HTTP 403, `AccessDenied` (`results-EmulatorAdaptersEmulatorSuite.jsonl`, step `s3-policy-probe`) |
++| M-01 sequence (S3 Vectors) | before the policy, the vector read succeeded (`baseline readable`). After the deny vector-bucket policy was put, GetVectors was refused with `AccessDeniedException` (`probes.jsonl`, probes `c-get-vectors-baseline` and `c-get-vectors-after-deny`) |
+ 
+-PENDING E14: the outcome (allowed or refused) of the S3 deny-all bucket probe and the M-01 vector-bucket probe.
++The S3 result goes against the expectation taken from the emulator documentation, which says the emulator does not check S3 bucket policies ([security](https://docs.aws.amazon.com/emulator/latest/userguide/security.html)). It is reported as observed. These two probes say nothing about policy evaluation in general.
+ 
+-### 7.5 Comparison with Phase 15's live AWS results
++## 6. Comparison with Phase 15's live AWS results
+ 
+-The comparison is planned item by item. Each emulator outcome is set next to the committed Phase 15 record, and differences are listed, not explained away. Real AWS and the emulator were never run at the same time or with the same code.
++Real AWS and the emulator never ran at the same time or on the same code. Real AWS ran Phase 15 code; the emulator ran HEAD `ecc1305`. Each row sets the emulator outcome next to the committed Phase 15 record.
+ 
+-| Phase 15 live record | Source | Emulator counterpart | Result |
++| Phase 15 live record | Source | Emulator counterpart | Comparison |
+ |---|---|---|---|
+-| D17: the live-AWS adapter suite run against the real environment | `docs/agent-runs/phase-15/runbook-log.md`, row "D17 AwsAdaptersAwsSuite" | storage adapter suite (S3, DynamoDB, S3 Vectors, SQS; Neptune left out) | PENDING E14 |
+-| Experiment F: poison message to the dead-letter queue, release-at-once rule, sequential replay | [`experiments/results-summary.md`](../experiments/results-summary.md) section 2.1 | worker dead-letter demonstration; storage SQS dead-letter test; re-embed `replayed` | PENDING E14 |
+-| D4a: Step Functions definition validation and single-state tests on real AWS | `docs/agent-runs/phase-15/runbook-log.md`, row "D3 address list + K-01 + D4a" | Step Functions probes, same four inputs | PENDING E14 |
+-| M-01: real AWS refused a vector read under the vector-bucket policy | Phase 15 finding M-01; `runbook-log.md` row "D17" | M-01 probe | PENDING E14 |
++| D17, live-AWS adapter suite: 6 tests; 2 passed (S3, DynamoDB); 3 failed (S3 Vectors write refused by the vector-bucket policy, M-01; Neptune and an environment check failed from outside the VPC, as expected); 1 skipped (SQS, variable unset) | `docs/agent-runs/phase-15/runbook-log.md`, row "D17 AwsAdaptersAwsSuite" | storage suite, 8 tests, all passed; S3, DynamoDB, S3 Vectors and SQS calls all `implemented-passed`; no Neptune | Not the same test set. S3 and DynamoDB passed on both. S3 Vectors and SQS were exercised on the emulator but not passed live (S3 Vectors refused by policy, SQS skipped). Neptune: live only, and it failed there. |
++| Experiment F: a poison message reached the embedding dead-letter queue after 5 receives under the release-at-once rule; a duplicate task was reported `replayed` | [`experiments/results-summary.md`](../experiments/results-summary.md), section 2.1 | worker dead-letter demonstration; storage dead-letter test; re-embed `replayed` | The same behavior was observed: `dead letter after 5 receives` in both suites, and the re-embed second delivery `replayed`. On the emulator there was no ECS worker, no scaling, no alarm and no CloudWatch metric. |
++| D4a: Step Functions definition validation `OK` and four single-state tests that matched expectations | `docs/agent-runs/phase-15/runbook-log.md`, rows "D3 address list + K-01 + D4a" and "D4a (L-01 plan, human read-only)" | Step Functions probes | **Not possible.** All five probe lines are `not-exercised (input missing)`, because the saved Phase 15 plan is no longer present locally. |
++| M-01: real AWS refused S3 Vectors data access under the deny vector-bucket policy (the D17 vector write got `AccessDenied`) | `runbook-log.md`, row "D17 AwsAdaptersAwsSuite" | M-01 probe sequence | **Same outcome:** the emulator refused GetVectors with `AccessDeniedException` after the deny policy. The live refusal in D17 was on a vector write; the emulator probe's was on a vector read. |
++
++## 7. What was not exercised
++
++The emulator run **does not show the full ScholarChain query working**. Specifically:
++- **Neptune (the graph store): not exercised.** The emulator configuration has no Neptune section, and no test or probe calls it.
++- **The query pipeline: not exercised.** Planning, retrieval, evidence building, answer synthesis and claim verification did not run against the emulator, because they depend on the graph store.
++- **The language model and the embedding provider: not exercised.** No model was called. The re-embed demonstration used a stub embedder, and the worker demonstration used an embedder that fails the test if it is ever called.
++- **Step Functions: not exercised** (section 5.3).
++- **The Hadoop and Spark jobs (EMR), ECS, autoscaling, alarms and IAM roles: not exercised.**
++- **Load: not tested.**
+ 
+ ## 8. Limitations
+ 
+-Limitations of the emulator, from its documentation:
+-- It does not evaluate IAM policies or resource-based policies the way AWS does. It never denies a request signed with its own key, and it does not check KMS key policies or S3 bucket policies ([what is the AWS Emulator](https://docs.aws.amazon.com/emulator/latest/userguide/what-is-service.html), "Limitations"; [security](https://docs.aws.amazon.com/emulator/latest/userguide/security.html)). An "allowed" policy probe is therefore expected emulator behavior, and a "refused" one is not evidence that it evaluates policies in general.
+-- State is in memory only and is lost when it stops. There is no reset route ([command reference](https://docs.aws.amazon.com/emulator/latest/userguide/cli-reference.html)).
+-- Data-plane fidelity varies by service ([fidelity](https://docs.aws.amazon.com/emulator/latest/userguide/fidelity.html)). Behaviors such as conditional writes, receive counts and redrive are observed, not assumed.
+-- It has one account and one Region, and is not tested for load ([what is the AWS Emulator](https://docs.aws.amazon.com/emulator/latest/userguide/what-is-service.html)).
+-- S3 Control requests do not reach it ([pointing your SDK at the emulator](https://docs.aws.amazon.com/emulator/latest/userguide/point-sdk-to-emulator.html)).
+-- The package is `LTS/latest`, so a later rebuild can produce a different emulator version. The version and image ID are recorded at E14.
++Limitations of the emulator (from its documentation, plus this run):
++- State is in memory only and is lost when it stops ([command reference](https://docs.aws.amazon.com/emulator/latest/userguide/cli-reference.html)).
++- One account and one Region. It is not built or tested for load ([what is the AWS Emulator](https://docs.aws.amazon.com/emulator/latest/userguide/what-is-service.html)).
++- Data-plane fidelity varies by service ([fidelity](https://docs.aws.amazon.com/emulator/latest/userguide/fidelity.html)). A `passed` here means the emulator gave the answer the test expected. It does not prove that real AWS behaves the same.
++- The documentation says the emulator does not evaluate IAM or resource policies the way AWS does ([security](https://docs.aws.amazon.com/emulator/latest/userguide/security.html)). Yet both policy probes in this run were refused (section 5.5). Both statements are reported, and neither is generalized.
++- The package is `LTS/latest`, so a later rebuild can install a different emulator version. This run used `aws-emulator-1.0.569-1.aarch64`, and the emulator prints no version line of its own.
+ 
+ Limitations of this work:
+-- Neptune, the query pipeline and the language model are not run on the emulator (section 5). The emulator results say nothing about answer quality, retrieval or graph analytics.
+-- A side-by-side live comparison is impossible now: the AWS environment was removed on Nov 21. The comparison in section 7.5 is with Phase 15's committed records, made with Phase 15 code.
+-- 29 of the operations used are `unknown` in the documentation, so every one of them is a probe.
+-- The Step Functions probes depend on a saved Phase 15 plan file that may no longer exist locally.
+-- Every emulator script, suite and demonstration is `runtime: untested` until E14. Every Phase 16 code fix remains `fixed in code, tested offline, not validated live`. The emulator is not a live validation of production behavior.
++- No Neptune, no query pipeline and no language model on the emulator (section 7). The emulator results say nothing about answer quality, retrieval or graph analytics.
++- A side-by-side live comparison is not possible now, because the AWS environment was removed on Nov 21. Section 6 compares against Phase 15's committed records, which were made with Phase 15 code.
++- The Step Functions comparison (D4a) could not be made, because its input is gone.
++- `scripts/emulator/env.sh` does not clear `SCHOLARCHAIN_CFG_*` overrides left in the shell. The human cleared them by hand in this run (proposed later).
++- One run, on one laptop. The emulator is not a live validation of production behavior. Phase 16 code fixes remain "fixed in code, tested offline, not validated live".
+ 
+ ## 9. Status lines
+ 
+-- `scripts/emulator/env.sh`, `setup.sh`, `probes.sh`, `lib.sh`: static check passed in session 2 (shellcheck clean); runtime: untested.
+-- `docker/emulator/Dockerfile`: runtime: untested; under repair to the documented form (P16-B-01).
+-- `sbt storage/EmulatorTest/test`: compiled in session 2 (storage-engineer, step 3); runtime: untested.
+-- `sbt services/EmulatorTest/test` (worker dead-letter demonstration): being written in session 2 step 7 when this draft was made; its compile status is in service-engineer's step 7 report; runtime: untested.
+-- Safety-contract unit tests (normal build): ran in session 2's targeted tests.
++- `docker/emulator/Dockerfile`: repaired to the documented form (static review against the documentation); runtime: image built and run in E14 (run `20261122T1845Z-ecc1305-7d2e`), with Docker lint warning `FromPlatformFlagConstDisallowed` (as recorded).
++- `scripts/emulator/setup.sh`: ran in E14; 20 created, 0 failed (as recorded).
++- `sbt storage/EmulatorTest/test`: ran in E14; 8 tests passed (as recorded); results in `results-EmulatorAdaptersEmulatorSuite.jsonl`.
++- `sbt services/EmulatorTest/test`: ran in E14; 1 test passed (as recorded); results in `results-EmbeddingWorkerEmulatorSuite.jsonl`.
++- `scripts/emulator/probes.sh`: ran in E14; results in `probes.jsonl` (9 passed, 5 not exercised).
++- `scripts/emulator/env.sh`: used in E14; does not clear `SCHOLARCHAIN_CFG_*` (limitation).

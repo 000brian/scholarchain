@@ -1,0 +1,14 @@
+{"service":"stepfunctions","operation":"ValidateStateMachineDefinition","class":"not-exercised","httpStatus":null,"latencyMillis":0,"observation":"input missing","probe":"a-validate"}
+{"service":"stepfunctions","operation":"TestState","class":"not-exercised","httpStatus":null,"latencyMillis":0,"observation":"input missing","probe":"a-test-state-absent"}
+{"service":"stepfunctions","operation":"TestState","class":"not-exercised","httpStatus":null,"latencyMillis":0,"observation":"input missing","probe":"a-test-state-A"}
+{"service":"stepfunctions","operation":"TestState","class":"not-exercised","httpStatus":null,"latencyMillis":0,"observation":"input missing","probe":"a-test-state-B"}
+{"service":"stepfunctions","operation":"TestState","class":"not-exercised","httpStatus":null,"latencyMillis":0,"observation":"input missing","probe":"a-test-state-invalid"}
+{"service":"s3vectors","operation":"GetVectorBucket","class":"implemented-passed","httpStatus":null,"latencyMillis":383,"probe":"b-get-vector-bucket","resource":"scholarchain-emu-vectors","observation":"found"}
+{"service":"s3vectors","operation":"ListIndexes","class":"implemented-passed","httpStatus":null,"latencyMillis":367,"probe":"b-list-indexes","resource":"scholarchain-emu-vectors","observation":"5 indexes, all five configured names"}
+{"service":"s3vectors","operation":"CreateVectorBucket","class":"implemented-passed","httpStatus":null,"latencyMillis":362,"probe":"c-create-bucket","resource":"scholarchain-emu-probe-vectors","observation":"created"}
+{"service":"s3vectors","operation":"CreateIndex","class":"implemented-passed","httpStatus":null,"latencyMillis":364,"probe":"c-create-index","resource":"probe-v1","observation":"created"}
+{"service":"s3vectors","operation":"PutVectors","class":"implemented-passed","httpStatus":null,"latencyMillis":374,"probe":"c-put-vector","resource":"probe-v1"}
+{"service":"s3vectors","operation":"GetVectors","class":"implemented-passed","httpStatus":null,"latencyMillis":364,"probe":"c-get-vectors-baseline","resource":"probe-v1","observation":"baseline readable"}
+{"service":"s3vectors","operation":"GetVectorBucket","class":"implemented-passed","httpStatus":null,"latencyMillis":374,"probe":"c-get-bucket-arn","resource":"scholarchain-emu-probe-vectors","observation":"ARN read (not recorded)"}
+{"service":"s3vectors","operation":"PutVectorBucketPolicy","class":"implemented-passed","httpStatus":null,"latencyMillis":362,"probe":"c-put-policy","resource":"scholarchain-emu-probe-vectors"}
+{"service":"s3vectors","operation":"GetVectors","class":"implemented-passed","httpStatus":null,"latencyMillis":367,"probe":"c-get-vectors-after-deny","resource":"probe-v1","observation":"refused (as real AWS in Phase 15 M-01)","errorCode":"AccessDeniedException"}

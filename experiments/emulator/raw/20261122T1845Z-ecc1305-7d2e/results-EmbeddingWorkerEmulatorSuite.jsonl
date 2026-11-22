@@ -1,0 +1,18 @@
+{"service":"sqs","operation":"GetQueueUrl","class":"implemented-passed","httpStatus":null,"latencyMillis":162,"step":"worker-dead-letter"}
+{"service":"sqs","operation":"GetQueueUrl","class":"implemented-passed","httpStatus":null,"latencyMillis":5,"step":"worker-dead-letter"}
+{"service":"sqs","operation":"GetQueueAttributes","class":"implemented-passed","httpStatus":null,"latencyMillis":7,"step":"worker-dead-letter","observation":"maxReceiveCount 5"}
+{"service":"sqs","operation":"SendMessageBatch","class":"implemented-passed","httpStatus":null,"latencyMillis":18,"step":"worker-dead-letter"}
+{"service":"sqs","operation":"ReceiveMessage","class":"implemented-passed","httpStatus":null,"latencyMillis":12,"step":"worker-dead-letter"}
+{"service":"sqs","operation":"ChangeMessageVisibility","class":"implemented-passed","httpStatus":null,"latencyMillis":6,"step":"worker-dead-letter"}
+{"service":"sqs","operation":"ReceiveMessage","class":"implemented-passed","httpStatus":null,"latencyMillis":4,"step":"worker-dead-letter"}
+{"service":"sqs","operation":"ChangeMessageVisibility","class":"implemented-passed","httpStatus":null,"latencyMillis":4,"step":"worker-dead-letter"}
+{"service":"sqs","operation":"ReceiveMessage","class":"implemented-passed","httpStatus":null,"latencyMillis":4,"step":"worker-dead-letter"}
+{"service":"sqs","operation":"ChangeMessageVisibility","class":"implemented-passed","httpStatus":null,"latencyMillis":4,"step":"worker-dead-letter"}
+{"service":"sqs","operation":"ReceiveMessage","class":"implemented-passed","httpStatus":null,"latencyMillis":3,"step":"worker-dead-letter"}
+{"service":"sqs","operation":"ChangeMessageVisibility","class":"implemented-passed","httpStatus":null,"latencyMillis":3,"step":"worker-dead-letter"}
+{"service":"sqs","operation":"ReceiveMessage","class":"implemented-passed","httpStatus":null,"latencyMillis":3,"step":"worker-dead-letter"}
+{"service":"sqs","operation":"ChangeMessageVisibility","class":"implemented-passed","httpStatus":null,"latencyMillis":2,"step":"worker-dead-letter"}
+{"service":"sqs","operation":"ReceiveMessage","class":"implemented-passed","httpStatus":null,"latencyMillis":1005,"step":"worker-dead-letter"}
+{"service":"sqs","operation":"ReceiveMessage","class":"implemented-passed","httpStatus":null,"latencyMillis":1009,"step":"worker-dead-letter"}
+{"service":"sqs","operation":"ReceiveMessage","class":"implemented-passed","httpStatus":null,"latencyMillis":8,"step":"worker-dead-letter"}
+{"service":"sqs","operation":"DeleteMessage","class":"implemented-passed","httpStatus":null,"latencyMillis":7,"step":"worker-dead-letter","observation":"dead letter after 5 receives"}
