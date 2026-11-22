@@ -1,0 +1,5 @@
+{
+  "description": "one answer with claims (evaluate-v1-r3, P16-L-08): audit with 2 independent answers (questions qc and qd, one attempt each, neither abstained); only qc has claims (verified 2 of 2), qd has none; the answers are independent, but only 1 answer carries the claim rates' denominator, so the claim rows are descriptive (k, n, proportion, empty ci_low and ci_high, note 'descriptive; 1 answer(s) with claims in this set, ...') where evaluate-v1-r2 wrote a zero-width bootstrap interval 1 to 1; abstention 0 of 2 is over both independent answers and keeps Wilson bounds 0 and z^2/(2+z^2); no --label, so the code version label is not available",
+  "args": ["--audit", "{case}/audit.json", "--seed", "7", "--resamples", "50"],
+  "expectExit": 0
+}

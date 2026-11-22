@@ -19,7 +19,8 @@ Subcommands (X1 builds the first five; X2 builds the last three):
   answers        group 4 (a): verifier-reported claim rates, abstention rates and codes, answer-key agreement
                  where the frozen fields hold it, per source (never pooled); intervals only over
                  independent answers (P16-C-02): bootstrap over answers where per-answer values exist and
-                 Wilson for answer-level rates, else descriptive (k, n, proportion); explain rows are
+                 at least 2 answers have claims in the set (P16-L-08), Wilson for answer-level rates,
+                 else descriptive (k, n, proportion); explain rows are
                  always descriptive; clip 01's attempts are collapsed into one answer per question
   graph          group 2: spark-engineer's suite table summarized (hand-worked coverage per check), the
                  invariant counts of the Phase 15 spark-outputs.csv files, provenance fields per sampled
@@ -66,7 +67,7 @@ from datetime import datetime, timezone
 
 sys.dont_write_bytecode = True
 
-TOOL_VERSION = "evaluate-v1-r2"
+TOOL_VERSION = "evaluate-v1-r3"
 SCRIPT_PATH = os.path.abspath(__file__)
 EVAL_DIR = os.path.dirname(SCRIPT_PATH)
 REPO_ROOT = os.path.dirname(os.path.dirname(EVAL_DIR))
@@ -1787,20 +1788,27 @@ def claim_rows(src, breakdown, totals, units, has_conflicting, seed, resamples, 
     aggregated counts exist (no interval), else one status -> count map per answer (None for an
     answer without claims in this set), resampled by bootstrap_ratios. descriptive: a non-empty
     'descriptive; ...' note when the answers are not independent (P16-C-02): no bootstrap, the note
-    is added to the note of every row of this set."""
+    is added to the note of every row of this set. P16-L-08: the bootstrap also needs at least 2
+    answers with claims in this set (the units that carry the rate's denominator); with exactly 1
+    the set is descriptive with its own note; with 0 every row is not measurable (no claims) and
+    the note is left as it is."""
     total = sum(totals.values())
     metrics = list(CLAIM_METRICS) + [("other_status_share:" + s, s) for s in sorted(totals) if s not in CLAIM_STATUSES]
     ci = {}
     method = "no dependence-aware interval (aggregated counts only; no per-answer values)"
+    with_claims = len([u for u in units if u and sum(u.values()) > 0]) if units is not None else 0
+    if units is not None and not descriptive and with_claims == 1:
+        descriptive = "descriptive; 1 answer(s) with claims in this set, an interval needs at least 2 independent answers"
     if units is not None and descriptive:
         method = NO_INTERVAL
         note = join_notes(note, descriptive)
+    elif units is not None and with_claims < 2:
+        method = NO_INTERVAL
     elif units is not None:
         series = {}
         for _, status in metrics:
             series[status] = [((u.get(status, 0), sum(u.values())) if u and sum(u.values()) > 0 else None) for u in units]
         ci = bootstrap_ratios(series, len(units), seed, resamples)
-        with_claims = len([u for u in units if u and sum(u.values()) > 0])
         method = "percentile bootstrap over answers (ratio of sums); seed %d; %d resamples; %d answers with claims" % (
             seed, resamples, with_claims)
     rows = []

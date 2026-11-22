@@ -64,7 +64,7 @@ class PathAbsenceSuite extends munit.FunSuite {
 
   test("L2: a correct absence claim in hops citing a complete path=none item is verified") {
     val v = verify(
-      "No coauthorship path between Alice Smith and Bob Jones exists within 6 hops.",
+      "No coauthorship path between Alice Smith and Bob Jones exists within 6 hops in 2015-2025.",
       completeNone
     )
     assertEquals(v.status, Verified, v.reasons.toString)
@@ -72,8 +72,25 @@ class PathAbsenceSuite extends munit.FunSuite {
   }
 
   test("L2: a shallower stated depth than the completed search is also supported") {
-    val v = verify("Alice Smith and Bob Jones are not connected within 4 hops.", completeNone)
+    val v =
+      verify(
+        "Alice Smith and Bob Jones are not connected within 4 hops in 2015-2025.",
+        completeNone
+      )
     assertEquals(v.status, Verified, v.reasons.toString)
+  }
+
+  test("P16-L rule: an absence claim that states no window is not verified (the search has one)") {
+    // human rule: the search's window must equal the claim's window, or neither has one
+    List(
+      "No coauthorship path between Alice Smith and Bob Jones exists within 6 hops.",
+      "Alice Smith and Bob Jones are not connected within 4 hops."
+    ).foreach { t =>
+      val v = verify(t, completeNone)
+      assertNotEquals(v.status, Verified, s"$t -> ${v.reasons}")
+      assert(!v.kept, s"$t -> ${v.status} ${v.reasons}")
+      assert(v.reasons.contains(Reasons.AbsenceNotSearched), s"$t -> ${v.reasons}")
+    }
   }
 
   test("L2: an absence claim deeper than the completed search is never kept") {
@@ -175,12 +192,29 @@ class PathAbsenceSuite extends munit.FunSuite {
     )
     assertEquals(wrong.status, Conflicting, wrong.reasons.toString)
     assert(wrong.reasons.contains(Reasons.HopsConflict), wrong.reasons.toString)
-    // the same claim with the found path's true hop count is verified (both parts checked)
+    // P16-L rule (fail closed): the same claim with the found path's true hop count is no longer
+    // verified, because its absence clause's pair has a cited found path ("any cited found path
+    // between the pair ... is not Verified"); the found path lies outside the absence window, so
+    // it is not a contradiction, and the claim is unsupported (removed), not conflicting
     val right = verifyAll(
       "Alice Smith and Bob Jones are connected by 2 hops in 2015-2025, not within 6 hops in 2021-2023.",
       List(found, noneW1)
     )
-    assertEquals(right.status, Verified, right.reasons.toString)
+    assertEquals(right.status, Unsupported, right.reasons.toString)
+    assert(!right.kept, right.reasons.toString)
+    assert(right.reasons.contains(Reasons.AbsenceNotSearched), right.reasons.toString)
+    assert(!right.reasons.contains(Reasons.HopsConflict), right.reasons.toString)
+    // each part alone, against its own evidence, is still verified
+    val positive = verifyAll(
+      "Alice Smith and Bob Jones are connected by 2 hops in 2015-2025.",
+      List(found)
+    )
+    assertEquals(positive.status, Verified, positive.reasons.toString)
+    val absence = verifyAll(
+      "Alice Smith and Bob Jones are not connected within 6 hops in 2021-2023.",
+      List(noneW1)
+    )
+    assertEquals(absence.status, Verified, absence.reasons.toString)
   }
 
   test("P16-A-09: governed absence phrasings are still absence statements") {
@@ -268,11 +302,149 @@ class PathAbsenceSuite extends munit.FunSuite {
       "In 2021-2023, no coauthorship path between Alice Smith and Bob Jones exists within depth 6 (the bounded search completed).",
       "No path between Alice Smith and Bob Jones exists within depth 6 in w2021-2023."
     ).foreach { t =>
+      // P16-L rule: a cited found path between the pair (here outside the window) means the
+      // absence is not verified, fail closed
       val v = verifyAll(t, List(found, noneW1K))
-      assertEquals(v.status, Verified, s"$t -> ${v.reasons}")
+      assertNotEquals(v.status, Verified, s"$t -> ${v.reasons}")
+      assert(!v.kept, s"$t -> ${v.status} ${v.reasons}")
+      assert(v.reasons.contains(Reasons.AbsenceNotSearched), s"$t -> ${v.reasons}")
       val alone = verifyAll(t, List(noneW1K))
       assertEquals(alone.status, Verified, s"$t (alone) -> ${alone.reasons}")
     }
+  }
+
+  // ---- P16-L-03..L-06: the human's fail-closed absence rule -------------------------------------
+
+  test("P16-L-03: a cited found path contradicts an absence claim with no path=none item cited") {
+    List(
+      "No path connects Alice Smith and Bob Jones.",
+      "Alice Smith and Bob Jones are not connected in 2015-2025."
+    ).foreach { t =>
+      assert(ClaimVerification.statesAbsence(t), t)
+      val v = verifyAll(t, List(found))
+      assertEquals(v.status, Conflicting, s"$t -> ${v.reasons}")
+      assert(!v.kept, t)
+      assert(v.reasons.contains(Reasons.HopsConflict), s"$t -> ${v.reasons}")
+    }
+  }
+
+  test("P16-L-03: absence wording with no path item cited at all is not verified") {
+    val bobFull =
+      MetricFact(bob, Full, FullW, CollaborationMetric.DistinctCoauthors, 7.0, None, None, src, 20)
+    val v = verifyAll(
+      "Alice Smith and Bob Jones are not connected within 6 hops in 2015-2025.",
+      List(metricFull, bobFull)
+    )
+    assertNotEquals(v.status, Verified, v.reasons.toString)
+    assert(!v.kept, s"${v.status} ${v.reasons}")
+    assert(v.reasons.contains(Reasons.AbsenceNotSearched), v.reasons.toString)
+  }
+
+  private val carolW1 = MetricFact(
+    carol,
+    W1,
+    W1W,
+    CollaborationMetric.DistinctCoauthors,
+    5.0,
+    None,
+    None,
+    src,
+    20
+  )
+
+  test("P16-L-04: a third named researcher means the absence is not verified (input 1)") {
+    // the reviewer's exact input, and a variant whose words form no extra name run ("Unlike Bob
+    // Jones" is itself a name run, so the exact input was already removed as NameNotCited)
+    List(
+      "Unlike Bob Jones, Carol King is not connected to Alice Smith within 6 hops in 2021-2023.",
+      "Carol King, unlike Bob Jones, is not connected to Alice Smith within 6 hops in 2021-2023."
+    ).foreach { t =>
+      List(List(noneW1K, found), List(noneW1K, carolW1)).foreach { facts =>
+        val v = verifyAll(t, facts)
+        assertNotEquals(v.status, Verified, s"$t $facts -> ${v.reasons}")
+        assert(!v.kept, s"$t ${v.status} ${v.reasons}")
+        assert(v.reasons.contains(Reasons.AbsenceNotSearched), s"$t ${v.reasons}")
+      }
+    }
+  }
+
+  test("P16-L-04: three researchers in one absence clause are not verified (input 2)") {
+    val t = "Alice Smith, Bob Jones and Carol King are not connected within 6 hops in 2021-2023."
+    List(List(noneW1K, found), List(noneW1K, carolW1)).foreach { facts =>
+      val v = verifyAll(t, facts)
+      assertNotEquals(v.status, Verified, s"$facts -> ${v.reasons}")
+      assert(!v.kept, s"${v.status} ${v.reasons}")
+      assert(v.reasons.contains(Reasons.AbsenceNotSearched), v.reasons.toString)
+    }
+  }
+
+  private val alice1 = ResearcherRef(rid("D"), "Alice Smith 0001")
+  private val alice2 = ResearcherRef(rid("E"), "Alice Smith 0002")
+
+  test("P16-L-05: homonyms are matched by researcher ID, never merged by base name") {
+    val none2 = PathAbsentFact(alice2, bob, W1, W1W, 6, true, 6, src, 20, None)
+    val metric1 =
+      MetricFact(alice1, W1, W1W, CollaborationMetric.DistinctCoauthors, 4.0, None, None, src, 20)
+    val t = "Alice Smith 0001 and Bob Jones are not connected within 6 hops in 2021-2023."
+    val v = verifyAll(t, List(none2, metric1))
+    assertNotEquals(v.status, Verified, v.reasons.toString)
+    assert(!v.kept, s"${v.status} ${v.reasons}")
+    assert(v.reasons.contains(Reasons.AbsenceNotSearched), v.reasons.toString)
+    // the search for exactly that homonym and Bob Jones supports it
+    val none1 = PathAbsentFact(alice1, bob, W1, W1W, 6, true, 6, src, 20, None)
+    val ok = verifyAll(t, List(none1, metric1))
+    assertEquals(ok.status, Verified, ok.reasons.toString)
+  }
+
+  test("P16-L-05: a name that resolves to two researcher IDs (ambiguous) is not verified") {
+    val otherAlice = ResearcherRef(rid("D"), "Alice Smith")
+    val metricOther =
+      MetricFact(
+        otherAlice,
+        W1,
+        W1W,
+        CollaborationMetric.DistinctCoauthors,
+        4.0,
+        None,
+        None,
+        src,
+        20
+      )
+    val v = verifyAll(
+      "Alice Smith and Bob Jones are not connected within 6 hops in 2021-2023.",
+      List(noneW1K, metricOther)
+    )
+    assertNotEquals(v.status, Verified, v.reasons.toString)
+    assert(!v.kept, s"${v.status} ${v.reasons}")
+    assert(v.reasons.contains(Reasons.AbsenceNotSearched), v.reasons.toString)
+  }
+
+  // an edge between Alice Smith and Carol King whose years are 2015 and 2025 (not the pair)
+  private val edgeAC =
+    EdgeFact(alice, carol, Full, FullW, "edge:v1:" + "b" * 32, 1.0, 2, 2015, 2025, Nil, src, 21)
+
+  test("P16-L-06: a time phrase not parsed as the window means the absence is not verified") {
+    List(
+      "Alice Smith and Bob Jones were not connected within 6 hops from 2015 to 2025.",
+      "Alice Smith and Bob Jones were not connected within 6 hops since 2015.",
+      "Alice Smith and Bob Jones were not connected within 6 hops in 2015 through 2025."
+    ).foreach { t =>
+      val v = verifyAll(t, List(noneW1K, edgeAC))
+      assertNotEquals(v.status, Verified, s"$t -> ${v.reasons}")
+      assert(!v.kept, s"$t -> ${v.status} ${v.reasons}")
+      assert(v.reasons.contains(Reasons.AbsenceNotSearched), s"$t -> ${v.reasons}")
+    }
+  }
+
+  test("P16-L rule: a cited coauthor edge between the pair contradicts the absence (1 hop)") {
+    val edgeAB =
+      EdgeFact(alice, bob, W1, W1W, "edge:v1:" + "c" * 32, 1.0, 1, 2022, 2022, Nil, src, 21)
+    val v = verifyAll(
+      "Alice Smith and Bob Jones are not connected within 6 hops in 2021-2023.",
+      List(noneW1K, edgeAB)
+    )
+    assertEquals(v.status, Conflicting, v.reasons.toString)
+    assert(v.reasons.contains(Reasons.HopsConflict), v.reasons.toString)
   }
 
   test("L2: the new reasons are fixed texts without digits") {

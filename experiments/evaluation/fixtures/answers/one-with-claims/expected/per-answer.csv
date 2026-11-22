@@ -1,0 +1,3 @@
+source,answer_id,question_ref,claims,verified,partially_supported,unsupported,conflicting,other_statuses,abstained,abstention_codes,evidence_types_cited,untyped_claims
+audit,run:v1:qc#attempt-1 (last of 1 attempt(s)),sha256:qc,2,2,0,0,0,0,no,,not available (no evidence types),
+audit,run:v1:qd#attempt-1 (last of 1 attempt(s)),sha256:qd,0,0,0,0,0,0,no,,not available (no evidence types),

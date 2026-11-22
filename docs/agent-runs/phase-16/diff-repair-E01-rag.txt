@@ -1,0 +1,477 @@
+diff --git a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/ClaimVerification.scala b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/ClaimVerification.scala
+index 718f67b..145e5a1 100644
+--- a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/ClaimVerification.scala
++++ b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/ClaimVerification.scala
+@@ -43,11 +43,14 @@ final case class VerifiedClaim(
+   *     `path=none` item is supported only by a complete search whose `maxDepth` is at least N; a
+   *     search that stopped early (time or graph store resource limit) never supports it (Phase 16
+   *     L2). Only a clause whose negation governs the path phrase is an absence statement; hop
+-  *     counts outside such a clause are checked as positive hop counts (P16-A-09). The search must
+-  *     be for the researcher pair the clause names and over the window the clause (or else the
+-  *     claim) states, and a cited found path for that pair inside that window contradicts the
+-  *     absence; inside the clause only a bounded hop count ("within N hops") or a depth is a
+-  *     searched depth (P16-K-01);
++  *     counts outside such a clause are checked as positive hop counts (P16-A-09); inside the
++  *     clause only a bounded hop count ("within N hops") or a depth is a searched depth (P16-K-01).
++  *     Fail closed (P16-L-03..L-06, human rule): absence wording is checked whether or not a
++  *     `path=none` item is cited, and it is verified only when the claim names exactly two
++  *     researchers that resolve (homonym numbers included) to two distinct researcher IDs, a cited
++  *     complete `path=none` item is for exactly that ID pair with `maxDepth` at least the stated
++  *     depth and a window equal to the claim's window (or neither has one), no year-like phrase is
++  *     left unparsed, and no cited found path or edge connects the pair;
+   *   - every quoted title equals the title of a cited work item;
+   *   - every identifier and every capitalized name in the text belongs to a cited graph item;
+   *   - a `semantic_context` item never supports a number, edge, path, component, community or
+@@ -197,6 +200,9 @@ object ClaimVerification {
+   private val Year = "((?:19|20)[0-9]{2})"
+   private val RangeRe: Regex = s"(?<![\\p{N}])$Year\\s*[-–—]\\s*$Year(?![\\p{N}])".r
+   private val BetweenRe: Regex = s"(?i)\\bbetween\\s+$Year\\s+and\\s+$Year\\b".r
++  // P16-L-06: a year or year-like token (`2019`, `2010s`, `'19`) outside a parsed range
++  private val YearLikeRe: Regex =
++    "(?<![\\p{L}\\p{N}])(?:(?:19|20)[0-9]{2}s?|['’][0-9]{2}s?)(?![\\p{L}\\p{N}])".r
+   // clause boundaries: a comma, semicolon or colon before a space (never inside `1,234`), or a
+   // conjunction
+   private val ClauseSep: Regex = "[,;:](?=\\s|$)|\\s(?:and|while|whereas|but)\\s".r
+@@ -365,8 +371,9 @@ object ClaimVerification {
+     val foundPaths = pathItems.filter(i => EvidenceValues.numbers(i).contains("hops"))
+     // P16-A-09: only the clauses whose negation governs a path phrase are absence statements;
+     // P16-K-01: inside them, only a bounded hop count ("within 6 hops") or a depth ("depth 6") is
+-    // an absence depth; every other hop count is a positive hop count and is checked below
+-    val spans = if (absentItems.nonEmpty) absenceSpans(stripped) else Nil
++    // an absence depth; every other hop count is a positive hop count and is checked below.
++    // P16-L-03: absence wording is checked whether or not a `path=none` item is cited
++    val spans = absenceSpans(stripped)
+     val depthMatches: List[((Int, Int), Regex.Match)] = spans.flatMap { case sp @ (s, e) =>
+       (BoundHopRe.findAllMatchIn(stripped) ++ DepthRe.findAllMatchIn(stripped))
+         .filter(m => m.start >= s && m.end <= e)
+@@ -378,79 +385,140 @@ object ClaimVerification {
+     val completeDepths = absentItems
+       .filter(i => EvidenceValues.pairs(i).get("complete").contains("true"))
+       .flatMap(i => EvidenceValues.numbers(i).get("maxDepth"))
+-    // P16-K-01: an absence clause is about one researcher pair and one or more windows. The pair is
+-    // the endpoints of a cited path item whose two names the clause states (or the whole claim,
+-    // when the clause names fewer than two endpoints). The windows are the year ranges the clause
+-    // states, else the ranges the claim states. With no stated range the decision is conservative:
+-    // the cited path items for the pair must all share one window, which is then the clause's
+-    // window, and any cited found path for the pair contradicts the absence. Support needs a
+-    // complete `path=none` item for that pair whose window equals each window and whose `maxDepth`
+-    // is at least each stated depth. A cited found path for the pair whose window lies within a
+-    // stated window (a path in a sub-window also exists in the wider window) and whose hop count
+-    // is within the stated depth contradicts the absence (HopsConflict).
+-    def baseName(n: String): String = normName(HomonymRe.replaceAllIn(n, ""))
+-    def mentions(t: String, n: String): Boolean = {
+-      val b = baseName(n)
+-      b.nonEmpty && s"(?<![\\p{L}])${java.util.regex.Pattern.quote(b)}(?![\\p{L}])".r
+-        .findFirstIn(normName(t))
+-        .isDefined
+-    }
+-    def endpoints(i: EvidenceItem): Option[(String, String)] = {
+-      val p = EvidenceValues.pairs(i)
+-      (p.get("nameA"), p.get("nameB")) match {
+-        case (Some(a), Some(b)) => Some((a, b))
+-        case _                  =>
+-          p.get("pathNames").map(_.split(" \\| ").toList).collect {
+-            case ns if ns.size >= 2 => (ns.head, ns.last)
+-          }
+-      }
+-    }
++    // P16-L-03..L-06, the human's fail-closed rule: an absence clause is verified only when ALL
++    // hold:
++    //   - the claim names exactly two researchers, and each name (homonym number included)
++    //     resolves to exactly one researcher ID of the cited items, the two IDs distinct (a third
++    //     named researcher, an unknown or an ambiguous name fails);
++    //   - a cited `path=none` item is for exactly that ID pair;
++    //   - that item's search is complete and its `maxDepth` is at least every stated depth;
++    //   - its window equals the claim's window: the one year range the clause states, else the one
++    //     range the claim states, else none (an item window never equals "none"); two ranges, or a
++    //     year-like token the range syntax does not parse ("from 2015 to 2025", "since 2019",
++    //     "2015 through 2025"), give no window and fail;
++    //   - no cited found path (path item with a hop count, or a coauthor edge, one hop) connects
++    //     the pair. Such a path inside the claim's window (or with no usable window) and within
++    //     the stated depth (or with none stated) contradicts the absence (HopsConflict); any other
++    //     cited found path for the pair makes the clause unsupported (AbsenceNotSearched).
++    // A missing depth stays `AbsenceNoDepth` (uncovered, never verified), as in Phase 16 L2.
+     def yw(i: EvidenceItem): Option[(Int, Int)] = i.window.map(w => (w.startYear, w.endYear))
+     def rangesIn(t: String): Set[(Int, Int)] =
+       (RangeRe.findAllMatchIn(t) ++ BetweenRe.findAllMatchIn(t))
+         .map(m => (m.group(1).toInt, m.group(2).toInt))
+         .toSet
+-    val endpointNames =
+-      (absentItems ++ foundPaths).flatMap(endpoints).flatMap(p => List(p._1, p._2)).distinct
++    def isComplete(i: EvidenceItem): Boolean =
++      EvidenceValues.pairs(i).get("complete").contains("true")
++    // the researcher ID pair of a path or edge item
++    def idPair(i: EvidenceItem): Option[Set[String]] = {
++      val p = EvidenceValues.pairs(i)
++      (p.get("researcherA"), p.get("researcherB")) match {
++        case (Some(a), Some(b)) => Some(Set(a, b))
++        case _                  =>
++          p.get("pathIds").map(_.split(",").toList).collect {
++            case ids if ids.size >= 2 => Set(ids.head, ids.last)
++          }
++      }
++    }
++    // found connections: path items with a hop count, and coauthor edges (one hop) that exist
++    val foundEdges = graph.filter(i =>
++      i.evidenceType == EvidenceType.CoauthorEdge &&
++        !EvidenceValues.pairs(i).get("found").contains("false")
++    )
++    def hopsOf(i: EvidenceItem): Option[Double] =
++      if (i.evidenceType == EvidenceType.CoauthorEdge) Some(1.0)
++      else EvidenceValues.numbers(i).get("hops")
++    lazy val idsByName: Map[String, Set[String]] = graph
++      .flatMap { i =>
++        val p = EvidenceValues.pairs(i)
++        val single =
++          List("name" -> "researcherId", "nameA" -> "researcherA", "nameB" -> "researcherB")
++            .flatMap { case (n, r) =>
++              p.get(n).zip(p.get(r)).map { case (a, b) => normName(a) -> b }
++            }
++        val listed = (p.get("pathNames"), p.get("pathIds")) match {
++          case (Some(ns), Some(is)) =>
++            val nl = ns.split(" \\| ").toList
++            val il = is.split(",").toList
++            if (nl.size == il.size) nl.map(normName).zip(il) else Nil
++          case _ => Nil
++        }
++        single ++ listed
++      }
++      .groupMap(_._1)(_._2)
++      .map { case (n, ids) => n -> ids.toSet }
++    // the researchers the claim names: capitalized name runs (homonym numbers attached) plus any
++    // cited full name that no run already holds
++    lazy val claimPair: Option[Set[String]] = {
++      val src = List(StableIdRe, ClaimIdRe).foldLeft(noQuotes)((t, re) =>
++        re.replaceAllIn(t, m => " " * m.matched.length)
++      )
++      def wordIn(t: String, n: String): Boolean =
++        n.nonEmpty && s"(?<![\\p{L}\\p{N}])${java.util.regex.Pattern.quote(n)}(?![\\p{L}\\p{N}])".r
++          .findFirstIn(t)
++          .isDefined
++      val runs = RulePlanner.nameRuns(src).map(normName).distinct
++      val extra = idsByName.keySet.toList.sorted.filter(n =>
++        wordIn(normName(src), n) && !runs.exists(r => wordIn(r, n))
++      )
++      val named = (runs ++ extra).distinct
++      val ids = named.flatMap(n => idsByName.get(n).filter(_.size == 1).toList.flatten)
++      if (named.size == 2 && ids.size == 2 && ids.distinct.size == 2) Some(ids.toSet) else None
++    }
++    // year-like tokens outside the parsed ranges make the claim's window unknown (P16-L-06)
++    lazy val unparsedYear: Boolean = {
++      val noRanges = List(RangeRe, BetweenRe).foldLeft(stripped)((t, re) =>
++        re.replaceAllIn(t, m => " " * m.matched.length)
++      )
++      YearLikeRe.findFirstIn(noRanges).isDefined
++    }
++    lazy val claimRanges = rangesIn(stripped)
+     spans.foreach { case sp @ (s, e) =>
+       val clause = stripped.substring(s, e)
+       val depths = depthMatches.collect { case (`sp`, m) => m.group(1).toDouble }
+-      val nameText = if (endpointNames.count(mentions(clause, _)) >= 2) clause else stripped
+-      def aboutPair(i: EvidenceItem): Boolean =
+-        endpoints(i).exists { case (a, b) => mentions(nameText, a) && mentions(nameText, b) }
+-      val pairNone = absentItems.filter(aboutPair)
+-      val pairFound = foundPaths.filter(aboutPair)
+-      val stated = Some(rangesIn(clause)).filter(_.nonEmpty).getOrElse(rangesIn(stripped))
+-      val windows =
+-        if (stated.nonEmpty) stated
+-        else
+-          Some((pairNone ++ pairFound).flatMap(yw).toSet).filter(_.size == 1).getOrElse(Set.empty)
+-      if (pairNone.isEmpty || windows.isEmpty) unbacked += Reasons.AbsenceNotSearched
+-      else
+-        windows.foreach { w =>
+-          val inWindow = pairNone.filter(i => yw(i).contains(w))
+-          val maxDepths = inWindow
+-            .filter(i => EvidenceValues.pairs(i).get("complete").contains("true"))
+-            .flatMap(i => EvidenceValues.numbers(i).get("maxDepth"))
+-          if (inWindow.isEmpty) unbacked += Reasons.AbsenceNotSearched
+-          else if (maxDepths.isEmpty) unbacked += Reasons.AbsenceBoundedSearch
+-          else if (depths.isEmpty) uncovered += Reasons.AbsenceNoDepth
+-          else
+-            depths.foreach { d =>
+-              if (maxDepths.exists(_ >= d)) checked += 1
+-              else unbacked += Reasons.AbsenceBeyondDepth
++      val clauseRanges = rangesIn(clause)
++      // Right(window) when the claim's window is known (None: the claim states none)
++      val window: Either[Unit, Option[(Int, Int)]] =
++        if (unparsedYear) Left(())
++        else if (clauseRanges.size == 1) Right(clauseRanges.headOption)
++        else if (clauseRanges.size > 1) Left(())
++        else if (claimRanges.size == 1) Right(claimRanges.headOption)
++        else if (claimRanges.isEmpty) Right(None)
++        else Left(())
++      claimPair match {
++        case None      => unbacked += Reasons.AbsenceNotSearched
++        case Some(ids) =>
++          val pairNone = absentItems.filter(i => idPair(i).contains(ids))
++          val pairFound = (foundPaths ++ foundEdges).filter(i => idPair(i).contains(ids))
++          if (pairNone.isEmpty) unbacked += Reasons.AbsenceNotSearched
++          else {
++            val windowed = window.toOption.toList.flatMap(w => pairNone.filter(i => yw(i) == w))
++            if (windowed.isEmpty) unbacked += Reasons.AbsenceNotSearched
++            // with no window match, the depth is still checked against the complete searches for
++            // the pair, so the other reasons are reported too (the claim is unsupported anyway)
++            val support =
++              if (windowed.nonEmpty) windowed.filter(isComplete) else pairNone.filter(isComplete)
++            if (support.isEmpty) unbacked += Reasons.AbsenceBoundedSearch
++            else if (depths.isEmpty) uncovered += Reasons.AbsenceNoDepth
++            else {
++              val maxDepths = support.flatMap(i => EvidenceValues.numbers(i).get("maxDepth"))
++              depths.foreach { d =>
++                if (maxDepths.exists(_ >= d)) checked += 1
++                else unbacked += Reasons.AbsenceBeyondDepth
++              }
+             }
+-        }
+-      val contradicted = pairFound.exists { f =>
+-        val hopsOk = EvidenceValues
+-          .numbers(f)
+-          .get("hops")
+-          .exists(h => depths.isEmpty || depths.exists(h <= _))
+-        val windowOk = stated.isEmpty ||
+-          stated.exists { case (ws, we) => yw(f).exists { case (fs, fe) => fs >= ws && fe <= we } }
+-        hopsOk && windowOk
++          }
++          val contradicted = pairFound.exists { f =>
++            val hopsOk = hopsOf(f).exists(h => depths.isEmpty || depths.exists(h <= _))
++            val windowOk = window match {
++              case Right(Some((ws, we))) =>
++                yw(f).exists { case (fs, fe) => fs >= ws && fe <= we }
++              case _ => true
++            }
++            hopsOk && windowOk
++          }
++          if (contradicted) conflicts += Reasons.HopsConflict
++          else if (pairFound.nonEmpty) unbacked += Reasons.AbsenceNotSearched
+       }
+-      if (contradicted) conflicts += Reasons.HopsConflict
+     }
+ 
+     // ---- hop counts (of found paths; an absence statement's depth was checked above) ----
+diff --git a/modules/rag/src/test/scala/org/scholarchain/rag/runtime/PathAbsenceSuite.scala b/modules/rag/src/test/scala/org/scholarchain/rag/runtime/PathAbsenceSuite.scala
+index 6ce2afb..1ebb2bb 100644
+--- a/modules/rag/src/test/scala/org/scholarchain/rag/runtime/PathAbsenceSuite.scala
++++ b/modules/rag/src/test/scala/org/scholarchain/rag/runtime/PathAbsenceSuite.scala
+@@ -64,7 +64,7 @@ class PathAbsenceSuite extends munit.FunSuite {
+ 
+   test("L2: a correct absence claim in hops citing a complete path=none item is verified") {
+     val v = verify(
+-      "No coauthorship path between Alice Smith and Bob Jones exists within 6 hops.",
++      "No coauthorship path between Alice Smith and Bob Jones exists within 6 hops in 2015-2025.",
+       completeNone
+     )
+     assertEquals(v.status, Verified, v.reasons.toString)
+@@ -72,10 +72,27 @@ class PathAbsenceSuite extends munit.FunSuite {
+   }
+ 
+   test("L2: a shallower stated depth than the completed search is also supported") {
+-    val v = verify("Alice Smith and Bob Jones are not connected within 4 hops.", completeNone)
++    val v =
++      verify(
++        "Alice Smith and Bob Jones are not connected within 4 hops in 2015-2025.",
++        completeNone
++      )
+     assertEquals(v.status, Verified, v.reasons.toString)
+   }
+ 
++  test("P16-L rule: an absence claim that states no window is not verified (the search has one)") {
++    // human rule: the search's window must equal the claim's window, or neither has one
++    List(
++      "No coauthorship path between Alice Smith and Bob Jones exists within 6 hops.",
++      "Alice Smith and Bob Jones are not connected within 4 hops."
++    ).foreach { t =>
++      val v = verify(t, completeNone)
++      assertNotEquals(v.status, Verified, s"$t -> ${v.reasons}")
++      assert(!v.kept, s"$t -> ${v.status} ${v.reasons}")
++      assert(v.reasons.contains(Reasons.AbsenceNotSearched), s"$t -> ${v.reasons}")
++    }
++  }
++
+   test("L2: an absence claim deeper than the completed search is never kept") {
+     val v = verify(
+       "No coauthorship path between Alice Smith and Bob Jones exists within 8 hops.",
+@@ -175,12 +192,29 @@ class PathAbsenceSuite extends munit.FunSuite {
+     )
+     assertEquals(wrong.status, Conflicting, wrong.reasons.toString)
+     assert(wrong.reasons.contains(Reasons.HopsConflict), wrong.reasons.toString)
+-    // the same claim with the found path's true hop count is verified (both parts checked)
++    // P16-L rule (fail closed): the same claim with the found path's true hop count is no longer
++    // verified, because its absence clause's pair has a cited found path ("any cited found path
++    // between the pair ... is not Verified"); the found path lies outside the absence window, so
++    // it is not a contradiction, and the claim is unsupported (removed), not conflicting
+     val right = verifyAll(
+       "Alice Smith and Bob Jones are connected by 2 hops in 2015-2025, not within 6 hops in 2021-2023.",
+       List(found, noneW1)
+     )
+-    assertEquals(right.status, Verified, right.reasons.toString)
++    assertEquals(right.status, Unsupported, right.reasons.toString)
++    assert(!right.kept, right.reasons.toString)
++    assert(right.reasons.contains(Reasons.AbsenceNotSearched), right.reasons.toString)
++    assert(!right.reasons.contains(Reasons.HopsConflict), right.reasons.toString)
++    // each part alone, against its own evidence, is still verified
++    val positive = verifyAll(
++      "Alice Smith and Bob Jones are connected by 2 hops in 2015-2025.",
++      List(found)
++    )
++    assertEquals(positive.status, Verified, positive.reasons.toString)
++    val absence = verifyAll(
++      "Alice Smith and Bob Jones are not connected within 6 hops in 2021-2023.",
++      List(noneW1)
++    )
++    assertEquals(absence.status, Verified, absence.reasons.toString)
+   }
+ 
+   test("P16-A-09: governed absence phrasings are still absence statements") {
+@@ -268,13 +302,151 @@ class PathAbsenceSuite extends munit.FunSuite {
+       "In 2021-2023, no coauthorship path between Alice Smith and Bob Jones exists within depth 6 (the bounded search completed).",
+       "No path between Alice Smith and Bob Jones exists within depth 6 in w2021-2023."
+     ).foreach { t =>
++      // P16-L rule: a cited found path between the pair (here outside the window) means the
++      // absence is not verified, fail closed
+       val v = verifyAll(t, List(found, noneW1K))
+-      assertEquals(v.status, Verified, s"$t -> ${v.reasons}")
++      assertNotEquals(v.status, Verified, s"$t -> ${v.reasons}")
++      assert(!v.kept, s"$t -> ${v.status} ${v.reasons}")
++      assert(v.reasons.contains(Reasons.AbsenceNotSearched), s"$t -> ${v.reasons}")
+       val alone = verifyAll(t, List(noneW1K))
+       assertEquals(alone.status, Verified, s"$t (alone) -> ${alone.reasons}")
+     }
+   }
+ 
++  // ---- P16-L-03..L-06: the human's fail-closed absence rule -------------------------------------
++
++  test("P16-L-03: a cited found path contradicts an absence claim with no path=none item cited") {
++    List(
++      "No path connects Alice Smith and Bob Jones.",
++      "Alice Smith and Bob Jones are not connected in 2015-2025."
++    ).foreach { t =>
++      assert(ClaimVerification.statesAbsence(t), t)
++      val v = verifyAll(t, List(found))
++      assertEquals(v.status, Conflicting, s"$t -> ${v.reasons}")
++      assert(!v.kept, t)
++      assert(v.reasons.contains(Reasons.HopsConflict), s"$t -> ${v.reasons}")
++    }
++  }
++
++  test("P16-L-03: absence wording with no path item cited at all is not verified") {
++    val bobFull =
++      MetricFact(bob, Full, FullW, CollaborationMetric.DistinctCoauthors, 7.0, None, None, src, 20)
++    val v = verifyAll(
++      "Alice Smith and Bob Jones are not connected within 6 hops in 2015-2025.",
++      List(metricFull, bobFull)
++    )
++    assertNotEquals(v.status, Verified, v.reasons.toString)
++    assert(!v.kept, s"${v.status} ${v.reasons}")
++    assert(v.reasons.contains(Reasons.AbsenceNotSearched), v.reasons.toString)
++  }
++
++  private val carolW1 = MetricFact(
++    carol,
++    W1,
++    W1W,
++    CollaborationMetric.DistinctCoauthors,
++    5.0,
++    None,
++    None,
++    src,
++    20
++  )
++
++  test("P16-L-04: a third named researcher means the absence is not verified (input 1)") {
++    // the reviewer's exact input, and a variant whose words form no extra name run ("Unlike Bob
++    // Jones" is itself a name run, so the exact input was already removed as NameNotCited)
++    List(
++      "Unlike Bob Jones, Carol King is not connected to Alice Smith within 6 hops in 2021-2023.",
++      "Carol King, unlike Bob Jones, is not connected to Alice Smith within 6 hops in 2021-2023."
++    ).foreach { t =>
++      List(List(noneW1K, found), List(noneW1K, carolW1)).foreach { facts =>
++        val v = verifyAll(t, facts)
++        assertNotEquals(v.status, Verified, s"$t $facts -> ${v.reasons}")
++        assert(!v.kept, s"$t ${v.status} ${v.reasons}")
++        assert(v.reasons.contains(Reasons.AbsenceNotSearched), s"$t ${v.reasons}")
++      }
++    }
++  }
++
++  test("P16-L-04: three researchers in one absence clause are not verified (input 2)") {
++    val t = "Alice Smith, Bob Jones and Carol King are not connected within 6 hops in 2021-2023."
++    List(List(noneW1K, found), List(noneW1K, carolW1)).foreach { facts =>
++      val v = verifyAll(t, facts)
++      assertNotEquals(v.status, Verified, s"$facts -> ${v.reasons}")
++      assert(!v.kept, s"${v.status} ${v.reasons}")
++      assert(v.reasons.contains(Reasons.AbsenceNotSearched), v.reasons.toString)
++    }
++  }
++
++  private val alice1 = ResearcherRef(rid("D"), "Alice Smith 0001")
++  private val alice2 = ResearcherRef(rid("E"), "Alice Smith 0002")
++
++  test("P16-L-05: homonyms are matched by researcher ID, never merged by base name") {
++    val none2 = PathAbsentFact(alice2, bob, W1, W1W, 6, true, 6, src, 20, None)
++    val metric1 =
++      MetricFact(alice1, W1, W1W, CollaborationMetric.DistinctCoauthors, 4.0, None, None, src, 20)
++    val t = "Alice Smith 0001 and Bob Jones are not connected within 6 hops in 2021-2023."
++    val v = verifyAll(t, List(none2, metric1))
++    assertNotEquals(v.status, Verified, v.reasons.toString)
++    assert(!v.kept, s"${v.status} ${v.reasons}")
++    assert(v.reasons.contains(Reasons.AbsenceNotSearched), v.reasons.toString)
++    // the search for exactly that homonym and Bob Jones supports it
++    val none1 = PathAbsentFact(alice1, bob, W1, W1W, 6, true, 6, src, 20, None)
++    val ok = verifyAll(t, List(none1, metric1))
++    assertEquals(ok.status, Verified, ok.reasons.toString)
++  }
++
++  test("P16-L-05: a name that resolves to two researcher IDs (ambiguous) is not verified") {
++    val otherAlice = ResearcherRef(rid("D"), "Alice Smith")
++    val metricOther =
++      MetricFact(
++        otherAlice,
++        W1,
++        W1W,
++        CollaborationMetric.DistinctCoauthors,
++        4.0,
++        None,
++        None,
++        src,
++        20
++      )
++    val v = verifyAll(
++      "Alice Smith and Bob Jones are not connected within 6 hops in 2021-2023.",
++      List(noneW1K, metricOther)
++    )
++    assertNotEquals(v.status, Verified, v.reasons.toString)
++    assert(!v.kept, s"${v.status} ${v.reasons}")
++    assert(v.reasons.contains(Reasons.AbsenceNotSearched), v.reasons.toString)
++  }
++
++  // an edge between Alice Smith and Carol King whose years are 2015 and 2025 (not the pair)
++  private val edgeAC =
++    EdgeFact(alice, carol, Full, FullW, "edge:v1:" + "b" * 32, 1.0, 2, 2015, 2025, Nil, src, 21)
++
++  test("P16-L-06: a time phrase not parsed as the window means the absence is not verified") {
++    List(
++      "Alice Smith and Bob Jones were not connected within 6 hops from 2015 to 2025.",
++      "Alice Smith and Bob Jones were not connected within 6 hops since 2015.",
++      "Alice Smith and Bob Jones were not connected within 6 hops in 2015 through 2025."
++    ).foreach { t =>
++      val v = verifyAll(t, List(noneW1K, edgeAC))
++      assertNotEquals(v.status, Verified, s"$t -> ${v.reasons}")
++      assert(!v.kept, s"$t -> ${v.status} ${v.reasons}")
++      assert(v.reasons.contains(Reasons.AbsenceNotSearched), s"$t -> ${v.reasons}")
++    }
++  }
++
++  test("P16-L rule: a cited coauthor edge between the pair contradicts the absence (1 hop)") {
++    val edgeAB =
++      EdgeFact(alice, bob, W1, W1W, "edge:v1:" + "c" * 32, 1.0, 1, 2022, 2022, Nil, src, 21)
++    val v = verifyAll(
++      "Alice Smith and Bob Jones are not connected within 6 hops in 2021-2023.",
++      List(noneW1K, edgeAB)
++    )
++    assertEquals(v.status, Conflicting, v.reasons.toString)
++    assert(v.reasons.contains(Reasons.HopsConflict), v.reasons.toString)
++  }
++
+   test("L2: the new reasons are fixed texts without digits") {
+     List(
+       Reasons.AbsenceBoundedSearch,

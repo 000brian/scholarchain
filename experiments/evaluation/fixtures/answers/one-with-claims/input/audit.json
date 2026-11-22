@@ -1,0 +1,9 @@
+{
+  "Items": [
+    {"eventType": {"S": "query-audit"}, "attempt": {"N": "1"}, "runId": {"S": "run:v1:qc"},
+     "record": {"S": "{\"schemaVersion\":3,\"queryRunId\":\"run:v1:qc\",\"questionHash\":\"sha256:qc\",\"graphRunId\":\"run:v1:graphfixture\",\"promptVersions\":[\"planner-p1\",\"synthesis-p3\"],\"verificationCounts\":{\"verified\":2,\"partially_supported\":0,\"unsupported\":0,\"conflicting\":0},\"abstained\":false,\"abstentionCodes\":[]}"}},
+    {"eventType": {"S": "query-audit"}, "attempt": {"N": "1"}, "runId": {"S": "run:v1:qd"},
+     "record": {"S": "{\"schemaVersion\":3,\"queryRunId\":\"run:v1:qd\",\"questionHash\":\"sha256:qd\",\"graphRunId\":\"run:v1:graphfixture\",\"promptVersions\":[\"planner-p1\",\"synthesis-p3\"],\"verificationCounts\":{\"verified\":0,\"partially_supported\":0,\"unsupported\":0,\"conflicting\":0},\"abstained\":false,\"abstentionCodes\":[]}"}}
+  ],
+  "Count": 2
+}
