@@ -1,0 +1,8 @@
+d37389bf764c6b6fe2c579167a35919973409cb6 phase-16 session 2: fixes (FECD-1, L1, L2, L-09, N-1/N-2, M3/M4), emulator wiring, evaluation suite and tools, docs drafts (build, er, storage, rag, spark, hadoop, test, service, infra, experiment, documentation)
+66470343c9b80ae0c514232a8c533db4e90242df phase-16 session 3: repair-E00-rag (P16-L-01, rag-engineer), repair-E00-experiment (P16-L-02, experiment-engineer), reviews
+7951f94cca7da7d9bf30a5b22dce1639a156e330 phase-16 session 3: repair-E01-rag (P16-L-03..L-06, rag-engineer), repair-E01-experiment (P16-L-07, L-08, experiment-engineer), E0 cost bound, re-check
+79b558375162b758d35a580781c3f169e202b965 phase-16 session 3: repair-E02-rag (P16-L-16 hermetic config tests, rag-engineer), review
+7e551c8003c3fd2a1491caa69d4f7270afbdcd77 phase-16 E2 (clean-checkout check: attempt 1 failed P16-L-16, attempt 2 passed at 79b5583) and E3 (suite-v1 signed)
+ecc13052b09e0b0396f47894e8858c6029632886 phase-16 E12 freeze: raw evaluation outputs (E4-E11, E5 logs, E10 reproduce runs, demo answers, ratings and audit) and regenerated derived outputs
+9e96355d33c12b33caf44b4d7fe213d913d4182e phase-16 E13 and E14: docs/evaluation.md final (reviewed, P16-L-17..L-24), emulator results (setup, suites, probes; both demonstrations demonstrated), docs/emulator.md (reviewed, P16-L-25..L-30), session 3 reports
+be1ec675b0fbd9e7321d1550de951ddf4fe4b038 phase-16 E15/E16: gate check and session 3 summary (TIER1_NOT_MET pending the L2 gate decision)
