@@ -37,7 +37,7 @@ class RagIngestJobSuite extends munit.FunSuite {
         )
       )
       .fold(fail(_), identity)
-    (RagIngestJob.run(opts), out)
+    (RagIngestJob.run(opts, hooks = Hermetic), out)
   }
 
   test("two local runs: the second run skips 100% and changes nothing") {
@@ -193,7 +193,7 @@ class RagIngestJobSuite extends munit.FunSuite {
         )
       )
       .fold(fail(_), identity)
-    val r = RagIngestJob.run(opts, factory, wiring)
+    val r = RagIngestJob.run(opts, factory, wiring, Hermetic)
     assertEquals(r("status").str, "completed", r.render(indent = 2))
     assertEquals(requested.toList, List("aws"))
     assertEquals(r("environment")("stores").str, "aws")
@@ -223,7 +223,11 @@ class RagIngestJobSuite extends munit.FunSuite {
         )
       )
       .fold(fail(_), identity)
-    val r = RagIngestJob.run(opts, (_, _, _) => { built += 1; Left("not built") })
+    val r = RagIngestJob.run(
+      opts,
+      (_, _, _) => { built += 1; Left("not built") },
+      hooks = Hermetic
+    )
     assert(r("status").str.contains("never used for a stored index"), r("status").str)
     assertEquals(built, 0)
   }
@@ -246,7 +250,7 @@ class RagIngestJobSuite extends munit.FunSuite {
       )
       .toOption
       .get
-    val r = RagIngestJob.run(opts)
+    val r = RagIngestJob.run(opts, hooks = Hermetic)
     assert(r("status").str.contains("live API"), r("status").str)
   }
 
@@ -352,7 +356,10 @@ class RagIngestJobSuite extends munit.FunSuite {
       "0.1.0-SNAPSHOT",
       "resource"
     )
-    val r = RagIngestJob.run(opts, hooks = RagIngestJob.Hooks(buildIdentity = () => identity))
+    val r = RagIngestJob.run(
+      opts,
+      hooks = RagIngestJob.Hooks(buildIdentity = () => identity, configEnv = NoConfigEnv)
+    )
     assertEquals(r("status").str, "completed", r.render(indent = 2))
     assertEquals(r("codeVersion").str, TestCodeVersion)
     assertEquals(r("jobCodeVersion").str, "rag/1")
@@ -362,7 +369,7 @@ class RagIngestJobSuite extends munit.FunSuite {
     val other = parseOk(
       localArgs(dir, root.resolve("b")).updated(7, "fedcba9876543210fedcba9876543210fedcba98")
     )
-    val r2 = RagIngestJob.run(other)
+    val r2 = RagIngestJob.run(other, hooks = Hermetic)
     assertEquals(r2("runId").str, r("runId").str)
     assertEquals(r2("codeVersion").str, "fedcba9876543210fedcba9876543210fedcba98")
     // in module tests the jar resource is absent: the identity says so, it is never invented
@@ -400,7 +407,8 @@ class RagIngestJobSuite extends munit.FunSuite {
         )
       ),
       f.factory(),
-      f.wiring
+      f.wiring,
+      Hermetic
     )
     assertEquals(local("status").str, "completed", local.render(indent = 2))
     assertEquals(local("runId").str, r("runId").str)
@@ -498,9 +506,79 @@ class RagIngestJobSuite extends munit.FunSuite {
     assert(RagIngestJob.MinFreeBytes < 30L * 1024 * 1024 * 1024)
   }
 
+  // ---- P16-L-16: the configuration environment is passed explicitly ---------------------------
+
+  private val Overrides = Map(
+    org.scholarchain.core.config.ConfigKey.envVarFor("storage.graphBucket") -> OverrideBucket,
+    org.scholarchain.core.config.ConfigKey
+      .envVarFor("objectStore.semanticContextBucket") -> OverrideBucket
+  )
+
+  test(
+    "P16-L-16: a SCHOLARCHAIN_CFG_* override passed to the job moves the export and copy buckets"
+  ) {
+    assertEquals(
+      Overrides.keySet,
+      Set(
+        "SCHOLARCHAIN_CFG_STORAGE_GRAPH_BUCKET",
+        "SCHOLARCHAIN_CFG_OBJECT_STORE_SEMANTIC_CONTEXT_BUCKET"
+      )
+    )
+    // the job receives the override: the export placed in the override graph bucket is accepted,
+    // and the report copy lands in the override semantic-context bucket
+    val f = s3Fixture(jobConfigEnv = Overrides)
+    val r = f.result.report
+    assertEquals(r("status").str, "completed", r.render(indent = 2))
+    assertEquals(f.ragBucket, OverrideBucket)
+    val copy = f.result.reportCopy.getOrElse(fail("no copy outcome"))
+    assertEquals(copy("outcome").str, "created")
+    val key = copy("object").str.stripPrefix("s3://{data-bucket}/")
+    assert(
+      f.env.objects.get(org.scholarchain.storage.ports.ObjectRef(OverrideBucket, key)).nonEmpty
+    )
+    // the override bucket is masked like any configured bucket
+    val texts = List(
+      new String(Files.readAllBytes(f.out.resolve("run-report.json")), "UTF-8"),
+      new String(Files.readAllBytes(f.out.resolve("run-report-copy.json")), "UTF-8")
+    ) ++ f.printed
+    texts.foreach(t => assert(!t.contains(OverrideBucket), t.take(300)))
+  }
+
+  test("P16-L-16: the job reads only the configuration environment it is given") {
+    // the fixture puts the export in the override bucket, but the job is given no override: it
+    // keeps the file's buckets and refuses the export (the human's shell case, mirrored)
+    val g = s3Fixture(jobConfigEnv = Map.empty, fixtureConfigEnv = Some(Overrides))
+    assert(
+      g.result
+        .report("status")
+        .str
+        .contains("--export must be in a bucket of the configured data-lake zones"),
+      g.result.report("status").str
+    )
+    // hermetic default: fixture and job agree on the file's buckets
+    val h = s3Fixture()
+    assertEquals(h.result.report("status").str, "completed", h.result.report.render(indent = 2))
+    assertEquals(h.ragBucket, "example-artifact-bucket")
+    assertEquals(
+      storageConfigOf("rag-voyage-example-v1.json").zones("graph").bucket,
+      "example-graph-bucket"
+    )
+  }
+
+  test("P16-L-16: the production default of the seam is the process environment") {
+    // compared, never printed (the shell may hold real identifiers)
+    assert(
+      RagIngestJob.Hooks().configEnv() == sys.env,
+      "Hooks().configEnv is not the process environment"
+    )
+  }
+
   // ---- helpers ----------------------------------------------------------------------------------
 
   private val TestCodeVersion = "0123456789abcdef0123456789abcdef01234567"
+
+  /** Every job run in this suite passes its configuration environment explicitly (P16-L-16). */
+  private val Hermetic = RagIngestJob.Hooks(configEnv = NoConfigEnv)
 
   private def parseOk(args: Array[String]): RagIngestJob.Options =
     RagIngestJob.parse(args).fold(fail(_), identity)
@@ -521,9 +599,12 @@ class RagIngestJobSuite extends munit.FunSuite {
       "3"
     )
 
-  private def storageConfigOf(name: String): org.scholarchain.storage.StorageConfig =
+  private def storageConfigOf(
+      name: String,
+      configEnv: Map[String, String] = Map.empty
+  ): org.scholarchain.storage.StorageConfig =
     org.scholarchain.storage.StorageConfig
-      .from(RagIngestJob.loadConfig(configPath(name), Map.empty).fold(fail(_), identity))
+      .from(RagIngestJob.loadConfig(configPath(name), configEnv).fold(fail(_), identity))
       .fold(e => fail(e.mkString("; ")), identity)
 
   /** A voyage stub transport that answers with the fake lexical vectors (no network). */
@@ -588,16 +669,23 @@ class RagIngestJobSuite extends munit.FunSuite {
     *
     * @param skip
     *   relative paths to leave out of the store (`FIRST_FILE` = the first listed data file)
+    * @param jobConfigEnv
+    *   the configuration environment the job receives (default none: hermetic, P16-L-16)
+    * @param fixtureConfigEnv
+    *   the configuration environment the fixture's buckets are computed with (default: the job's)
     */
   private def s3Fixture(
       bucket: String = "",
       skip: Set[String] = Set.empty,
-      changeFirstFile: Boolean = false
+      changeFirstFile: Boolean = false,
+      jobConfigEnv: Map[String, String] = Map.empty,
+      fixtureConfigEnv: Option[Map[String, String]] = None
   ): S3Fixture = {
     import org.scholarchain.storage.ports.ObjectRef
     val root = Files.createTempDirectory("rag-job-s3")
     val local = writeExport(root.resolve("export"))
-    val cfg = storageConfigOf("rag-voyage-example-v1.json")
+    val cfg =
+      storageConfigOf("rag-voyage-example-v1.json", fixtureConfigEnv.getOrElse(jobConfigEnv))
     val graph = cfg.zones("graph")
     val exportBucket = if (bucket.isEmpty) graph.bucket else bucket
     val exportKey = s"${graph.prefix}/exports/${local.getFileName}"
@@ -653,7 +741,7 @@ class RagIngestJobSuite extends munit.FunSuite {
       opts,
       (_, _, _) => Right(new RagIngestJob.LocalIngestStores(env, kind = "aws")),
       wiring,
-      RagIngestJob.Hooks(print = s => printed += s)
+      RagIngestJob.Hooks(print = s => printed += s, configEnv = () => jobConfigEnv)
     )
     val rag = cfg.zones("semantic-context")
     S3Fixture(

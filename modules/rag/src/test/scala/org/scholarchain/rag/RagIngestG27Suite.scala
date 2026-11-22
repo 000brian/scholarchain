@@ -67,7 +67,11 @@ class RagIngestG27Suite extends munit.FunSuite {
     ) ++ extra
 
   private def exec(a: Array[String], shared: Shared): ujson.Obj =
-    RagIngestJob.run(RagIngestJob.parse(a).fold(fail(_), identity), shared.factory)
+    RagIngestJob.run(
+      RagIngestJob.parse(a).fold(fail(_), identity),
+      shared.factory,
+      hooks = RagIngestJob.Hooks(configEnv = RagFixtures.NoConfigEnv)
+    )
 
   test("G-27: the step cap is 120 minutes and is recorded in the report") {
     assertEquals(RagIngestJob.MaxStepMillis, 120L * 60L * 1000L)
@@ -119,11 +123,14 @@ class RagIngestG27Suite extends munit.FunSuite {
     val dir = writeExport(root.resolve("export"))
     val shared = new Shared
     val cfg = StorageConfig
-      .from(RagIngestJob.loadConfig(configPath("rag-local-v1.json")).fold(fail(_), identity))
+      .from(
+        RagIngestJob.loadConfig(configPath("rag-local-v1.json"), Map.empty).fold(fail(_), identity)
+      )
       .fold(e => fail(e.mkString("; ")), identity)
     val env = LocalStorageEnvironment.create(cfg, None)
     shared.env = Some(env)
-    val config = RagIngestJob.loadConfig(configPath("rag-local-v1.json")).fold(fail(_), identity)
+    val config =
+      RagIngestJob.loadConfig(configPath("rag-local-v1.json"), Map.empty).fold(fail(_), identity)
     val doc = EmbeddingProviders.create(config, InputType.Document).fold(fail(_), identity)
     val src = new LocalDirectorySource(dir)
     val corpus =

@@ -149,7 +149,10 @@ object BenchmarkRunner {
   def run(
       opts: Options,
       env: String => Option[String] = sys.env.get,
-      llmWiring: LlmFactory.Wiring = LlmFactory.Wiring()
+      llmWiring: LlmFactory.Wiring = LlmFactory.Wiring(),
+      // the environment whose SCHOLARCHAIN_CFG_* overrides apply to the configuration file;
+      // default the process environment (main); tests pass an explicit map (P16-L-16)
+      configEnv: () => Map[String, String] = () => sys.env
   ): ujson.Obj = {
     if (Files.exists(opts.out)) sys.error(s"${opts.out} exists; every attempt uses a new root")
     Files.createDirectories(opts.out)
@@ -178,7 +181,7 @@ object BenchmarkRunner {
     val t0 = System.nanoTime()
     var service: RuntimeService = null
     try {
-      val config = loadConfig(opts.config).fold(e => sys.error(e), identity)
+      val config = loadConfig(opts.config, configEnv()).fold(e => sys.error(e), identity)
       preflight(config, opts.llm, env).fold(e => sys.error(e), identity)
       val cfg = StorageConfig.from(config).fold(e => sys.error(e.mkString("; ")), identity)
       val questionsBytes = Files.readAllBytes(opts.questions)

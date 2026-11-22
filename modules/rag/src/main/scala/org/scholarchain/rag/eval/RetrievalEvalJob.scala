@@ -189,7 +189,10 @@ object RetrievalEvalJob {
       buildIdentity: () => BuildIdentity = () => BuildIdentity.load(),
       print: String => Unit = (s: String) => println(s),
       evalSet: () => Either[String, RetrievalEvalSet] = () => RetrievalEvalSet.load(),
-      clock: () => Long = () => System.nanoTime()
+      clock: () => Long = () => System.nanoTime(),
+      // the environment whose SCHOLARCHAIN_CFG_* overrides apply to the configuration file;
+      // default the process environment (main); tests pass an explicit map (P16-L-16)
+      configEnv: () => Map[String, String] = () => sys.env
   )
 
   final case class JobResult(report: ujson.Obj, reportCopy: ujson.Obj) {
@@ -250,7 +253,8 @@ object RetrievalEvalJob {
     var copy: ujson.Obj =
       ujson.Obj("format" -> ReportCopyFormat, "outcome" -> "not attempted", "object" -> "-")
     try {
-      val config = RagIngestJob.loadConfig(opts.config).fold(e => sys.error(e), identity)
+      val config =
+        RagIngestJob.loadConfig(opts.config, hooks.configEnv()).fold(e => sys.error(e), identity)
       val cfg = StorageConfig.from(config).fold(e => sys.error(e.mkString("; ")), identity)
       cfgOpt = Some(cfg)
       masking = new Masking(

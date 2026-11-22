@@ -14,6 +14,14 @@ import upickle.default.ReadWriter
   */
 object RagFixtures {
 
+  /** The configuration environment every job test passes explicitly (P16-L-16): no
+    * `SCHOLARCHAIN_CFG_*` override, whatever the shell that runs the tests exports.
+    */
+  val NoConfigEnv: () => Map[String, String] = () => Map.empty
+
+  /** A synthetic bucket name for override tests (never a real identifier). */
+  val OverrideBucket = "example-override-bucket"
+
   def loadConfig(resource: String, env: Map[String, String] = Map.empty): ScholarChainConfig = {
     val in = getClass.getResourceAsStream(resource)
     val text =

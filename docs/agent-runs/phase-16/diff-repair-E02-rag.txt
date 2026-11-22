@@ -1,0 +1,540 @@
+diff --git a/modules/rag/src/main/scala/org/scholarchain/rag/eval/RetrievalEvalJob.scala b/modules/rag/src/main/scala/org/scholarchain/rag/eval/RetrievalEvalJob.scala
+index 5d17731..0b0ec1a 100644
+--- a/modules/rag/src/main/scala/org/scholarchain/rag/eval/RetrievalEvalJob.scala
++++ b/modules/rag/src/main/scala/org/scholarchain/rag/eval/RetrievalEvalJob.scala
+@@ -189,7 +189,10 @@ object RetrievalEvalJob {
+       buildIdentity: () => BuildIdentity = () => BuildIdentity.load(),
+       print: String => Unit = (s: String) => println(s),
+       evalSet: () => Either[String, RetrievalEvalSet] = () => RetrievalEvalSet.load(),
+-      clock: () => Long = () => System.nanoTime()
++      clock: () => Long = () => System.nanoTime(),
++      // the environment whose SCHOLARCHAIN_CFG_* overrides apply to the configuration file;
++      // default the process environment (main); tests pass an explicit map (P16-L-16)
++      configEnv: () => Map[String, String] = () => sys.env
+   )
+ 
+   final case class JobResult(report: ujson.Obj, reportCopy: ujson.Obj) {
+@@ -250,7 +253,8 @@ object RetrievalEvalJob {
+     var copy: ujson.Obj =
+       ujson.Obj("format" -> ReportCopyFormat, "outcome" -> "not attempted", "object" -> "-")
+     try {
+-      val config = RagIngestJob.loadConfig(opts.config).fold(e => sys.error(e), identity)
++      val config =
++        RagIngestJob.loadConfig(opts.config, hooks.configEnv()).fold(e => sys.error(e), identity)
+       val cfg = StorageConfig.from(config).fold(e => sys.error(e.mkString("; ")), identity)
+       cfgOpt = Some(cfg)
+       masking = new Masking(
+diff --git a/modules/rag/src/main/scala/org/scholarchain/rag/ingest/RagIngestJob.scala b/modules/rag/src/main/scala/org/scholarchain/rag/ingest/RagIngestJob.scala
+index 131ad27..ff6a00b 100644
+--- a/modules/rag/src/main/scala/org/scholarchain/rag/ingest/RagIngestJob.scala
++++ b/modules/rag/src/main/scala/org/scholarchain/rag/ingest/RagIngestJob.scala
+@@ -201,10 +201,18 @@ object RagIngestJob {
+     }
+   }
+ 
+-  /** What one invocation uses besides its options and stores (tests inject both). */
++  /** What one invocation uses besides its options and stores (tests inject both).
++    *
++    * @param configEnv
++    *   the environment whose `SCHOLARCHAIN_CFG_*` overrides [[loadConfig]] applies to the
++    *   configuration file; default the process environment, read when the job starts (the
++    *   production entry point, [[main]]). Tests pass an explicit map so their outcome never depends
++    *   on the shell that runs them (P16-L-16).
++    */
+   final case class Hooks(
+       buildIdentity: () => BuildIdentity = () => BuildIdentity.load(),
+-      print: String => Unit = (s: String) => println(s)
++      print: String => Unit = (s: String) => println(s),
++      configEnv: () => Map[String, String] = () => sys.env
+   )
+ 
+   /** The report and, with stores `aws`, the outcome of its copy to the data lake. */
+@@ -439,7 +447,7 @@ object RagIngestJob {
+     var runIdOpt: Option[RunId] = None
+     var copy: Option[ujson.Obj] = None
+     try {
+-      val config = loadConfig(opts.config).fold(e => sys.error(e), identity)
++      val config = loadConfig(opts.config, hooks.configEnv()).fold(e => sys.error(e), identity)
+       val cfg = StorageConfig.from(config).fold(e => sys.error(e.mkString("; ")), identity)
+       masking = new Masking(
+         cfg.zones.values.map(_.bucket) ++ List(cfg.vectorBucket),
+diff --git a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/BenchmarkRunner.scala b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/BenchmarkRunner.scala
+index 75618c4..a47b390 100644
+--- a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/BenchmarkRunner.scala
++++ b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/BenchmarkRunner.scala
+@@ -149,7 +149,10 @@ object BenchmarkRunner {
+   def run(
+       opts: Options,
+       env: String => Option[String] = sys.env.get,
+-      llmWiring: LlmFactory.Wiring = LlmFactory.Wiring()
++      llmWiring: LlmFactory.Wiring = LlmFactory.Wiring(),
++      // the environment whose SCHOLARCHAIN_CFG_* overrides apply to the configuration file;
++      // default the process environment (main); tests pass an explicit map (P16-L-16)
++      configEnv: () => Map[String, String] = () => sys.env
+   ): ujson.Obj = {
+     if (Files.exists(opts.out)) sys.error(s"${opts.out} exists; every attempt uses a new root")
+     Files.createDirectories(opts.out)
+@@ -178,7 +181,7 @@ object BenchmarkRunner {
+     val t0 = System.nanoTime()
+     var service: RuntimeService = null
+     try {
+-      val config = loadConfig(opts.config).fold(e => sys.error(e), identity)
++      val config = loadConfig(opts.config, configEnv()).fold(e => sys.error(e), identity)
+       preflight(config, opts.llm, env).fold(e => sys.error(e), identity)
+       val cfg = StorageConfig.from(config).fold(e => sys.error(e.mkString("; ")), identity)
+       val questionsBytes = Files.readAllBytes(opts.questions)
+diff --git a/modules/rag/src/test/scala/org/scholarchain/rag/RagFixtures.scala b/modules/rag/src/test/scala/org/scholarchain/rag/RagFixtures.scala
+index d31ff98..ec22fa6 100644
+--- a/modules/rag/src/test/scala/org/scholarchain/rag/RagFixtures.scala
++++ b/modules/rag/src/test/scala/org/scholarchain/rag/RagFixtures.scala
+@@ -14,6 +14,14 @@ import upickle.default.ReadWriter
+   */
+ object RagFixtures {
+ 
++  /** The configuration environment every job test passes explicitly (P16-L-16): no
++    * `SCHOLARCHAIN_CFG_*` override, whatever the shell that runs the tests exports.
++    */
++  val NoConfigEnv: () => Map[String, String] = () => Map.empty
++
++  /** A synthetic bucket name for override tests (never a real identifier). */
++  val OverrideBucket = "example-override-bucket"
++
+   def loadConfig(resource: String, env: Map[String, String] = Map.empty): ScholarChainConfig = {
+     val in = getClass.getResourceAsStream(resource)
+     val text =
+diff --git a/modules/rag/src/test/scala/org/scholarchain/rag/RagIngestG27Suite.scala b/modules/rag/src/test/scala/org/scholarchain/rag/RagIngestG27Suite.scala
+index 2ff211b..11a56ef 100644
+--- a/modules/rag/src/test/scala/org/scholarchain/rag/RagIngestG27Suite.scala
++++ b/modules/rag/src/test/scala/org/scholarchain/rag/RagIngestG27Suite.scala
+@@ -67,7 +67,11 @@ class RagIngestG27Suite extends munit.FunSuite {
+     ) ++ extra
+ 
+   private def exec(a: Array[String], shared: Shared): ujson.Obj =
+-    RagIngestJob.run(RagIngestJob.parse(a).fold(fail(_), identity), shared.factory)
++    RagIngestJob.run(
++      RagIngestJob.parse(a).fold(fail(_), identity),
++      shared.factory,
++      hooks = RagIngestJob.Hooks(configEnv = RagFixtures.NoConfigEnv)
++    )
+ 
+   test("G-27: the step cap is 120 minutes and is recorded in the report") {
+     assertEquals(RagIngestJob.MaxStepMillis, 120L * 60L * 1000L)
+@@ -119,11 +123,14 @@ class RagIngestG27Suite extends munit.FunSuite {
+     val dir = writeExport(root.resolve("export"))
+     val shared = new Shared
+     val cfg = StorageConfig
+-      .from(RagIngestJob.loadConfig(configPath("rag-local-v1.json")).fold(fail(_), identity))
++      .from(
++        RagIngestJob.loadConfig(configPath("rag-local-v1.json"), Map.empty).fold(fail(_), identity)
++      )
+       .fold(e => fail(e.mkString("; ")), identity)
+     val env = LocalStorageEnvironment.create(cfg, None)
+     shared.env = Some(env)
+-    val config = RagIngestJob.loadConfig(configPath("rag-local-v1.json")).fold(fail(_), identity)
++    val config =
++      RagIngestJob.loadConfig(configPath("rag-local-v1.json"), Map.empty).fold(fail(_), identity)
+     val doc = EmbeddingProviders.create(config, InputType.Document).fold(fail(_), identity)
+     val src = new LocalDirectorySource(dir)
+     val corpus =
+diff --git a/modules/rag/src/test/scala/org/scholarchain/rag/RagIngestJobSuite.scala b/modules/rag/src/test/scala/org/scholarchain/rag/RagIngestJobSuite.scala
+index fdc9f52..14f7c7c 100644
+--- a/modules/rag/src/test/scala/org/scholarchain/rag/RagIngestJobSuite.scala
++++ b/modules/rag/src/test/scala/org/scholarchain/rag/RagIngestJobSuite.scala
+@@ -37,7 +37,7 @@ class RagIngestJobSuite extends munit.FunSuite {
+         )
+       )
+       .fold(fail(_), identity)
+-    (RagIngestJob.run(opts), out)
++    (RagIngestJob.run(opts, hooks = Hermetic), out)
+   }
+ 
+   test("two local runs: the second run skips 100% and changes nothing") {
+@@ -193,7 +193,7 @@ class RagIngestJobSuite extends munit.FunSuite {
+         )
+       )
+       .fold(fail(_), identity)
+-    val r = RagIngestJob.run(opts, factory, wiring)
++    val r = RagIngestJob.run(opts, factory, wiring, Hermetic)
+     assertEquals(r("status").str, "completed", r.render(indent = 2))
+     assertEquals(requested.toList, List("aws"))
+     assertEquals(r("environment")("stores").str, "aws")
+@@ -223,7 +223,11 @@ class RagIngestJobSuite extends munit.FunSuite {
+         )
+       )
+       .fold(fail(_), identity)
+-    val r = RagIngestJob.run(opts, (_, _, _) => { built += 1; Left("not built") })
++    val r = RagIngestJob.run(
++      opts,
++      (_, _, _) => { built += 1; Left("not built") },
++      hooks = Hermetic
++    )
+     assert(r("status").str.contains("never used for a stored index"), r("status").str)
+     assertEquals(built, 0)
+   }
+@@ -246,7 +250,7 @@ class RagIngestJobSuite extends munit.FunSuite {
+       )
+       .toOption
+       .get
+-    val r = RagIngestJob.run(opts)
++    val r = RagIngestJob.run(opts, hooks = Hermetic)
+     assert(r("status").str.contains("live API"), r("status").str)
+   }
+ 
+@@ -352,7 +356,10 @@ class RagIngestJobSuite extends munit.FunSuite {
+       "0.1.0-SNAPSHOT",
+       "resource"
+     )
+-    val r = RagIngestJob.run(opts, hooks = RagIngestJob.Hooks(buildIdentity = () => identity))
++    val r = RagIngestJob.run(
++      opts,
++      hooks = RagIngestJob.Hooks(buildIdentity = () => identity, configEnv = NoConfigEnv)
++    )
+     assertEquals(r("status").str, "completed", r.render(indent = 2))
+     assertEquals(r("codeVersion").str, TestCodeVersion)
+     assertEquals(r("jobCodeVersion").str, "rag/1")
+@@ -362,7 +369,7 @@ class RagIngestJobSuite extends munit.FunSuite {
+     val other = parseOk(
+       localArgs(dir, root.resolve("b")).updated(7, "fedcba9876543210fedcba9876543210fedcba98")
+     )
+-    val r2 = RagIngestJob.run(other)
++    val r2 = RagIngestJob.run(other, hooks = Hermetic)
+     assertEquals(r2("runId").str, r("runId").str)
+     assertEquals(r2("codeVersion").str, "fedcba9876543210fedcba9876543210fedcba98")
+     // in module tests the jar resource is absent: the identity says so, it is never invented
+@@ -400,7 +407,8 @@ class RagIngestJobSuite extends munit.FunSuite {
+         )
+       ),
+       f.factory(),
+-      f.wiring
++      f.wiring,
++      Hermetic
+     )
+     assertEquals(local("status").str, "completed", local.render(indent = 2))
+     assertEquals(local("runId").str, r("runId").str)
+@@ -498,10 +506,80 @@ class RagIngestJobSuite extends munit.FunSuite {
+     assert(RagIngestJob.MinFreeBytes < 30L * 1024 * 1024 * 1024)
+   }
+ 
++  // ---- P16-L-16: the configuration environment is passed explicitly ---------------------------
++
++  private val Overrides = Map(
++    org.scholarchain.core.config.ConfigKey.envVarFor("storage.graphBucket") -> OverrideBucket,
++    org.scholarchain.core.config.ConfigKey
++      .envVarFor("objectStore.semanticContextBucket") -> OverrideBucket
++  )
++
++  test(
++    "P16-L-16: a SCHOLARCHAIN_CFG_* override passed to the job moves the export and copy buckets"
++  ) {
++    assertEquals(
++      Overrides.keySet,
++      Set(
++        "SCHOLARCHAIN_CFG_STORAGE_GRAPH_BUCKET",
++        "SCHOLARCHAIN_CFG_OBJECT_STORE_SEMANTIC_CONTEXT_BUCKET"
++      )
++    )
++    // the job receives the override: the export placed in the override graph bucket is accepted,
++    // and the report copy lands in the override semantic-context bucket
++    val f = s3Fixture(jobConfigEnv = Overrides)
++    val r = f.result.report
++    assertEquals(r("status").str, "completed", r.render(indent = 2))
++    assertEquals(f.ragBucket, OverrideBucket)
++    val copy = f.result.reportCopy.getOrElse(fail("no copy outcome"))
++    assertEquals(copy("outcome").str, "created")
++    val key = copy("object").str.stripPrefix("s3://{data-bucket}/")
++    assert(
++      f.env.objects.get(org.scholarchain.storage.ports.ObjectRef(OverrideBucket, key)).nonEmpty
++    )
++    // the override bucket is masked like any configured bucket
++    val texts = List(
++      new String(Files.readAllBytes(f.out.resolve("run-report.json")), "UTF-8"),
++      new String(Files.readAllBytes(f.out.resolve("run-report-copy.json")), "UTF-8")
++    ) ++ f.printed
++    texts.foreach(t => assert(!t.contains(OverrideBucket), t.take(300)))
++  }
++
++  test("P16-L-16: the job reads only the configuration environment it is given") {
++    // the fixture puts the export in the override bucket, but the job is given no override: it
++    // keeps the file's buckets and refuses the export (the human's shell case, mirrored)
++    val g = s3Fixture(jobConfigEnv = Map.empty, fixtureConfigEnv = Some(Overrides))
++    assert(
++      g.result
++        .report("status")
++        .str
++        .contains("--export must be in a bucket of the configured data-lake zones"),
++      g.result.report("status").str
++    )
++    // hermetic default: fixture and job agree on the file's buckets
++    val h = s3Fixture()
++    assertEquals(h.result.report("status").str, "completed", h.result.report.render(indent = 2))
++    assertEquals(h.ragBucket, "example-artifact-bucket")
++    assertEquals(
++      storageConfigOf("rag-voyage-example-v1.json").zones("graph").bucket,
++      "example-graph-bucket"
++    )
++  }
++
++  test("P16-L-16: the production default of the seam is the process environment") {
++    // compared, never printed (the shell may hold real identifiers)
++    assert(
++      RagIngestJob.Hooks().configEnv() == sys.env,
++      "Hooks().configEnv is not the process environment"
++    )
++  }
++
+   // ---- helpers ----------------------------------------------------------------------------------
+ 
+   private val TestCodeVersion = "0123456789abcdef0123456789abcdef01234567"
+ 
++  /** Every job run in this suite passes its configuration environment explicitly (P16-L-16). */
++  private val Hermetic = RagIngestJob.Hooks(configEnv = NoConfigEnv)
++
+   private def parseOk(args: Array[String]): RagIngestJob.Options =
+     RagIngestJob.parse(args).fold(fail(_), identity)
+ 
+@@ -521,9 +599,12 @@ class RagIngestJobSuite extends munit.FunSuite {
+       "3"
+     )
+ 
+-  private def storageConfigOf(name: String): org.scholarchain.storage.StorageConfig =
++  private def storageConfigOf(
++      name: String,
++      configEnv: Map[String, String] = Map.empty
++  ): org.scholarchain.storage.StorageConfig =
+     org.scholarchain.storage.StorageConfig
+-      .from(RagIngestJob.loadConfig(configPath(name), Map.empty).fold(fail(_), identity))
++      .from(RagIngestJob.loadConfig(configPath(name), configEnv).fold(fail(_), identity))
+       .fold(e => fail(e.mkString("; ")), identity)
+ 
+   /** A voyage stub transport that answers with the fake lexical vectors (no network). */
+@@ -588,16 +669,23 @@ class RagIngestJobSuite extends munit.FunSuite {
+     *
+     * @param skip
+     *   relative paths to leave out of the store (`FIRST_FILE` = the first listed data file)
++    * @param jobConfigEnv
++    *   the configuration environment the job receives (default none: hermetic, P16-L-16)
++    * @param fixtureConfigEnv
++    *   the configuration environment the fixture's buckets are computed with (default: the job's)
+     */
+   private def s3Fixture(
+       bucket: String = "",
+       skip: Set[String] = Set.empty,
+-      changeFirstFile: Boolean = false
++      changeFirstFile: Boolean = false,
++      jobConfigEnv: Map[String, String] = Map.empty,
++      fixtureConfigEnv: Option[Map[String, String]] = None
+   ): S3Fixture = {
+     import org.scholarchain.storage.ports.ObjectRef
+     val root = Files.createTempDirectory("rag-job-s3")
+     val local = writeExport(root.resolve("export"))
+-    val cfg = storageConfigOf("rag-voyage-example-v1.json")
++    val cfg =
++      storageConfigOf("rag-voyage-example-v1.json", fixtureConfigEnv.getOrElse(jobConfigEnv))
+     val graph = cfg.zones("graph")
+     val exportBucket = if (bucket.isEmpty) graph.bucket else bucket
+     val exportKey = s"${graph.prefix}/exports/${local.getFileName}"
+@@ -653,7 +741,7 @@ class RagIngestJobSuite extends munit.FunSuite {
+       opts,
+       (_, _, _) => Right(new RagIngestJob.LocalIngestStores(env, kind = "aws")),
+       wiring,
+-      RagIngestJob.Hooks(print = s => printed += s)
++      RagIngestJob.Hooks(print = s => printed += s, configEnv = () => jobConfigEnv)
+     )
+     val rag = cfg.zones("semantic-context")
+     S3Fixture(
+diff --git a/modules/rag/src/test/scala/org/scholarchain/rag/eval/RetrievalEvalSuite.scala b/modules/rag/src/test/scala/org/scholarchain/rag/eval/RetrievalEvalSuite.scala
+index b888c7d..71c870b 100644
+--- a/modules/rag/src/test/scala/org/scholarchain/rag/eval/RetrievalEvalSuite.scala
++++ b/modules/rag/src/test/scala/org/scholarchain/rag/eval/RetrievalEvalSuite.scala
+@@ -4,6 +4,7 @@ import java.nio.file.{Files, Paths}
+ import java.util.concurrent.atomic.AtomicLong
+ 
+ import org.scholarchain.core.ResearcherId
++import org.scholarchain.rag.RagFixtures.{NoConfigEnv, OverrideBucket}
+ import org.scholarchain.rag.runtime.{RankedEntry, RetrievalModes, RuntimeFixtures}
+ import org.scholarchain.storage.ports.{
+   GraphQuery,
+@@ -259,7 +260,11 @@ class RetrievalEvalSuite extends munit.FunSuite {
+     val r = RetrievalEvalJob.execute(
+       RetrievalEvalJob.parse(jobArgs(out)).fold(fail(_), identity),
+       localStores(),
+-      hooks = RetrievalEvalJob.Hooks(print = l => printed += l, evalSet = () => Right(evalSet))
++      hooks = RetrievalEvalJob.Hooks(
++        print = l => printed += l,
++        evalSet = () => Right(evalSet),
++        configEnv = NoConfigEnv
++      )
+     )
+     assertEquals(r.report("status").str, "completed", r.report.render(indent = 2))
+     assert(r.copyOk, r.reportCopy.toString)
+@@ -286,7 +291,11 @@ class RetrievalEvalSuite extends munit.FunSuite {
+     val again = RetrievalEvalJob.execute(
+       RetrievalEvalJob.parse(jobArgs(out.resolveSibling("attempt-2"))).fold(fail(_), identity),
+       localStores(),
+-      hooks = RetrievalEvalJob.Hooks(print = _ => (), evalSet = () => Right(evalSet))
++      hooks = RetrievalEvalJob.Hooks(
++        print = _ => (),
++        evalSet = () => Right(evalSet),
++        configEnv = NoConfigEnv
++      )
+     )
+     assert(!again.copyOk || again.reportCopy("outcome").str == "already present")
+   }
+@@ -298,7 +307,8 @@ class RetrievalEvalSuite extends munit.FunSuite {
+       localStores("aws"),
+       hooks = RetrievalEvalJob.Hooks(
+         print = _ => (),
+-        evalSet = () => Right(set(q("f1", Ranking, List(rC))))
++        evalSet = () => Right(set(q("f1", Ranking, List(rC)))),
++        configEnv = NoConfigEnv
+       )
+     )
+     assert(r.report("status").str.contains("fake embedder is refused"), r.report("status").str)
+@@ -306,8 +316,57 @@ class RetrievalEvalSuite extends munit.FunSuite {
+     intercept[RuntimeException](
+       RetrievalEvalJob.execute(
+         RetrievalEvalJob.parse(jobArgs(out)).fold(fail(_), identity),
+-        localStores()
++        localStores(),
++        hooks = RetrievalEvalJob.Hooks(print = _ => (), configEnv = NoConfigEnv)
++      )
++    )
++  }
++
++  // ---- P16-L-16: the configuration environment is passed explicitly ---------------------------
++
++  private def copyRun(attempt: String, configEnv: Map[String, String]) = {
++    val out = Files.createTempDirectory("eval-job-env").resolve("attempt")
++    RetrievalEvalJob.execute(
++      RetrievalEvalJob.parse(jobArgs(out).updated(7, attempt)).fold(fail(_), identity),
++      localStores(),
++      hooks = RetrievalEvalJob.Hooks(
++        print = _ => (),
++        evalSet = () => Right(set(q("f1", Ranking, List(rC, rG)))),
++        configEnv = () => configEnv
+       )
+     )
+   }
++
++  test("P16-L-16: the report copy goes to the semantic-context bucket of the given environment") {
++    val zone = storageConfig.zones("semantic-context")
++    assertNotEquals(zone.bucket, OverrideBucket)
++    val overrides = Map(
++      org.scholarchain.core.config.ConfigKey
++        .envVarFor("objectStore.semanticContextBucket") -> OverrideBucket,
++      org.scholarchain.core.config.ConfigKey.envVarFor("storage.graphBucket") -> OverrideBucket
++    )
++    // an override passed to the job applies (and is masked in the report)
++    val a = "20261122T100000Z-0123456789ab-ovr1"
++    val o = copyRun(a, overrides)
++    assert(o.completed && o.copyOk, o.report.render(indent = 2))
++    val key = RetrievalEvalJob.reportKey(zone.prefix, a)
++    assert(w.env.storage.objects.get(ObjectRef(OverrideBucket, key)).nonEmpty)
++    assert(w.env.storage.objects.get(ObjectRef(zone.bucket, key)).isEmpty)
++    assert(!o.report.render().contains(OverrideBucket))
++    // no override: the file's bucket, whatever the shell exports
++    val b = "20261122T100000Z-0123456789ab-none"
++    val n = copyRun(b, Map.empty)
++    assert(n.completed && n.copyOk, n.report.render(indent = 2))
++    val keyB = RetrievalEvalJob.reportKey(zone.prefix, b)
++    assert(w.env.storage.objects.get(ObjectRef(zone.bucket, keyB)).nonEmpty)
++    assert(w.env.storage.objects.get(ObjectRef(OverrideBucket, keyB)).isEmpty)
++  }
++
++  test("P16-L-16: the production default of the seam is the process environment") {
++    // compared, never printed (the shell may hold real identifiers)
++    assert(
++      RetrievalEvalJob.Hooks().configEnv() == sys.env,
++      "Hooks().configEnv is not the process environment"
++    )
++  }
+ }
+diff --git a/modules/rag/src/test/scala/org/scholarchain/rag/runtime/BenchmarkRunnerSuite.scala b/modules/rag/src/test/scala/org/scholarchain/rag/runtime/BenchmarkRunnerSuite.scala
+index 15cb499..2fce7e3 100644
+--- a/modules/rag/src/test/scala/org/scholarchain/rag/runtime/BenchmarkRunnerSuite.scala
++++ b/modules/rag/src/test/scala/org/scholarchain/rag/runtime/BenchmarkRunnerSuite.scala
+@@ -3,6 +3,7 @@ package org.scholarchain.rag.runtime
+ import java.nio.charset.StandardCharsets
+ import java.nio.file.{Files, Path, Paths}
+ 
++import org.scholarchain.rag.RagFixtures.NoConfigEnv
+ import org.scholarchain.rag.benchmark.AnswerKeyGenerator
+ import org.scholarchain.rag.embedding.{HttpResult, HttpTransport}
+ 
+@@ -64,7 +65,7 @@ class BenchmarkRunnerSuite extends munit.FunSuite {
+   ) {
+     val root = Files.createTempDirectory("rag-bench")
+     val o = opts(root)
+-    val r = BenchmarkRunner.run(o)
++    val r = BenchmarkRunner.run(o, configEnv = NoConfigEnv)
+     assertEquals(r("status").str, "completed", r.render(indent = 2).take(4000))
+     assertEquals(r("label").str, "local stores, fake embeddings")
+     val res = r("results")
+@@ -104,12 +105,17 @@ class BenchmarkRunnerSuite extends munit.FunSuite {
+     assert(r.obj.contains("versions"))
+     assertEquals(Files.list(o.out).toArray.count(_.toString.matches(".*/q-[0-9]{2}\\.json$")), n)
+     // a second run into the same root is refused
+-    intercept[RuntimeException](BenchmarkRunner.run(o))
++    intercept[RuntimeException](BenchmarkRunner.run(o, configEnv = NoConfigEnv))
+   }
+ 
+   test("benchmark runner refuses a provider mismatch and anthropic without its key variable") {
+-    val local = BenchmarkRunner.loadConfig(configPath("rag-runtime-local-v1.json")).toOption.get
+-    val anth = BenchmarkRunner.loadConfig(configPath("rag-runtime-anthropic-v1.json")).toOption.get
++    val local =
++      BenchmarkRunner.loadConfig(configPath("rag-runtime-local-v1.json"), Map.empty).toOption.get
++    val anth =
++      BenchmarkRunner
++        .loadConfig(configPath("rag-runtime-anthropic-v1.json"), Map.empty)
++        .toOption
++        .get
+     assert(
+       BenchmarkRunner
+         .preflight(local, "anthropic", _ => None)
+@@ -128,7 +134,11 @@ class BenchmarkRunnerSuite extends munit.FunSuite {
+     assert(BenchmarkRunner.preflight(local, "fake", _ => None).isRight)
+     val root = Files.createTempDirectory("rag-bench-anth")
+     val r =
+-      BenchmarkRunner.run(opts(root, "rag-runtime-anthropic-v1.json", "anthropic"), env = _ => None)
++      BenchmarkRunner.run(
++        opts(root, "rag-runtime-anthropic-v1.json", "anthropic"),
++        env = _ => None,
++        configEnv = NoConfigEnv
++      )
+     assert(r("status").str.contains("is not set; refusing to start"), r("status").str)
+     assert(!r.obj.contains("runtimeEnvironment"), "nothing was loaded")
+   }
+@@ -156,7 +166,8 @@ class BenchmarkRunnerSuite extends munit.FunSuite {
+       httpTransport = _ => t
+     )
+     val o = opts(root, "rag-runtime-anthropic-v2.json", "anthropic")
+-    val r = BenchmarkRunner.run(o, env = placeholderEnv, llmWiring = wiring)
++    val r =
++      BenchmarkRunner.run(o, env = placeholderEnv, llmWiring = wiring, configEnv = NoConfigEnv)
+     (r, t, o.out)
+   }
+ 
+@@ -213,9 +224,22 @@ class BenchmarkRunnerSuite extends munit.FunSuite {
+     assert(!q1.contains("{\\\"operations\\\": ["), "rejected model text is not stored")
+   }
+ 
++  test("P16-L-16: the runner loads its configuration with the environment it is given") {
++    // an unknown SCHOLARCHAIN_CFG_ variable in the given map is refused: the map, not the shell,
++    // reaches the loader
++    val root = Files.createTempDirectory("rag-bench-env")
++    val r = BenchmarkRunner.run(
++      opts(root, "rag-runtime-local-v2.json"),
++      configEnv = () => Map("SCHOLARCHAIN_CFG_NOT_A_KEY" -> "x")
++    )
++    assert(r("status").str.startsWith("failed"), r("status").str)
++    assert(r("status").str.contains("SCHOLARCHAIN_CFG_NOT_A_KEY"), r("status").str)
++    assert(!r.obj.contains("runtimeEnvironment"), "nothing was loaded")
++  }
++
+   test("the fake run reports modelCalls with no failure and no HTTP attempt") {
+     val root = Files.createTempDirectory("rag-bench-calls")
+-    val r = BenchmarkRunner.run(opts(root, "rag-runtime-local-v2.json"))
++    val r = BenchmarkRunner.run(opts(root, "rag-runtime-local-v2.json"), configEnv = NoConfigEnv)
+     assertEquals(r("status").str, "completed")
+     val mc = r("modelCalls")
+     assertEquals(mc("total")("failed").num, 0.0)

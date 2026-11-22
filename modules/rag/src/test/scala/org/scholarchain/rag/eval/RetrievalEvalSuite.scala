@@ -4,6 +4,7 @@ import java.nio.file.{Files, Paths}
 import java.util.concurrent.atomic.AtomicLong
 
 import org.scholarchain.core.ResearcherId
+import org.scholarchain.rag.RagFixtures.{NoConfigEnv, OverrideBucket}
 import org.scholarchain.rag.runtime.{RankedEntry, RetrievalModes, RuntimeFixtures}
 import org.scholarchain.storage.ports.{
   GraphQuery,
@@ -259,7 +260,11 @@ class RetrievalEvalSuite extends munit.FunSuite {
     val r = RetrievalEvalJob.execute(
       RetrievalEvalJob.parse(jobArgs(out)).fold(fail(_), identity),
       localStores(),
-      hooks = RetrievalEvalJob.Hooks(print = l => printed += l, evalSet = () => Right(evalSet))
+      hooks = RetrievalEvalJob.Hooks(
+        print = l => printed += l,
+        evalSet = () => Right(evalSet),
+        configEnv = NoConfigEnv
+      )
     )
     assertEquals(r.report("status").str, "completed", r.report.render(indent = 2))
     assert(r.copyOk, r.reportCopy.toString)
@@ -286,7 +291,11 @@ class RetrievalEvalSuite extends munit.FunSuite {
     val again = RetrievalEvalJob.execute(
       RetrievalEvalJob.parse(jobArgs(out.resolveSibling("attempt-2"))).fold(fail(_), identity),
       localStores(),
-      hooks = RetrievalEvalJob.Hooks(print = _ => (), evalSet = () => Right(evalSet))
+      hooks = RetrievalEvalJob.Hooks(
+        print = _ => (),
+        evalSet = () => Right(evalSet),
+        configEnv = NoConfigEnv
+      )
     )
     assert(!again.copyOk || again.reportCopy("outcome").str == "already present")
   }
@@ -298,7 +307,8 @@ class RetrievalEvalSuite extends munit.FunSuite {
       localStores("aws"),
       hooks = RetrievalEvalJob.Hooks(
         print = _ => (),
-        evalSet = () => Right(set(q("f1", Ranking, List(rC))))
+        evalSet = () => Right(set(q("f1", Ranking, List(rC)))),
+        configEnv = NoConfigEnv
       )
     )
     assert(r.report("status").str.contains("fake embedder is refused"), r.report("status").str)
@@ -306,8 +316,57 @@ class RetrievalEvalSuite extends munit.FunSuite {
     intercept[RuntimeException](
       RetrievalEvalJob.execute(
         RetrievalEvalJob.parse(jobArgs(out)).fold(fail(_), identity),
-        localStores()
+        localStores(),
+        hooks = RetrievalEvalJob.Hooks(print = _ => (), configEnv = NoConfigEnv)
       )
+    )
+  }
+
+  // ---- P16-L-16: the configuration environment is passed explicitly ---------------------------
+
+  private def copyRun(attempt: String, configEnv: Map[String, String]) = {
+    val out = Files.createTempDirectory("eval-job-env").resolve("attempt")
+    RetrievalEvalJob.execute(
+      RetrievalEvalJob.parse(jobArgs(out).updated(7, attempt)).fold(fail(_), identity),
+      localStores(),
+      hooks = RetrievalEvalJob.Hooks(
+        print = _ => (),
+        evalSet = () => Right(set(q("f1", Ranking, List(rC, rG)))),
+        configEnv = () => configEnv
+      )
+    )
+  }
+
+  test("P16-L-16: the report copy goes to the semantic-context bucket of the given environment") {
+    val zone = storageConfig.zones("semantic-context")
+    assertNotEquals(zone.bucket, OverrideBucket)
+    val overrides = Map(
+      org.scholarchain.core.config.ConfigKey
+        .envVarFor("objectStore.semanticContextBucket") -> OverrideBucket,
+      org.scholarchain.core.config.ConfigKey.envVarFor("storage.graphBucket") -> OverrideBucket
+    )
+    // an override passed to the job applies (and is masked in the report)
+    val a = "20261122T100000Z-0123456789ab-ovr1"
+    val o = copyRun(a, overrides)
+    assert(o.completed && o.copyOk, o.report.render(indent = 2))
+    val key = RetrievalEvalJob.reportKey(zone.prefix, a)
+    assert(w.env.storage.objects.get(ObjectRef(OverrideBucket, key)).nonEmpty)
+    assert(w.env.storage.objects.get(ObjectRef(zone.bucket, key)).isEmpty)
+    assert(!o.report.render().contains(OverrideBucket))
+    // no override: the file's bucket, whatever the shell exports
+    val b = "20261122T100000Z-0123456789ab-none"
+    val n = copyRun(b, Map.empty)
+    assert(n.completed && n.copyOk, n.report.render(indent = 2))
+    val keyB = RetrievalEvalJob.reportKey(zone.prefix, b)
+    assert(w.env.storage.objects.get(ObjectRef(zone.bucket, keyB)).nonEmpty)
+    assert(w.env.storage.objects.get(ObjectRef(OverrideBucket, keyB)).isEmpty)
+  }
+
+  test("P16-L-16: the production default of the seam is the process environment") {
+    // compared, never printed (the shell may hold real identifiers)
+    assert(
+      RetrievalEvalJob.Hooks().configEnv() == sys.env,
+      "Hooks().configEnv is not the process environment"
     )
   }
 }

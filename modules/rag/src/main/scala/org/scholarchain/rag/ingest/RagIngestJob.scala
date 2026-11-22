@@ -201,10 +201,18 @@ object RagIngestJob {
     }
   }
 
-  /** What one invocation uses besides its options and stores (tests inject both). */
+  /** What one invocation uses besides its options and stores (tests inject both).
+    *
+    * @param configEnv
+    *   the environment whose `SCHOLARCHAIN_CFG_*` overrides [[loadConfig]] applies to the
+    *   configuration file; default the process environment, read when the job starts (the
+    *   production entry point, [[main]]). Tests pass an explicit map so their outcome never depends
+    *   on the shell that runs them (P16-L-16).
+    */
   final case class Hooks(
       buildIdentity: () => BuildIdentity = () => BuildIdentity.load(),
-      print: String => Unit = (s: String) => println(s)
+      print: String => Unit = (s: String) => println(s),
+      configEnv: () => Map[String, String] = () => sys.env
   )
 
   /** The report and, with stores `aws`, the outcome of its copy to the data lake. */
@@ -439,7 +447,7 @@ object RagIngestJob {
     var runIdOpt: Option[RunId] = None
     var copy: Option[ujson.Obj] = None
     try {
-      val config = loadConfig(opts.config).fold(e => sys.error(e), identity)
+      val config = loadConfig(opts.config, hooks.configEnv()).fold(e => sys.error(e), identity)
       val cfg = StorageConfig.from(config).fold(e => sys.error(e.mkString("; ")), identity)
       masking = new Masking(
         cfg.zones.values.map(_.bucket) ++ List(cfg.vectorBucket),

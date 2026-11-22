@@ -3,6 +3,7 @@ package org.scholarchain.rag.runtime
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 
+import org.scholarchain.rag.RagFixtures.NoConfigEnv
 import org.scholarchain.rag.benchmark.AnswerKeyGenerator
 import org.scholarchain.rag.embedding.{HttpResult, HttpTransport}
 
@@ -64,7 +65,7 @@ class BenchmarkRunnerSuite extends munit.FunSuite {
   ) {
     val root = Files.createTempDirectory("rag-bench")
     val o = opts(root)
-    val r = BenchmarkRunner.run(o)
+    val r = BenchmarkRunner.run(o, configEnv = NoConfigEnv)
     assertEquals(r("status").str, "completed", r.render(indent = 2).take(4000))
     assertEquals(r("label").str, "local stores, fake embeddings")
     val res = r("results")
@@ -104,12 +105,17 @@ class BenchmarkRunnerSuite extends munit.FunSuite {
     assert(r.obj.contains("versions"))
     assertEquals(Files.list(o.out).toArray.count(_.toString.matches(".*/q-[0-9]{2}\\.json$")), n)
     // a second run into the same root is refused
-    intercept[RuntimeException](BenchmarkRunner.run(o))
+    intercept[RuntimeException](BenchmarkRunner.run(o, configEnv = NoConfigEnv))
   }
 
   test("benchmark runner refuses a provider mismatch and anthropic without its key variable") {
-    val local = BenchmarkRunner.loadConfig(configPath("rag-runtime-local-v1.json")).toOption.get
-    val anth = BenchmarkRunner.loadConfig(configPath("rag-runtime-anthropic-v1.json")).toOption.get
+    val local =
+      BenchmarkRunner.loadConfig(configPath("rag-runtime-local-v1.json"), Map.empty).toOption.get
+    val anth =
+      BenchmarkRunner
+        .loadConfig(configPath("rag-runtime-anthropic-v1.json"), Map.empty)
+        .toOption
+        .get
     assert(
       BenchmarkRunner
         .preflight(local, "anthropic", _ => None)
@@ -128,7 +134,11 @@ class BenchmarkRunnerSuite extends munit.FunSuite {
     assert(BenchmarkRunner.preflight(local, "fake", _ => None).isRight)
     val root = Files.createTempDirectory("rag-bench-anth")
     val r =
-      BenchmarkRunner.run(opts(root, "rag-runtime-anthropic-v1.json", "anthropic"), env = _ => None)
+      BenchmarkRunner.run(
+        opts(root, "rag-runtime-anthropic-v1.json", "anthropic"),
+        env = _ => None,
+        configEnv = NoConfigEnv
+      )
     assert(r("status").str.contains("is not set; refusing to start"), r("status").str)
     assert(!r.obj.contains("runtimeEnvironment"), "nothing was loaded")
   }
@@ -156,7 +166,8 @@ class BenchmarkRunnerSuite extends munit.FunSuite {
       httpTransport = _ => t
     )
     val o = opts(root, "rag-runtime-anthropic-v2.json", "anthropic")
-    val r = BenchmarkRunner.run(o, env = placeholderEnv, llmWiring = wiring)
+    val r =
+      BenchmarkRunner.run(o, env = placeholderEnv, llmWiring = wiring, configEnv = NoConfigEnv)
     (r, t, o.out)
   }
 
@@ -213,9 +224,22 @@ class BenchmarkRunnerSuite extends munit.FunSuite {
     assert(!q1.contains("{\\\"operations\\\": ["), "rejected model text is not stored")
   }
 
+  test("P16-L-16: the runner loads its configuration with the environment it is given") {
+    // an unknown SCHOLARCHAIN_CFG_ variable in the given map is refused: the map, not the shell,
+    // reaches the loader
+    val root = Files.createTempDirectory("rag-bench-env")
+    val r = BenchmarkRunner.run(
+      opts(root, "rag-runtime-local-v2.json"),
+      configEnv = () => Map("SCHOLARCHAIN_CFG_NOT_A_KEY" -> "x")
+    )
+    assert(r("status").str.startsWith("failed"), r("status").str)
+    assert(r("status").str.contains("SCHOLARCHAIN_CFG_NOT_A_KEY"), r("status").str)
+    assert(!r.obj.contains("runtimeEnvironment"), "nothing was loaded")
+  }
+
   test("the fake run reports modelCalls with no failure and no HTTP attempt") {
     val root = Files.createTempDirectory("rag-bench-calls")
-    val r = BenchmarkRunner.run(opts(root, "rag-runtime-local-v2.json"))
+    val r = BenchmarkRunner.run(opts(root, "rag-runtime-local-v2.json"), configEnv = NoConfigEnv)
     assertEquals(r("status").str, "completed")
     val mc = r("modelCalls")
     assertEquals(mc("total")("failed").num, 0.0)
