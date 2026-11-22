@@ -1,0 +1,1791 @@
+diff --git a/modules/hadoop/src/test/scala/org/scholarchain/hadoop/LocalPipelineRunner.scala b/modules/hadoop/src/test/scala/org/scholarchain/hadoop/LocalPipelineRunner.scala
+index 46b16d7..b36baee 100644
+--- a/modules/hadoop/src/test/scala/org/scholarchain/hadoop/LocalPipelineRunner.scala
++++ b/modules/hadoop/src/test/scala/org/scholarchain/hadoop/LocalPipelineRunner.scala
+@@ -3,6 +3,8 @@ package org.scholarchain.hadoop
+ import java.nio.charset.StandardCharsets
+ import java.nio.file.{Files, Path as JPath, Paths}
+ 
++import scala.jdk.CollectionConverters.*
++
+ import org.apache.hadoop.conf.Configuration
+ import org.apache.hadoop.fs.Path
+ import org.scholarchain.hadoop.blocking.{FallbackBlockingJob, FallbackCoverageJob}
+@@ -27,6 +29,9 @@ import org.scholarchain.hadoop.pipeline.{Pipeline, PipelineResult, PipelineSpec,
+   *     the run stops before that job (exit 3).
+   *   - A watchdog stops the JVM (exit 3) when one job runs longer than `--max-job-minutes` or the
+   *     whole run longer than `--max-total-minutes` (0 = no total limit).
++  *   - `settings` in the report holds the effective values the jobs read (every `scholarchain.*`
++  *     key from the defaults resource and `-D`, outside `scholarchain.run.*` and
++  *     `scholarchain.path.*`, plus every `-D` key); `overrides` holds the `-D` arguments as given.
+   *   - `<output>/run-report.json` is rewritten after every job: status, settings, per job wall
+   *     time, run ID, counters and stats, and at the end a summary (works, mentions, pairs, blocks
+   *     and oversize blocks per family, fallback coverage and worst keys, candidates per family,
+@@ -233,6 +238,32 @@ object LocalPipelineRunner {
+   }
+ 
+   /** Runs the pipeline; returns the final report (also written to `<output>/run-report.json`). */
++  /** The settings the jobs of this run read (Phase 14 G-19): `conf` with ScholarChain's defaults
++    * resource added exactly as [[JobRunner.run]] adds it, restricted to the `scholarchain.*` keys
++    * outside the per-run prefixes (`scholarchain.run.*`, `scholarchain.path.*`, set by each
++    * driver), plus every `-D` key (also a Hadoop key), sorted by key. A key whose value is absent
++    * is recorded as "".
++    */
++  def effectiveSettings(
++      conf: Configuration,
++      overrides: List[(String, String)]
++  ): List[(String, String)] = {
++    val eff = Settings.withDefaults(conf)
++    val keys = eff
++      .iterator()
++      .asScala
++      .map(_.getKey)
++      .filter(k =>
++        k.startsWith(Settings.Prefix) && !k.startsWith(Settings.RunPrefix) &&
++          !k.startsWith(Settings.PathPrefix)
++      )
++      .toSet ++ overrides.map(_._1)
++    keys.toList.sorted.map(k => k -> Option(eff.get(k)).getOrElse(""))
++  }
++
++  private def settingsObj(kvs: List[(String, String)]): ujson.Obj =
++    ujson.Obj.from(kvs.sortBy(_._1).map { case (k, v) => k -> ujson.Str(v) })
++
+   def run(o: Options): ujson.Obj = {
+     if (Files.exists(o.output)) {
+       val s = Files.list(o.output)
+@@ -253,9 +284,10 @@ object LocalPipelineRunner {
+       "output" -> o.output.toString,
+       "dblp" -> o.dblp,
+       "dblpSnapshot" -> o.snapshot,
+-      "settings" -> ujson.Obj.from(o.settings.sortBy(_._1).map { case (k, v) =>
+-        k -> ujson.Str(v)
+-      }),
++      // effective values (defaults plus -D), so a key left at its default is recorded too (G-19)
++      "settings" -> settingsObj(effectiveSettings(conf, o.settings)),
++      // the -D arguments exactly as given
++      "overrides" -> settingsObj(o.settings),
+       "minFreeGb" -> o.minFreeGb.toDouble,
+       "maxJobMinutes" -> o.maxJobMinutes.toDouble,
+       "maxTotalMinutes" -> o.maxTotalMinutes.toDouble,
+diff --git a/modules/hadoop/src/test/scala/org/scholarchain/hadoop/LocalPipelineRunnerSuite.scala b/modules/hadoop/src/test/scala/org/scholarchain/hadoop/LocalPipelineRunnerSuite.scala
+index faaf42f..a205d73 100644
+--- a/modules/hadoop/src/test/scala/org/scholarchain/hadoop/LocalPipelineRunnerSuite.scala
++++ b/modules/hadoop/src/test/scala/org/scholarchain/hadoop/LocalPipelineRunnerSuite.scala
+@@ -57,6 +57,36 @@ class LocalPipelineRunnerSuite extends munit.FunSuite {
+     assertEquals(LocalPipelineRunner.overLimit(179 * min, 0, None, 120, 180), None)
+   }
+ 
++  test("effective settings: defaults plus -D (override wins), -D Hadoop keys, no per-run keys") {
++    val conf = TestSupport.localConf(
++      TestSupport.tempDir("runner-settings"),
++      Settings.Keys.CodeVersion -> "v1",
++      Settings.Keys.BlockingMaxBlock -> "3",
++      "mapreduce.task.timeout" -> "60000",
++      Settings.Keys.RunId -> "per-run"
++    )
++    val overrides = List(
++      Settings.Keys.CodeVersion -> "v1",
++      Settings.Keys.BlockingMaxBlock -> "3",
++      "mapreduce.task.timeout" -> "60000"
++    )
++    val eff = LocalPipelineRunner.effectiveSettings(conf, overrides)
++    val m = eff.toMap
++    assertEquals(eff.map(_._1), eff.map(_._1).sorted)
++    assertEquals(m(Settings.Keys.CodeVersion), "v1")
++    assertEquals(m(Settings.Keys.BlockingMaxBlock), "3")
++    // keys left at their default (scholarchain-hadoop-defaults.xml) are recorded too
++    assertEquals(m(Settings.Keys.FallbackMaxBlock), "200")
++    assertEquals(m(Settings.Keys.CandidateMaxPairsPerBlock), "125000")
++    assertEquals(m("mapreduce.task.timeout"), "60000")
++    // per-run keys and Hadoop keys not given with -D are left out
++    assert(!m.keys.exists(_.startsWith(Settings.RunPrefix)))
++    assert(!m.keys.exists(_.startsWith(Settings.PathPrefix)))
++    assert(!m.contains("fs.defaultFS"))
++    // the caller's configuration is not changed (defaults are added to a copy)
++    assertEquals(Option(conf.get(Settings.Keys.FallbackMaxBlock)), None)
++  }
++
+   test("a full run on the synthetic sample writes the report; a non-empty output is refused") {
+     val work = TestSupport.tempDir("runner")
+     val out = work.resolve("attempt-01")
+@@ -110,12 +140,24 @@ class LocalPipelineRunnerSuite extends munit.FunSuite {
+     // both fallback size stats are surfaced; the emitted one never exceeds the fallback cap
+     assert(s("fallback").obj.contains("largestFallbackBlock"))
+     assert(s("fallback").obj.contains("largestEmittedFallbackBlock"))
++    // G-19: settings holds effective values, so the fallback cap left at its default is recorded
++    // (default 200 since Phase 14 G-17, scholarchain-hadoop-defaults.xml); overrides holds the -D
++    assertEquals(saved("settings")(Settings.Keys.FallbackMaxBlock).str, "200")
++    assertEquals(saved("settings")(Settings.Keys.BlockingMaxBlock).str, "3")
++    assertEquals(saved("settings")(Settings.Keys.CandidateMaxPairsPerBlock).str, "125000")
++    assertEquals(
++      saved("overrides").obj.keySet.toSet,
++      Set(
++        Settings.Keys.CodeVersion,
++        Settings.Keys.BlockingFamilies,
++        Settings.Keys.BlockingMaxBlock,
++        Settings.Keys.CandidateSkipSameNumberedName
++      )
++    )
++    assertEquals(saved("overrides")(Settings.Keys.BlockingMaxBlock).str, "3")
+     val emittedFallback = s("fallback")("largestEmittedFallbackBlock")
+     if (!emittedFallback.isNull) {
+-      val cap = saved("settings").obj
+-        .get(Settings.Keys.FallbackMaxBlock)
+-        .map(_.str.toDouble)
+-        .getOrElse(500.0)
++      val cap = saved("settings")(Settings.Keys.FallbackMaxBlock).str.toDouble
+       assert(emittedFallback("value").num <= cap)
+       assert(emittedFallback("value").num <= s("fallback")("largestFallbackBlock")("value").num)
+     }
+diff --git a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/Abstentions.scala b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/Abstentions.scala
+index 4db75e2..c3837b6 100644
+--- a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/Abstentions.scala
++++ b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/Abstentions.scala
+@@ -16,9 +16,10 @@ final case class Abstention(code: String, text: String)
+   * (never model prose, never a name). An abstained answer whose codes are all missing or invalid
+   * gets [[Unclassified]], so no abstained audit lacks a code; no reachable site produces it.
+   *
+-  * Two codes are context codes: they are added when the answer abstained and a shortest-path step
+-  * found no path ([[NoPathWithinDepth]], the search was complete) or stopped at its time budget
+-  * ([[PathQueryTimeout]]). They say what the path search saw; they are not themselves a failure.
++  * Three codes are context codes: they are added when the answer abstained and a shortest-path step
++  * found no path ([[NoPathWithinDepth]], the search was complete), stopped at its time budget
++  * ([[PathQueryTimeout]]) or stopped at a graph store resource limit ([[PathQueryBounded]], Phase
++  * 16). They say what the path search saw; they are not themselves a failure.
+   */
+ object AbstentionCodes {
+   val UnsupportedVenueFilter = "unsupported-venue-filter"
+@@ -40,6 +41,13 @@ object AbstentionCodes {
+   val PathResultInvalid = "path-result-invalid"
+   val NoPathWithinDepth = "no-path-within-depth"
+   val PathQueryTimeout = "path-query-timeout"
++
++  /** Phase 16 (storage L1): the path search stopped at a graph store resource limit
++    * (`GraphStop.ResourceLimit`: Neptune `MemoryLimitExceededException` or
++    * `QueryLimitExceededException` after storage's bounded retry). A context code like
++    * [[PathQueryTimeout]]: existence unknown, not a store failure ([[PathQueryFailed]]).
++    */
++  val PathQueryBounded = "path-query-bounded"
+   val EdgeLookupFailed = "edge-lookup-failed"
+   val NeighborLookupFailed = "neighbor-lookup-failed"
+   val CollaborationNeedsResearchers = "collaboration-needs-researchers"
+@@ -69,6 +77,7 @@ object AbstentionCodes {
+     PathResultInvalid -> "the stored path does not connect the two researchers",
+     NoPathWithinDepth -> "the path search was complete and found no path within the depth limit",
+     PathQueryTimeout -> "the path search stopped at its time budget; whether a path exists is unknown",
++    PathQueryBounded -> "the path search stopped at a graph store resource limit; whether a path exists is unknown",
+     EdgeLookupFailed -> "the edge lookup failed (graph store failure)",
+     NeighborLookupFailed -> "the neighbor lookup failed (graph store failure)",
+     CollaborationNeedsResearchers -> "direct collaboration needs one or two resolved researchers",
+diff --git a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/ClaimVerification.scala b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/ClaimVerification.scala
+index f7375b4..1797d63 100644
+--- a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/ClaimVerification.scala
++++ b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/ClaimVerification.scala
+@@ -38,6 +38,9 @@ final case class VerifiedClaim(
+   *     cited work. A window year alone never supports a single year;
+   *   - every number the claim binds (`numbers[]`) equals the named field of the named cited item;
+   *   - "N hops" equals the hop count of a cited path item;
++  *   - an absence claim ("no path within N hops", "within depth N") citing a `path=none` item is
++  *     supported only by a complete search whose `maxDepth` is at least N; a search that stopped
++  *     early (time or graph store resource limit) never supports it (Phase 16 L2);
+   *   - every quoted title equals the title of a cited work item;
+   *   - every identifier and every capitalized name in the text belongs to a cited graph item;
+   *   - a `semantic_context` item never supports a number, edge, path, component, community or
+@@ -85,6 +88,11 @@ object ClaimVerification {
+     val SemanticGraph =
+       "semantic context cannot support a number, edge, path, component, community or bridge claim"
+     val NoCitedEvidence = "no cited evidence is in the bundle"
++    // Phase 16 L2: absence claims ("no path within N hops") against `path=none` items
++    val AbsenceBoundedSearch =
++      "an absence claim cites a path search that stopped early, so whether a path exists is unknown"
++    val AbsenceBeyondDepth = "an absence claim states a depth beyond the completed path search"
++    val AbsenceNoDepth = "an absence claim states no depth limit, but the path search was bounded"
+     val all: List[String] = List(
+       CitedNotInBundle,
+       EvidenceIdNotCited,
+@@ -106,6 +114,9 @@ object ClaimVerification {
+       BoundConflict,
+       SemanticGraph,
+       NoCitedEvidence,
++      AbsenceBoundedSearch,
++      AbsenceBeyondDepth,
++      AbsenceNoDepth,
+       NothingCheckable
+     )
+   }
+@@ -116,6 +127,28 @@ object ClaimVerification {
+   // a cited work item (its venueKey's last segment, case-insensitive), as in `ACL (1)`
+   private val VenueNumRe = "(\\p{Lu}[\\p{L}]{0,30}) \\(([0-9]{1,2})\\)".r
+   private val HopRe = "\\b([0-9]+)\\s+(?:hops?|steps?)\\b".r
++  // Phase 16 L2: a path absence statement. Uncertainty phrases are blanked first, so "did not
++  // complete; whether a path exists is unknown" is not an absence claim, while any other negation
++  // next to a path word still is ("did not complete, but no path exists")
++  private val UncertainRe: Regex =
++    ("(?i)\\b(?:did not|didn't|could not|couldn't|cannot|can't)\\s+(?:be\\s+)?" +
++      "(?:complete|completed|finish|finished|determine|determined|decide|decided|tell)\\b|" +
++      "(?i)\\bnot\\s+(?:known|determined|decided)\\b").r
++  private val NegationRe: Regex =
++    "(?i)\\b(?:no|not|none|never|neither|nor|without|isn't|aren't|doesn't|don't)\\b".r
++  private val PathWordRe: Regex =
++    "(?i)\\b(?:paths?|connected|connection|connects?|linked|hops?|steps?|reachable)\\b".r
++  private val DepthRe: Regex = "(?i)\\bdepth\\s+(?:limit\\s+)?(?:of\\s+)?([0-9]+)\\b".r
++
++  /** The text states that no path exists (Phase 16 L2). */
++  private[runtime] def statesAbsence(text: String): Boolean = {
++    val t = UncertainRe.replaceAllIn(text, m => " " * m.matched.length)
++    NegationRe.findFirstIn(t).isDefined && PathWordRe.findFirstIn(t).isDefined
++  }
++
++  /** The depth limits an absence statement names ("within 6 hops", "within depth 6"). */
++  private def statedDepths(text: String): List[Double] =
++    (HopRe.findAllMatchIn(text) ++ DepthRe.findAllMatchIn(text)).map(_.group(1).toDouble).toList
+   private val Year = "((?:19|20)[0-9]{2})"
+   private val RangeRe: Regex = s"(?<![\\p{N}])$Year\\s*[-–—]\\s*$Year(?![\\p{N}])".r
+   private val BetweenRe: Regex = s"(?i)\\bbetween\\s+$Year\\s+and\\s+$Year\\b".r
+@@ -278,11 +311,34 @@ object ClaimVerification {
+       }
+     )
+ 
+-    // ---- hop counts ----
++    // ---- path absence (Phase 16 L2) ----
++    // An absence claim citing a `path=none` item is checked against that item's completeness and
++    // searched depth: only a complete search supports it, and only up to its `maxDepth`. A bounded
++    // search (time or resource limit, `complete=false`) never supports it.
++    val absentItems = graph.filter(i =>
++      i.evidenceType == EvidenceType.GraphPath &&
++        EvidenceValues.pairs(i).get("found").contains("false")
++    )
++    val absence = absentItems.nonEmpty && statesAbsence(stripped)
++    if (absence) {
++      val completeDepths = absentItems
++        .filter(i => EvidenceValues.pairs(i).get("complete").contains("true"))
++        .flatMap(i => EvidenceValues.numbers(i).get("maxDepth"))
++      val stated = statedDepths(stripped)
++      if (completeDepths.isEmpty) unbacked += Reasons.AbsenceBoundedSearch
++      else if (stated.isEmpty) uncovered += Reasons.AbsenceNoDepth
++      else
++        stated.foreach { d =>
++          if (completeDepths.exists(_ >= d)) checked += 1
++          else unbacked += Reasons.AbsenceBeyondDepth
++        }
++    }
++
++    // ---- hop counts (of found paths; an absence claim's depth was checked above) ----
+     val paths = graph
+       .filter(_.evidenceType == EvidenceType.GraphPath)
+       .flatMap(i => EvidenceValues.numbers(i).get("hops"))
+-    HopRe.findAllMatchIn(stripped).foreach { m =>
++    if (!absence) HopRe.findAllMatchIn(stripped).foreach { m =>
+       val h = m.group(1).toDouble
+       if (paths.contains(h)) checked += 1
+       else if (paths.nonEmpty) conflicts += Reasons.HopsConflict
+@@ -308,7 +364,13 @@ object ClaimVerification {
+           .flatMap(i => EvidenceValues.pairs(i).get("contextWindowLabel"))
+           .flatMap(windows.get)
+           .map(w => (w.startYear, w.endYear))).toSet
+-    var rest = stripped
++    // an absence claim's stated depths were checked above; they are not free numbers
++    var rest =
++      if (!absence) stripped
++      else
++        List(HopRe, DepthRe).foldLeft(stripped)((t, re) =>
++          re.replaceAllIn(t, m => " " * m.matched.length)
++        )
+     List(RangeRe, BetweenRe).foreach { re =>
+       re.findAllMatchIn(rest).toList.foreach { m =>
+         val r = (m.group(1).toInt, m.group(2).toInt)
+diff --git a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/EvidenceBuilder.scala b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/EvidenceBuilder.scala
+index 4652cac..f503ca0 100644
+--- a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/EvidenceBuilder.scala
++++ b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/EvidenceBuilder.scala
+@@ -331,7 +331,7 @@ final class EvidenceBuilder(ctx: RuntimeContext) {
+           "nameB" -> p.to.displayName,
+           "researcherB" -> p.to.id.value,
+           "windowLabel" -> p.windowLabel
+-        ),
++        ) ++ p.stop.map(s => "stoppedBy" -> s.code), // Phase 16 L1: incomplete searches only
+         p.source
+       )
+     case w: WorkFact =>
+diff --git a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/QueryWorkflow.scala b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/QueryWorkflow.scala
+index 2e1e3fb..a7578e4 100644
+--- a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/QueryWorkflow.scala
++++ b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/QueryWorkflow.scala
+@@ -786,12 +786,17 @@ object QueryWorkflow {
+   val NoEvidenceText = "no graph evidence answered the question"
+ 
+   /** Context codes of shortest-path steps that found no path: `no-path-within-depth` for a complete
+-    * search, `path-query-timeout` for one stopped at its time budget (Stages PathFinder).
++    * search, `path-query-timeout` for one stopped at its time budget, `path-query-bounded` for one
++    * stopped at a graph store resource limit (Phase 16, storage L1) (Stages PathFinder).
+     */
+   def pathContextCodes(facts: List[Fact]): List[String] =
+-    facts.collect {
+-      case p: PathAbsentFact if p.complete  => AbstentionCodes.NoPathWithinDepth
+-      case p: PathAbsentFact if !p.complete => AbstentionCodes.PathQueryTimeout
++    facts.collect { case p: PathAbsentFact =>
++      p.stop match {
++        case None => AbstentionCodes.NoPathWithinDepth
++        case Some(org.scholarchain.storage.ports.GraphStop.ResourceLimit) =>
++          AbstentionCodes.PathQueryBounded
++        case Some(_) => AbstentionCodes.PathQueryTimeout
++      }
+     }.distinct
+ 
+   /** Audit code order: whole-question refusals, then path context, then step and verification
+diff --git a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/RuntimeModel.scala b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/RuntimeModel.scala
+index 707b612..9b1d833 100644
+--- a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/RuntimeModel.scala
++++ b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/RuntimeModel.scala
+@@ -6,6 +6,7 @@ import org.scholarchain.core._
+ import org.scholarchain.core.config.{NamedWindow, RuntimeSettings, ScholarChainConfig}
+ import org.scholarchain.rag.retrieval.SemanticContextEntry
+ import org.scholarchain.storage.dynamo.RankingMetrics
++import org.scholarchain.storage.ports.GraphStop
+ 
+ // Typed inputs and outputs of the runtime stages (package org.scholarchain.rag.runtime).
+ // Every number, identifier, edge and path in these types comes from a storage reader; the model
+@@ -362,8 +363,12 @@ final case class PathFact(
+   def hops: Int = researchers.size - 1
+ }
+ 
+-/** A bounded path search that found nothing: complete (no path within `maxDepth`) or stopped at the
+-  * time limit (unknown).
++/** A bounded path search that found nothing: complete (no path within `maxDepth`) or stopped first
++  * (unknown), at the time limit or (Phase 16 L1) at a graph store resource limit.
++  *
++  * @param stoppedBy
++  *   why an incomplete search stopped (storage's [[GraphStop]]); ignored when `complete`. None on
++  *   an incomplete fact reads as the time limit, the only stop before Phase 16 ([[stop]]).
+   */
+ final case class PathAbsentFact(
+     from: ResearcherRef,
+@@ -374,8 +379,20 @@ final case class PathAbsentFact(
+     complete: Boolean,
+     depthSearched: Int,
+     source: SourceRef,
+-    priority: Int
+-) extends Fact
++    priority: Int,
++    stoppedBy: Option[GraphStop] = None
++) extends Fact {
++
++  /** The stop reason of an incomplete search (None when complete). */
++  def stop: Option[GraphStop] =
++    if (complete) None else Some(stoppedBy.getOrElse(GraphStop.TimeLimit))
++
++  /** The answer's phrase for the stop reason of an incomplete search. */
++  def stopPhrase: String = stop match {
++    case Some(GraphStop.ResourceLimit) => "a graph store resource limit"
++    case _                             => "the time limit"
++  }
++}
+ 
+ /** A publication (title, year, venue, team size) from the WorkById template. */
+ final case class WorkFact(
+diff --git a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/Stages.scala b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/Stages.scala
+index 287454a..dcf396a 100644
+--- a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/Stages.scala
++++ b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/Stages.scala
+@@ -649,7 +649,9 @@ final class PathFinder(
+                           "graph-v1",
+                           ctx.graphRunId.value
+                         ),
+-                        20
++                        20,
++                        // Phase 16 L1: why an incomplete search stopped (time or resource limit)
++                        if (r.complete) None else r.stoppedBy
+                       )
+                     )
+                 }
+@@ -663,7 +665,7 @@ final class PathFinder(
+             if (absent.complete)
+               s"No path between ${a.displayName} and ${b.displayName} exists within depth ${absent.maxDepth} in ${s.windowLabel}."
+             else
+-              s"The path search between ${a.displayName} and ${b.displayName} stopped at the time limit after depth ${absent.depthSearched}; whether a path exists is unknown."
++              s"The path search between ${a.displayName} and ${b.displayName} stopped at ${absent.stopPhrase} after depth ${absent.depthSearched}; whether a path exists is unknown."
+           StageOutput(List(absent), List(note), Nil)
+         case Right(Right((ids, origin, sparkId, truncated, src))) =>
+           if (ids.size < 2 || ids.exists(!_.isWellFormed) || ids.head != a.id || ids.last != b.id)
+diff --git a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/Synthesis.scala b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/Synthesis.scala
+index f7e9301..6454b6d 100644
+--- a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/Synthesis.scala
++++ b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/Synthesis.scala
+@@ -626,7 +626,7 @@ object FakeSynthesis {
+         )
+       else
+         b.add(
+-          s"In ${w(p.window)}, the path search between ${p.from.displayName} and ${p.to.displayName} stopped at the time limit after depth ${p.depthSearched}, so whether a path exists is unknown.",
++          s"In ${w(p.window)}, the path search between ${p.from.displayName} and ${p.to.displayName} stopped at ${p.stopPhrase} after depth ${p.depthSearched}, so whether a path exists is unknown.",
+           List(p),
+           List((p.depthSearched.toDouble, p, "depthSearched"))
+         )
+diff --git a/modules/services/src/main/scala/org/scholarchain/services/EmbeddingWorker.scala b/modules/services/src/main/scala/org/scholarchain/services/EmbeddingWorker.scala
+index 129bbc1..8598134 100644
+--- a/modules/services/src/main/scala/org/scholarchain/services/EmbeddingWorker.scala
++++ b/modules/services/src/main/scala/org/scholarchain/services/EmbeddingWorker.scala
+@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
+ 
+ import scala.util.control.NonFatal
+ 
+-import org.scholarchain.rag.reembed.{Delivery, DeliveryAction, ReembedHandler}
++import org.scholarchain.rag.reembed.{Delivery, DeliveryAction, EmbeddingTask, ReembedHandler}
+ import org.scholarchain.storage.ports.{ReceiveQueue, ReceivedWork}
+ 
+ /** What the worker role runs on the embedding queue (Phase 15 decision 8.1): the consuming side of
+@@ -15,7 +15,8 @@ import org.scholarchain.storage.ports.{ReceiveQueue, ReceivedWork}
+   */
+ final case class EmbeddingWork(
+     queue: ReceiveQueue,
+-    handlerOf: (String => Unit) => Either[String, ReembedHandler]
++    handlerOf: (String => Unit) => Either[String, ReembedHandler],
++    indexes: Set[String] = Set.empty
+ )
+ 
+ /** What one [[EmbeddingWorker.processOne]] call did (tests assert on it). Counts are per call. */
+@@ -52,12 +53,26 @@ object EmbeddingOutcome {
+   * queue receive, ack or release failed (fixed fields and counts only, never a body, a receipt or a
+   * URL).
+   *
++  * Phase 16 H-04: a poison delivery no longer waits for the re-embed calls of the rest of its
++  * batch. Before the batch is handed over, each body is checked with rag's own parser
++  * (`EmbeddingTask.parse`) against `knownIndexes`; the deliveries it already refuses go to the
++  * handler first, in one call that makes no store or embedding request, and are released at once;
++  * then the rest go in one call as before (so the embedding batch is unchanged). With no known
++  * indexes, only refusals decided before the index check count (`unknown-index` is left to the
++  * handler). The handler decides every outcome in both calls, so this check changes only the order,
++  * never an action: a delivery the check misses is still released after the second call.
++  *
+   * Thread-safe: no mutable state but atomic counters; the queue and the handler are thread-safe.
++  *
++  * @param knownIndexes
++  *   the configured vector index names (`Composition.embeddingWork`: the same set rag's handler is
++  *   built with); empty: see above
+   */
+ final class EmbeddingWorker(
+     val queue: ReceiveQueue,
+     val handler: ReembedHandler,
+-    log: ServiceLog
++    log: ServiceLog,
++    knownIndexes: Set[String] = Set.empty
+ ) {
+   val acknowledged = new AtomicLong()
+   val released = new AtomicLong()
+@@ -83,13 +98,38 @@ final class EmbeddingWorker(
+     else handleAll(received.toVector)
+   }
+ 
++  /** True when rag's parser already refuses `body` (poison), with the known indexes (H-04). */
++  private def poisonBeforeHandling(body: String): Boolean =
++    EmbeddingTask.parse(body, knownIndexes) match {
++      case Left(code) => knownIndexes.nonEmpty || code != EmbeddingTask.UnknownIndex
++      case Right(_)   => false
++    }
++
+   private def handleAll(work: Vector[ReceivedWork]): EmbeddingOutcome = {
+     // the delivery ID is the position in this batch: results come back in input order, and the
+     // position never repeats (an SQS message ID could, for a duplicate delivery in one batch)
+     val deliveries = work.zipWithIndex.map { case (w, i) =>
+       Delivery(i.toString, Option(w.item.payload).getOrElse(""))
+     }
+-    val results = handler.handle(deliveries)
++    // H-04: refused bodies first (no store or embedding call), acted on before the rest
++    val (poison, rest) = deliveries.partition(d => poisonBeforeHandling(d.body))
++    val first = if (poison.isEmpty) None else Some(act(work, handler.handle(poison)))
++    val second = if (rest.isEmpty) None else Some(act(work, handler.handle(rest)))
++    val parts = first.toList ++ second.toList
++    EmbeddingOutcome(
++      work.size,
++      parts.map(_.acknowledged).sum,
++      parts.map(_.released).sum,
++      parts.map(_.left).sum,
++      parts.map(_.queueFailures).sum
++    )
++  }
++
++  /** Acts on the results of one handler call (counts `received` as the results' size). */
++  private def act(
++      work: Vector[ReceivedWork],
++      results: Vector[org.scholarchain.rag.reembed.HandledDelivery]
++  ): EmbeddingOutcome = {
+     var acks, releases, lefts, failures = 0
+     var lastFailure: Option[(String, Throwable)] = None
+     results.foreach { r =>
+@@ -110,7 +150,7 @@ final class EmbeddingWorker(
+     leftForRetry.addAndGet(lefts.toLong)
+     queueFailures.addAndGet(failures.toLong)
+     lastFailure.foreach { case (op, e) => failureLine(op, failures, e) }
+-    EmbeddingOutcome(work.size, acks, releases, lefts, failures)
++    EmbeddingOutcome(results.size, acks, releases, lefts, failures)
+   }
+ 
+   private def failureLine(op: String, count: Int, e: Throwable): Unit =
+diff --git a/modules/services/src/main/scala/org/scholarchain/services/Errors.scala b/modules/services/src/main/scala/org/scholarchain/services/Errors.scala
+index 14800e4..a4ed227 100644
+--- a/modules/services/src/main/scala/org/scholarchain/services/Errors.scala
++++ b/modules/services/src/main/scala/org/scholarchain/services/Errors.scala
+@@ -81,6 +81,10 @@ object ErrorCode {
+   case object WORKFLOW_TIMEOUT
+       extends ErrorCode(504, true, "The query did not finish within the synchronous deadline.")
+ 
++  /** Phase 16 (route time limits): an evidence or explain read passed its time limit. */
++  case object READ_TIMEOUT
++      extends ErrorCode(504, true, "The read did not finish within the route time limit.")
++
+   val all: List[ErrorCode] = List(
+     INVALID_JSON,
+     INVALID_REQUEST,
+@@ -110,7 +114,8 @@ object ErrorCode {
+     DOWNSTREAM_FAILURE,
+     OVERLOADED,
+     CIRCUIT_OPEN,
+-    WORKFLOW_TIMEOUT
++    WORKFLOW_TIMEOUT,
++    READ_TIMEOUT
+   )
+ }
+ 
+diff --git a/modules/services/src/main/scala/org/scholarchain/services/HealthService.scala b/modules/services/src/main/scala/org/scholarchain/services/HealthService.scala
+index 9eae690..a9f9ca4 100644
+--- a/modules/services/src/main/scala/org/scholarchain/services/HealthService.scala
++++ b/modules/services/src/main/scala/org/scholarchain/services/HealthService.scala
+@@ -12,14 +12,29 @@ import scala.util.control.NonFatal
+   * [[ServiceLimits.ReadinessCacheMillis]] of the last probe, get the last result. Neither body
+   * holds a config value, endpoint, table, bucket, key name or error text.
+   *
++  * Phase 16 G-23: each failed check writes one `readiness-check-failed` line with the check name
++  * and a reason class ([[HealthService.reasonOf]]): an allowlisted graph code from storage
++  * (`graph-transient`, `graph-timeout`, ...; the graph check reads through `runClassified`),
++  * `store-failure` for any other Left, `deadline-passed` when the 2-second probe deadline ended it,
++  * `rejected` when the probe pool refused it, or `unexpected-exception` with the exception's class
++  * name. Never a store message. No retry is added here: storage's graph port already retries
++  * transient and resource-limit failures inside its own budget, a cold call that passes the
++  * 2-second deadline cannot be rescued by a retry inside the same deadline, and the next probe (at
++  * most [[ServiceLimits.ReadinessCacheMillis]] later) is the retry a load balancer's
++  * consecutive-failure threshold already allows for.
++  *
+   * @param checks
+-  *   check name and the read it makes (Right = ok)
++  *   check name and the read it makes (Right = ok; a Left that is one of storage's
++  *   `GraphReadError.Codes` is logged as that code)
++  * @param log
++  *   where the failure lines go (None: not logged)
+   */
+ final class HealthService(
+     role: Role,
+     checks: List[(String, () => Either[String, Any])],
+     pool: ThreadPoolExecutor,
+-    clock: Clock
++    clock: Clock,
++    log: Option[ServiceLog] = None
+ ) {
+   private var last: Option[(Long, ReadinessBody)] = None
+   private var inFlight: Option[CompletableFuture[ReadinessBody]] = None
+@@ -75,25 +90,48 @@ final class HealthService(
+   private def probe(): ReadinessBody = {
+     probes.incrementAndGet()
+     val deadline = System.nanoTime() + ServiceLimits.ReadinessDeadlineMillis * 1000000L
+-    val futures: List[(String, Option[Future[Boolean]])] = checks.map { case (name, f) =>
+-      val task: Callable[Boolean] = () => scala.util.Try(f()).toOption.exists(_.isRight)
+-      val fut =
+-        try Some(pool.submit(task))
+-        catch { case NonFatal(_) => None }
+-      name -> fut
+-    }
+-    val results = futures.map {
+-      case (name, None)      => name -> false
++    // each task gives None (ok) or the failure's reason fields
++    val futures: List[(String, Option[Future[Option[List[(String, ujson.Value)]]]])] =
++      checks.map { case (name, f) =>
++        val task: Callable[Option[List[(String, ujson.Value)]]] = () =>
++          try
++            f() match {
++              case Right(_) => None
++              case Left(e)  => Some(List("reason" -> ujson.Str(HealthService.reasonOf(e))))
++            }
++          catch {
++            case NonFatal(e) =>
++              Some(
++                List(
++                  "reason" -> ujson.Str(LogCause.UnexpectedException),
++                  "exception" -> ujson.Str(LogCause.className(e))
++                )
++              )
++          }
++        val fut =
++          try Some(pool.submit(task))
++          catch { case NonFatal(_) => None }
++        name -> fut
++      }
++    val outcomes: List[(String, Option[List[(String, ujson.Value)]])] = futures.map {
++      case (name, None)      => name -> Some(List("reason" -> ujson.Str(HealthService.Rejected)))
+       case (name, Some(fut)) =>
+         val remaining = math.max(0L, deadline - System.nanoTime())
+-        val ok =
++        val failure =
+           try fut.get(remaining, TimeUnit.NANOSECONDS)
+           catch {
+             case NonFatal(_) =>
+-              fut.cancel(true); false
++              fut.cancel(true)
++              Some(List("reason" -> ujson.Str(HealthService.DeadlinePassed)))
+           }
+-        name -> ok
++        name -> failure
+     }
++    outcomes.foreach {
++      case (name, Some(fields)) =>
++        log.foreach(_.event("readiness-check-failed", None, ("check" -> ujson.Str(name)) :: fields))
++      case _ => ()
++    }
++    val results = outcomes.map { case (n, failure) => n -> failure.isEmpty }
+     val all = results.forall(_._2)
+     ReadinessBody(
+       if (all) "ready" else "not_ready",
+@@ -102,3 +140,15 @@ final class HealthService(
+     )
+   }
+ }
++
++object HealthService {
++  val DeadlinePassed = "deadline-passed"
++  val Rejected = "rejected"
++
++  /** The reason class of a failed check's Left: one of storage's allowlisted graph codes as it is,
++    * anything else `store-failure` (the text itself is never logged).
++    */
++  def reasonOf(left: String): String =
++    if (org.scholarchain.storage.ports.GraphReadError.Codes.contains(left)) left
++    else LogCause.StoreFailure
++}
+diff --git a/modules/services/src/main/scala/org/scholarchain/services/Main.scala b/modules/services/src/main/scala/org/scholarchain/services/Main.scala
+index 5be10e2..bbeb7df 100644
+--- a/modules/services/src/main/scala/org/scholarchain/services/Main.scala
++++ b/modules/services/src/main/scala/org/scholarchain/services/Main.scala
+@@ -104,7 +104,9 @@ object Composition {
+             log =>
+               ReembedHandler
+                 .fromConfig(config, embedder => env.reembedder(embedder), wiring, log)
+-                .map(_.handler)
++                .map(_.handler),
++            // H-04: the index names fromConfig builds the handler with, for the poison pre-check
++            config.vectors.toList.flatMap(_.indexNames).toSet
+           )
+         )
+     }
+diff --git a/modules/services/src/main/scala/org/scholarchain/services/QueryService.scala b/modules/services/src/main/scala/org/scholarchain/services/QueryService.scala
+index 2689994..62bebee 100644
+--- a/modules/services/src/main/scala/org/scholarchain/services/QueryService.scala
++++ b/modules/services/src/main/scala/org/scholarchain/services/QueryService.scala
+@@ -22,21 +22,40 @@ import org.scholarchain.storage.jobs._
+ 
+ /** The three circuit breakers (decision 7i): the workflow, the graph port, and evidence and audit
+   * reads.
++  *
++  * @param onChange
++  *   breaker name and new state after each state change (the server logs a `circuit-state` line)
+   */
+-final class Breakers(settings: ServiceSettings, clock: Clock) {
++final class Breakers(
++    settings: ServiceSettings,
++    clock: Clock,
++    onChange: (String, String) => Unit = (_, _) => ()
++) {
+   private def b(name: String) =
+     new CircuitBreaker(
+       name,
+       settings.circuitFailureThreshold,
+       settings.circuitOpenMillis.toLong,
+-      clock
++      clock,
++      onChange
+     )
+   val workflow: CircuitBreaker = b("workflow")
+   val graph: CircuitBreaker = b("graph")
+   val reads: CircuitBreaker = b("reads")
+ }
+ 
+-/** Everything the application services share. */
++/** The time limit of the evidence and explain reads (Phase 16, route time limits): reads run on
++  * `pool` and the request waits at most `deadlineMillis`.
++  */
++final class ReadTimeLimit(val pool: ThreadPoolExecutor, val deadlineMillis: Long) {
++  require(deadlineMillis >= 1, "deadlineMillis must be >= 1")
++}
++
++/** Everything the application services share.
++  *
++  * @param readLimit
++  *   the time limit of [[timedRead]]; None: [[timedRead]] is [[read]] (no limit)
++  */
+ final class AppContext(
+     val runtime: RuntimeService,
+     val stores: ServiceStores,
+@@ -44,7 +63,8 @@ final class AppContext(
+     val clock: Clock,
+     val ids: IdGenerator,
+     val log: ServiceLog,
+-    val breakers: Breakers
++    val breakers: Breakers,
++    val readLimit: Option[ReadTimeLimit] = None
+ ) {
+   def now(): Long = clock.millis()
+   def expiresAt(nowMillis: Long): Long = nowMillis / 1000L + settings.jobTtlSeconds.toLong
+@@ -57,6 +77,53 @@ final class AppContext(
+       case Some(_) => ApiError.downstream
+     }
+ 
++  /** [[read]] with the route time limit of [[readLimit]] (the evidence and explain routes). The
++    * read runs on the limit's pool; the request waits at most `deadlineMillis`. Past it the read is
++    * cancelled (interrupted), the reads breaker records a failure for this request's slot (a late
++    * result is never recorded), one `read-deadline-passed` line is logged (`route` only), and the
++    * answer is 504 `READ_TIMEOUT` (retryable). A full pool is 503 `OVERLOADED`. A thrown exception
++    * is recorded as a failure and rethrown (the adapter answers 500 INTERNAL).
++    */
++  def timedRead[A](route: String, traceId: Option[String])(
++      f: => Either[String, A]
++  ): Either[ApiError, A] =
++    readLimit match {
++      case None        => read(f)
++      case Some(limit) =>
++        breakers.reads.acquire() match {
++          case None       => Left(ApiError.retryable(ErrorCode.CIRCUIT_OPEN))
++          case Some(slot) =>
++            val task: Callable[Either[String, A]] = () => f
++            val future =
++              try limit.pool.submit(task)
++              catch {
++                case NonFatal(_) =>
++                  breakers.reads.cancel(slot)
++                  return Left(ApiError.retryable(ErrorCode.OVERLOADED))
++              }
++            try
++              future.get(limit.deadlineMillis, TimeUnit.MILLISECONDS) match {
++                case Right(a) => breakers.reads.recordSuccess(slot); Right(a)
++                case Left(_)  => breakers.reads.recordFailure(slot); Left(ApiError.downstream)
++              }
++            catch {
++              case _: TimeoutException =>
++                future.cancel(true)
++                breakers.reads.recordFailure(slot)
++                log.event("read-deadline-passed", traceId, List("route" -> ujson.Str(route)))
++                Left(ApiError.retryable(ErrorCode.READ_TIMEOUT))
++              case e: ExecutionException =>
++                breakers.reads.recordFailure(slot)
++                throw Option(e.getCause).getOrElse(e)
++              case e: InterruptedException =>
++                future.cancel(true)
++                breakers.reads.cancel(slot)
++                Thread.currentThread().interrupt()
++                throw e
++            }
++        }
++    }
++
+   /** A job or idempotency store call (no breaker; a Left is DOWNSTREAM_FAILURE). */
+   def store[A](f: => Either[String, A]): Either[ApiError, A] =
+     f.left.map(_ => ApiError.downstream)
+@@ -318,7 +385,7 @@ final class QueryService(app: AppContext, pool: ThreadPoolExecutor) {
+       slot: CircuitBreaker.Slot
+   ): Either[ApiError, ApiResponse] = {
+     val task: Callable[Either[ApiError, CompletedResult]] = () =>
+-      try finish(runner.run(vq, queryId, ctx.traceId, job), job)
++      try finish(runner.run(vq, queryId, ctx.traceId, job), job, slot)
+       finally permits.release()
+     val future =
+       try pool.submit(task)
+@@ -348,22 +415,25 @@ final class QueryService(app: AppContext, pool: ThreadPoolExecutor) {
+     }
+   }
+ 
+-  /** Records the breaker outcome and finishes the job. */
++  /** Records the breaker outcome for this request's slot (a workflow that finishes after the
++    * breaker changed state is stale and changes nothing, FECD-1) and finishes the job.
++    */
+   private def finish(
+       outcome: runner.Outcome,
+-      job: Option[AtomicReference[JobRecord]]
++      job: Option[AtomicReference[JobRecord]],
++      slot: CircuitBreaker.Slot
+   ): Either[ApiError, CompletedResult] =
+     outcome match {
+       case runner.Outcome.Failed =>
+-        app.breakers.workflow.recordFailure()
++        app.breakers.workflow.recordFailure(slot)
+         job.foreach(h => failJob(h.get, JobErrorCodes.WorkflowFailed))
+         Left(ApiError.downstream)
+       case runner.Outcome.TooLarge =>
+-        app.breakers.workflow.recordSuccess()
++        app.breakers.workflow.recordSuccess(slot)
+         job.foreach(h => failJob(h.get, JobErrorCodes.ResultTooLarge))
+         Left(ApiError(ErrorCode.RESULT_TOO_LARGE))
+       case runner.Outcome.Done(result, stored) =>
+-        app.breakers.workflow.recordSuccess()
++        app.breakers.workflow.recordSuccess(slot)
+         job match {
+           case None    => Right(result)
+           case Some(h) =>
+diff --git a/modules/services/src/main/scala/org/scholarchain/services/ReadServices.scala b/modules/services/src/main/scala/org/scholarchain/services/ReadServices.scala
+index 787211e..7401436 100644
+--- a/modules/services/src/main/scala/org/scholarchain/services/ReadServices.scala
++++ b/modules/services/src/main/scala/org/scholarchain/services/ReadServices.scala
+@@ -7,7 +7,6 @@ import scala.util.Try
+ 
+ import org.scholarchain.core._
+ import org.scholarchain.storage.ports.{GraphQuery, GraphResult}
+-import org.scholarchain.storage.runtime.RuntimeStores
+ 
+ /** `GET /v1/evidence/{evidenceId}` (decision 7g). */
+ final class EvidenceService(app: AppContext) {
+@@ -31,16 +30,19 @@ final class EvidenceService(app: AppContext) {
+           Right(Some(YearWindow(s.toInt, e.toInt)))
+         case Some(_) => Left(ApiError.invalid("window", "must be <startYear>-<endYear>"))
+       }
++      // Phase 16 route time limit: each read waits at most `ServerOptions.readDeadlineMillis`
+       item <- window match {
+         case Some(w) =>
+           app
+-            .read(app.runtime.stores.evidence.get(id, Some(w)))
++            .timedRead("evidence", None)(app.runtime.stores.evidence.get(id, Some(w)))
+             .flatMap(
+               _.toRight(ApiError(ErrorCode.EVIDENCE_NOT_FOUND))
+             )
+         case None =>
+           app
+-            .read(app.runtime.stores.evidence.windows(id, ServiceLimits.EvidenceWindowLimit))
++            .timedRead("evidence", None)(
++              app.runtime.stores.evidence.windows(id, ServiceLimits.EvidenceWindowLimit)
++            )
+             .flatMap {
+               case Nil         => Left(ApiError(ErrorCode.EVIDENCE_NOT_FOUND))
+               case only :: Nil => Right(only)
+@@ -90,7 +92,10 @@ final class ExplainService(app: AppContext) {
+         ApiError.invalid(query.keys.toList.sorted.map(_ -> "unknown query parameter"))
+       )
+       id <- RunId.parse(queryId).left.map(_ => ApiError.invalid("queryId", "is not a query ID"))
+-      audits <- app.read(app.runtime.stores.audits.read(id, ServiceLimits.ExplainAuditLimit))
++      // Phase 16 route time limit: the audit read waits at most `ServerOptions.readDeadlineMillis`
++      audits <- app.timedRead("explain", None)(
++        app.runtime.stores.audits.read(id, ServiceLimits.ExplainAuditLimit)
++      )
+       latest <- audits.lastOption.toRight(ApiError(ErrorCode.QUERY_NOT_FOUND))
+     } yield ApiResponse.json(200, ExplainView.of(latest, audits.size))
+ }
+@@ -198,11 +203,10 @@ final class GraphService(app: AppContext) {
+   private def cap: Int = runtime.graphResultLimit
+   private def graphRunId: String = app.runtime.graphRunId.value
+ 
++  /** Through the graph breaker with storage's typed error class (Phase 16 FECD-1, [[GraphReads]]).
++    */
+   private def graph(q: GraphQuery): Either[ApiError, GraphResult] =
+-    app.breakers.graph.call(RuntimeStores.guard(app.runtime.stores.graph.run(q))).left.map {
+-      case None    => ApiError.retryable(ErrorCode.CIRCUIT_OPEN)
+-      case Some(_) => ApiError.downstream
+-    }
++    GraphReads.run(app.breakers.graph, app.runtime.stores.graph, app.log)(q)
+ 
+   def node(nodeId: String, query: Map[String, String]): Either[ApiError, ApiResponse] =
+     for {
+diff --git a/modules/services/src/main/scala/org/scholarchain/services/ServiceLimits.scala b/modules/services/src/main/scala/org/scholarchain/services/ServiceLimits.scala
+index 3329704..720ad6c 100644
+--- a/modules/services/src/main/scala/org/scholarchain/services/ServiceLimits.scala
++++ b/modules/services/src/main/scala/org/scholarchain/services/ServiceLimits.scala
+@@ -59,6 +59,19 @@ object ServiceLimits {
+   val MaxPathChars: Int = 512
+   val MaxQueryChars: Int = 2048
+ 
++  /** Default time limit of one `GET /v1/evidence/{id}` or `GET /v1/explain/{queryId}` read (Phase
++    * 12 item, built in Phase 16; `ServerOptions.readDeadlineMillis`). A read past it answers 504
++    * `READ_TIMEOUT` (retryable) and counts as a failure of the reads breaker. Ten seconds is longer
++    * than storage's bounded key-value retry needs in the worst case (5 retries, delays 200 ms
++    * doubling: about 6.2 s of waiting, an estimate from the `vectors` retry settings of
++    * `config/course.json`), well under `service.syncDeadlineMillis` (25 s) and under a load
++    * balancer's 60 s idle timeout, so an interactive read never hangs a handler thread for longer.
++    */
++  val ReadRouteDeadlineMillis: Long = 10000L
++
++  /** Largest accepted `ServerOptions.readDeadlineMillis`: a load balancer's 60 s idle timeout. */
++  val MaxReadRouteDeadlineMillis: Long = 60000L
++
+   /** Audit events read for one explain request (storage's read bound). */
+   val ExplainAuditLimit: Int = 1000
+ 
+diff --git a/modules/services/src/main/scala/org/scholarchain/services/ServiceServer.scala b/modules/services/src/main/scala/org/scholarchain/services/ServiceServer.scala
+index 0204999..ae6e9b4 100644
+--- a/modules/services/src/main/scala/org/scholarchain/services/ServiceServer.scala
++++ b/modules/services/src/main/scala/org/scholarchain/services/ServiceServer.scala
+@@ -32,6 +32,14 @@ import org.scholarchain.storage.ports.GraphQuery
+   * @param embeddingConcurrency
+   *   threads of the embedding-queue loop, 1..[[ServiceLimits.MaxEmbeddingWorkerConcurrency]]
+   *   (default [[ServiceLimits.EmbeddingWorkerConcurrency]])
++  * @param readDeadlineMillis
++  *   Phase 16 route time limit of the evidence and explain reads, 1..
++  *   [[ServiceLimits.MaxReadRouteDeadlineMillis]] (default
++  *   [[ServiceLimits.ReadRouteDeadlineMillis]])
++  * @param embeddingDrainMillis
++  *   Phase 16 H-05: how long `close()` waits for in-flight embedding-queue calls, 1..
++  *   [[ServiceLimits.EmbeddingDrainMillis]] (the default; a test shortens it, nothing may lengthen
++  *   it)
+   */
+ final case class ServerOptions(
+     role: Role,
+@@ -45,7 +53,9 @@ final case class ServerOptions(
+     closeRuntime: Boolean = true,
+     name: String = "srv",
+     embedding: Option[EmbeddingWork] = None,
+-    embeddingConcurrency: Int = ServiceLimits.EmbeddingWorkerConcurrency
++    embeddingConcurrency: Int = ServiceLimits.EmbeddingWorkerConcurrency,
++    readDeadlineMillis: Long = ServiceLimits.ReadRouteDeadlineMillis,
++    embeddingDrainMillis: Long = ServiceLimits.EmbeddingDrainMillis
+ )
+ 
+ /** One running services process: the JDK HTTP server, the route table of its role, the bounded
+@@ -59,13 +69,16 @@ final case class ServerOptions(
+   *   - `worker`: `workerConcurrency` worker loop threads;
+   *   - `embedding` (roles `worker` and `all` with [[ServerOptions.embedding]]):
+   *     `embeddingConcurrency` embedding-queue loop threads;
+-  *   - `ready`: 3 readiness check threads, queue 9.
++  *   - `ready`: 3 readiness check threads, queue 9;
++  *   - `read` (Phase 16, route time limits): `maxConcurrentQueries + 8` threads, queue of the same
++  *     size, for the evidence and explain reads, each waited for at most
++  *     [[ServerOptions.readDeadlineMillis]].
+   *
+   * `close()` stops accepting, stops both worker loops, shuts every pool down at once and waits for
+   * them together (each at most `syncDeadlineMillis`, the embedding pool at most
+-  * [[ServiceLimits.EmbeddingDrainMillis]], all measured from the same start, so the drain stays
+-  * inside the ECS stop timeout), waits for its threads, then closes the RuntimeService handle.
+-  * Thread-safe; idempotent.
++  * [[ServerOptions.embeddingDrainMillis]] (default [[ServiceLimits.EmbeddingDrainMillis]]), all
++  * measured from the same start, so the drain stays inside the ECS stop timeout), waits for its
++  * threads, then closes the RuntimeService handle. Thread-safe; idempotent.
+   */
+ final class ServiceServer private (
+     val settings: ServiceSettings,
+@@ -104,7 +117,7 @@ final class ServiceServer private (
+       catch { case NonFatal(_) => () }
+       val start = System.nanoTime()
+       def waitOf(p: ThreadPoolExecutor): Long =
+-        if (embeddingPool.exists(_ eq p)) ServiceLimits.EmbeddingDrainMillis
++        if (embeddingPool.exists(_ eq p)) options.embeddingDrainMillis
+         else settings.syncDeadlineMillis.toLong
+       // every pool stops taking work now; the waits below overlap instead of adding up
+       pools.foreach { case (p, _) => p.shutdown() }
+@@ -142,6 +155,18 @@ object ServiceServer {
+         (),
+         s"embeddingConcurrency must be in 1..${ServiceLimits.MaxEmbeddingWorkerConcurrency}"
+       )
++      _ <- Either.cond(
++        options.readDeadlineMillis >= 1 &&
++          options.readDeadlineMillis <= ServiceLimits.MaxReadRouteDeadlineMillis,
++        (),
++        s"readDeadlineMillis must be in 1..${ServiceLimits.MaxReadRouteDeadlineMillis}"
++      )
++      _ <- Either.cond(
++        options.embeddingDrainMillis >= 1 &&
++          options.embeddingDrainMillis <= ServiceLimits.EmbeddingDrainMillis,
++        (),
++        s"embeddingDrainMillis must be in 1..${ServiceLimits.EmbeddingDrainMillis}"
++      )
+       server <- build(runtime, stores, options, settings, keys)
+     } yield server
+ 
+@@ -174,6 +199,8 @@ object ServiceServer {
+     val workerPool = pool("worker", settings.workerConcurrency, settings.workerConcurrency)
+     val readyPool =
+       pool("ready", ServiceLimits.ReadinessThreads, ServiceLimits.ReadinessQueueCapacity)
++    val readThreads = settings.maxConcurrentQueries + ServiceLimits.HttpExtraThreads
++    val readPool = pool("read", readThreads, readThreads)
+     val workerRole = options.role == Role.Worker || options.role == Role.All
+     // rag's handler, built once with this server's log (its one line per delivery)
+     val handler
+@@ -192,26 +219,53 @@ object ServiceServer {
+     val embeddingPool = handler.toOption.flatten.map(_ =>
+       pool("embedding", options.embeddingConcurrency, options.embeddingConcurrency)
+     )
+-    val pools = List(httpPool, queryPool, workerPool, readyPool) ++ embeddingPool.toList
++    val pools =
++      List(httpPool, queryPool, workerPool, readyPool, readPool) ++ embeddingPool.toList
+     if (handler.isLeft) {
+       pools.foreach { case (p, _) => p.shutdownNow() }
+       return Left(handler.left.getOrElse(""))
+     }
+     try {
+-      val breakers = new Breakers(settings, clock)
+-      val ctx = new AppContext(runtime, stores, settings, clock, options.ids, log, breakers)
++      // FECD-1 (B2, B4): every breaker state change is one `circuit-state` line
++      val breakers = new Breakers(
++        settings,
++        clock,
++        (name, state) =>
++          log.event(
++            "circuit-state",
++            None,
++            List("breaker" -> ujson.Str(name), "state" -> ujson.Str(state))
++          )
++      )
++      val ctx = new AppContext(
++        runtime,
++        stores,
++        settings,
++        clock,
++        options.ids,
++        log,
++        breakers,
++        Some(new ReadTimeLimit(readPool._1, options.readDeadlineMillis))
++      )
+       val probeId = ResearcherId(ServiceLimits.ProbeResearcherId)
+       val storeChecks: List[(String, () => Either[String, Any])] = List(
+         "metrics" -> (() =>
+           runtime.stores.metrics.get(probeId, runtime.context.runtime.defaultWindowLabel)
+         ),
+-        "graph" -> (() => runtime.stores.graph.run(GraphQuery.ResearcherById(probeId)))
++        // G-23: the Left is storage's allowlisted code, so the failure line names its class
++        "graph" -> (() =>
++          GraphReads
++            .classified(runtime.stores.graph, GraphQuery.ResearcherById(probeId))
++            .left
++            .map(_.code)
++        )
+       )
+       val jobCheck: List[(String, () => Either[String, Any])] =
+         if (Set[Role](Role.Query, Role.Worker, Role.All).contains(options.role))
+           List("jobs" -> (() => stores.jobs.get(ServiceLimits.ProbeJobId, clock.millis())))
+         else Nil
+-      val health = new HealthService(options.role, storeChecks ++ jobCheck, readyPool._1, clock)
++      val health =
++        new HealthService(options.role, storeChecks ++ jobCheck, readyPool._1, clock, Some(log))
+       val app = new Application(
+         new QueryService(ctx, queryPool._1),
+         new JobService(ctx),
+@@ -241,7 +295,7 @@ object ServiceServer {
+           Some(new WorkerLoop(worker, workerPool._1, settings.workerConcurrency, log))
+         else None
+       val embeddingWorker = handler.toOption.flatten.map { case (e, h) =>
+-        new EmbeddingWorker(e.queue, h, log)
++        new EmbeddingWorker(e.queue, h, log, e.indexes)
+       }
+       val embeddingLoop =
+         for {
+diff --git a/modules/services/src/main/scala/org/scholarchain/services/Support.scala b/modules/services/src/main/scala/org/scholarchain/services/Support.scala
+index ddcb3be..df2020f 100644
+--- a/modules/services/src/main/scala/org/scholarchain/services/Support.scala
++++ b/modules/services/src/main/scala/org/scholarchain/services/Support.scala
+@@ -65,49 +65,109 @@ object RequestIds {
+   * opens for `openMillis` (callers answer 503 `CIRCUIT_OPEN`), then lets one trial call through; a
+   * success closes it, a failure opens it again. Only downstream failures are recorded (a 4xx never
+   * reaches it). Time comes from the injected clock. Thread-safe.
++  *
++  * Phase 16, FECD-1 (breaker side, step D's B1): every state change (closed to open, open to
++  * closed, a failed trial opening it again) starts a new generation, and each
++  * [[CircuitBreaker.Slot]] carries the generation it was taken in. An outcome reported with a slot
++  * of an earlier generation is stale (the call was admitted before the breaker last changed state,
++  * typically one of the calls in flight when a concurrent burst opened it) and changes nothing: it
++  * does not extend the open period, does not free or fail the half-open trial, does not close an
++  * open breaker and is not counted toward the next opening. Before this, each in-flight failure
++  * that returned after the opening restarted the open period and cleared the trial flag (so a
++  * second trial could run beside the first), and an in-flight success closed an open breaker
++  * without any trial. The threshold and the open period are unchanged.
++  *
++  * @param onChange
++  *   called with the breaker name and the new state (`open`, `closed`) after each state change,
++  *   outside the lock (the server logs it; tests record it)
+   */
+-final class CircuitBreaker(val name: String, threshold: Int, openMillis: Long, clock: Clock) {
++final class CircuitBreaker(
++    val name: String,
++    threshold: Int,
++    openMillis: Long,
++    clock: Clock,
++    onChange: (String, String) => Unit = (_, _) => ()
++) {
+   require(threshold >= 1 && openMillis >= 1)
+   private var failures = 0
+   private var openUntil: Option[Long] = None
+   private var trialInFlight = false
++  private var generation = 0L
++  private var openings = 0L
++  private var stale = 0L
+ 
+   /** A slot when a call may proceed (closed, or the one trial after the open period); `trial` tells
+     * whether this slot is the half-open trial.
+     */
+   def acquire(): Option[CircuitBreaker.Slot] = synchronized {
+     openUntil match {
+-      case None                          => Some(CircuitBreaker.Slot(trial = false))
++      case None                          => Some(new CircuitBreaker.Slot(false, generation))
+       case Some(t) if clock.millis() < t => None
+       case Some(_) if trialInFlight      => None
+-      case Some(_)                       => trialInFlight = true; Some(CircuitBreaker.Slot(true))
++      case Some(_)                       =>
++        trialInFlight = true; Some(new CircuitBreaker.Slot(true, generation))
+     }
+   }
+ 
+-  /** True when a call may proceed (see [[acquire]]). */
++  /** True when a call may proceed (see [[acquire]]). The slot is not kept, so its outcome can only
++    * be reported with the slot-less [[recordSuccess()]] and [[recordFailure()]].
++    */
+   def tryAcquire(): Boolean = acquire().nonEmpty
+ 
+-  /** Gives back a slot taken by [[acquire]] without an outcome (the call was never made). Only the
+-    * holder of the trial slot frees the trial (S-9): a slot taken while the breaker was closed
+-    * never frees another request's trial.
++  /** Gives back a slot taken by [[acquire]] without an outcome (the call was never made, or its
++    * outcome says nothing about availability). Only the holder of the trial slot of the current
++    * generation frees the trial (S-9): a slot taken while the breaker was closed never frees
++    * another request's trial.
+     */
+   def cancel(slot: CircuitBreaker.Slot): Unit = synchronized {
+-    if (slot.trial) trialInFlight = false
++    if (slot.trial && slot.generation == generation) trialInFlight = false
++  }
++
++  /** The call of `slot` succeeded. Stale slots change nothing (see the class comment). */
++  def recordSuccess(slot: CircuitBreaker.Slot): Unit = {
++    val changed = synchronized {
++      if (slot.generation != generation) { stale += 1; None }
++      else succeeded()
++    }
++    changed.foreach(onChange(name, _))
++  }
++
++  /** The call of `slot` failed. Stale slots change nothing (see the class comment). */
++  def recordFailure(slot: CircuitBreaker.Slot): Unit = {
++    val changed = synchronized {
++      if (slot.generation != generation) { stale += 1; None }
++      else failed()
++    }
++    changed.foreach(onChange(name, _))
+   }
+ 
+-  def recordSuccess(): Unit = synchronized {
++  /** A success of a caller that holds no slot (counted in the current generation). */
++  def recordSuccess(): Unit = synchronized(succeeded()).foreach(onChange(name, _))
++
++  /** A failure of a caller that holds no slot (counted in the current generation). */
++  def recordFailure(): Unit = synchronized(failed()).foreach(onChange(name, _))
++
++  private def succeeded(): Option[String] = {
++    val wasOpen = openUntil.nonEmpty
+     failures = 0; openUntil = None; trialInFlight = false
++    if (wasOpen) { generation += 1; Some("closed") }
++    else None
+   }
+ 
+-  def recordFailure(): Unit = synchronized {
++  private def failed(): Option[String] =
+     if (openUntil.nonEmpty) {
+       // the trial failed: open again
+       openUntil = Some(clock.millis() + openMillis); trialInFlight = false
++      generation += 1; openings += 1
++      Some("open")
+     } else {
+       failures += 1
+-      if (failures >= threshold) openUntil = Some(clock.millis() + openMillis)
++      if (failures >= threshold) {
++        openUntil = Some(clock.millis() + openMillis)
++        failures = 0; generation += 1; openings += 1
++        Some("open")
++      } else None
+     }
+-  }
+ 
+   /** `closed`, `open` or `half-open` (tests and logs). */
+   def state: String = synchronized {
+@@ -118,27 +178,50 @@ final class CircuitBreaker(val name: String, threshold: Int, openMillis: Long, c
+     }
+   }
+ 
++  /** How often the breaker opened (a failed trial counts) since it was built. */
++  def openCount: Long = synchronized(openings)
++
++  /** Outcomes ignored because their slot was stale (see the class comment). */
++  def staleOutcomes: Long = synchronized(stale)
++
+   /** Runs `f` through the breaker: Left(None) when open; Left(Some(e)) on a downstream failure. */
+   def call[A](f: => Either[String, A]): Either[Option[String], A] =
+-    if (!tryAcquire()) Left(None)
+-    else {
+-      val r =
+-        try f
+-        catch {
+-          case e: Throwable =>
+-            recordFailure(); throw e
++    acquire() match {
++      case None       => Left(None)
++      case Some(slot) =>
++        val r =
++          try f
++          catch {
++            case e: Throwable =>
++              recordFailure(slot); throw e
++          }
++        r match {
++          case Right(a) => recordSuccess(slot); Right(a)
++          case Left(e)  => recordFailure(slot); Left(Some(e))
+         }
+-      r match {
+-        case Right(a) => recordSuccess(); Right(a)
+-        case Left(e)  => recordFailure(); Left(Some(e))
+-      }
+     }
+ }
+ 
+ object CircuitBreaker {
+ 
+-  /** A call slot of [[CircuitBreaker.acquire]]; `trial` is true for the half-open trial. */
+-  final case class Slot(trial: Boolean)
++  /** A call slot of [[CircuitBreaker.acquire]]; `trial` is true for the half-open trial. The
++    * generation the slot was taken in is internal bookkeeping: two slots are equal when their
++    * `trial` flags are.
++    */
++  final class Slot private[services] (val trial: Boolean, private[services] val generation: Long) {
++    override def equals(o: Any): Boolean = o match {
++      case s: Slot => s.trial == trial
++      case _       => false
++    }
++    override def hashCode: Int = trial.hashCode
++    override def toString: String = s"Slot(trial = $trial)"
++  }
++
++  object Slot {
++
++    /** A slot of generation 0 (tests compare slots by their `trial` flag). */
++    def apply(trial: Boolean): Slot = new Slot(trial, 0L)
++  }
+ }
+ 
+ /** One token bucket per process for authenticated routes (`service.requestsPerMinute`). The bucket
+@@ -268,9 +351,13 @@ final class ServiceLog(sink: LogSink, role: String, clock: Clock, redactor: Reda
+ 
+   /** A structured line another module built (rag's `reembed-delivery` line, Phase 15 decision 8.1),
+     * written as one line of this log: `time` and `role` are added, the line's own fields (its
+-    * `event` included) are kept unchanged. The line's fields are fixed vocabularies and validated
+-    * IDs (rag's contract), so no redaction is applied: the redactor's 12-digit rule would mangle a
+-    * task ID. A line that is not a JSON object is written as `{"event": "<event>", "code":
++    * `event` included) are kept. Phase 16 H-06: every string value of the line passes the redactor
++    * (the configured key values, `arn:` strings, 12-digit numbers and `s3://` URIs become
++    * `[redacted]`). rag validates a task ID only by shape (`[A-Za-z0-9][A-Za-z0-9._:-]{0,127}`), so
++    * a sender could put an ARN or an account number in it; an ordinary task ID such as
++    * `p15-f-poison-20261121T001529Z` is unchanged, so log filters on a task ID prefix still work.
++    * The fixed-vocabulary fields (`event`, `outcome`, `code`, `action`, `index`) hold none of these
++    * patterns. A line that is not a JSON object is written as `{"event": "<event>", "code":
+     * "log-line-unreadable"}` so the one-line-per-delivery count holds.
+     */
+   def external(line: String, fallbackEvent: String): Unit = {
+@@ -279,8 +366,12 @@ final class ServiceLog(sink: LogSink, role: String, clock: Clock, redactor: Reda
+       try ujson.read(line).objOpt
+       catch { case scala.util.control.NonFatal(_) => None }
+     parsed match {
+-      case Some(fields) => fields.foreach { case (k, v) => o(k) = v }
+-      case None         => o("code") = "log-line-unreadable"
++      case Some(fields) =>
++        fields.foreach {
++          case (k, ujson.Str(s)) => o(k) = redactor(s)
++          case (k, v)            => o(k) = v
++        }
++      case None => o("code") = "log-line-unreadable"
+     }
+     emit(o)
+   }
+diff --git a/modules/services/src/test/scala/org/scholarchain/services/EmbeddingWorkerSuite.scala b/modules/services/src/test/scala/org/scholarchain/services/EmbeddingWorkerSuite.scala
+index b124c6e..7c91b8b 100644
+--- a/modules/services/src/test/scala/org/scholarchain/services/EmbeddingWorkerSuite.scala
++++ b/modules/services/src/test/scala/org/scholarchain/services/EmbeddingWorkerSuite.scala
+@@ -4,6 +4,7 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
+ import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
+ 
+ import scala.collection.mutable.ArrayBuffer
++import scala.jdk.CollectionConverters._
+ 
+ import org.scholarchain.rag.reembed.{EmbeddingTask, ReembedHandler}
+ import org.scholarchain.storage.StoreException
+@@ -238,6 +239,114 @@ class EmbeddingWorkerSuite extends munit.FunSuite {
+     } finally h.close()
+   }
+ 
++  test(
++    "H-04: poison in a receive batch is released before the batch's re-embed call starts (with and without known indexes)"
++  ) {
++    for (known <- List(Set.empty[String], Set(Index))) {
++      val q = new StubQueue
++      val releasedBeforeReembed = new java.util.concurrent.ConcurrentLinkedQueue[List[String]]()
++      val reembed: Seq[ReembedTask] => Vector[ReembedOutcome] = ts => {
++        releasedBeforeReembed.add(q.released)
++        ts.map(processed).toVector
++      }
++      val h = harness(
++        role = Role.Worker,
++        embedding = Some(
++          EmbeddingWork(q, log => Right(new ReembedHandler(reembed, Set(Index), 10, log)), known)
++        )
++      )
++      try {
++        val w = h.server.embeddingWorker.get
++        val ok = q.put(EmbeddingTask.render("task-h04-ok", Index, Key))
++        val notJson = q.put("not json")
++        val unknownIndex = q.put(EmbeddingTask.render("task-h04-idx", "unknown-index-v1", Key))
++        assertEquals(w.processOne(), EmbeddingOutcome(3, 1, 2, 0, 0))
++        // with known indexes, an unknown index is poison decided up front too
++        val upFront = if (known.isEmpty) List(notJson) else List(notJson, unknownIndex)
++        assertEquals(releasedBeforeReembed.asScala.toList, List(upFront), s"known=$known")
++        assertEquals(q.released.sorted, List(notJson, unknownIndex).sorted)
++        assertEquals(q.acked, List(ok))
++        assertEquals(deliveryLines(h).size, 3) // still one line per delivery
++      } finally h.close()
++    }
++  }
++
++  test("H-05: close returns within the drain bound when an in-flight call never finishes") {
++    assertEquals(ServerOptions(Role.All).embeddingDrainMillis, ServiceLimits.EmbeddingDrainMillis)
++    val q = new StubQueue
++    val entered = new CountDownLatch(1)
++    val never = new CountDownLatch(1)
++    val drain = 300L
++    val h = harness(
++      startWorker = true,
++      embeddingDrainMillis = drain,
++      embedding = Some(
++        work(
++          q,
++          ts => {
++            entered.countDown()
++            never.await(120, TimeUnit.SECONDS) // interrupted by the bounded shutdown
++            ts.map(processed).toVector
++          }
++        )
++      )
++    )
++    q.put(EmbeddingTask.render("task-h05-1", Index, Key))
++    assert(entered.await(20, TimeUnit.SECONDS), "the handler was not called")
++    val t0 = System.nanoTime()
++    val closer = new Thread(() => h.close())
++    closer.start()
++    closer.join(20000)
++    val ms = (System.nanoTime() - t0) / 1000000L
++    assert(!closer.isAlive, "close did not return")
++    // the drain bound, then at most 1 s for the interrupted pool and 2 s for the thread joins
++    assert(ms < drain + 3000L + 1000L, s"close took $ms ms")
++    assert(ms >= drain, s"close returned after $ms ms, before the drain bound")
++    // the cut-off message was neither acknowledged nor released: it returns after its visibility
++    assertEquals((q.acked, q.released), (Nil, Nil))
++    assert(h.server.threads.forall(!_.isAlive))
++    // a longer drain than the default is refused
++    val (_, _, _, rt) = runtimeOver(config, r => new org.scholarchain.rag.runtime.FakeModel(r))
++    try {
++      val refused = ServiceServer.start(
++        rt,
++        Composition
++          .overRuntime(rt, 60000L, new org.scholarchain.storage.jobs.ManualClock())
++          .fold(e => fail(e), identity),
++        ServerOptions(
++          role = Role.Worker,
++          port = Some(0),
++          env = env.get,
++          logSink = new MemoryLogSink,
++          closeRuntime = false,
++          embeddingDrainMillis = ServiceLimits.EmbeddingDrainMillis + 1
++        )
++      )
++      assert(refused.left.exists(_.contains("embeddingDrainMillis must be in 1..60000")))
++    } finally rt.close()
++  }
++
++  test(
++    "H-06: task IDs in the worker log pass the redactor (ARNs and 12-digit numbers), ordinary IDs unchanged"
++  ) {
++    val q = new StubQueue
++    val h = harness(role = Role.Worker, embedding = Some(work(q, _.map(processed).toVector)))
++    try {
++      val w = h.server.embeddingWorker.get
++      val plain = "p15-f-poison-20261121T001529Z"
++      val arn = "task-arn:aws:iam::123456789012:role"
++      val account = "task-123456789012-x"
++      List(plain, arn, account).foreach(t => q.put(EmbeddingTask.render(t, Index, Key)))
++      assertEquals(w.processOne(), EmbeddingOutcome(3, 3, 0, 0, 0))
++      assertEquals(
++        deliveryLines(h).map(_("taskId").str),
++        List(plain, "task-[redacted]", "task-[redacted]-x")
++      )
++      assert(!h.log.rendered.exists(_.contains("123456789012")), h.log.rendered.toString)
++      assert(deliveryLines(h).forall(_("outcome").str == "processed"))
++    } finally h.close()
++  }
++
+   test("start is refused when the handler cannot be built or the concurrency is out of range") {
+     val (_, _, _, rt) = runtimeOver(config, r => new org.scholarchain.rag.runtime.FakeModel(r))
+     try {
+diff --git a/modules/services/src/test/scala/org/scholarchain/services/HttpBehaviorSuite.scala b/modules/services/src/test/scala/org/scholarchain/services/HttpBehaviorSuite.scala
+index 907c178..fd9f700 100644
+--- a/modules/services/src/test/scala/org/scholarchain/services/HttpBehaviorSuite.scala
++++ b/modules/services/src/test/scala/org/scholarchain/services/HttpBehaviorSuite.scala
+@@ -110,6 +110,43 @@ class HttpBehaviorSuite extends munit.FunSuite {
+     h.slow.graphDelayMillis.set(0L)
+   }
+ 
++  h.test(
++    "G-23 readiness: a failed check logs its reason class (graph code, deadline), never the store text"
++  ) { h =>
++    def failures(): List[ujson.Obj] =
++      h.log.all.filter(_("event").str == "readiness-check-failed")
++    h.flaky.failGraph.set(true) // a thrown transient StoreException
++    assertEquals(get(h, "/readyz", key = None).status, 503)
++    assertEquals(
++      failures().map(l => (l("check").str, l("reason").str)),
++      List("graph" -> "graph-transient")
++    )
++    h.flaky.failGraph.set(false)
++    h.slow.graphError.set(
++      Some(org.scholarchain.storage.ports.GraphReadError.Permanent("AccessDenied neptune host"))
++    )
++    h.clock.advance(ServiceLimits.ReadinessCacheMillis)
++    assertEquals(get(h, "/readyz", key = None).status, 503)
++    assertEquals(failures().last("reason").str, "graph-permanent")
++    h.slow.graphError.set(None)
++    h.slow.graphDelayMillis.set(ServiceLimits.ReadinessDeadlineMillis + 1000L)
++    h.clock.advance(ServiceLimits.ReadinessCacheMillis)
++    assertEquals(get(h, "/readyz", key = None).status, 503)
++    assertEquals(failures().last("reason").str, HealthService.DeadlinePassed)
++    h.slow.graphDelayMillis.set(0L)
++    h.clock.advance(ServiceLimits.ReadinessCacheMillis)
++    assertEquals(get(h, "/readyz", key = None).status, 200)
++    assertEquals(failures().size, 3) // a passing probe logs nothing
++    assert(
++      failures().forall(
++        _.obj.keySet.toSet.subsetOf(Set("time", "role", "event", "check", "reason"))
++      )
++    )
++    for (line <- h.log.rendered; s <- forbidden(h)) assert(!line.contains(s), s"$s in $line")
++    assertEquals(HealthService.reasonOf("connect timed out to host.example"), "store-failure")
++    assertEquals(HealthService.reasonOf("graph-timeout"), "graph-timeout")
++  }
++
+   test(
+     "rate limit: requests over requestsPerMinute get 429 with Retry-After; health is never limited"
+   ) {
+diff --git a/modules/services/src/test/scala/org/scholarchain/services/ReadRoutesSuite.scala b/modules/services/src/test/scala/org/scholarchain/services/ReadRoutesSuite.scala
+index 06f9020..43463c5 100644
+--- a/modules/services/src/test/scala/org/scholarchain/services/ReadRoutesSuite.scala
++++ b/modules/services/src/test/scala/org/scholarchain/services/ReadRoutesSuite.scala
+@@ -207,6 +207,29 @@ class ReadRoutesSuite extends munit.FunSuite {
+       assertEquals(view.abstentionReasons.map(_.code), codes)
+   }
+ 
++  h.test(
++    "Phase 16: explain shows rag's new code path-query-bounded with its own text, not as unclassified"
++  ) { h =>
++    val res = answer(h)
++    val v3 = h.runtime.stores.audits.read(RunId(res.queryId), 10).toOption.get.last
++    val codes = List(AbstentionCodes.PathQueryBounded, AbstentionCodes.PathQueryFailed)
++    assertEquals(codes.head, "path-query-bounded")
++    assert(
++      h.runtime.stores.audits.append(v3.copy(abstained = true, abstentionCodes = codes)).isRight
++    )
++    val ex = get(h, s"/v1/explain/${res.queryId}").json
++    val reasons = ex("abstentionReasons").arr.toList
++    assertEquals(reasons.map(_("code").str), codes)
++    assertEquals(
++      reasons.map(_("text").str),
++      codes.map(AbstentionCodes.Table(_))
++    )
++    assertNotEquals(
++      reasons.head("text").str,
++      AbstentionCodes.Table(AbstentionCodes.Unclassified)
++    )
++  }
++
+   // ---- graph ---------------------------------------------------------------------------------
+ 
+   h.test("graph nodes: researcher, work, unknown (404), malformed (400), other kinds (422)") { h =>
+diff --git a/modules/services/src/test/scala/org/scholarchain/services/ServiceTestKit.scala b/modules/services/src/test/scala/org/scholarchain/services/ServiceTestKit.scala
+index 0ecf23c..df84770 100644
+--- a/modules/services/src/test/scala/org/scholarchain/services/ServiceTestKit.scala
++++ b/modules/services/src/test/scala/org/scholarchain/services/ServiceTestKit.scala
+@@ -21,7 +21,17 @@ import org.scholarchain.rag.runtime.RuntimeServiceFixtures.FlakyStores
+ import org.scholarchain.storage.StorageConfig
+ import org.scholarchain.storage.jobs.{ManualClock, ServiceStores, ToggleKeyValueStore}
+ import org.scholarchain.storage.local.InMemoryWorkQueue
+-import org.scholarchain.storage.ports.{GraphQuery, GraphReadPort, GraphReadSettings, GraphResult}
++import org.scholarchain.storage.ports.{
++  ConditionalResult,
++  GraphQuery,
++  GraphReadError,
++  GraphReadPort,
++  GraphReadSettings,
++  GraphResult,
++  Item,
++  ItemKey,
++  KeyValueStore
++}
+ import org.scholarchain.storage.runtime.RuntimeStores
+ 
+ /** Fixtures of the services tests: the services config, placeholder keys, fixed IDs, a harness that
+@@ -67,26 +77,69 @@ object ServiceTestKit {
+   /** Runtime stores whose graph port can be slowed and counted (readiness tests), and made to throw
+     * a StoreException with a given message (S-4 tests: a message naming a host and a table).
+     */
+-  final class SlowGraphStores(base: RuntimeStores) extends RuntimeStores {
++  final class SlowGraphStores(base: RuntimeStores, kv: KeyValueStore, sc: StorageConfig)
++      extends RuntimeStores {
+     val graphDelayMillis = new AtomicLong(0L)
+     val graphCalls = new AtomicLong(0L)
+     val graphThrows = new java.util.concurrent.atomic.AtomicReference[Option[String]](None)
++
++    /** Phase 16: when set, every graph call answers this classified failure (`run` its message). */
++    val graphError = new java.util.concurrent.atomic.AtomicReference[Option[GraphReadError]](None)
++
++    /** Phase 16 route time limits: key-value reads (`get`, `query`) of the evidence and audit
++      * readers wait this long first (writes are never delayed).
++      */
++    val readDelayMillis = new AtomicLong(0L)
++
+     def settings = base.settings
+     def windowLabels = base.windowLabels
+     val graph: GraphReadPort = new GraphReadPort {
+       def settings: GraphReadSettings = base.graph.settings
+-      def run(q: GraphQuery): Either[String, GraphResult] = {
++      private def before(): Unit = {
+         graphCalls.incrementAndGet()
+         val d = graphDelayMillis.get
+         if (d > 0) Thread.sleep(d)
+         graphThrows.get.foreach(m => throw new org.scholarchain.storage.StoreException(m, true))
+-        base.graph.run(q)
+       }
++      def run(q: GraphQuery): Either[String, GraphResult] = {
++        before()
++        graphError.get match {
++          case Some(e) => Left(e.message)
++          case None    => base.graph.run(q)
++        }
++      }
++      override def runClassified(q: GraphQuery): Either[GraphReadError, GraphResult] = {
++        before()
++        graphError.get match {
++          case Some(e) => Left(e)
++          case None    => base.graph.runClassified(q)
++        }
++      }
++    }
++    private val slowKv: KeyValueStore = new KeyValueStore {
++      private def pause(): Unit = {
++        val d = readDelayMillis.get
++        if (d > 0) Thread.sleep(d)
++      }
++      def putIfAbsent(table: String, item: Item): ConditionalResult = kv.putIfAbsent(table, item)
++      def putIfVersion(table: String, item: Item, expectedVersion: Long): ConditionalResult =
++        kv.putIfVersion(table, item, expectedVersion)
++      def get(table: String, key: ItemKey): Option[Item] = { pause(); kv.get(table, key) }
++      def query(
++          table: String,
++          pk: String,
++          skPrefix: Option[String],
++          limit: Int,
++          descending: Boolean
++      ): List[Item] = { pause(); kv.query(table, pk, skPrefix, limit, descending) }
+     }
++    private val readers: RuntimeStores = RuntimeStores
++      .of(sc, base.graph, slowKv, base.vectors, base.textStore)
++      .fold(e => sys.error(e), identity)
+     def metrics = base.metrics
+     def entityLinks = base.entityLinks
+-    def evidence = base.evidence
+-    def audits = base.audits
++    def evidence = readers.evidence
++    def audits = readers.audits
+     def vectors = base.vectors
+     def textStore = base.textStore
+   }
+@@ -128,7 +181,7 @@ object ServiceTestKit {
+     val w = RuntimeFixtures.world()
+     val sc = StorageConfig.from(cfg).fold(e => sys.error(e.mkString("; ")), identity)
+     val flaky = new FlakyStores(w.env, sc)
+-    val slow = new SlowGraphStores(flaky.stores)
++    val slow = new SlowGraphStores(flaky.stores, flaky.kv, sc)
+     val rt = RuntimeService
+       .fromStores(
+         cfg,
+@@ -154,7 +207,9 @@ object ServiceTestKit {
+       keys: Map[String, String] = env,
+       closeRuntime: Boolean = true,
+       wrapStores: ServiceStores => ServiceStores = identity,
+-      embedding: Option[EmbeddingWork] = None
++      embedding: Option[EmbeddingWork] = None,
++      readDeadlineMillis: Long = ServiceLimits.ReadRouteDeadlineMillis,
++      embeddingDrainMillis: Long = ServiceLimits.EmbeddingDrainMillis
+   ): Harness = {
+     val (w, flaky, slow, rt) = runtimeOver(cfg, model)
+     val settings = cfg.service.get
+@@ -180,7 +235,9 @@ object ServiceTestKit {
+           startWorker = startWorker,
+           closeRuntime = closeRuntime,
+           name = "test",
+-          embedding = embedding
++          embedding = embedding,
++          readDeadlineMillis = readDeadlineMillis,
++          embeddingDrainMillis = embeddingDrainMillis
+         )
+       )
+       .fold(e => { rt.close(); sys.error(e) }, identity)
+diff --git a/modules/spark/src/main/scala/org/scholarchain/spark/JsonlExport.scala b/modules/spark/src/main/scala/org/scholarchain/spark/JsonlExport.scala
+index 8098377..e35b29a 100644
+--- a/modules/spark/src/main/scala/org/scholarchain/spark/JsonlExport.scala
++++ b/modules/spark/src/main/scala/org/scholarchain/spark/JsonlExport.scala
+@@ -741,22 +741,41 @@ object JsonlExport {
+     * checked before a session starts. Prints the run ID and the masked export location; any failure
+     * is rethrown as [[JsonlExportFailedException]] with a masked message and no cause.
+     */
+-  def main(argv: Array[String]): Unit = {
+-    val args = parseArgs(argv.toSeq).fold(e => throw new IllegalArgumentException(e), identity)
++  def main(argv: Array[String]): Unit =
++    mainWith(
++      argv.toSeq,
++      () => SparkSession.builder().appName("scholarchain-jsonl-export").getOrCreate()
++    )
++
++  /** The whole body of [[main]], with the session factory as a parameter (Phase 13 C-05: the
++    * wrapper is testable without starting a session). Arguments are checked first and an argument
++    * error is an `IllegalArgumentException` that echoes no value; after that, every non-fatal
++    * failure, including a failure to start the session, is rethrown by [[masked]].
++    */
++  private[spark] def mainWith(argv: Seq[String], session: () => SparkSession): Unit = {
++    val args = parseArgs(argv).fold(e => throw new IllegalArgumentException(e), identity)
+     val known = (authorityOf(args.sourceRun) ++ authorityOf(args.outRoot)).toSeq
+-    val spark = SparkSession.builder().appName("scholarchain-jsonl-export").getOrCreate()
+-    try {
+-      val r =
+-        try run(spark, args.sourceRun, args.outRoot, args.recordsPerFile, 32, args.codeVersion)
+-        catch {
+-          case NonFatal(e) =>
+-            throw new JsonlExportFailedException(
+-              maskText(s"${e.getClass.getSimpleName}: ${e.getMessage}", known)
+-            )
+-        }
+-      println(s"[scholarchain] export ${r.runId} at ${show(r.outRun)}")
+-    } finally spark.stop()
++    masked(known) {
++      val spark = session()
++      try {
++        val r = run(spark, args.sourceRun, args.outRoot, args.recordsPerFile, 32, args.codeVersion)
++        println(s"[scholarchain] export ${r.runId} at ${show(r.outRun)}")
++      } finally spark.stop()
++    }
+   }
++
++  /** Runs `body`; a non-fatal failure becomes a [[JsonlExportFailedException]] whose message is
++    * `SimpleClassName: message` passed through [[maskText]] with the `known` authorities, and whose
++    * cause is null (the original exception and its cause chain never reach the step log).
++    */
++  private[spark] def masked[A](known: Seq[String])(body: => A): A =
++    try body
++    catch {
++      case NonFatal(e) =>
++        throw new JsonlExportFailedException(
++          maskText(s"${e.getClass.getSimpleName}: ${e.getMessage}", known)
++        )
++    }
+ }
+ 
+ /** Older name of the entry point, kept for the local runner; same options as [[JsonlExport]]. */
+diff --git a/modules/spark/src/test/scala/org/scholarchain/spark/JsonlExportArgsSuite.scala b/modules/spark/src/test/scala/org/scholarchain/spark/JsonlExportArgsSuite.scala
+index 0864a97..67f3a96 100644
+--- a/modules/spark/src/test/scala/org/scholarchain/spark/JsonlExportArgsSuite.scala
++++ b/modules/spark/src/test/scala/org/scholarchain/spark/JsonlExportArgsSuite.scala
+@@ -73,6 +73,48 @@ class JsonlExportArgsSuite extends munit.FunSuite {
+     assertEquals(JsonlExport.maskText("s3://other/k"), "s3://{data-bucket}/k")
+   }
+ 
++  test("C-05: the entry point rethrows any failure masked, with no cause") {
++    val argv = Seq(
++      "--source-run",
++      "s3://example-bucket/graph/run=ab",
++      "--out-root",
++      "s3a://example-out/exports"
++    )
++    val inner = new IllegalStateException("inner s3://example-bucket/graph/_SUCCESS")
++    val raw = new java.io.IOException(
++      "getFileStatus on s3a://example-out/exports: User: " +
++        "arn:aws:sts::123456789012:assumed-role/r/i is not authorized; " +
++        "Bucket example-out, source example-bucket",
++      inner
++    )
++    // main's own body (mainWith), so a regression that rethrows the raw exception fails here.
++    val e = intercept[JsonlExportFailedException](
++      JsonlExport.mainWith(argv, () => throw raw)
++    )
++    val m = e.getMessage
++    assert(m.startsWith("IOException: getFileStatus on s3a://{data-bucket}/exports"), m)
++    assert(m.contains("arn:aws:sts::{account}:assumed-role"), m)
++    // The bare names are masked only through the authorities taken from the arguments.
++    assert(m.contains("Bucket {data-bucket}, source {data-bucket}"), m)
++    Seq("example-out", "example-bucket", "123456789012", "inner").foreach(s =>
++      assert(!m.contains(s), s"$s in $m")
++    )
++    assertEquals(e.getCause, null)
++    assertEquals(e.getSuppressed.toSeq, Nil)
++    // The same wrapper around the export itself (the failure that happens after the session).
++    val e2 = intercept[JsonlExportFailedException](
++      JsonlExport.masked(Seq("example-out"))(throw raw)
++    )
++    assertEquals(e2.getCause, null)
++    assert(!e2.getMessage.contains("example-out"), e2.getMessage)
++    assertEquals(JsonlExport.masked(Nil)(7), 7)
++    // Arguments are checked before any session starts; the error echoes no value.
++    val bad = intercept[IllegalArgumentException](
++      JsonlExport.mainWith(argv :+ "--code-version", () => fail("session started"))
++    )
++    assert(!bad.getMessage.contains("example-bucket"), bad.getMessage)
++  }
++
+   test("build identity: parsed from the resource, unknown when missing or malformed") {
+     val good = s"buildCommit=${"0a" * 20}\nbuildDirty=false\nmodule=sparkAnalytics\nversion=0.1.0\n"
+     assertEquals(
+diff --git a/tests/contracts/src/test/scala/org/scholarchain/contracts/er/EvalReportRound3AdversarialSuite.scala b/tests/contracts/src/test/scala/org/scholarchain/contracts/er/EvalReportRound3AdversarialSuite.scala
+index 92ea6b9..207cd2f 100644
+--- a/tests/contracts/src/test/scala/org/scholarchain/contracts/er/EvalReportRound3AdversarialSuite.scala
++++ b/tests/contracts/src/test/scala/org/scholarchain/contracts/er/EvalReportRound3AdversarialSuite.scala
+@@ -295,14 +295,13 @@ class EvalReportRound3AdversarialSuite extends munit.FunSuite {
+     assert(boot.matches(".*unresolvedRate \\[[^\\]]*\\] \\(design-determined\\).*"), boot)
+   }
+ 
+-  // ACCEPTED RISK M4 (finding F8). Human decision, Phase 5 run 2 (docs/agent-runs/phase-05/
+-  // prompt-02.md): code-reviewer M4 and test-engineer F8 get no repair round in Phase 5; M4 is
+-  // accepted as is. Cause: IntervalReliability.scala lines 227-228. This test is an MUnit
+-  // expected failure (.fail): it passes while the assertion below fails and fails once the
+-  // defect is repaired, at which point remove .fail and the prefix. Assertions are unchanged.
++  // M4 (finding F8). Accepted risk in Phase 5 run 2 (docs/agent-runs/phase-05/prompt-02.md);
++  // repaired in Phase 16 step 2 (entity-resolution-engineer, IntervalReliability: a rate is
++  // design-determined only when every stratum's labeled memberships share its outcome). The
++  // expected-failure mark (.fail) and its title prefix were removed in Phase 16 step 6 (decision
++  // 10). Assertions are unchanged from Phase 5.
+   test(
+-    ("ACCEPTED RISK M4 (F8), expected to fail until repaired: " +
+-      "FINDING repair-21: no labeled membership agrees with its stratum: not design-determined").fail
++    "FINDING repair-21: no labeled membership agrees with its stratum: not design-determined"
+   ) {
+     // every labeled membership's own decision (unresolved) differs from its sampling stratum's
+     // outcome (accepted): no share is fixed by the design, the unresolved share of each stratum is
+@@ -987,15 +986,15 @@ class EvalReportRound3AdversarialSuite extends munit.FunSuite {
+     )
+   }
+ 
+-  // ACCEPTED RISK M2 (finding F9). Human decision, Phase 5 run 2 (docs/agent-runs/phase-05/
+-  // prompt-02.md): code-reviewer M2 and test-engineer F9 get no repair round in Phase 5. Repair
+-  // condition: M2 must be fixed before any adjudication run with cache hits and before a live LLM
+-  // is connected. Cause: validCount and allSentAccounted in EvalReport.llmPath. This test is an
+-  // MUnit expected failure (.fail): it passes while the assertions below fail and fails once the
+-  // defect is repaired, at which point remove .fail and the prefix. Assertions are unchanged.
++  // M2 (finding F9). Accepted risk in Phase 5 run 2 (docs/agent-runs/phase-05/prompt-02.md).
++  // Only the part of M2 this test asserts (a fractional outcome count is not a whole count, so it
++  // cannot make an absent key 0) was repaired in Phase 16 step 2 (entity-resolution-engineer,
++  // EvalReport allSentAccounted). M2's other part (outcome counts include cache hits while the
++  // pairs sent exclude them) is still open and must be fixed before any adjudication run with
++  // cache hits and before a live LLM is connected. The expected-failure mark (.fail) and its
++  // title prefix were removed in Phase 16 step 6 (decision 10). Assertions are unchanged.
+   test(
+-    ("ACCEPTED RISK M2 (F9), expected to fail until repaired: " +
+-      "FINDING repair-29: a fractional outcome count is not valid, so an absent key is not 0").fail
++    "FINDING repair-29: a fractional outcome count is not valid, so an absent key is not 0"
+   ) {
+     // RunCountsRule: "A count that is missing or not a whole non-negative number is not available;
+     // an outcome absent from valid outcome counts is 0 only when those counts add up to the pairs

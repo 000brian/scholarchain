@@ -1,0 +1,11 @@
+metric,value
+expected_files,2
+regenerated_files,2
+equal,2
+different,0
+missing,0
+extra,0
+intended,0
+unexplained,0
+intended_not_observed,0
+verdict,reproduced exactly

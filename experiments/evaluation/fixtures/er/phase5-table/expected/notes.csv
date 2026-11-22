@@ -1,0 +1,10 @@
+item,value
+source,"phase-05 committed report (policy er-v1, run run:v1:9f96c70b5115294dcc9d3b2d1d4438b9)"
+source_file,experiments/evaluation/fixtures/er/phase5-table/input/phase5-final-summary.md
+source_sha256,1c43c25fcedd69e8f9d98033bb6e3495f317858519aa5fd48056410755bd64eb
+policy_version,er-v1
+er_run,run:v1:9f96c70b5115294dcc9d3b2d1d4438b9
+code_version,phase05-1279c37-02-dirty
+gold_sha256_in_report,not available (no gold input row)
+numerators_and_denominators,"given for the all-rows (unweighted) row only, recomputed from the unweighted confusion matrix; the other rows are printed percentages without counts"
+er_v2_accuracy,not measurable from the frozen evidence (no gold-pair decision comparison input was given; this tool version has no --compare-decisions)

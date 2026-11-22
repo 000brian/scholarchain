@@ -16,7 +16,7 @@ final class ScriptedAdjudicator(val modelVersion: String)(reply: AdjudicationReq
 }
 
 class LlmSuite extends munit.FunSuite {
-  private val policy = Policy.erV1
+  private val policy = Policy.current
   private val prompt = AdjudicationPrompt.v1
   private lazy val corpus = Fixture
     .corpus(

@@ -1,0 +1,5 @@
+[
+  {"id": "a1", "question": "Who are the most connected researchers?", "answerText": "Researcher A has the most coauthors.", "verification": "verified"},
+  {"id": "a2", "question": "Which communities bridge?", "answerText": ""},
+  {"id": "a3", "question": "Is there a path from A to B?", "answerText": "No path within 6 hops was found.", "verification": "unsupported"}
+]

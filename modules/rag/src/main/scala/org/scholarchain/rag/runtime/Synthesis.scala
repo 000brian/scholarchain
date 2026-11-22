@@ -626,7 +626,7 @@ object FakeSynthesis {
         )
       else
         b.add(
-          s"In ${w(p.window)}, the path search between ${p.from.displayName} and ${p.to.displayName} stopped at the time limit after depth ${p.depthSearched}, so whether a path exists is unknown.",
+          s"In ${w(p.window)}, the path search between ${p.from.displayName} and ${p.to.displayName} stopped at ${p.stopPhrase} after depth ${p.depthSearched}, so whether a path exists is unknown.",
           List(p),
           List((p.depthSearched.toDouble, p, "depthSearched"))
         )

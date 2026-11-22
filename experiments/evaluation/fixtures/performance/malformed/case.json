@@ -1,0 +1,7 @@
+{
+  "description": "malformed input: metric-data.json is valid JSON but MetricDataResults is not a list; exit 5 and no result file",
+  "args": ["--raw-root", "{case}/raw", "--derived-root", "{case}/raw",
+           "--manifests", "p15-c-embedding-backlog", "--derived-tables", "",
+           "--instance-hour-usd", "0.24"],
+  "expectExit": 5
+}

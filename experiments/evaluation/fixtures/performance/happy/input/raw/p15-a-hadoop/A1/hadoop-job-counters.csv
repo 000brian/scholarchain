@@ -1,0 +1,5 @@
+job_name,run_id,kind,name,value
+hadoop.j09-graph-export,run:v1:fixture,counter,scholarchain.output-records:coauthor_pair_candidate/year=2015,10
+hadoop.j09-graph-export,run:v1:fixture,counter,scholarchain.output-records:coauthor_pair_candidate/year=2016,20
+hadoop.j09-graph-export,run:v1:fixture,counter,scholarchain.output-records:work/year=2015,3
+hadoop.j09-graph-export,run:v1:fixture,counter,scholarchain.output-records:venue,16

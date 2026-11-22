@@ -1,0 +1,5 @@
+{
+  "description": "happy path: 2 questions (stored out of order), 2 modes, K 1 and 5; a wrong report MRR shows as matches_report no and equal no; bootstrap with n = 2 gives [min, max] of the two per-question values",
+  "args": ["--report", "{case}/report.json", "--benchmark", "{case}/benchmark.json", "--seed", "7"],
+  "expectExit": 0
+}

@@ -1,0 +1,5 @@
+{
+  "description": "missing input: the Phase 5 report path does not exist; exit 3 and no result file",
+  "args": ["--phase5-report", "{case}/absent.md", "--start-marker", "FINAL SUMMARY (verbatim):"],
+  "expectExit": 3
+}

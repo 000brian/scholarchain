@@ -133,9 +133,13 @@ class EvalRepairRound2Suite extends munit.FunSuite {
     // the Markdown marks the interval wherever it appears and names the stratum
     val md = Harness.markdown(met)
     val wrow = md.linesIterator.find(_.startsWith("| Weighted estimate (bootstrap)")).get
-    assert(wrow.contains("] (unreliable) |"), wrow)
+    // Phase 16 M3: the flag carries the zero-event bound in the same cell
+    assert(wrow.contains("] (unreliable; zero-event bound ["), wrow)
     val bline = md.linesIterator.find(_.startsWith("Weighted bootstrap 95%:")).get
-    assert(bline.contains("precision [") && bline.contains("(unreliable)"), bline)
+    assert(
+      bline.contains("precision [") && bline.contains("(unreliable; zero-event bound ["),
+      bline
+    )
     assert(md.contains("Weighted interval reliability (zero-event strata)."), md)
     val pl = md.linesIterator.find(_.startsWith("- precision: bootstrap ")).get
     assert(pl.contains("unreliable: zero-event strata hold"), pl)
@@ -158,7 +162,7 @@ class EvalRepairRound2Suite extends munit.FunSuite {
     val md = Harness.markdown(met)
     val crow =
       md.linesIterator.find(_.startsWith("| Cluster level, weighted estimate (bootstrap)")).get
-    assert(crow.contains("(unreliable)"), crow)
+    assert(crow.contains("(unreliable; zero-event bound ["), crow)
     assert(md.contains("Cluster-level weighted interval reliability"), md)
   }
 

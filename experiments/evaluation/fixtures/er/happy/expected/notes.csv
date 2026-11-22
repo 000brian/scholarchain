@@ -1,0 +1,12 @@
+item,value
+source,"phase-05 committed report (policy er-fix, run run:v1:abcdef)"
+source_file,experiments/evaluation/fixtures/er/happy/input/er-eval-input.md
+source_sha256,8d151af5e203c105b199c675d736e1c39399a891ddcca0de48897f513e5409cb
+policy_version,er-fix
+er_run,run:v1:abcdef
+code_version,code-fix
+gold_sha256_in_report,b25d8743af2d368ba8736e9adac3b9f9924bd7ba189537de5797722a8df13b42
+numerators_and_denominators,"given for the all-rows (unweighted) row only, recomputed from the unweighted confusion matrix; the other rows are printed percentages without counts"
+er_v2_accuracy,not measurable from the frozen evidence (no gold-pair decision comparison input was given; this tool version has no --compare-decisions)
+note,fixture note one
+note,"fixture note two, with a comma"

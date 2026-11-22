@@ -1,0 +1,4 @@
+manifest,attempt,period_start_utc,deleted,per_second,worker_running_min,worker_running_max,worker_samples
+p15-c-embedding-backlog,C1,1970-01-01T00:20:00Z,540,9,1,1,2
+p15-c-embedding-backlog,C1,1970-01-01T00:21:00Z,900,15,1,2,2
+p15-c-embedding-backlog,C1,1970-01-01T00:22:00Z,1440,24,2,2,1

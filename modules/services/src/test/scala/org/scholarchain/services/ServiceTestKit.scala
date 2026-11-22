@@ -21,7 +21,17 @@ import org.scholarchain.rag.runtime.RuntimeServiceFixtures.FlakyStores
 import org.scholarchain.storage.StorageConfig
 import org.scholarchain.storage.jobs.{ManualClock, ServiceStores, ToggleKeyValueStore}
 import org.scholarchain.storage.local.InMemoryWorkQueue
-import org.scholarchain.storage.ports.{GraphQuery, GraphReadPort, GraphReadSettings, GraphResult}
+import org.scholarchain.storage.ports.{
+  ConditionalResult,
+  GraphQuery,
+  GraphReadError,
+  GraphReadPort,
+  GraphReadSettings,
+  GraphResult,
+  Item,
+  ItemKey,
+  KeyValueStore
+}
 import org.scholarchain.storage.runtime.RuntimeStores
 
 /** Fixtures of the services tests: the services config, placeholder keys, fixed IDs, a harness that
@@ -67,26 +77,69 @@ object ServiceTestKit {
   /** Runtime stores whose graph port can be slowed and counted (readiness tests), and made to throw
     * a StoreException with a given message (S-4 tests: a message naming a host and a table).
     */
-  final class SlowGraphStores(base: RuntimeStores) extends RuntimeStores {
+  final class SlowGraphStores(base: RuntimeStores, kv: KeyValueStore, sc: StorageConfig)
+      extends RuntimeStores {
     val graphDelayMillis = new AtomicLong(0L)
     val graphCalls = new AtomicLong(0L)
     val graphThrows = new java.util.concurrent.atomic.AtomicReference[Option[String]](None)
+
+    /** Phase 16: when set, every graph call answers this classified failure (`run` its message). */
+    val graphError = new java.util.concurrent.atomic.AtomicReference[Option[GraphReadError]](None)
+
+    /** Phase 16 route time limits: key-value reads (`get`, `query`) of the evidence and audit
+      * readers wait this long first (writes are never delayed).
+      */
+    val readDelayMillis = new AtomicLong(0L)
+
     def settings = base.settings
     def windowLabels = base.windowLabels
     val graph: GraphReadPort = new GraphReadPort {
       def settings: GraphReadSettings = base.graph.settings
-      def run(q: GraphQuery): Either[String, GraphResult] = {
+      private def before(): Unit = {
         graphCalls.incrementAndGet()
         val d = graphDelayMillis.get
         if (d > 0) Thread.sleep(d)
         graphThrows.get.foreach(m => throw new org.scholarchain.storage.StoreException(m, true))
-        base.graph.run(q)
+      }
+      def run(q: GraphQuery): Either[String, GraphResult] = {
+        before()
+        graphError.get match {
+          case Some(e) => Left(e.message)
+          case None    => base.graph.run(q)
+        }
+      }
+      override def runClassified(q: GraphQuery): Either[GraphReadError, GraphResult] = {
+        before()
+        graphError.get match {
+          case Some(e) => Left(e)
+          case None    => base.graph.runClassified(q)
+        }
       }
     }
+    private val slowKv: KeyValueStore = new KeyValueStore {
+      private def pause(): Unit = {
+        val d = readDelayMillis.get
+        if (d > 0) Thread.sleep(d)
+      }
+      def putIfAbsent(table: String, item: Item): ConditionalResult = kv.putIfAbsent(table, item)
+      def putIfVersion(table: String, item: Item, expectedVersion: Long): ConditionalResult =
+        kv.putIfVersion(table, item, expectedVersion)
+      def get(table: String, key: ItemKey): Option[Item] = { pause(); kv.get(table, key) }
+      def query(
+          table: String,
+          pk: String,
+          skPrefix: Option[String],
+          limit: Int,
+          descending: Boolean
+      ): List[Item] = { pause(); kv.query(table, pk, skPrefix, limit, descending) }
+    }
+    private val readers: RuntimeStores = RuntimeStores
+      .of(sc, base.graph, slowKv, base.vectors, base.textStore)
+      .fold(e => sys.error(e), identity)
     def metrics = base.metrics
     def entityLinks = base.entityLinks
-    def evidence = base.evidence
-    def audits = base.audits
+    def evidence = readers.evidence
+    def audits = readers.audits
     def vectors = base.vectors
     def textStore = base.textStore
   }
@@ -128,7 +181,7 @@ object ServiceTestKit {
     val w = RuntimeFixtures.world()
     val sc = StorageConfig.from(cfg).fold(e => sys.error(e.mkString("; ")), identity)
     val flaky = new FlakyStores(w.env, sc)
-    val slow = new SlowGraphStores(flaky.stores)
+    val slow = new SlowGraphStores(flaky.stores, flaky.kv, sc)
     val rt = RuntimeService
       .fromStores(
         cfg,
@@ -154,7 +207,9 @@ object ServiceTestKit {
       keys: Map[String, String] = env,
       closeRuntime: Boolean = true,
       wrapStores: ServiceStores => ServiceStores = identity,
-      embedding: Option[EmbeddingWork] = None
+      embedding: Option[EmbeddingWork] = None,
+      readDeadlineMillis: Long = ServiceLimits.ReadRouteDeadlineMillis,
+      embeddingDrainMillis: Long = ServiceLimits.EmbeddingDrainMillis
   ): Harness = {
     val (w, flaky, slow, rt) = runtimeOver(cfg, model)
     val settings = cfg.service.get
@@ -180,7 +235,9 @@ object ServiceTestKit {
           startWorker = startWorker,
           closeRuntime = closeRuntime,
           name = "test",
-          embedding = embedding
+          embedding = embedding,
+          readDeadlineMillis = readDeadlineMillis,
+          embeddingDrainMillis = embeddingDrainMillis
         )
       )
       .fold(e => { rt.close(); sys.error(e) }, identity)

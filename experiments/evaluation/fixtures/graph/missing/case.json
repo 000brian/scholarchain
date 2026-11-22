@@ -1,0 +1,5 @@
+{
+  "description": "missing input: the suite table path does not exist; exit 3 and no result file",
+  "args": ["--suite-table", "{case}/absent.csv", "--spark-outputs", "{case}/absent-spark.csv"],
+  "expectExit": 3
+}

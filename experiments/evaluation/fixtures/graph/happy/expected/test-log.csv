@@ -1,0 +1,2 @@
+line,outcome,total,failed,errors,passed,suite_table_tests,total_equals_table
+3,passed,4,0,0,4,4,yes

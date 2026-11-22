@@ -1,0 +1,4 @@
+cluster_id,instance_group_type,instance_type,market,created_epoch,ready_epoch,ended_epoch,state,state_change_code
+j-FIXTURE,,m5.xlarge,ON_DEMAND,1000,1100,4600,TERMINATED,
+j-FIXTURE,,m5.xlarge,ON_DEMAND,2000,2100,4600,TERMINATED,
+j-FIXTURE,,m5.xlarge,ON_DEMAND,2000,2100,,RUNNING,

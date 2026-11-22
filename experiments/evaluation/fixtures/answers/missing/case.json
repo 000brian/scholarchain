@@ -1,0 +1,5 @@
+{
+  "description": "missing input: the explain CSV path does not exist; exit 3 and no result file",
+  "args": ["--explain-csv", "{case}/absent.csv", "--seed", "7"],
+  "expectExit": 3
+}

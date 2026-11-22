@@ -31,6 +31,11 @@ import common  # noqa: E402
 
 DEFAULT_MANIFESTS = ["p15-c-embedding-backlog", "p15-f-poison-replay"]
 QUEUES = ["embedding", "embedding-dlq", "job", "job-dlq"]
+# Phase 16 L-08: larger labels in the queue plots (Phase 15 used 11 px text on a 1000 px image,
+# hard to read in the demo); a wider image keeps the longer legend lines inside the frame.
+QUEUE_FONT_SIZE = 14
+QUEUE_WIDTH = 1200
+QUEUE_LEGEND = 330
 
 
 def collapse(values):
@@ -158,7 +163,7 @@ def main():
                               panels, xr, events=sorted(events),
                               notes=["status %s; scaling activities %s; metrics from %s" % (att.status(), act_note,
                                                                                             att.metrics_source)],
-                              max_gap=60)
+                              max_gap=60, font_size=QUEUE_FONT_SIZE, width=QUEUE_WIDTH, right=QUEUE_LEGEND)
             ctx.written.append(path)
         ctx.write_csv(manifest, "samples.csv", ["manifest", "attempt", "epoch_s", "utc", "stream", "field", "value"],
                       sorted(long_rows, key=lambda r: (r[1], r[2], r[4], r[5])))

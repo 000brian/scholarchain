@@ -83,7 +83,7 @@ object RunFixture {
       QueueSpec(10, 2, seed),
       None,
       None,
-      Policy.erV1
+      Policy.current
     )
 
   def run(

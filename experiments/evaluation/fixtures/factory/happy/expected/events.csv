@@ -1,0 +1,20 @@
+event_id,phase,type,detail,agent,step,attempt,finding_id,counted,duplicate_of,file,line,text
+E00001,phase-00,execution,done,build-engineer,agent-report-build,1,,yes,,phase-00/agent-report-build.md,2,STATUS: COMPLETE
+E00002,phase-00,hook-block,phrase,,,,,yes,,phase-00/human-gate.md,2,- The guard blocked one heredoc; it was redone.
+E00003,phase-00,manual-intervention,phrase,,,,,yes,,phase-00/human-gate.md,4,- One manual intervention: the human restarted the session.
+E00004,phase-00,repair,repair file,build-engineer,,,,yes,,phase-00/repair-01-build.md,1,# repair
+E00005,phase-00,finding,major,build-engineer,,,B-01,yes,,phase-00/review-report.md,5,| B-01 | major | build-engineer | first finding |
+E00006,phase-00,finding,minor,build-engineer,,,B-02,yes,,phase-00/review-report.md,6,| B-02 | minor | build-engineer | second finding |
+E00007,phase-00,finding,minor,build-engineer,,,B-02,no,E00006,phase-00/review-report-02.md,4,| B-02 | minor | build-engineer | restated |
+E00008,phase-01,blocked-terminal,BLOCKED-ON,rag-engineer,,,,yes,,phase-01/agent-report-rag.md,1,STATUS: BLOCKED-ON
+E00009,phase-01,hook-block,phrase,,,,,yes,,phase-01/human-gate.md,3,- The stop hook blocked ending a turn once while the marker was stale.
+E00010,phase-01,execution,done,storage-engineer,1,1,,yes,,phase-01/orchestrator-summary.md,5,| 1 | storage-engineer | done | agent-report-storage.md |
+E00011,phase-01,execution,blocked,rag-engineer,2,1,,yes,,phase-01/orchestrator-summary.md,6,| 2 | rag-engineer | BLOCKED-ON storage-engineer | agent-report-rag.md |
+E00012,phase-01,blocked-row,step table,rag-engineer,2,,,no,E00008,phase-01/orchestrator-summary.md,6,| 2 | rag-engineer | BLOCKED-ON storage-engineer | agent-report-rag.md |
+E00013,phase-01,execution,done,code-reviewer,R-1,1,,yes,,phase-01/orchestrator-summary.md,7,| R-1 | code-reviewer | done (APPROVE) | - |
+E00014,phase-01,execution,blocked,test-engineer,6,1,,yes,,phase-01/orchestrator-summary.md,10,| 6 | test-engineer | BLOCKED-ON hadoop-engineer | - |
+E00015,phase-01,blocked-row,step table,test-engineer,6,,,yes,,phase-01/orchestrator-summary.md,10,| 6 | test-engineer | BLOCKED-ON hadoop-engineer | - |
+E00016,phase-01,blocked-row,summary line,rag-engineer,,,,no,E00008,phase-01/orchestrator-summary.md,12,- rag-engineer stopped BLOCKED-ON storage-engineer; routed.
+E00017,phase-01,hook-block,phrase,,,,,no,E00009,phase-01/orchestrator-summary.md,13,- Stop hook: the main-session stop hook blocked ending a turn once; we waited.
+E00018,phase-01,execution,blocked,test-engineer,6,1,,no,E00014,phase-01/orchestrator-summary-s2.md,5,| 6 | test-engineer | BLOCKED-ON hadoop-engineer | - |
+E00019,phase-01,blocked-row,step table,test-engineer,6,,,no,E00015,phase-01/orchestrator-summary-s2.md,5,| 6 | test-engineer | BLOCKED-ON hadoop-engineer | - |

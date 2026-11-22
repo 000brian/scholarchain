@@ -712,13 +712,26 @@ object Harness {
     // repairs 20 and 21: weighted intervals carry their reliability flag wherever they are shown
     def reliability(w: ujson.Value): Option[ujson.Value] =
       EvalReport.at(w, "intervalReliability", "metrics")
+    // Phase 16, reviewer M3: an unreliable interval shows its zero-event bound in the same cell
+    // or entry, never the collapsed bootstrap interval alone; M4: a partly design-fixed rate is
+    // labeled so, never "design-determined"
     def mark(rel: Option[ujson.Value], k: String): String =
       rel.flatMap(EvalReport.at(_, k)) match {
         case Some(o) if EvalReport.at(o, "designDetermined").contains(ujson.Bool(true)) =>
           " (design-determined)"
-        case Some(o) if EvalReport.at(o, "unreliable").contains(ujson.Bool(true)) =>
-          " (unreliable)"
-        case _ => ""
+        case Some(o) =>
+          val flags =
+            (if (EvalReport.at(o, "partlyDesignFixed").contains(ujson.Bool(true)))
+               List("partly design-fixed")
+             else Nil) ++
+              (if (EvalReport.at(o, "unreliable").contains(ujson.Bool(true))) List("unreliable")
+               else Nil)
+          if (flags.isEmpty) ""
+          else {
+            val bound = EvalReport.at(o, "zeroEventBound95").getOrElse(ujson.Null)
+            s" (${flags.mkString(", ")}; zero-event bound ${ci(bound)})"
+          }
+        case None => ""
       }
     def line(name: String, x: ujson.Value, rel: Option[ujson.Value] = None) =
       sb.append(
@@ -756,7 +769,14 @@ object Harness {
                 val list =
                   if (zs.isEmpty) "no zero-event stratum"
                   else s"${zs.size} zero-event strata, largest first: $shown$more"
-                s"${
+                val partly = EvalReport.at(r, "partlyDesignFixed") match {
+                  case Some(ujson.Bool(true)) =>
+                    val share =
+                      EvalReport.at(r, "designFixedShareOfPopulation").getOrElse(ujson.Null)
+                    s"${r("partlyDesignFixedNote").str} Strata with the share fixed by the design hold ${pct(share)} of the population weight. "
+                  case _ => ""
+                }
+                s"$partly${
                     if (r("unreliable").bool) "unreliable" else "not flagged"
                   }: zero-event strata hold ${pct(r("zeroEventShareOfRelevantPopulation"))} of the relevant population weight and ${pct(r("zeroEventShareOfDenominatorWeight"))} of the observed denominator weight ($list). $bound"
               }

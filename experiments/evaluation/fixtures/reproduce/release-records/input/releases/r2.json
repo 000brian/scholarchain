@@ -1,0 +1,9 @@
+{
+  "kind": "scholarchain-release",
+  "attempt_id": "r2",
+  "environment": "course",
+  "commit": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+  "plan_id": "plan-2",
+  "plan_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "applied_utc": "2026-01-02T00:00:00Z"
+}

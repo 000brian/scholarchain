@@ -16,9 +16,10 @@ final case class Abstention(code: String, text: String)
   * (never model prose, never a name). An abstained answer whose codes are all missing or invalid
   * gets [[Unclassified]], so no abstained audit lacks a code; no reachable site produces it.
   *
-  * Two codes are context codes: they are added when the answer abstained and a shortest-path step
-  * found no path ([[NoPathWithinDepth]], the search was complete) or stopped at its time budget
-  * ([[PathQueryTimeout]]). They say what the path search saw; they are not themselves a failure.
+  * Three codes are context codes: they are added when the answer abstained and a shortest-path step
+  * found no path ([[NoPathWithinDepth]], the search was complete), stopped at its time budget
+  * ([[PathQueryTimeout]]) or stopped at a graph store resource limit ([[PathQueryBounded]], Phase
+  * 16). They say what the path search saw; they are not themselves a failure.
   */
 object AbstentionCodes {
   val UnsupportedVenueFilter = "unsupported-venue-filter"
@@ -40,6 +41,13 @@ object AbstentionCodes {
   val PathResultInvalid = "path-result-invalid"
   val NoPathWithinDepth = "no-path-within-depth"
   val PathQueryTimeout = "path-query-timeout"
+
+  /** Phase 16 (storage L1): the path search stopped at a graph store resource limit
+    * (`GraphStop.ResourceLimit`: Neptune `MemoryLimitExceededException` or
+    * `QueryLimitExceededException` after storage's bounded retry). A context code like
+    * [[PathQueryTimeout]]: existence unknown, not a store failure ([[PathQueryFailed]]).
+    */
+  val PathQueryBounded = "path-query-bounded"
   val EdgeLookupFailed = "edge-lookup-failed"
   val NeighborLookupFailed = "neighbor-lookup-failed"
   val CollaborationNeedsResearchers = "collaboration-needs-researchers"
@@ -69,6 +77,7 @@ object AbstentionCodes {
     PathResultInvalid -> "the stored path does not connect the two researchers",
     NoPathWithinDepth -> "the path search was complete and found no path within the depth limit",
     PathQueryTimeout -> "the path search stopped at its time budget; whether a path exists is unknown",
+    PathQueryBounded -> "the path search stopped at a graph store resource limit; whether a path exists is unknown",
     EdgeLookupFailed -> "the edge lookup failed (graph store failure)",
     NeighborLookupFailed -> "the neighbor lookup failed (graph store failure)",
     CollaborationNeedsResearchers -> "direct collaboration needs one or two resolved researchers",

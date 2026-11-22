@@ -207,6 +207,29 @@ class ReadRoutesSuite extends munit.FunSuite {
       assertEquals(view.abstentionReasons.map(_.code), codes)
   }
 
+  h.test(
+    "Phase 16: explain shows rag's new code path-query-bounded with its own text, not as unclassified"
+  ) { h =>
+    val res = answer(h)
+    val v3 = h.runtime.stores.audits.read(RunId(res.queryId), 10).toOption.get.last
+    val codes = List(AbstentionCodes.PathQueryBounded, AbstentionCodes.PathQueryFailed)
+    assertEquals(codes.head, "path-query-bounded")
+    assert(
+      h.runtime.stores.audits.append(v3.copy(abstained = true, abstentionCodes = codes)).isRight
+    )
+    val ex = get(h, s"/v1/explain/${res.queryId}").json
+    val reasons = ex("abstentionReasons").arr.toList
+    assertEquals(reasons.map(_("code").str), codes)
+    assertEquals(
+      reasons.map(_("text").str),
+      codes.map(AbstentionCodes.Table(_))
+    )
+    assertNotEquals(
+      reasons.head("text").str,
+      AbstentionCodes.Table(AbstentionCodes.Unclassified)
+    )
+  }
+
   // ---- graph ---------------------------------------------------------------------------------
 
   h.test("graph nodes: researcher, work, unknown (404), malformed (400), other kinds (422)") { h =>

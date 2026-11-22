@@ -5,7 +5,9 @@
 # executed by deploy-engineer after the human commits the approval line.
 #
 # Status (Phase 14, I-28): static: shellcheck clean; runtime: untested; human
-# execution required.
+# execution required. Phase 16 L-07 change (endpoint values registered for
+# masking before the apply; the saved apply copy masked again after it):
+# runtime: untested.
 
 set -Eeuo pipefail
 umask 077
@@ -73,8 +75,14 @@ step 6 happens before any cloud call:
      Terraform itself refuses a saved plan that is stale. The full apply
      output is shown with every line masked (the account ID as <account>;
      bucket names of this environment, even ones this apply creates, as
-     <data-bucket> and <vector-bucket>) and that masked copy is kept next
-     to the plan (.apply.txt).
+     <data-bucket> and <vector-bucket>; Phase 16 L-07: the endpoint values
+     of the current Terraform outputs, read before the apply, as
+     <api-host>, <job-queue-url>, <embedding-queue-url>, <job-dlq-url>,
+     <embedding-dlq-url>, <alb-host> and <neptune-host>) and that masked
+     copy is kept next to the plan (.apply.txt). After the apply, the
+     outputs are read again (endpoints the apply created exist only now),
+     the saved copy is masked once more in place with every value known
+     then, and checked; a value still found is named by kind in a warning.
   8. Verifies the deployed revision: every ECS service (query, evidence,
      graph, worker) runs the latest ACTIVE revision of its task-definition
      family and its image tag equals the plan's image tag. Runtime on: waits
@@ -457,12 +465,36 @@ apply_plan() {
   base="${base%.tfplan}"
   text="${TF_DIR}/${PLANS_SUBDIR}/${base}.apply.txt"
   [ ! -e "${text}" ] || die 4 "refusing: ${text} exists (this plan was applied before; make a new plan)"
+  # L-07 (Phase 16): the apply output ends with the Terraform outputs, which
+  # hold the API host, queue URLs and endpoint hosts. Register the values the
+  # state already has, so mask_stream hides them on screen and in the copy.
+  local before_outputs
+  before_outputs="$(tf_output_json)" || exit "$?"
+  register_output_identifiers "${before_outputs}" ||
+    die 5 "could not register the endpoint values of the current outputs for masking (nothing applied)"
+  before_outputs=""
   APPLY_TEXT="${text}"
   info "full apply output follows, masked (the masked copy is saved to ${text})"
   with_timeout "${APPLY_TIMEOUT}" terraform "-chdir=${TF_DIR}" apply -input=false \
     -lock-timeout=60s -no-color "${PLAN_FILE_REL}" 2>&1 | mask_stream | tee "${text}" || rc=$?
   [ "${rc}" -eq 124 ] && die 7 "terraform apply timed out after ${APPLY_TIMEOUT}s; no release record written; run scripts/plan.sh to see the state"
   [ "${rc}" -eq 0 ] || die 5 "terraform apply failed (status ${rc}); no release record written; run scripts/plan.sh to see what was applied"
+}
+
+# L-07 (Phase 16): masks the saved apply copy once more, in place, with every
+# identifier registered now (account, real bucket names, endpoint values of
+# the outputs after the apply). Best effort: a failure is a warning, and the
+# check that follows still names any value left.
+remask_apply_text() {
+  [ -n "${APPLY_TEXT}" ] && [ -f "${APPLY_TEXT}" ] || return 0
+  local tmp="${APPLY_TEXT}.remask"
+  if mask_stream <"${APPLY_TEXT}" >"${tmp}" && mv -f -- "${tmp}" "${APPLY_TEXT}"; then
+    info "saved apply output masked again with the identifiers known after the apply"
+  else
+    rm -f -- "${tmp}"
+    warn "could not mask the saved apply output again"
+  fi
+  return 0
 }
 
 APPLY_TEXT=""
@@ -520,6 +552,12 @@ verify_deployment() {
   # apply copy once more.
   register_identifiers "${ACCOUNT_ID}" "$(jq -r '.data_bucket_name.value // empty' <<<"${outputs}")" \
     "$(jq -r '.vector_bucket_name.value // empty' <<<"${outputs}")" || die 5 "could not register the identifiers"
+  # L-07 (Phase 16): endpoints this apply created are known only now. A
+  # registration problem is a warning here (the apply has happened; the
+  # release record must still be written).
+  register_output_identifiers "${outputs}" ||
+    warn "could not register every endpoint value of the new outputs; the masked copy may hold one"
+  remask_apply_text
   if [ -n "${APPLY_TEXT}" ] && ! check_no_identifiers "${APPLY_TEXT}"; then
     warn "the saved apply output ${APPLY_TEXT} still holds an identifier (listed above); do not share it"
   fi

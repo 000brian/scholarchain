@@ -24,12 +24,25 @@ object PackageCheck {
   val SparkClasses: Seq[String] =
     Seq("org.scholarchain.spark.GraphAnalyticsJob", "org.scholarchain.spark.JsonlExport")
 
-  // Services jar, the image's app.jar (four services and the ops task).
+  // Services jar, the image's app.jar (four services and the ops task). L-09 (Phase 16): the ops
+  // task's rag-retrieval-eval loader runs RetrievalEvalJob from this jar
+  // (scripts/run-bounded-pipeline.sh), so scripts/check.sh gate 8 requires it here.
   val ServicesMainClass: String = "org.scholarchain.services.Main"
   val ServicesClasses: Seq[String] = Seq(
     ServicesMainClass,
     "org.scholarchain.storage.load.StorageLoadMain",
-    "org.scholarchain.rag.ingest.RagIngestJob"
+    "org.scholarchain.rag.ingest.RagIngestJob",
+    "org.scholarchain.rag.eval.RetrievalEvalJob"
+  )
+
+  /** Each jar's class list with the module folders whose main sources reach that jar (the module
+    * itself and its internal dependencies). buildSelfTest maps every listed class to its source.
+    */
+  val ClassListsByJar: Seq[(String, Seq[String], Seq[String])] = Seq(
+    ("hadoop jar", HadoopClasses, Seq("hadoop", "core")),
+    ("entity-resolution jar", ErClasses, Seq("entity-resolution", "core")),
+    ("spark jar", SparkClasses, Seq("spark", "core")),
+    ("services jar", ServicesClasses, Seq("services", "rag", "storage", "core"))
   )
 
   /** Provided by the EMR Spark runtime; never inside the spark jar. */

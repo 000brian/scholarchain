@@ -65,49 +65,109 @@ object RequestIds {
   * opens for `openMillis` (callers answer 503 `CIRCUIT_OPEN`), then lets one trial call through; a
   * success closes it, a failure opens it again. Only downstream failures are recorded (a 4xx never
   * reaches it). Time comes from the injected clock. Thread-safe.
+  *
+  * Phase 16, FECD-1 (breaker side, step D's B1): every state change (closed to open, open to
+  * closed, a failed trial opening it again) starts a new generation, and each
+  * [[CircuitBreaker.Slot]] carries the generation it was taken in. An outcome reported with a slot
+  * of an earlier generation is stale (the call was admitted before the breaker last changed state,
+  * typically one of the calls in flight when a concurrent burst opened it) and changes nothing: it
+  * does not extend the open period, does not free or fail the half-open trial, does not close an
+  * open breaker and is not counted toward the next opening. Before this, each in-flight failure
+  * that returned after the opening restarted the open period and cleared the trial flag (so a
+  * second trial could run beside the first), and an in-flight success closed an open breaker
+  * without any trial. The threshold and the open period are unchanged.
+  *
+  * @param onChange
+  *   called with the breaker name and the new state (`open`, `closed`) after each state change,
+  *   outside the lock (the server logs it; tests record it)
   */
-final class CircuitBreaker(val name: String, threshold: Int, openMillis: Long, clock: Clock) {
+final class CircuitBreaker(
+    val name: String,
+    threshold: Int,
+    openMillis: Long,
+    clock: Clock,
+    onChange: (String, String) => Unit = (_, _) => ()
+) {
   require(threshold >= 1 && openMillis >= 1)
   private var failures = 0
   private var openUntil: Option[Long] = None
   private var trialInFlight = false
+  private var generation = 0L
+  private var openings = 0L
+  private var stale = 0L
 
   /** A slot when a call may proceed (closed, or the one trial after the open period); `trial` tells
     * whether this slot is the half-open trial.
     */
   def acquire(): Option[CircuitBreaker.Slot] = synchronized {
     openUntil match {
-      case None                          => Some(CircuitBreaker.Slot(trial = false))
+      case None                          => Some(new CircuitBreaker.Slot(false, generation))
       case Some(t) if clock.millis() < t => None
       case Some(_) if trialInFlight      => None
-      case Some(_)                       => trialInFlight = true; Some(CircuitBreaker.Slot(true))
+      case Some(_)                       =>
+        trialInFlight = true; Some(new CircuitBreaker.Slot(true, generation))
     }
   }
 
-  /** True when a call may proceed (see [[acquire]]). */
+  /** True when a call may proceed (see [[acquire]]). The slot is not kept, so its outcome can only
+    * be reported with the slot-less [[recordSuccess()]] and [[recordFailure()]].
+    */
   def tryAcquire(): Boolean = acquire().nonEmpty
 
-  /** Gives back a slot taken by [[acquire]] without an outcome (the call was never made). Only the
-    * holder of the trial slot frees the trial (S-9): a slot taken while the breaker was closed
-    * never frees another request's trial.
+  /** Gives back a slot taken by [[acquire]] without an outcome (the call was never made, or its
+    * outcome says nothing about availability). Only the holder of the trial slot of the current
+    * generation frees the trial (S-9): a slot taken while the breaker was closed never frees
+    * another request's trial.
     */
   def cancel(slot: CircuitBreaker.Slot): Unit = synchronized {
-    if (slot.trial) trialInFlight = false
+    if (slot.trial && slot.generation == generation) trialInFlight = false
   }
 
-  def recordSuccess(): Unit = synchronized {
+  /** The call of `slot` succeeded. Stale slots change nothing (see the class comment). */
+  def recordSuccess(slot: CircuitBreaker.Slot): Unit = {
+    val changed = synchronized {
+      if (slot.generation != generation) { stale += 1; None }
+      else succeeded()
+    }
+    changed.foreach(onChange(name, _))
+  }
+
+  /** The call of `slot` failed. Stale slots change nothing (see the class comment). */
+  def recordFailure(slot: CircuitBreaker.Slot): Unit = {
+    val changed = synchronized {
+      if (slot.generation != generation) { stale += 1; None }
+      else failed()
+    }
+    changed.foreach(onChange(name, _))
+  }
+
+  /** A success of a caller that holds no slot (counted in the current generation). */
+  def recordSuccess(): Unit = synchronized(succeeded()).foreach(onChange(name, _))
+
+  /** A failure of a caller that holds no slot (counted in the current generation). */
+  def recordFailure(): Unit = synchronized(failed()).foreach(onChange(name, _))
+
+  private def succeeded(): Option[String] = {
+    val wasOpen = openUntil.nonEmpty
     failures = 0; openUntil = None; trialInFlight = false
+    if (wasOpen) { generation += 1; Some("closed") }
+    else None
   }
 
-  def recordFailure(): Unit = synchronized {
+  private def failed(): Option[String] =
     if (openUntil.nonEmpty) {
       // the trial failed: open again
       openUntil = Some(clock.millis() + openMillis); trialInFlight = false
+      generation += 1; openings += 1
+      Some("open")
     } else {
       failures += 1
-      if (failures >= threshold) openUntil = Some(clock.millis() + openMillis)
+      if (failures >= threshold) {
+        openUntil = Some(clock.millis() + openMillis)
+        failures = 0; generation += 1; openings += 1
+        Some("open")
+      } else None
     }
-  }
 
   /** `closed`, `open` or `half-open` (tests and logs). */
   def state: String = synchronized {
@@ -118,27 +178,50 @@ final class CircuitBreaker(val name: String, threshold: Int, openMillis: Long, c
     }
   }
 
+  /** How often the breaker opened (a failed trial counts) since it was built. */
+  def openCount: Long = synchronized(openings)
+
+  /** Outcomes ignored because their slot was stale (see the class comment). */
+  def staleOutcomes: Long = synchronized(stale)
+
   /** Runs `f` through the breaker: Left(None) when open; Left(Some(e)) on a downstream failure. */
   def call[A](f: => Either[String, A]): Either[Option[String], A] =
-    if (!tryAcquire()) Left(None)
-    else {
-      val r =
-        try f
-        catch {
-          case e: Throwable =>
-            recordFailure(); throw e
+    acquire() match {
+      case None       => Left(None)
+      case Some(slot) =>
+        val r =
+          try f
+          catch {
+            case e: Throwable =>
+              recordFailure(slot); throw e
+          }
+        r match {
+          case Right(a) => recordSuccess(slot); Right(a)
+          case Left(e)  => recordFailure(slot); Left(Some(e))
         }
-      r match {
-        case Right(a) => recordSuccess(); Right(a)
-        case Left(e)  => recordFailure(); Left(Some(e))
-      }
     }
 }
 
 object CircuitBreaker {
 
-  /** A call slot of [[CircuitBreaker.acquire]]; `trial` is true for the half-open trial. */
-  final case class Slot(trial: Boolean)
+  /** A call slot of [[CircuitBreaker.acquire]]; `trial` is true for the half-open trial. The
+    * generation the slot was taken in is internal bookkeeping: two slots are equal when their
+    * `trial` flags are.
+    */
+  final class Slot private[services] (val trial: Boolean, private[services] val generation: Long) {
+    override def equals(o: Any): Boolean = o match {
+      case s: Slot => s.trial == trial
+      case _       => false
+    }
+    override def hashCode: Int = trial.hashCode
+    override def toString: String = s"Slot(trial = $trial)"
+  }
+
+  object Slot {
+
+    /** A slot of generation 0 (tests compare slots by their `trial` flag). */
+    def apply(trial: Boolean): Slot = new Slot(trial, 0L)
+  }
 }
 
 /** One token bucket per process for authenticated routes (`service.requestsPerMinute`). The bucket
@@ -268,9 +351,13 @@ final class ServiceLog(sink: LogSink, role: String, clock: Clock, redactor: Reda
 
   /** A structured line another module built (rag's `reembed-delivery` line, Phase 15 decision 8.1),
     * written as one line of this log: `time` and `role` are added, the line's own fields (its
-    * `event` included) are kept unchanged. The line's fields are fixed vocabularies and validated
-    * IDs (rag's contract), so no redaction is applied: the redactor's 12-digit rule would mangle a
-    * task ID. A line that is not a JSON object is written as `{"event": "<event>", "code":
+    * `event` included) are kept. Phase 16 H-06: every string value of the line passes the redactor
+    * (the configured key values, `arn:` strings, 12-digit numbers and `s3://` URIs become
+    * `[redacted]`). rag validates a task ID only by shape (`[A-Za-z0-9][A-Za-z0-9._:-]{0,127}`), so
+    * a sender could put an ARN or an account number in it; an ordinary task ID such as
+    * `p15-f-poison-20261121T001529Z` is unchanged, so log filters on a task ID prefix still work.
+    * The fixed-vocabulary fields (`event`, `outcome`, `code`, `action`, `index`) hold none of these
+    * patterns. A line that is not a JSON object is written as `{"event": "<event>", "code":
     * "log-line-unreadable"}` so the one-line-per-delivery count holds.
     */
   def external(line: String, fallbackEvent: String): Unit = {
@@ -279,8 +366,12 @@ final class ServiceLog(sink: LogSink, role: String, clock: Clock, redactor: Reda
       try ujson.read(line).objOpt
       catch { case scala.util.control.NonFatal(_) => None }
     parsed match {
-      case Some(fields) => fields.foreach { case (k, v) => o(k) = v }
-      case None         => o("code") = "log-line-unreadable"
+      case Some(fields) =>
+        fields.foreach {
+          case (k, ujson.Str(s)) => o(k) = redactor(s)
+          case (k, v)            => o(k) = v
+        }
+      case None => o("code") = "log-line-unreadable"
     }
     emit(o)
   }

@@ -110,6 +110,43 @@ class HttpBehaviorSuite extends munit.FunSuite {
     h.slow.graphDelayMillis.set(0L)
   }
 
+  h.test(
+    "G-23 readiness: a failed check logs its reason class (graph code, deadline), never the store text"
+  ) { h =>
+    def failures(): List[ujson.Obj] =
+      h.log.all.filter(_("event").str == "readiness-check-failed")
+    h.flaky.failGraph.set(true) // a thrown transient StoreException
+    assertEquals(get(h, "/readyz", key = None).status, 503)
+    assertEquals(
+      failures().map(l => (l("check").str, l("reason").str)),
+      List("graph" -> "graph-transient")
+    )
+    h.flaky.failGraph.set(false)
+    h.slow.graphError.set(
+      Some(org.scholarchain.storage.ports.GraphReadError.Permanent("AccessDenied neptune host"))
+    )
+    h.clock.advance(ServiceLimits.ReadinessCacheMillis)
+    assertEquals(get(h, "/readyz", key = None).status, 503)
+    assertEquals(failures().last("reason").str, "graph-permanent")
+    h.slow.graphError.set(None)
+    h.slow.graphDelayMillis.set(ServiceLimits.ReadinessDeadlineMillis + 1000L)
+    h.clock.advance(ServiceLimits.ReadinessCacheMillis)
+    assertEquals(get(h, "/readyz", key = None).status, 503)
+    assertEquals(failures().last("reason").str, HealthService.DeadlinePassed)
+    h.slow.graphDelayMillis.set(0L)
+    h.clock.advance(ServiceLimits.ReadinessCacheMillis)
+    assertEquals(get(h, "/readyz", key = None).status, 200)
+    assertEquals(failures().size, 3) // a passing probe logs nothing
+    assert(
+      failures().forall(
+        _.obj.keySet.toSet.subsetOf(Set("time", "role", "event", "check", "reason"))
+      )
+    )
+    for (line <- h.log.rendered; s <- forbidden(h)) assert(!line.contains(s), s"$s in $line")
+    assertEquals(HealthService.reasonOf("connect timed out to host.example"), "store-failure")
+    assertEquals(HealthService.reasonOf("graph-timeout"), "graph-timeout")
+  }
+
   test(
     "rate limit: requests over requestsPerMinute get 429 with Retry-After; health is never limited"
   ) {

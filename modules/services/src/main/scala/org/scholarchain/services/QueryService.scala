@@ -22,21 +22,40 @@ import org.scholarchain.storage.jobs._
 
 /** The three circuit breakers (decision 7i): the workflow, the graph port, and evidence and audit
   * reads.
+  *
+  * @param onChange
+  *   breaker name and new state after each state change (the server logs a `circuit-state` line)
   */
-final class Breakers(settings: ServiceSettings, clock: Clock) {
+final class Breakers(
+    settings: ServiceSettings,
+    clock: Clock,
+    onChange: (String, String) => Unit = (_, _) => ()
+) {
   private def b(name: String) =
     new CircuitBreaker(
       name,
       settings.circuitFailureThreshold,
       settings.circuitOpenMillis.toLong,
-      clock
+      clock,
+      onChange
     )
   val workflow: CircuitBreaker = b("workflow")
   val graph: CircuitBreaker = b("graph")
   val reads: CircuitBreaker = b("reads")
 }
 
-/** Everything the application services share. */
+/** The time limit of the evidence and explain reads (Phase 16, route time limits): reads run on
+  * `pool` and the request waits at most `deadlineMillis`.
+  */
+final class ReadTimeLimit(val pool: ThreadPoolExecutor, val deadlineMillis: Long) {
+  require(deadlineMillis >= 1, "deadlineMillis must be >= 1")
+}
+
+/** Everything the application services share.
+  *
+  * @param readLimit
+  *   the time limit of [[timedRead]]; None: [[timedRead]] is [[read]] (no limit)
+  */
 final class AppContext(
     val runtime: RuntimeService,
     val stores: ServiceStores,
@@ -44,7 +63,8 @@ final class AppContext(
     val clock: Clock,
     val ids: IdGenerator,
     val log: ServiceLog,
-    val breakers: Breakers
+    val breakers: Breakers,
+    val readLimit: Option[ReadTimeLimit] = None
 ) {
   def now(): Long = clock.millis()
   def expiresAt(nowMillis: Long): Long = nowMillis / 1000L + settings.jobTtlSeconds.toLong
@@ -55,6 +75,53 @@ final class AppContext(
     breakers.reads.call(f).left.map {
       case None    => ApiError.retryable(ErrorCode.CIRCUIT_OPEN)
       case Some(_) => ApiError.downstream
+    }
+
+  /** [[read]] with the route time limit of [[readLimit]] (the evidence and explain routes). The
+    * read runs on the limit's pool; the request waits at most `deadlineMillis`. Past it the read is
+    * cancelled (interrupted), the reads breaker records a failure for this request's slot (a late
+    * result is never recorded), one `read-deadline-passed` line is logged (`route` only), and the
+    * answer is 504 `READ_TIMEOUT` (retryable). A full pool is 503 `OVERLOADED`. A thrown exception
+    * is recorded as a failure and rethrown (the adapter answers 500 INTERNAL).
+    */
+  def timedRead[A](route: String, traceId: Option[String])(
+      f: => Either[String, A]
+  ): Either[ApiError, A] =
+    readLimit match {
+      case None        => read(f)
+      case Some(limit) =>
+        breakers.reads.acquire() match {
+          case None       => Left(ApiError.retryable(ErrorCode.CIRCUIT_OPEN))
+          case Some(slot) =>
+            val task: Callable[Either[String, A]] = () => f
+            val future =
+              try limit.pool.submit(task)
+              catch {
+                case NonFatal(_) =>
+                  breakers.reads.cancel(slot)
+                  return Left(ApiError.retryable(ErrorCode.OVERLOADED))
+              }
+            try
+              future.get(limit.deadlineMillis, TimeUnit.MILLISECONDS) match {
+                case Right(a) => breakers.reads.recordSuccess(slot); Right(a)
+                case Left(_)  => breakers.reads.recordFailure(slot); Left(ApiError.downstream)
+              }
+            catch {
+              case _: TimeoutException =>
+                future.cancel(true)
+                breakers.reads.recordFailure(slot)
+                log.event("read-deadline-passed", traceId, List("route" -> ujson.Str(route)))
+                Left(ApiError.retryable(ErrorCode.READ_TIMEOUT))
+              case e: ExecutionException =>
+                breakers.reads.recordFailure(slot)
+                throw Option(e.getCause).getOrElse(e)
+              case e: InterruptedException =>
+                future.cancel(true)
+                breakers.reads.cancel(slot)
+                Thread.currentThread().interrupt()
+                throw e
+            }
+        }
     }
 
   /** A job or idempotency store call (no breaker; a Left is DOWNSTREAM_FAILURE). */
@@ -318,7 +385,7 @@ final class QueryService(app: AppContext, pool: ThreadPoolExecutor) {
       slot: CircuitBreaker.Slot
   ): Either[ApiError, ApiResponse] = {
     val task: Callable[Either[ApiError, CompletedResult]] = () =>
-      try finish(runner.run(vq, queryId, ctx.traceId, job), job)
+      try finish(runner.run(vq, queryId, ctx.traceId, job), job, slot)
       finally permits.release()
     val future =
       try pool.submit(task)
@@ -348,22 +415,25 @@ final class QueryService(app: AppContext, pool: ThreadPoolExecutor) {
     }
   }
 
-  /** Records the breaker outcome and finishes the job. */
+  /** Records the breaker outcome for this request's slot (a workflow that finishes after the
+    * breaker changed state is stale and changes nothing, FECD-1) and finishes the job.
+    */
   private def finish(
       outcome: runner.Outcome,
-      job: Option[AtomicReference[JobRecord]]
+      job: Option[AtomicReference[JobRecord]],
+      slot: CircuitBreaker.Slot
   ): Either[ApiError, CompletedResult] =
     outcome match {
       case runner.Outcome.Failed =>
-        app.breakers.workflow.recordFailure()
+        app.breakers.workflow.recordFailure(slot)
         job.foreach(h => failJob(h.get, JobErrorCodes.WorkflowFailed))
         Left(ApiError.downstream)
       case runner.Outcome.TooLarge =>
-        app.breakers.workflow.recordSuccess()
+        app.breakers.workflow.recordSuccess(slot)
         job.foreach(h => failJob(h.get, JobErrorCodes.ResultTooLarge))
         Left(ApiError(ErrorCode.RESULT_TOO_LARGE))
       case runner.Outcome.Done(result, stored) =>
-        app.breakers.workflow.recordSuccess()
+        app.breakers.workflow.recordSuccess(slot)
         job match {
           case None    => Right(result)
           case Some(h) =>

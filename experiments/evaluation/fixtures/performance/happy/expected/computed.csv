@@ -1,0 +1,15 @@
+manifest,attempt,measure,value,unit,source,rule
+p15-a-hadoop,A1,hadoop_map_input_splits_total,13,map tasks (planned),hadoop-step-counters.csv,sum of map_input_splits over 2 jobs
+p15-a-hadoop,A1,hadoop.j09-graph-export output-records coauthor_pair_candidate,30,records,hadoop-job-counters.csv,sum over 2 year counters
+p15-a-hadoop,A1,hadoop.j09-graph-export output-records work,3,records,hadoop-job-counters.csv,sum over 1 year counters
+p15-b-spark-burst,B1,spark_tasks_total,15,tasks,spark-stage-metrics.csv,sum of tasks over 2 stage groups
+p15-b-spark-burst,B1,spark_stages_total,3,stages,spark-stage-metrics.csv,sum of stages over 2 stage groups
+p15-b-spark-burst,B1,spark_shuffle_read_bytes_total,100,bytes,spark-stage-metrics.csv,sum of shuffleReadBytes over 2 stage groups
+p15-b-spark-burst,B1,spark_shuffle_write_bytes_total,250,bytes,spark-stage-metrics.csv,sum of shuffleWriteBytes over 2 stage groups
+p15-b-spark-burst,B1,spark_disk_spill_bytes_total,0,bytes,spark-stage-metrics.csv,sum of diskSpillBytes over 2 stage groups
+p15-b-spark-burst,B1,spark_stage_timings_seconds_total,3.75,s,spark-stage-timings.csv,sum of millis / 1000 over 2 stages
+p15-b-spark-burst,B1,step_seconds:spark-graph-analytics,1416,s,emr-steps.csv,end_epoch minus start_epoch
+p15-b-spark-burst,B1,step_seconds:spark-job-config,4,s,emr-steps.csv,end_epoch minus start_epoch
+p15-b-spark-burst,B1,instance_count,2,instances,emr-instances.csv,rows with created_epoch and ended_epoch
+p15-b-spark-burst,B1,instance_seconds,6200,s,emr-instances.csv,sum of ended_epoch minus created_epoch
+p15-b-spark-burst,B1,cost_estimate_usd,0.413333,USD,emr-instances.csv,estimate: instance_seconds / 3600 x 0.24 USD per instance-hour (fixture rate); EBS excluded

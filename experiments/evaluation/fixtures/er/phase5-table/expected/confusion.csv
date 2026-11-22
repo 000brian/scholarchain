@@ -1,0 +1,9 @@
+matrix,decision,MATCH,NON_MATCH,UNSURE
+unweighted,accepted,93,1,4
+unweighted,rejected,1,49,2
+unweighted,unresolved,12,59,38
+unweighted,conflict,6,26,9
+weighted,accepted,11155611.5,20.0,413734.3
+weighted,rejected,1514.0,6427874.6,232357.4
+weighted,unresolved,65198.2,482811.1,325548.7
+weighted,conflict,487213.0,392997.9,264098.3

@@ -6,6 +6,7 @@ import org.scholarchain.core._
 import org.scholarchain.core.config.{NamedWindow, RuntimeSettings, ScholarChainConfig}
 import org.scholarchain.rag.retrieval.SemanticContextEntry
 import org.scholarchain.storage.dynamo.RankingMetrics
+import org.scholarchain.storage.ports.GraphStop
 
 // Typed inputs and outputs of the runtime stages (package org.scholarchain.rag.runtime).
 // Every number, identifier, edge and path in these types comes from a storage reader; the model
@@ -362,8 +363,12 @@ final case class PathFact(
   def hops: Int = researchers.size - 1
 }
 
-/** A bounded path search that found nothing: complete (no path within `maxDepth`) or stopped at the
-  * time limit (unknown).
+/** A bounded path search that found nothing: complete (no path within `maxDepth`) or stopped first
+  * (unknown), at the time limit or (Phase 16 L1) at a graph store resource limit.
+  *
+  * @param stoppedBy
+  *   why an incomplete search stopped (storage's [[GraphStop]]); ignored when `complete`. None on
+  *   an incomplete fact reads as the time limit, the only stop before Phase 16 ([[stop]]).
   */
 final case class PathAbsentFact(
     from: ResearcherRef,
@@ -374,8 +379,20 @@ final case class PathAbsentFact(
     complete: Boolean,
     depthSearched: Int,
     source: SourceRef,
-    priority: Int
-) extends Fact
+    priority: Int,
+    stoppedBy: Option[GraphStop] = None
+) extends Fact {
+
+  /** The stop reason of an incomplete search (None when complete). */
+  def stop: Option[GraphStop] =
+    if (complete) None else Some(stoppedBy.getOrElse(GraphStop.TimeLimit))
+
+  /** The answer's phrase for the stop reason of an incomplete search. */
+  def stopPhrase: String = stop match {
+    case Some(GraphStop.ResourceLimit) => "a graph store resource limit"
+    case _                             => "the time limit"
+  }
+}
 
 /** A publication (title, year, venue, team size) from the WorkById template. */
 final case class WorkFact(

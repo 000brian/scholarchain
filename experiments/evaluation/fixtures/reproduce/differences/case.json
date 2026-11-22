@@ -1,0 +1,5 @@
+{
+  "description": "branch fixture: intended versus unexplained differences, a missing and an extra file, an intended entry that did not change and one that is in neither folder",
+  "args": ["{case}/expected-out", "{case}/regenerated", "--intended", "{case}/intended.csv"],
+  "expectExit": 0
+}

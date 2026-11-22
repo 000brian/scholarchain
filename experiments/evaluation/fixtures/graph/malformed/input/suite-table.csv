@@ -1,0 +1,2 @@
+suite,test_ref,test_title,group2_checks,expectation_source,evidence,note
+KG,KG.scala:10,degree sheet,degree;planarity,independent,literal sheet,

@@ -1,0 +1,14 @@
+[
+  {"Id": "m0", "Label": "AWS/SQS NumberOfMessagesDeleted Sum QueueName=fixture-embedding",
+   "MetricStat": {"Metric": {"Namespace": "AWS/SQS", "MetricName": "NumberOfMessagesDeleted",
+                             "Dimensions": [{"Name": "QueueName", "Value": "fixture-embedding"}]},
+                  "Period": 60, "Stat": "Sum"}},
+  {"Id": "m1", "Label": "AWS/SQS ApproximateNumberOfMessagesVisible Maximum QueueName=fixture-embedding",
+   "MetricStat": {"Metric": {"Namespace": "AWS/SQS", "MetricName": "ApproximateNumberOfMessagesVisible",
+                             "Dimensions": [{"Name": "QueueName", "Value": "fixture-embedding"}]},
+                  "Period": 60, "Stat": "Maximum"}},
+  {"Id": "m2", "Label": "AWS/SQS NumberOfMessagesSent Sum QueueName=fixture-embedding-dlq",
+   "MetricStat": {"Metric": {"Namespace": "AWS/SQS", "MetricName": "NumberOfMessagesSent",
+                             "Dimensions": [{"Name": "QueueName", "Value": "fixture-embedding-dlq"}]},
+                  "Period": 60, "Stat": "Sum"}}
+]

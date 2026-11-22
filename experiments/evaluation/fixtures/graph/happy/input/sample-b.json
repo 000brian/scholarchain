@@ -1,0 +1,9 @@
+{
+  "Items": [
+    {"runId": {"S": "run:v1:y"}, "record": {"S": "{\"schemaVersion\":1,\"provenance\":{\"datasetId\":\"ds\",\"snapshotId\":\"snap\",\"sourceRecordIds\":[\"r1\"],\"runId\":\"run:v1:y\",\"policyVersion\":\"p1\",\"contentHash\":null}}"}},
+    {"runId": {"S": "run:v1:y"}, "record": {"S": "not json"}},
+    {"record": {"S": "{\"schemaVersion\":1,\"provenance\":{\"datasetId\":\"ds\",\"sourceRecordIds\":[],\"contentHash\":\"sha256:c\"}}"}},
+    {"itemHash": {"NULL": true}}
+  ],
+  "Count": 4
+}

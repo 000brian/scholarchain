@@ -1,0 +1,5 @@
+{
+  "description": "malformed input: a suite-table row names a check outside the vocabulary (planarity); exit 5 and no result file",
+  "args": ["--suite-table", "{case}/suite-table.csv", "--spark-outputs", "{case}/spark-outputs.csv"],
+  "expectExit": 5
+}

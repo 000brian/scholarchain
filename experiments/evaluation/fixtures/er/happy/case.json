@@ -1,0 +1,6 @@
+{
+  "description": "reduced plan, happy path: a synthetic report with decoys before the start marker and after the end marker; n/a cells, a weighted cell with the M3-style flag, the bootstrap line and two zero-event bounds; the printed all-rows unresolved rate (25.0) differs from the confusion matrix (4 of 20) and shows as equal no; a 20-row gold file whose counts and sha256 match; two notes",
+  "args": ["--phase5-report", "{case}/er-eval-input.md", "--start-marker", "FINAL SUMMARY (verbatim):", "--end-marker", "## Part 3: addendum",
+           "--gold", "{case}/gold.csv", "--note", "fixture note one", "--note", "fixture note two, with a comma"],
+  "expectExit": 0
+}

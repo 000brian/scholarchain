@@ -1,0 +1,5 @@
+{
+  "description": "reduced-plan branch on the committed Phase 5 table: verbatim lines of the final summary.md (Inputs table left out); 13 table rows, the bootstrap line, five zero-event bounds, both confusion matrices; the all-rows metrics recomputed from the unweighted matrix equal the printed values at one decimal; no --gold",
+  "args": ["--phase5-report", "{case}/phase5-final-summary.md", "--start-marker", "FULL FINAL summary.md (verbatim):", "--end-marker", "## Part 3: addendum"],
+  "expectExit": 0
+}

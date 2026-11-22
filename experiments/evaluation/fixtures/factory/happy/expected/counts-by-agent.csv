@@ -1,0 +1,6 @@
+agent,executions,executions_done,first_pass_accepted,first_pass_rate,repairs,findings_owned_critical,findings_owned_major,findings_owned_minor,findings_owned_advisory,blocked_on_terminal
+build-engineer,1,1,0,0,1,0,1,1,0,0
+code-reviewer,1,1,1,1,0,0,0,0,0,0
+rag-engineer,1,0,0,,0,0,0,0,0,1
+storage-engineer,1,1,1,1,0,0,0,0,0,0
+test-engineer,1,0,0,,0,0,0,0,0,0

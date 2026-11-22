@@ -1,0 +1,2 @@
+run_id,table,window_label,records,invalid_records
+run:v1:sparkfixture,rejects,,0,0

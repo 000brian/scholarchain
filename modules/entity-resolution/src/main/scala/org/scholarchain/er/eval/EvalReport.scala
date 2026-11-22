@@ -145,8 +145,17 @@ object EvalReport {
     val sent = wholeCount(atOpt(llmStage, "pairsSentToAdjudicator"))
     val abstained = wholeCount(atOpt(llmStage, "reasons", "llm-abstain"))
     val validOutcomes = runOutcomes.filterNot(_ => malformedOutcomes)
+    // Phase 16 (test-engineer F9, part of reviewer M2): the outcome counts account for every sent
+    // pair only when each of them is a whole count (the rule above); a fractional count never lets
+    // an absent key read as 0. M2's cached-pairs part (outcomes include cache hits, pairs sent do
+    // not) is not changed here.
     val allSentAccounted =
-      sent.exists(n => validOutcomes.exists(_.obj.values.map(_.num).sum == n.toDouble))
+      sent.exists(n =>
+        validOutcomes.exists(o =>
+          o.obj.values.forall(v => wholeCount(Some(v)).isDefined) &&
+            o.obj.values.map(_.num).sum == n.toDouble
+        )
+      )
     def outcomeCount(k: String): Option[Long] = validOutcomes.flatMap(o =>
       o.obj.get(k) match {
         case Some(v)                  => wholeCount(Some(v))

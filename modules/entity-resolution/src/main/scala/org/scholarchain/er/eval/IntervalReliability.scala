@@ -90,6 +90,19 @@ object IntervalReliability {
       "reflects only the pooling of single-row strata and memberships whose decision differs from " +
       "their stratum (m3), not label uncertainty."
 
+  /** Phase 16, reviewer M4 (test-engineer F8): the unresolved rate is wholly design-determined only
+    * when every stratum's share is fixed by the design. When only some strata are (memberships
+    * whose own decision differs from their stratum's outcome, m3, make the rest estimated), the
+    * rate is partly design-fixed: it keeps the zero-event check and its flag.
+    */
+  val PartlyDesignFixedNote: String =
+    "partly design-fixed, not wholly design-determined: the unresolved rate depends only on the " +
+      "decision, never on a label, and every stratum is defined by decision outcome, but only the " +
+      "strata whose labeled memberships all share their stratum's outcome have the share fixed by " +
+      "the strata's population decision counts; in the other strata some memberships' own " +
+      "decision differs from their stratum's outcome (m3), so their share is estimated from the " +
+      "labeled rows and is checked for zero events like any estimated share."
+
   final case class Box(lo: Double, hi: Double, widened: Boolean)
 
   private val one = Box(1.0, 1.0, widened = false)
@@ -104,7 +117,8 @@ object IntervalReliability {
       relevant: Boolean,
       zeroEvent: Boolean,
       weight: Box,
-      rate: Box
+      rate: Box,
+      fixedByDesign: Boolean = false
   ) {
     def observed: Option[Double] =
       if (denominatorUnits > 0) Some(numeratorUnits.toDouble / denominatorUnits) else None
@@ -117,7 +131,9 @@ object IntervalReliability {
       shareOfRelevantPopulation: Double,
       shareOfDenominatorWeight: Double,
       designDetermined: Boolean,
-      bound: Option[(Double, Double)]
+      bound: Option[(Double, Double)],
+      partlyDesignFixed: Boolean = false,
+      designFixedShareOfPopulation: Double = 0.0
   ) {
     def unreliable: Boolean =
       !designDetermined &&
@@ -180,7 +196,8 @@ object IntervalReliability {
       relevant,
       relevant && (weight.widened || rate.widened),
       weight,
-      rate
+      rate,
+      fixed.isDefined
     )
   }
 
@@ -224,8 +241,14 @@ object IntervalReliability {
       else None
     val relevantPop = strata.filter(_.relevant).map(_.population).sum
     val zero = strata.filter(s => s.relevant && s.zeroEvent)
-    val designDetermined = outcomeFixedByStratum && spec.dLab.isEmpty && spec.nLab.isEmpty &&
+    // M4 (F8): an outcome-only metric over outcome-defined strata is design-determined only when
+    // every stratum's share is actually fixed (all its labeled memberships share its outcome);
+    // when some are, it is partly design-fixed and keeps the zero-event flag
+    val outcomeOnly = outcomeFixedByStratum && spec.dLab.isEmpty && spec.nLab.isEmpty &&
       units.nonEmpty && units.forall(u => stratumOutcome(u.stratum).nonEmpty)
+    val designDetermined = outcomeOnly && strata.forall(_.fixedByDesign)
+    val partlyDesignFixed = outcomeOnly && !designDetermined && strata.exists(_.fixedByDesign)
+    val fixedPop = strata.filter(s => s.relevant && s.fixedByDesign).map(_.population).sum
     Result(
       spec,
       strata,
@@ -233,7 +256,9 @@ object IntervalReliability {
       if (relevantPop > 0) zero.map(_.population).sum / relevantPop else 0.0,
       if (den > 0) zero.map(_.denominatorWeight).sum / den else 0.0,
       designDetermined,
-      estimate.map(e => (extreme(strata, lower = true, e), extreme(strata, lower = false, e)))
+      estimate.map(e => (extreme(strata, lower = true, e), extreme(strata, lower = false, e))),
+      partlyDesignFixed,
+      if (outcomeOnly && relevantPop > 0) fixedPop / relevantPop else 0.0
     )
   }
 
@@ -252,6 +277,10 @@ object IntervalReliability {
         "designDetermined" -> r.designDetermined,
         "designDeterminedNote" -> (if (r.designDetermined) ujson.Str(DesignDeterminedNote)
                                    else ujson.Null),
+        "partlyDesignFixed" -> r.partlyDesignFixed,
+        "partlyDesignFixedNote" -> (if (r.partlyDesignFixed) ujson.Str(PartlyDesignFixedNote)
+                                    else ujson.Null),
+        "designFixedShareOfPopulation" -> r.designFixedShareOfPopulation,
         "zeroEventShareOfRelevantPopulation" -> r.shareOfRelevantPopulation,
         "zeroEventShareOfDenominatorWeight" -> r.shareOfDenominatorWeight,
         "zeroEventBound95" -> iv(r.bound),

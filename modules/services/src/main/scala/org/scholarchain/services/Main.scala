@@ -104,7 +104,9 @@ object Composition {
             log =>
               ReembedHandler
                 .fromConfig(config, embedder => env.reembedder(embedder), wiring, log)
-                .map(_.handler)
+                .map(_.handler),
+            // H-04: the index names fromConfig builds the handler with, for the poison pre-check
+            config.vectors.toList.flatMap(_.indexNames).toSet
           )
         )
     }

@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 
 import scala.util.control.NonFatal
 
-import org.scholarchain.rag.reembed.{Delivery, DeliveryAction, ReembedHandler}
+import org.scholarchain.rag.reembed.{Delivery, DeliveryAction, EmbeddingTask, ReembedHandler}
 import org.scholarchain.storage.ports.{ReceiveQueue, ReceivedWork}
 
 /** What the worker role runs on the embedding queue (Phase 15 decision 8.1): the consuming side of
@@ -15,7 +15,8 @@ import org.scholarchain.storage.ports.{ReceiveQueue, ReceivedWork}
   */
 final case class EmbeddingWork(
     queue: ReceiveQueue,
-    handlerOf: (String => Unit) => Either[String, ReembedHandler]
+    handlerOf: (String => Unit) => Either[String, ReembedHandler],
+    indexes: Set[String] = Set.empty
 )
 
 /** What one [[EmbeddingWorker.processOne]] call did (tests assert on it). Counts are per call. */
@@ -52,12 +53,26 @@ object EmbeddingOutcome {
   * queue receive, ack or release failed (fixed fields and counts only, never a body, a receipt or a
   * URL).
   *
+  * Phase 16 H-04: a poison delivery no longer waits for the re-embed calls of the rest of its
+  * batch. Before the batch is handed over, each body is checked with rag's own parser
+  * (`EmbeddingTask.parse`) against `knownIndexes`; the deliveries it already refuses go to the
+  * handler first, in one call that makes no store or embedding request, and are released at once;
+  * then the rest go in one call as before (so the embedding batch is unchanged). With no known
+  * indexes, only refusals decided before the index check count (`unknown-index` is left to the
+  * handler). The handler decides every outcome in both calls, so this check changes only the order,
+  * never an action: a delivery the check misses is still released after the second call.
+  *
   * Thread-safe: no mutable state but atomic counters; the queue and the handler are thread-safe.
+  *
+  * @param knownIndexes
+  *   the configured vector index names (`Composition.embeddingWork`: the same set rag's handler is
+  *   built with); empty: see above
   */
 final class EmbeddingWorker(
     val queue: ReceiveQueue,
     val handler: ReembedHandler,
-    log: ServiceLog
+    log: ServiceLog,
+    knownIndexes: Set[String] = Set.empty
 ) {
   val acknowledged = new AtomicLong()
   val released = new AtomicLong()
@@ -83,13 +98,38 @@ final class EmbeddingWorker(
     else handleAll(received.toVector)
   }
 
+  /** True when rag's parser already refuses `body` (poison), with the known indexes (H-04). */
+  private def poisonBeforeHandling(body: String): Boolean =
+    EmbeddingTask.parse(body, knownIndexes) match {
+      case Left(code) => knownIndexes.nonEmpty || code != EmbeddingTask.UnknownIndex
+      case Right(_)   => false
+    }
+
   private def handleAll(work: Vector[ReceivedWork]): EmbeddingOutcome = {
     // the delivery ID is the position in this batch: results come back in input order, and the
     // position never repeats (an SQS message ID could, for a duplicate delivery in one batch)
     val deliveries = work.zipWithIndex.map { case (w, i) =>
       Delivery(i.toString, Option(w.item.payload).getOrElse(""))
     }
-    val results = handler.handle(deliveries)
+    // H-04: refused bodies first (no store or embedding call), acted on before the rest
+    val (poison, rest) = deliveries.partition(d => poisonBeforeHandling(d.body))
+    val first = if (poison.isEmpty) None else Some(act(work, handler.handle(poison)))
+    val second = if (rest.isEmpty) None else Some(act(work, handler.handle(rest)))
+    val parts = first.toList ++ second.toList
+    EmbeddingOutcome(
+      work.size,
+      parts.map(_.acknowledged).sum,
+      parts.map(_.released).sum,
+      parts.map(_.left).sum,
+      parts.map(_.queueFailures).sum
+    )
+  }
+
+  /** Acts on the results of one handler call (counts `received` as the results' size). */
+  private def act(
+      work: Vector[ReceivedWork],
+      results: Vector[org.scholarchain.rag.reembed.HandledDelivery]
+  ): EmbeddingOutcome = {
     var acks, releases, lefts, failures = 0
     var lastFailure: Option[(String, Throwable)] = None
     results.foreach { r =>
@@ -110,7 +150,7 @@ final class EmbeddingWorker(
     leftForRetry.addAndGet(lefts.toLong)
     queueFailures.addAndGet(failures.toLong)
     lastFailure.foreach { case (op, e) => failureLine(op, failures, e) }
-    EmbeddingOutcome(work.size, acks, releases, lefts, failures)
+    EmbeddingOutcome(results.size, acks, releases, lefts, failures)
   }
 
   private def failureLine(op: String, count: Int, e: Throwable): Unit =

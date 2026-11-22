@@ -1,0 +1,7 @@
+check,expected,found,equal
+All rows units equal the unweighted confusion matrix total,300,300,yes
+report Labeled rows equal the confusion matrix total,300,300,yes
+report MATCH count equals the confusion matrix column sum,112,112,yes
+report NON_MATCH count equals the confusion matrix column sum,135,135,yes
+report UNSURE count equals the confusion matrix column sum,53,53,yes
+gold file label counts,not checked (no --gold),,

@@ -1,0 +1,11 @@
+{
+  "kind": "scholarchain-release",
+  "attempt_id": "r3",
+  "environment": "course",
+  "commit": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+  "applied_utc": "2026-01-03T00:00:00Z",
+  "verified": true,
+  "services": {
+    "query": {"digest_check": "not-applicable (runtime off)"}
+  }
+}

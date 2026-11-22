@@ -1,0 +1,10 @@
+metric,value
+answer_files,2
+answers_found,3
+answers_included,2
+excluded_no_answer_text,1
+excluded_no_question_text,0
+excluded_over_cap,1
+cap,2
+seed,7
+rubric_sha256,8fdb1045c20378b681d6aa35d1c5db35e8171569bc4462528a118f3d03e992a5

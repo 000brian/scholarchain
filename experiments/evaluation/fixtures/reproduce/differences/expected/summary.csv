@@ -1,0 +1,11 @@
+metric,value
+expected_files,5
+regenerated_files,5
+equal,2
+different,2
+missing,1
+extra,1
+intended,1
+unexplained,3
+intended_not_observed,2
+verdict,not reproduced: 3 unexplained differences

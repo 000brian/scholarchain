@@ -174,6 +174,10 @@ final class InMemoryGraph(
 
   private def other(e: Edge, id: String) = if (e.from == id) e.to else e.from
 
+  /** The only failure here is a refused query (validation): [[GraphReadError.Invalid]]. */
+  override def runClassified(query: GraphQuery): Either[GraphReadError, GraphResult] =
+    run(query).left.map(GraphReadError.Invalid(_))
+
   def run(query: GraphQuery): Either[String, GraphResult] = synchronized {
     GraphQuery.validate(query, settings).map {
       case q @ GraphQuery.ResearcherById(r) =>
@@ -278,7 +282,14 @@ final class InMemoryGraph(
       if (!timedOut) { depth += 1; frontier = next.result() }
     }
     if (timedOut)
-      GraphResult(q.templateId, Nil, truncated = false, complete = false, Some(depth))
+      GraphResult(
+        q.templateId,
+        Nil,
+        truncated = false,
+        complete = false,
+        Some(depth),
+        Some(GraphStop.TimeLimit)
+      )
     else if (!prev.contains(b))
       GraphResult(q.templateId, Nil, truncated = false, complete = true, Some(d))
     else {

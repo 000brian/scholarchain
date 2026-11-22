@@ -1,0 +1,5 @@
+{
+  "description": "missing input: the agent-runs root does not exist; exit 3 and no result file",
+  "args": ["--root", "{case}/absent-agent-runs", "--seed", "7"],
+  "expectExit": 3
+}

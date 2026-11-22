@@ -96,14 +96,64 @@ Global / onLoad := {
 //   sbt <project>/AwsTest/test        one project (also AwsTest/testOnly)
 // AwsTest never writes .claude/.last-test-run. Credentials and endpoints come from the test
 // code's own configuration contracts, never from this build.
+//
+// MUnit tag for tests that need the local AWS Emulator (Phase 16, decision 5.2). `Test` and
+// `AwsTest` both exclude them. The `EmulatorTest` configuration (storage and services only) runs
+// only them, from the same test sources:
+//   sbt emulatorTest                  storage, then services (in sequence; stops at a failure)
+//   sbt storage/EmulatorTest/test     one project (also services/EmulatorTest/test, testOnly)
+// EmulatorTest never writes .claude/.last-test-run and is never part of check or markTestRun.
+// Its tests run in one forked JVM per project, working directory = the project folder
+// (modules/storage, modules/services), inheriting the shell's environment. Only that JVM trusts
+// the emulator certificate: its options set javax.net.ssl.trustStore to
+// <user.home>/.aws/emulator/9297/truststore.p12 (user.home is the JVM system property of the sbt
+// JVM; 9297 is the one supported emulator port) and javax.net.ssl.trustStoreType=PKCS12. sbt's
+// own JVM keeps its normal trust store; no JAVA_TOOL_OPTIONS is used (it would reach every JVM).
+// The endpoint, credentials and safety checks come from the test code (decision 6.6), never from
+// this build. buildPolicyCheck (run by check) asserts these settings.
 val requiresAwsTag = "RequiresAws"
+val requiresEmulatorTag = "RequiresEmulator"
 lazy val AwsTest = config("awstest").extend(Test).describedAs("Tests tagged RequiresAws only.")
+lazy val EmulatorTest =
+  config("emulatortest").extend(Test).describedAs("Tests tagged RequiresEmulator only.")
 
 lazy val awsTestSettings: Seq[Setting[_]] =
   inConfig(AwsTest)(Defaults.testTasks) ++ Seq(
     AwsTest / testOptions := Seq(
-      Tests.Argument(TestFrameworks.MUnit, s"--include-tags=$requiresAwsTag")
+      Tests.Argument(TestFrameworks.MUnit, s"--include-tags=$requiresAwsTag"),
+      Tests.Argument(TestFrameworks.MUnit, s"--exclude-tags=$requiresEmulatorTag")
     )
+  )
+
+// The one emulator port this build supports (decision 6.6: https://127.0.0.1:9297).
+lazy val emulatorPort = 9297
+lazy val emulatorTrustStore: String = {
+  val home = file(sys.props("user.home"))
+  (home / ".aws" / "emulator" / emulatorPort.toString / "truststore.p12").getPath
+}
+lazy val emulatorJvmOptions: Seq[String] = Seq(
+  "-Xmx2g",
+  s"-Djavax.net.ssl.trustStore=$emulatorTrustStore",
+  "-Djavax.net.ssl.trustStoreType=PKCS12"
+)
+
+// The fork is defined only by testGrouping (test and testOnly both read it): one forked group
+// whose fork options are Test's (working directory = project folder, Java home, inherited
+// environment) with the JVM options replaced, so the emulator JVM never depends on how sbt
+// delegates fork or forkOptions between configurations.
+lazy val emulatorTestSettings: Seq[Setting[_]] =
+  inConfig(EmulatorTest)(Defaults.testTasks) ++ Seq(
+    EmulatorTest / testOptions := Seq(
+      Tests.Argument(TestFrameworks.MUnit, s"--include-tags=$requiresEmulatorTag"),
+      Tests.Argument(TestFrameworks.MUnit, s"--exclude-tags=$requiresAwsTag")
+    ),
+    EmulatorTest / testGrouping := {
+      val opts = (Test / forkOptions).value
+        .withRunJVMOptions(emulatorJvmOptions.toVector)
+        .withWorkingDirectory(baseDirectory.value)
+      val tests = (EmulatorTest / definedTests).value.sortBy(_.name)
+      Seq(Tests.Group("emulator", tests, Tests.SubProcess(opts)))
+    }
   )
 
 def scalacOptionsFor(scalaV: String): Seq[String] =
@@ -119,7 +169,11 @@ def scalacOptionsFor(scalaV: String): Seq[String] =
 lazy val commonSettings: Seq[Setting[_]] = Seq(
   scalacOptions ++= scalacOptionsFor(scalaVersion.value),
   libraryDependencies += "org.scalameta" %% "munit" % Ledger.munit % Test,
-  Test / testOptions += Tests.Argument(TestFrameworks.MUnit, s"--exclude-tags=$requiresAwsTag"),
+  // One comma-separated MUnit argument excludes both tags.
+  Test / testOptions += Tests.Argument(
+    TestFrameworks.MUnit,
+    s"--exclude-tags=$requiresAwsTag,$requiresEmulatorTag"
+  ),
   // Scala 2 projects run on the EMR Spark runtime's exact Scala library. Without this, test
   // libraries built against a newer 2.13 patch would evict it on the Test classpath.
   dependencyOverrides ++= {
@@ -352,11 +406,12 @@ lazy val sparkAnalytics = (project in file("modules/spark"))
 // Loaders and adapters for S3, Neptune, DynamoDB, S3 Vectors. The only module that talks to
 // AWS data stores.
 lazy val storage = (project in file("modules/storage"))
-  .configs(AwsTest)
+  .configs(AwsTest, EmulatorTest)
   .dependsOn(coreScala3)
   .settings(
     name := "scholarchain-storage",
     commonSettings,
+    emulatorTestSettings,
     libraryDependencies ++= awsSdkStorage
   )
 
@@ -395,7 +450,7 @@ lazy val dockerBuildLocal =
   )
 
 lazy val services = (project in file("modules/services"))
-  .configs(AwsTest)
+  .configs(AwsTest, EmulatorTest)
   .dependsOn(
     coreScala3,
     rag % "compile->compile;test->test",
@@ -404,6 +459,7 @@ lazy val services = (project in file("modules/services"))
   .settings(
     name := "scholarchain-services",
     commonSettings,
+    emulatorTestSettings,
     assemblySettings,
     libraryDependencies ++= Seq(slf4jApi, logbackClassic),
     assembly / mainClass := Some(PackageCheck.ServicesMainClass),
@@ -492,6 +548,24 @@ lazy val packageCheck =
   taskKey[Unit](
     "Opens the four assembled jars and checks classes, manifests, prompts, SDK merges and build info. No Docker."
   )
+lazy val buildSelfTest =
+  taskKey[Unit](
+    "Self-tests of the build's checks: script classes in packageCheck lists (L-09), packageCheck on generated bad jars (B-02)."
+  )
+lazy val buildPolicyCheck =
+  taskKey[Unit](
+    "Checks the test-tag policy of Test, AwsTest and EmulatorTest, EmulatorTest's forked JVM options, and the sequential emulatorTest alias."
+  )
+
+// Every project with tests: the modules and contractTests (root has no tests).
+lazy val testedProjectsFilter =
+  ScopeFilter(inProjects((moduleProjects :+ (contractTests: ProjectReference)): _*))
+
+def failOnProblems(task: String, problems: Seq[String], log: Logger): Unit =
+  if (problems.nonEmpty) {
+    problems.foreach(p => log.error(s"$task: $p"))
+    throw new MessageOnlyException(s"$task failed: ${problems.size} problem(s).")
+  } else log.info(s"$task: ok")
 
 lazy val root = (project in file("."))
   .configs(AwsTest)
@@ -537,20 +611,53 @@ lazy val root = (project in file("."))
       streams.value.log
     ),
     awsTestSettings,
+    buildSelfTest / aggregate := false,
+    buildSelfTest := failOnProblems(
+      "buildSelfTest",
+      BuildSelfTest.run((ThisBuild / baseDirectory).value),
+      streams.value.log
+    ),
+    buildPolicyCheck / aggregate := false,
+    buildPolicyCheck := {
+      val tagProblems = BuildSelfTest.tagProblems(
+        (Test / testOptions).all(testedProjectsFilter).value,
+        (AwsTest / testOptions).all(testedProjectsFilter).value,
+        (Test / javaOptions).all(testedProjectsFilter).value
+      )
+      val emulator =
+        BuildSelfTest.emulatorProblems(
+          "storage",
+          (storage / EmulatorTest / testOptions).value,
+          (storage / EmulatorTest / testGrouping).value,
+          emulatorJvmOptions,
+          (storage / baseDirectory).value
+        ) ++ BuildSelfTest.emulatorProblems(
+          "services",
+          (services / EmulatorTest / testOptions).value,
+          (services / EmulatorTest / testGrouping).value,
+          emulatorJvmOptions,
+          (services / baseDirectory).value
+        )
+      // The aliases registered in this sbt session (addCommandAlias below).
+      val alias = BuildSelfTest.aliasProblems(BasicCommands.allAliases(state.value))
+      failOnProblems("buildPolicyCheck", tagProblems ++ emulator ++ alias, streams.value.log)
+    },
     // markTestRun is the whole gate, in strict stages; each stage starts only after the previous
     // one succeeded in the same invocation, so running `sbt markTestRun` alone cannot skip a
     // check:
-    //   1. ledgerCheck, scalafmtSbtCheck and scalafmtCheckAll in every project
-    //   2. Test/compile in every project
+    //   1. ledgerCheck, buildSelfTest, scalafmtSbtCheck and scalafmtCheckAll in every project
+    //   2. Test/compile in every project, and buildPolicyCheck (needs the compiled test names)
     //   3. module tests and contract tests (no AWS), concurrently; both must pass
     //   4. write the marker, only if at least one test executed
     // Any failure throws before stage 4, so the marker is never touched.
     markTestRun := Def.taskDyn {
       ledgerCheck.value
+      buildSelfTest.value
       (Compile / scalafmtSbtCheck).all(ScopeFilter(inAnyProject)).value
       scalafmtCheckAll.all(ScopeFilter(inAnyProject)).value
       Def.taskDyn {
         (Test / compile).all(ScopeFilter(inAnyProject)).value
+        buildPolicyCheck.value
         Def.task {
           // Both dependencies start together; this body runs only after both have succeeded.
           val moduleCount = moduleTests.value
@@ -597,6 +704,11 @@ addCommandAlias("fmt", "; scalafmtSbt ; scalafmtAll")
 addCommandAlias("check", "markTestRun")
 // Runs only tests tagged RequiresAws (needs live AWS; never part of check or markTestRun).
 addCommandAlias("awsTest", "AwsTest/test")
+// Runs only tests tagged RequiresEmulator in storage and services (needs the local AWS Emulator;
+// never part of check or markTestRun). The two suites run one after the other, never together,
+// because both use the one emulator (run book E14, decision 17): storage first, then services
+// only if storage passed. buildPolicyCheck asserts this exact sequential form (no `all`).
+addCommandAlias("emulatorTest", "; storage/EmulatorTest/test ; services/EmulatorTest/test")
 addCommandAlias(
   "packageJobs",
   "; hadoop/assembly ; entityResolution/assembly ; sparkAnalytics/assembly"

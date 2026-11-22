@@ -6,7 +6,7 @@ import org.scholarchain.er.features.PairFeatures
 import org.scholarchain.er.policy.{Assessment, DecisionEngine, Policy, Reasons, Rules}
 
 class DecisionSuite extends munit.FunSuite {
-  private val policy = Policy.erV1
+  private val policy = Policy.current
   private val oX = Fixture.orcid("000000021825009")
   private val oY = Fixture.orcid("000000034567123")
 

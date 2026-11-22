@@ -93,6 +93,8 @@ final case class Policy(
       Left("threshold overrides require a new policy version (--policy-version)")
     else if (newVersion == policyVersion)
       Left(s"threshold overrides require a policy version different from '$policyVersion'")
+    else if (Policy.FrozenVersions.contains(newVersion))
+      Left(Policy.frozenVersionRefusal(newVersion, policyVersion))
     else if (!newVersion.matches(Policy.VersionPattern))
       Left(s"policy version '$newVersion' must match ${Policy.VersionPattern}")
     else
@@ -119,6 +121,53 @@ object Policy {
   val ErV1Sha256 = "4946b3504759d5f9a61f60646e6ca9d6cd27b0dd6ef26e57a1729c2fb32807ac"
   val VersionPattern = "[A-Za-z0-9][A-Za-z0-9._:/-]*"
 
+  /** Versions of the frozen policy files under `er/policy/` (Phase 11 finding N-1): a threshold
+    * override may never take one of these labels, so output of the code's policy (er-v2) cannot be
+    * labeled er-v1, whose cluster behaviour the code no longer implements.
+    */
+  val FrozenVersions: Set[String] = Set("er-v1", "er-v2")
+
+  /** Phase 14 finding G-18: the blocking settings of the candidate set on which the frozen policy
+    * was evaluated. Phase 5 built its candidates with these Hadoop settings (Phase 5 Hadoop report;
+    * the Hadoop defaults equal them since the Phase 14 G-17 repair), and the gold labels judged
+    * er-v1 decisions on that candidate set. er-v2 keeps er-v1's weights, thresholds and pair rules
+    * (it changes cluster merging only) and has no gold evaluation of its own.
+    */
+  val EvaluatedBlocking: List[(String, ujson.Value)] = List(
+    "scholarchain.blocking.maxBlockSize" -> ujson.Num(200),
+    "scholarchain.blocking.fallback.maxBlockSize" -> ujson.Num(200),
+    "scholarchain.candidates.skipSameNumberedName" -> ujson.Bool(true)
+  )
+
+  /** The policy record's evaluation context (G-18), written to the run report and the manifest. A
+    * threshold override was never evaluated, so it names no blocking settings.
+    */
+  def evaluatedWith(p: Policy): ujson.Obj = p.overriddenFrom match {
+    case None if FrozenVersions.contains(p.policyVersion) =>
+      ujson.Obj(
+        "goldEvaluatedPolicyVersion" -> "er-v1",
+        "blocking" -> ujson.Obj.from(EvaluatedBlocking),
+        "note" -> ("Blocking settings of the Phase 5 candidate set on which the er-v1 decisions " +
+          "were gold-evaluated (the Hadoop defaults since Phase 14, G-17). er-v2 keeps er-v1's " +
+          "weights, thresholds and pair rules and changes cluster merging only; it has no gold " +
+          "evaluation of its own. A candidate set built with other blocking settings is outside " +
+          "what this policy was evaluated on, and this run does not check the input's settings.")
+      )
+    case _ =>
+      ujson.Obj(
+        "goldEvaluatedPolicyVersion" -> ujson.Null,
+        "blocking" -> ujson.Null,
+        "note" -> (s"policy ${p.policyVersion} overrides the thresholds of " +
+          s"${p.overriddenFrom.getOrElse("an unknown policy")}; it was never evaluated, so no " +
+          "blocking settings are named")
+      )
+  }
+
+  /** The refusal message for a threshold override that names a frozen policy version (N-1). */
+  def frozenVersionRefusal(requested: String, applied: String): String =
+    s"--policy-version '$requested' names a frozen policy file; this code applies $applied, so " +
+      s"its output must not carry the label '$requested'; choose a new version"
+
   /** Path declared by cluster-guard rules: the refused decision keeps the match path (and
     * confidence) of the pair decision that produced the accepted evidence, so the decision record
     * stays honest about which path produced it (e.g. `exact_id` with `orcid.exact`).
@@ -137,9 +186,13 @@ object Policy {
   /** The current frozen policy, er-v2 ([[DefaultResource]]). */
   lazy val current: Policy = fromResource(DefaultResource)
 
-  /** Legacy accessor name, kept so `tests/contracts` compiles unchanged: it is the CURRENT policy
-    * ([[current]], er-v2), not er-v1. Prefer [[current]].
+  /** Phase 11 finding N-2: the old accessor name, misleading because it returns the CURRENT policy
+    * ([[current]], er-v2), not er-v1. Renamed to [[current]]; every user in
+    * `modules/entity-resolution` uses [[current]]. Kept only as a deprecated forwarder so the
+    * contract tests under `tests/contracts` (owned by test-engineer) compile until they move to
+    * [[current]]; remove it then.
     */
+  @deprecated("returns er-v2, not er-v1; use Policy.current", "phase-16")
   def erV1: Policy = current
 
   def fromResource(name: String): Policy =

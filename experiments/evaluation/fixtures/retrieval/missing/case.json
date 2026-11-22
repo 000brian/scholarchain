@@ -1,0 +1,5 @@
+{
+  "description": "missing input: the report path does not exist; exit 3 and no result file",
+  "args": ["--report", "{case}/absent.json", "--seed", "7"],
+  "expectExit": 3
+}

@@ -60,7 +60,7 @@ class PriorSpellingSuite extends munit.FunSuite {
         cands.find(x => Set(x.left, x.right) == ids).getOrElse(fail(s"no candidate $k1/$k2"))
       DecisionEngine.assess(
         c,
-        Policy.erV1,
+        Policy.current,
         cand.features,
         c.mentions.indexOf(cand.left),
         c.mentions.indexOf(cand.right)

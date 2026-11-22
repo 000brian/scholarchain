@@ -1,0 +1,5 @@
+{
+  "description": "malformed input: a review report with findings in prose (no table) and an included phase folder that does not exist; both go to unclassified.csv, nothing is guessed, exit 0",
+  "args": ["--root", "{case}/agent-runs", "--include", "phase-00,phase-99", "--seed", "7"],
+  "expectExit": 0
+}

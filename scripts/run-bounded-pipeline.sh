@@ -14,6 +14,9 @@
 # untested (first live use: p15-a-hadoop, D7a). Phase 15 decision 9.4: load
 # options --max-documents (rag-ingest) and the loader rag-retrieval-eval
 # (RetrievalEvalJob); runtime: untested (first live use: D7 probe and E, D11).
+# Phase 16 G-04: the ER upload selection moved to scripts/lib/identity.sh
+# er_upload_plan (probed by check.sh gate 9 on a fixture tree); runtime:
+# untested.
 
 set -Eeuo pipefail
 umask 077
@@ -1592,28 +1595,27 @@ stage_er() {
   add_str RUN_IDS_JSON er_run_id "${run_id}"
 
   step "er-upload"
-  local dest="${P_CURATED}/er/${ATTEMPT_ID}" f relf ia_rel left="${TMP_DIR}/er-left-out.tsv" n_up=0
+  local dest="${P_CURATED}/er/${ATTEMPT_ID}" relf left="${TMP_DIR}/er-left-out.tsv" n_up=0
+  local upload_plan="${TMP_DIR}/er-upload-plan.tsv" kind bytes
   # The Spark stage reads only run=HEX/_SUCCESS, run=HEX/_manifest.json and
   # run=HEX/decisions/identity_assignment/** (Pipeline.checkErRun, inputListing).
-  ia_rel="${run_dir#"${out_root}/"}/decisions/identity_assignment/"
+  # Phase 16 G-04: the selection is scripts/lib/identity.sh er_upload_plan,
+  # which check.sh gate 9 probes on a fixture tree (probe er-upload-plan).
+  er_upload_plan "${out_root}" "${run_dir}" "${A_ER_UPLOAD}" >"${upload_plan}" ||
+    die 5 "could not list the ER output root for the upload"
   : >"${left}"
-  while IFS= read -r f; do
-    relf="${f#"${out_root}/"}"
-    case "${relf##*/}" in
-      _SUCCESS | _manifest.json) continue ;;
+  while IFS="$(printf '\t')" read -r kind relf bytes; do
+    case "${kind}" in
+      upload)
+        put_once "${out_root}/${relf}" "${dest}/${relf}"
+        n_up=$((n_up + 1))
+        ;;
+      left)
+        printf '%s\t%s\n' "${relf}" "${bytes}" >>"${left}"
+        ;;
+      *) die 5 "unexpected line in the ER upload plan" ;;
     esac
-    if [ "${A_ER_UPLOAD}" = "identity-assignments-only" ]; then
-      case "${relf}" in
-        "${ia_rel}"*) ;;
-        *)
-          printf '%s\t%s\n' "${relf}" "$(sc_bytes "${f}")" >>"${left}"
-          continue
-          ;;
-      esac
-    fi
-    put_once "${f}" "${dest}/${relf}"
-    n_up=$((n_up + 1))
-  done < <(find "${out_root}" -type f | LC_ALL=C sort)
+  done <"${upload_plan}"
   if [ "${A_ER_UPLOAD}" = "identity-assignments-only" ] && [ "${n_up}" -eq 0 ]; then
     die 6 "decisions/identity_assignment holds no data file; _manifest.json and _SUCCESS not uploaded"
   fi

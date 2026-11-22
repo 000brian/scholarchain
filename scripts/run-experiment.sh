@@ -8,7 +8,9 @@
 # Status (Phase 13): static: shellcheck clean; runtime: untested; human
 # execution required. Phase 15 decision 9.5 and 9.6 (identifier list,
 # {attempt-id}, ALB placeholders, --check, metrics for failed and timed-out
-# actions, exit 8, --export-metrics): runtime: untested.
+# actions, exit 8, --export-metrics): runtime: untested. Phase 15 tested
+# runs: see docs/agent-runs/phase-15/runbook-log.md. Phase 16 FECD-4 (INT
+# and TERM ignored during finalize): runtime: untested.
 
 set -Eeuo pipefail
 umask 077
@@ -223,12 +225,15 @@ Exit codes:
   3  missing prerequisite or Terraform output (the runner's own)
   4  refused by a safety check (list above, or the run or raw folder exists)
   5  the action failed (metrics still exported; status failed), a command of
-     the runner failed, or (--check) the action's preflight failed
+     the runner failed, (--check) the action's preflight failed, or Ctrl-C
+     (INT) stopped the runner (status failed, signal INT, no export; the
+     folder is still recorded, moved and made read-only: further INT and
+     TERM signals are ignored while the runner finalizes, FECD-4)
   6  the action succeeded but the metric export failed or was partial
      (succeeded-metrics-failed)
   7  the local time limit (maxDurationSeconds) stopped the action (metrics
      exported; status timed-out; remote work may still run), or a TERM
-     signal stopped the runner (no export)
+     signal stopped the runner (no export; finalized as for INT)
   8  (Phase 15) an identifier (account ID, bucket name, API host, queue or
      DLQ URL, ALB or Neptune host) was found in the run folder or its
      record; the folder stays under evidence/experiment-runs/ (never commit
@@ -266,6 +271,11 @@ on_signal() {
 on_exit() {
   local rc="$?"
   trap - ERR
+  # FECD-4 (Phase 16): once the runner is ending, a further Ctrl-C or TERM
+  # must not cut finalize short (D-read attempt 2: the folder was recorded
+  # and moved but never made read-only). finalize is bounded: one record
+  # write, one grep over the run folder, one move, one chmod.
+  trap '' INT TERM
   set +e
   if [ "${STARTED_WRITTEN}" = "true" ] && [ "${FINALIZED}" = "false" ]; then
     finalize "${rc}"

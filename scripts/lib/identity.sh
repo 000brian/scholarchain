@@ -308,6 +308,21 @@ register_output_identifiers() {
   return 0
 }
 
+# sc_output_value OUTPUTS_JSON NAME (Phase 16, L-12): prints the value of the
+# Terraform output NAME from the JSON of `terraform output -json`, or nothing
+# when the output is missing or null. A boolean prints true or false: the
+# filter is NOT `// empty`, because jq's `//` also drops false (L-11, D27).
+# A map or list output prints as JSON. check.sh gate 9 probes this function
+# with a fixture (probe output-value). Status 0; 3 without jq; 5 when the
+# JSON cannot be read.
+sc_output_value() {
+  command -v jq >/dev/null 2>&1 || {
+    sc_lib_err "jq not found"
+    return 3
+  }
+  jq -r --arg k "${2:-}" '.[$k].value | if . == null then empty else . end' <<<"${1:-}" 2>/dev/null || return 5
+}
+
 # sc_mask_extras TEXT: sets SC_MASK_OUT to TEXT with every registered extra
 # identifier replaced by <KIND> (no subshell).
 sc_mask_extras() {
@@ -676,4 +691,60 @@ archive_keys() {
     fi
     printf '%s\n' "${entry}"
   done <"${listing}"
+}
+
+# ---- ER upload selection (run-bounded-pipeline.sh --stage er; check.sh probe) ---
+
+# er_upload_plan OUT_ROOT RUN_DIR MODE (Phase 16, G-04; moved unchanged in
+# meaning from run-bounded-pipeline.sh's er-upload loop, Phase 14 G-01):
+# prints, for every file under OUT_ROOT in LC_ALL=C order of its path, one
+# tab-separated line
+#   upload<TAB>RELPATH                 a data file to upload, or
+#   left<TAB>RELPATH<TAB>BYTES         a file kept only in the local folder
+# where RELPATH is relative to OUT_ROOT. Files named _SUCCESS or
+# _manifest.json are never listed (the caller uploads RUN_DIR's two last).
+# MODE full lists every other file as upload; MODE identity-assignments-only
+# lists as upload only files under RUN_DIR/decisions/identity_assignment/
+# (the only data the Spark stage reads: Pipeline.checkErRun, inputListing)
+# and every other file as left. check.sh gate 9 probes it on a fixture tree
+# (probe er-upload-plan). Status 0; 2 bad MODE or RUN_DIR not under OUT_ROOT;
+# 3 OUT_ROOT is not a folder.
+er_upload_plan() {
+  local root="${1:-}" run_dir="${2:-}" mode="${3:-}" f relf ia_rel
+  case "${mode}" in
+    full | identity-assignments-only) ;;
+    *)
+      sc_lib_err "er_upload_plan: MODE must be full or identity-assignments-only"
+      return 2
+      ;;
+  esac
+  [ -n "${root}" ] && [ -d "${root}" ] || {
+    sc_lib_err "er_upload_plan: OUT_ROOT is not a folder"
+    return 3
+  }
+  case "${run_dir}" in
+    "${root}"/?*) ;;
+    *)
+      sc_lib_err "er_upload_plan: RUN_DIR is not under OUT_ROOT"
+      return 2
+      ;;
+  esac
+  ia_rel="${run_dir#"${root}/"}/decisions/identity_assignment/"
+  while IFS= read -r f; do
+    relf="${f#"${root}/"}"
+    case "${relf##*/}" in
+      _SUCCESS | _manifest.json) continue ;;
+    esac
+    if [ "${mode}" = "identity-assignments-only" ]; then
+      case "${relf}" in
+        "${ia_rel}"*) ;;
+        *)
+          printf 'left\t%s\t%s\n' "${relf}" "$(sc_bytes "${f}")"
+          continue
+          ;;
+      esac
+    fi
+    printf 'upload\t%s\n' "${relf}"
+  done < <(find "${root}" -type f | LC_ALL=C sort)
+  return 0
 }

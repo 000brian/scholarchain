@@ -73,6 +73,48 @@ class JsonlExportArgsSuite extends munit.FunSuite {
     assertEquals(JsonlExport.maskText("s3://other/k"), "s3://{data-bucket}/k")
   }
 
+  test("C-05: the entry point rethrows any failure masked, with no cause") {
+    val argv = Seq(
+      "--source-run",
+      "s3://example-bucket/graph/run=ab",
+      "--out-root",
+      "s3a://example-out/exports"
+    )
+    val inner = new IllegalStateException("inner s3://example-bucket/graph/_SUCCESS")
+    val raw = new java.io.IOException(
+      "getFileStatus on s3a://example-out/exports: User: " +
+        "arn:aws:sts::123456789012:assumed-role/r/i is not authorized; " +
+        "Bucket example-out, source example-bucket",
+      inner
+    )
+    // main's own body (mainWith), so a regression that rethrows the raw exception fails here.
+    val e = intercept[JsonlExportFailedException](
+      JsonlExport.mainWith(argv, () => throw raw)
+    )
+    val m = e.getMessage
+    assert(m.startsWith("IOException: getFileStatus on s3a://{data-bucket}/exports"), m)
+    assert(m.contains("arn:aws:sts::{account}:assumed-role"), m)
+    // The bare names are masked only through the authorities taken from the arguments.
+    assert(m.contains("Bucket {data-bucket}, source {data-bucket}"), m)
+    Seq("example-out", "example-bucket", "123456789012", "inner").foreach(s =>
+      assert(!m.contains(s), s"$s in $m")
+    )
+    assertEquals(e.getCause, null)
+    assertEquals(e.getSuppressed.toSeq, Nil)
+    // The same wrapper around the export itself (the failure that happens after the session).
+    val e2 = intercept[JsonlExportFailedException](
+      JsonlExport.masked(Seq("example-out"))(throw raw)
+    )
+    assertEquals(e2.getCause, null)
+    assert(!e2.getMessage.contains("example-out"), e2.getMessage)
+    assertEquals(JsonlExport.masked(Nil)(7), 7)
+    // Arguments are checked before any session starts; the error echoes no value.
+    val bad = intercept[IllegalArgumentException](
+      JsonlExport.mainWith(argv :+ "--code-version", () => fail("session started"))
+    )
+    assert(!bad.getMessage.contains("example-bucket"), bad.getMessage)
+  }
+
   test("build identity: parsed from the resource, unknown when missing or malformed") {
     val good = s"buildCommit=${"0a" * 20}\nbuildDirty=false\nmodule=sparkAnalytics\nversion=0.1.0\n"
     assertEquals(

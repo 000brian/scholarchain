@@ -97,14 +97,35 @@ class NeptuneBulkLoaderStartSuite extends munit.FunSuite {
     }
   }
 
-  test("timeouts, throttling, 5xx and client errors are unknown outcomes, never a refusal") {
+  test("Phase 16: throttling answers are throttled refusals (no load created), with their class") {
+    val throttled: List[(String, SdkServiceException)] = List(
+      "TooManyRequestsException" ->
+        TooManyRequestsException.builder().message("m").statusCode(429).build(),
+      "ThrottlingException" -> ThrottlingException.builder().message("m").statusCode(400).build(),
+      "ThrottlingException" -> ThrottlingException.builder().message("m").statusCode(429).build()
+    )
+    throttled.foreach { case (name, e) =>
+      start(e) match {
+        case Left(r: BulkLoadStartRejected) =>
+          assertEquals((r.errorClass, r.httpStatus, r.throttled), (name, e.statusCode, true))
+        case other => fail(s"$name: expected a throttled BulkLoadStartRejected, got $other")
+      }
+    }
+    // definite refusals are not throttled
+    start(BadRequestException.builder().message("m").statusCode(400).build()) match {
+      case Left(r: BulkLoadStartRejected) => assert(!r.throttled)
+      case other                          => fail(s"expected BulkLoadStartRejected, got $other")
+    }
+  }
+
+  test("timeouts, 5xx and client errors are unknown outcomes, never a refusal") {
     val unknown: List[Throwable] = List(
       ClientTimeoutException.builder().message("m").statusCode(408).build(),
-      TooManyRequestsException.builder().message("m").statusCode(429).build(),
-      ThrottlingException.builder().message("m").statusCode(400).build(),
       InternalFailureException.builder().message("m").statusCode(500).build(),
-      // A definite class with a status that is not a client refusal stays unknown.
+      // A definite or throttling class with a status that is not its documented one stays unknown.
       BadRequestException.builder().message("m").statusCode(503).build(),
+      TooManyRequestsException.builder().message("m").statusCode(503).build(),
+      ThrottlingException.builder().message("m").statusCode(503).build(),
       ApiCallTimeoutException.builder().message("m").build()
     )
     unknown.foreach { e =>

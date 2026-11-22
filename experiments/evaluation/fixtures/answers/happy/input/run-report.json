@@ -1,0 +1,36 @@
+{
+  "format": "scholarchain.rag.benchmark-run-report",
+  "formatVersion": 1,
+  "input": {
+    "exportManifestSha256": "exportfixture",
+    "questionsSha256": "6f3b2311a97c4f80ae4410b272dd2ad65e4728256cc5e68ff2169a26dc8064c7"
+  },
+  "versions": {
+    "prompts": ["planner-p1", "synthesis-p2"],
+    "codeVersion": "code-x"
+  },
+  "results": {
+    "questions": 2,
+    "deterministicGraphRetrieval": {
+      "expectedValues": 8,
+      "exactMatches": 6,
+      "misses": ["miss-a", "miss-b"],
+      "pathsAgainstSparkEvidence": {"checked": 4, "matched": 3}
+    },
+    "answers": {
+      "claimCounts": {"verified": 5, "partially_supported": 1, "unsupported": 1, "conflicting": 1},
+      "abstentionsExpected": 1,
+      "expectedAbstentionsHappened": 1,
+      "unexpectedAbstentions": ["q1"],
+      "missedAbstentions": [],
+      "plantedErrors": {
+        "planted": 4,
+        "caught": 3,
+        "byKind": {
+          "wrong-year": {"planted": 2, "caught": 1},
+          "wrong-number": {"planted": 2, "caught": 2}
+        }
+      }
+    }
+  }
+}

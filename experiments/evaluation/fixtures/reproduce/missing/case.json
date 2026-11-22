@@ -1,0 +1,5 @@
+{
+  "description": "missing input: the regenerated folder does not exist; exit 3 (a failure, never a pass) and no result file",
+  "args": ["{case}/expected-out", "{case}/absent-regenerated"],
+  "expectExit": 3
+}

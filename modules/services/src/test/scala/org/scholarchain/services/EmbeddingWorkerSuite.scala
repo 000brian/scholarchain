@@ -4,6 +4,7 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 
 import scala.collection.mutable.ArrayBuffer
+import scala.jdk.CollectionConverters._
 
 import org.scholarchain.rag.reembed.{EmbeddingTask, ReembedHandler}
 import org.scholarchain.storage.StoreException
@@ -235,6 +236,114 @@ class EmbeddingWorkerSuite extends munit.FunSuite {
       assert(!h.log.rendered.exists(_.contains("receipt-")))
       assert(!h.log.rendered.exists(_.contains("example-queue-host")))
       assertEquals(w.queueFailures.get, 2L)
+    } finally h.close()
+  }
+
+  test(
+    "H-04: poison in a receive batch is released before the batch's re-embed call starts (with and without known indexes)"
+  ) {
+    for (known <- List(Set.empty[String], Set(Index))) {
+      val q = new StubQueue
+      val releasedBeforeReembed = new java.util.concurrent.ConcurrentLinkedQueue[List[String]]()
+      val reembed: Seq[ReembedTask] => Vector[ReembedOutcome] = ts => {
+        releasedBeforeReembed.add(q.released)
+        ts.map(processed).toVector
+      }
+      val h = harness(
+        role = Role.Worker,
+        embedding = Some(
+          EmbeddingWork(q, log => Right(new ReembedHandler(reembed, Set(Index), 10, log)), known)
+        )
+      )
+      try {
+        val w = h.server.embeddingWorker.get
+        val ok = q.put(EmbeddingTask.render("task-h04-ok", Index, Key))
+        val notJson = q.put("not json")
+        val unknownIndex = q.put(EmbeddingTask.render("task-h04-idx", "unknown-index-v1", Key))
+        assertEquals(w.processOne(), EmbeddingOutcome(3, 1, 2, 0, 0))
+        // with known indexes, an unknown index is poison decided up front too
+        val upFront = if (known.isEmpty) List(notJson) else List(notJson, unknownIndex)
+        assertEquals(releasedBeforeReembed.asScala.toList, List(upFront), s"known=$known")
+        assertEquals(q.released.sorted, List(notJson, unknownIndex).sorted)
+        assertEquals(q.acked, List(ok))
+        assertEquals(deliveryLines(h).size, 3) // still one line per delivery
+      } finally h.close()
+    }
+  }
+
+  test("H-05: close returns within the drain bound when an in-flight call never finishes") {
+    assertEquals(ServerOptions(Role.All).embeddingDrainMillis, ServiceLimits.EmbeddingDrainMillis)
+    val q = new StubQueue
+    val entered = new CountDownLatch(1)
+    val never = new CountDownLatch(1)
+    val drain = 300L
+    val h = harness(
+      startWorker = true,
+      embeddingDrainMillis = drain,
+      embedding = Some(
+        work(
+          q,
+          ts => {
+            entered.countDown()
+            never.await(120, TimeUnit.SECONDS) // interrupted by the bounded shutdown
+            ts.map(processed).toVector
+          }
+        )
+      )
+    )
+    q.put(EmbeddingTask.render("task-h05-1", Index, Key))
+    assert(entered.await(20, TimeUnit.SECONDS), "the handler was not called")
+    val t0 = System.nanoTime()
+    val closer = new Thread(() => h.close())
+    closer.start()
+    closer.join(20000)
+    val ms = (System.nanoTime() - t0) / 1000000L
+    assert(!closer.isAlive, "close did not return")
+    // the drain bound, then at most 1 s for the interrupted pool and 2 s for the thread joins
+    assert(ms < drain + 3000L + 1000L, s"close took $ms ms")
+    assert(ms >= drain, s"close returned after $ms ms, before the drain bound")
+    // the cut-off message was neither acknowledged nor released: it returns after its visibility
+    assertEquals((q.acked, q.released), (Nil, Nil))
+    assert(h.server.threads.forall(!_.isAlive))
+    // a longer drain than the default is refused
+    val (_, _, _, rt) = runtimeOver(config, r => new org.scholarchain.rag.runtime.FakeModel(r))
+    try {
+      val refused = ServiceServer.start(
+        rt,
+        Composition
+          .overRuntime(rt, 60000L, new org.scholarchain.storage.jobs.ManualClock())
+          .fold(e => fail(e), identity),
+        ServerOptions(
+          role = Role.Worker,
+          port = Some(0),
+          env = env.get,
+          logSink = new MemoryLogSink,
+          closeRuntime = false,
+          embeddingDrainMillis = ServiceLimits.EmbeddingDrainMillis + 1
+        )
+      )
+      assert(refused.left.exists(_.contains("embeddingDrainMillis must be in 1..60000")))
+    } finally rt.close()
+  }
+
+  test(
+    "H-06: task IDs in the worker log pass the redactor (ARNs and 12-digit numbers), ordinary IDs unchanged"
+  ) {
+    val q = new StubQueue
+    val h = harness(role = Role.Worker, embedding = Some(work(q, _.map(processed).toVector)))
+    try {
+      val w = h.server.embeddingWorker.get
+      val plain = "p15-f-poison-20261121T001529Z"
+      val arn = "task-arn:aws:iam::123456789012:role"
+      val account = "task-123456789012-x"
+      List(plain, arn, account).foreach(t => q.put(EmbeddingTask.render(t, Index, Key)))
+      assertEquals(w.processOne(), EmbeddingOutcome(3, 3, 0, 0, 0))
+      assertEquals(
+        deliveryLines(h).map(_("taskId").str),
+        List(plain, "task-[redacted]", "task-[redacted]-x")
+      )
+      assert(!h.log.rendered.exists(_.contains("123456789012")), h.log.rendered.toString)
+      assert(deliveryLines(h).forall(_("outcome").str == "processed"))
     } finally h.close()
   }
 

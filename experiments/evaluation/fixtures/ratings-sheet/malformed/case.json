@@ -1,0 +1,5 @@
+{
+  "description": "malformed input: the items path names an object, not a list; exit 5 and no result file",
+  "args": ["--answer-file", "{case}/answers.json#items=answers", "--rubric", "{case}/rubric.md", "--seed", "7"],
+  "expectExit": 5
+}

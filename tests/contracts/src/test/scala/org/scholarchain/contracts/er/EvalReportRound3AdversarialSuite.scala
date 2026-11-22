@@ -295,14 +295,13 @@ class EvalReportRound3AdversarialSuite extends munit.FunSuite {
     assert(boot.matches(".*unresolvedRate \\[[^\\]]*\\] \\(design-determined\\).*"), boot)
   }
 
-  // ACCEPTED RISK M4 (finding F8). Human decision, Phase 5 run 2 (docs/agent-runs/phase-05/
-  // prompt-02.md): code-reviewer M4 and test-engineer F8 get no repair round in Phase 5; M4 is
-  // accepted as is. Cause: IntervalReliability.scala lines 227-228. This test is an MUnit
-  // expected failure (.fail): it passes while the assertion below fails and fails once the
-  // defect is repaired, at which point remove .fail and the prefix. Assertions are unchanged.
+  // M4 (finding F8). Accepted risk in Phase 5 run 2 (docs/agent-runs/phase-05/prompt-02.md);
+  // repaired in Phase 16 step 2 (entity-resolution-engineer, IntervalReliability: a rate is
+  // design-determined only when every stratum's labeled memberships share its outcome). The
+  // expected-failure mark (.fail) and its title prefix were removed in Phase 16 step 6 (decision
+  // 10). Assertions are unchanged from Phase 5.
   test(
-    ("ACCEPTED RISK M4 (F8), expected to fail until repaired: " +
-      "FINDING repair-21: no labeled membership agrees with its stratum: not design-determined").fail
+    "FINDING repair-21: no labeled membership agrees with its stratum: not design-determined"
   ) {
     // every labeled membership's own decision (unresolved) differs from its sampling stratum's
     // outcome (accepted): no share is fixed by the design, the unresolved share of each stratum is
@@ -987,15 +986,15 @@ class EvalReportRound3AdversarialSuite extends munit.FunSuite {
     )
   }
 
-  // ACCEPTED RISK M2 (finding F9). Human decision, Phase 5 run 2 (docs/agent-runs/phase-05/
-  // prompt-02.md): code-reviewer M2 and test-engineer F9 get no repair round in Phase 5. Repair
-  // condition: M2 must be fixed before any adjudication run with cache hits and before a live LLM
-  // is connected. Cause: validCount and allSentAccounted in EvalReport.llmPath. This test is an
-  // MUnit expected failure (.fail): it passes while the assertions below fail and fails once the
-  // defect is repaired, at which point remove .fail and the prefix. Assertions are unchanged.
+  // M2 (finding F9). Accepted risk in Phase 5 run 2 (docs/agent-runs/phase-05/prompt-02.md).
+  // Only the part of M2 this test asserts (a fractional outcome count is not a whole count, so it
+  // cannot make an absent key 0) was repaired in Phase 16 step 2 (entity-resolution-engineer,
+  // EvalReport allSentAccounted). M2's other part (outcome counts include cache hits while the
+  // pairs sent exclude them) is still open and must be fixed before any adjudication run with
+  // cache hits and before a live LLM is connected. The expected-failure mark (.fail) and its
+  // title prefix were removed in Phase 16 step 6 (decision 10). Assertions are unchanged.
   test(
-    ("ACCEPTED RISK M2 (F9), expected to fail until repaired: " +
-      "FINDING repair-29: a fractional outcome count is not valid, so an absent key is not 0").fail
+    "FINDING repair-29: a fractional outcome count is not valid, so an absent key is not 0"
   ) {
     // RunCountsRule: "A count that is missing or not a whole non-negative number is not available;
     // an outcome absent from valid outcome counts is 0 only when those counts add up to the pairs

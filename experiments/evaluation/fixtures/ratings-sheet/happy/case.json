@@ -1,0 +1,7 @@
+{
+  "description": "happy path: a list file with an empty answer (excluded) and a single-object file read through field paths; seeded order by sha256 of SEED:FILE:ID; cap 2 excludes one answer; verification fields in the sources never reach sheet.csv",
+  "args": ["--answer-file", "{case}/answers-a.json",
+           "--answer-file", "{case}/answers-b.json#id=result.queryId;question=result.q;answer=result.text",
+           "--rubric", "{case}/rubric.md", "--seed", "7", "--max", "2"],
+  "expectExit": 0
+}

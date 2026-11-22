@@ -55,6 +55,7 @@ object Report {
       "format" -> "scholarchain.er.run-report",
       "formatVersion" -> 1,
       "policyVersion" -> policy.policyVersion,
+      "policyEvaluatedWith" -> Policy.evaluatedWith(policy),
       "inputRun" -> job.runId,
       "inputs" -> ujson.Obj(
         "works" -> corpus.works.size,
@@ -198,6 +199,8 @@ object RunManifest {
       "runId" -> runId,
       "codeVersion" -> c.codeVersion,
       "policyVersion" -> c.policy.policyVersion,
+      // G-18: outside `config`, so the configuration fingerprint and run ID do not change
+      "policyEvaluatedWith" -> Policy.evaluatedWith(c.policy),
       "decisionTime" -> c.decisionTime,
       "seed" -> c.seed.toString,
       "inputDir" -> input.toString,

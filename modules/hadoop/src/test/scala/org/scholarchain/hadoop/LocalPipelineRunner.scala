@@ -3,6 +3,8 @@ package org.scholarchain.hadoop
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path as JPath, Paths}
 
+import scala.jdk.CollectionConverters.*
+
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.scholarchain.hadoop.blocking.{FallbackBlockingJob, FallbackCoverageJob}
@@ -27,6 +29,9 @@ import org.scholarchain.hadoop.pipeline.{Pipeline, PipelineResult, PipelineSpec,
   *     the run stops before that job (exit 3).
   *   - A watchdog stops the JVM (exit 3) when one job runs longer than `--max-job-minutes` or the
   *     whole run longer than `--max-total-minutes` (0 = no total limit).
+  *   - `settings` in the report holds the effective values the jobs read (every `scholarchain.*`
+  *     key from the defaults resource and `-D`, outside `scholarchain.run.*` and
+  *     `scholarchain.path.*`, plus every `-D` key); `overrides` holds the `-D` arguments as given.
   *   - `<output>/run-report.json` is rewritten after every job: status, settings, per job wall
   *     time, run ID, counters and stats, and at the end a summary (works, mentions, pairs, blocks
   *     and oversize blocks per family, fallback coverage and worst keys, candidates per family,
@@ -233,6 +238,32 @@ object LocalPipelineRunner {
   }
 
   /** Runs the pipeline; returns the final report (also written to `<output>/run-report.json`). */
+  /** The settings the jobs of this run read (Phase 14 G-19): `conf` with ScholarChain's defaults
+    * resource added exactly as [[JobRunner.run]] adds it, restricted to the `scholarchain.*` keys
+    * outside the per-run prefixes (`scholarchain.run.*`, `scholarchain.path.*`, set by each
+    * driver), plus every `-D` key (also a Hadoop key), sorted by key. A key whose value is absent
+    * is recorded as "".
+    */
+  def effectiveSettings(
+      conf: Configuration,
+      overrides: List[(String, String)]
+  ): List[(String, String)] = {
+    val eff = Settings.withDefaults(conf)
+    val keys = eff
+      .iterator()
+      .asScala
+      .map(_.getKey)
+      .filter(k =>
+        k.startsWith(Settings.Prefix) && !k.startsWith(Settings.RunPrefix) &&
+          !k.startsWith(Settings.PathPrefix)
+      )
+      .toSet ++ overrides.map(_._1)
+    keys.toList.sorted.map(k => k -> Option(eff.get(k)).getOrElse(""))
+  }
+
+  private def settingsObj(kvs: List[(String, String)]): ujson.Obj =
+    ujson.Obj.from(kvs.sortBy(_._1).map { case (k, v) => k -> ujson.Str(v) })
+
   def run(o: Options): ujson.Obj = {
     if (Files.exists(o.output)) {
       val s = Files.list(o.output)
@@ -253,9 +284,10 @@ object LocalPipelineRunner {
       "output" -> o.output.toString,
       "dblp" -> o.dblp,
       "dblpSnapshot" -> o.snapshot,
-      "settings" -> ujson.Obj.from(o.settings.sortBy(_._1).map { case (k, v) =>
-        k -> ujson.Str(v)
-      }),
+      // effective values (defaults plus -D), so a key left at its default is recorded too (G-19)
+      "settings" -> settingsObj(effectiveSettings(conf, o.settings)),
+      // the -D arguments exactly as given
+      "overrides" -> settingsObj(o.settings),
       "minFreeGb" -> o.minFreeGb.toDouble,
       "maxJobMinutes" -> o.maxJobMinutes.toDouble,
       "maxTotalMinutes" -> o.maxTotalMinutes.toDouble,

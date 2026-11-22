@@ -126,7 +126,10 @@ object AwsSdkClients {
   * Retries (m2): SDK clients make exactly one attempt per call; the stores here wrap the adapters
   * in storage's bounded [[Retry]] with `config.retryPolicy` (S3 Vectors puts are retried by the
   * ingest pipeline's batcher instead). Their [[RetryCounters]] are the real request counts. Graph
-  * reads are not retried.
+  * reads (Phase 16, FECD-1) retry transient and resource-limit failures with
+  * [[GraphRetry.Default]], inside each read's existing time budget; their counters are
+  * [[graphReadReport]] (kept apart from [[retryReport]], whose shape load and ingest reports
+  * record).
   *
   * Construction makes no network call. Resource names, the Region and the Neptune endpoint come
   * from configuration; credentials from the runtime role.
@@ -166,7 +169,13 @@ final class AwsStorageEnvironment private (
     for {
       client <- clients.neptune.toRight("neptune section is not configured")
       s <- GraphReadSettings.from(config)
-    } yield new NeptuneGraphRead(client, s)
+    } yield new NeptuneGraphRead(
+      client,
+      s,
+      NeptuneGraphRead.monotonicMillis,
+      GraphRetry.Default,
+      sleeper
+    )
 
   /** The Neptune bulk loader (`StartLoaderJob`, `GetLoaderJobStatus`), when the `neptune` section
     * is configured. Used by `org.scholarchain.storage.load.StorageLoadMain`; not retried (a start
@@ -224,6 +233,11 @@ final class AwsStorageEnvironment private (
     "dynamoDb" -> kv.counters.toJson,
     "s3VectorsReads" -> vectors.counters.toJson
   )
+
+  /** Graph read attempts, retries and failures by class since construction (Phase 16); None when
+    * the graph is not configured.
+    */
+  def graphReadReport: Option[ujson.Obj] = graph.toOption.map(_.counters.toJson)
 
   def close(): Unit = {
     rejects.close()

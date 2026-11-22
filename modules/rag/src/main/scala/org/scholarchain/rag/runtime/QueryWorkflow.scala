@@ -786,12 +786,17 @@ object QueryWorkflow {
   val NoEvidenceText = "no graph evidence answered the question"
 
   /** Context codes of shortest-path steps that found no path: `no-path-within-depth` for a complete
-    * search, `path-query-timeout` for one stopped at its time budget (Stages PathFinder).
+    * search, `path-query-timeout` for one stopped at its time budget, `path-query-bounded` for one
+    * stopped at a graph store resource limit (Phase 16, storage L1) (Stages PathFinder).
     */
   def pathContextCodes(facts: List[Fact]): List[String] =
-    facts.collect {
-      case p: PathAbsentFact if p.complete  => AbstentionCodes.NoPathWithinDepth
-      case p: PathAbsentFact if !p.complete => AbstentionCodes.PathQueryTimeout
+    facts.collect { case p: PathAbsentFact =>
+      p.stop match {
+        case None => AbstentionCodes.NoPathWithinDepth
+        case Some(org.scholarchain.storage.ports.GraphStop.ResourceLimit) =>
+          AbstentionCodes.PathQueryBounded
+        case Some(_) => AbstentionCodes.PathQueryTimeout
+      }
     }.distinct
 
   /** Audit code order: whole-question refusals, then path context, then step and verification

@@ -1,0 +1,16 @@
+ M experiments/README.md
+ M experiments/derived/common.py
+ M experiments/derived/emr_capacity.py
+ M experiments/derived/queue_worker.py
+ M experiments/results-summary-template.md
+ M scripts/README.md
+ M scripts/check.sh
+ M scripts/cleanup.sh
+ M scripts/deploy.sh
+ M scripts/lib/identity.sh
+ M scripts/run-bounded-pipeline.sh
+ M scripts/run-experiment.sh
+?? config/emulator.json
+?? docker/emulator/
+?? experiments/evaluation/
+?? scripts/emulator/

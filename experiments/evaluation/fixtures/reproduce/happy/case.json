@@ -1,0 +1,5 @@
+{
+  "description": "happy path: two files (one in a subfolder), byte-equal in both folders; verdict reproduced exactly",
+  "args": ["{case}/expected-out", "{case}/regenerated"],
+  "expectExit": 0
+}

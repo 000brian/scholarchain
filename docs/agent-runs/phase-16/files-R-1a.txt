@@ -1,0 +1,10 @@
+modules/entity-resolution/src/test/scala/org/scholarchain/er/Phase16RepairSuite.scala
+modules/storage/src/test/scala/org/scholarchain/storage/FailureMasking.scala
+modules/storage/src/test/scala/org/scholarchain/storage/GraphRetrySuite.scala
+modules/storage/src/test/scala/org/scholarchain/storage/emulator/EmulatorAdaptersEmulatorSuite.scala
+modules/storage/src/test/scala/org/scholarchain/storage/emulator/EmulatorClients.scala
+modules/storage/src/test/scala/org/scholarchain/storage/emulator/EmulatorResults.scala
+modules/storage/src/test/scala/org/scholarchain/storage/emulator/EmulatorSafety.scala
+modules/storage/src/test/scala/org/scholarchain/storage/emulator/EmulatorWiringSuite.scala
+modules/storage/src/test/scala/org/scholarchain/storage/emulator/RecordingPorts.scala
+project/BuildSelfTest.scala

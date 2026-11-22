@@ -4,7 +4,10 @@
 # invocation only; never run by an agent. Owner: infra-engineer (author).
 #
 # Status (Phase 13): static: shellcheck clean; runtime: untested; human
-# execution required.
+# execution required. Phase 16 changes (L-12 out() through
+# scripts/lib/identity.sh sc_output_value; L-14 a missing protection field
+# counts as protected; L-15 check-leftovers checks the state of each
+# tagging-API entry before counting it): runtime: untested.
 
 set -Eeuo pipefail
 umask 077
@@ -94,6 +97,8 @@ outside .gitignore).
      service at desired 0 and running 0), no pipeline execution is running,
      and deletion protection is off on the six DynamoDB tables and Neptune
      (apply a signed cleanup_mode=true plan first; README "Cleanup mode").
+     Only an explicit "false" counts as off: a missing protection field is
+     treated as protected (L-14, Phase 16).
   4. Asks for ONE typed confirmation on the terminal:
        REMOVE course <first 12 characters of the plan sha256>
      Anything else, or no answer within 300 s, stops with nothing removed.
@@ -110,6 +115,13 @@ outside .gitignore).
      environment's families (query, evidence, graph, worker, ops). They stay
      because the task definitions use skip_destroy (rollback keeps the
      previous revision); they cost nothing; Phase 17 deregisters them.
+     L-15 (Phase 16): before an entry is counted, one read-only describe
+     call checks its state for the types the tagging API keeps listing
+     after removal (EC2 NAT gateway, VPC endpoint, security group and
+     security-group rule; EMR cluster; ECS cluster and service). An entry
+     shown as already removed (deleted, terminated, inactive or not found)
+     is listed apart as REMOVED and not counted; any other type, a failed
+     call or a live state is counted (fail closed).
 
 Never touched: the repository (reports/, docs/agent-runs/, releases/ and the
 evidence archive are local grading evidence and stay as they are), the local
@@ -132,7 +144,7 @@ task-definition leftovers are listed); 2 usage error; 3 missing
 prerequisite; 4 refused by a safety check (not at the repository root,
 archive, dirty tree, no or several matching records, checksum, plan
 validity, approval line, account, runtime on, running execution, protection
-on, confirmation); 5 terraform or AWS command failed; 6 unexpected leftovers
+on or not reported, confirmation); 5 terraform or AWS command failed; 6 unexpected leftovers
 remain after removal (listed), or (--list) the removal-plan record or
 .plan.txt still holds an identifier; 7 timed out.
 
@@ -361,8 +373,11 @@ read_outputs() {
 
 # out NAME: prints the value of terraform output NAME, or nothing when the
 # output is missing or null. Not `// empty`: jq's `//` also drops boolean
-# false, so `out runtime_enabled` printed "" for false (L-11, D27).
-out() { jq -r --arg k "$1" '.[$k].value | if . == null then empty else . end' <<<"${OUTPUTS}"; }
+# false, so `out runtime_enabled` printed "" for false (L-11, D27). Phase 16
+# L-12: the rule lives in scripts/lib/identity.sh (sc_output_value), which
+# check.sh gate 9 probes with a fixture, and that probe also checks that this
+# line still calls it.
+out() { sc_output_value "${OUTPUTS}" "$1"; }
 
 check_reports_archived() {
   step "reports-archived"
@@ -621,15 +636,108 @@ expected_leftover() {
     <<<"${OUTPUTS}" >/dev/null 2>&1
 }
 
-# list_tagged TITLE: lists every resource tagged project=scholarchain
-# environment=course; TAGGED_COUNT counts the UNEXPECTED ones,
-# EXPECTED_COUNT the task-definition revisions of expected_leftover.
+REMOVED_RECORD_COUNT=0
+STATE_RC=0
+STATE_CODE=""
+
+# state_call ARGS...: one read-only describe call for removed_record; the
+# answer goes to "$TMP_DIR/state.out", the error text to "$TMP_DIR/state.err"
+# (never printed). Sets STATE_RC and STATE_CODE (the AWS error code, if any).
+# Never dies: a failed or timed-out call leaves the entry counted.
+state_call() {
+  local err
+  STATE_RC=0
+  STATE_CODE=""
+  with_timeout "${AWS_TIMEOUT}" aws --region "${EXPECTED_REGION}" --cli-connect-timeout 10 \
+    --cli-read-timeout 60 --no-cli-pager --output json "$@" >"${TMP_DIR}/state.out" \
+    2>"${TMP_DIR}/state.err" || STATE_RC=$?
+  if [ "${STATE_RC}" -ne 0 ]; then
+    err="$(head -c 4000 "${TMP_DIR}/state.err" 2>/dev/null || true)"
+    if [[ "${err}" =~ An\ error\ occurred\ \(([^\)]+)\) ]]; then
+      STATE_CODE="${BASH_REMATCH[1]}"
+    fi
+  fi
+  return 0
+}
+
+# state_jq FILTER: status 0 when the last state_call succeeded and FILTER is
+# true on its answer.
+state_jq() {
+  [ "${STATE_RC}" -eq 0 ] && jq -e "$1" "${TMP_DIR}/state.out" >/dev/null 2>&1
+}
+
+# removed_record ARN (L-15, Phase 16): status 0 when one read-only describe
+# call shows that the resource behind a tagging-API entry is already removed
+# (the tagging API keeps listing deleted NAT gateways, terminated EMR clusters
+# and similar for a while, D27/D28). Only these resource types are checked:
+# ec2 natgateway, vpc-endpoint, security-group and security-group-rule; EMR
+# cluster; ECS cluster and service. Any other type, a failed or timed-out
+# call, or a live state keeps the entry counted (fail closed).
+removed_record() {
+  local arn="$1" service resource id cluster name
+  # arn:PARTITION:SERVICE:REGION:ACCOUNT:RESOURCE (RESOURCE may hold ':').
+  IFS=':' read -r _ _ service _ _ resource <<<"${arn}"
+  [ -n "${service}" ] && [ -n "${resource}" ] || return 1
+  case "${service}:${resource}" in
+    ec2:natgateway/*)
+      id="${resource#natgateway/}"
+      state_call ec2 describe-nat-gateways --nat-gateway-ids "${id}"
+      state_jq '[.NatGateways[]? | select(.State != "deleted")] | length == 0' && return 0
+      case "${STATE_CODE}" in NatGatewayNotFound | InvalidNatGatewayID.NotFound) return 0 ;; esac
+      ;;
+    ec2:vpc-endpoint/*)
+      id="${resource#vpc-endpoint/}"
+      state_call ec2 describe-vpc-endpoints --vpc-endpoint-ids "${id}"
+      state_jq '[.VpcEndpoints[]? | select((.State | ascii_downcase) != "deleted")] | length == 0' && return 0
+      case "${STATE_CODE}" in InvalidVpcEndpointId.NotFound) return 0 ;; esac
+      ;;
+    ec2:security-group/*)
+      id="${resource#security-group/}"
+      state_call ec2 describe-security-groups --group-ids "${id}"
+      state_jq '[.SecurityGroups[]?] | length == 0' && return 0
+      case "${STATE_CODE}" in InvalidGroup.NotFound | InvalidGroupId.NotFound) return 0 ;; esac
+      ;;
+    ec2:security-group-rule/*)
+      id="${resource#security-group-rule/}"
+      state_call ec2 describe-security-group-rules --security-group-rule-ids "${id}"
+      state_jq '[.SecurityGroupRules[]?] | length == 0' && return 0
+      case "${STATE_CODE}" in InvalidSecurityGroupRuleId.NotFound) return 0 ;; esac
+      ;;
+    elasticmapreduce:cluster/*)
+      id="${resource#cluster/}"
+      state_call emr describe-cluster --cluster-id "${id}"
+      state_jq '.Cluster.Status.State == "TERMINATED" or .Cluster.Status.State == "TERMINATED_WITH_ERRORS"' && return 0
+      ;;
+    ecs:cluster/*)
+      state_call ecs describe-clusters --clusters "${arn}"
+      state_jq '([.clusters[]? | select(.status != "INACTIVE")] | length == 0)
+        and (([.clusters[]?] | length) + ([.failures[]? | select(.reason == "MISSING")] | length) > 0)' && return 0
+      ;;
+    ecs:service/*/*)
+      name="${resource#service/}"
+      cluster="${name%%/*}"
+      name="${name#*/}"
+      state_call ecs describe-services --cluster "${cluster}" --services "${name}"
+      state_jq '([.services[]? | select(.status != "INACTIVE")] | length == 0)
+        and (([.services[]?] | length) + ([.failures[]? | select(.reason == "MISSING")] | length) > 0)' && return 0
+      ;;
+  esac
+  return 1
+}
+
+# list_tagged TITLE [check-state]: lists every resource tagged
+# project=scholarchain environment=course; TAGGED_COUNT counts the UNEXPECTED
+# ones, EXPECTED_COUNT the task-definition revisions of expected_leftover.
+# With check-state (check-leftovers, after the removal; L-15) an entry whose
+# resource removed_record shows as already removed is listed apart and counted
+# in REMOVED_RECORD_COUNT, not in TAGGED_COUNT.
 list_tagged() {
-  local title="$1" tagged arn expected=""
+  local title="$1" check_state="${2:-}" tagged arn expected="" removed=""
   tagged="$(aws_json resourcegroupstaggingapi get-resources \
     --tag-filters "Key=project,Values=scholarchain" "Key=environment,Values=${ENVIRONMENT}")" || exit "$?"
   TAGGED_COUNT=0
   EXPECTED_COUNT=0
+  REMOVED_RECORD_COUNT=0
   printf '%s\n' "${title}"
   while IFS= read -r arn; do
     [ -n "${arn}" ] || continue
@@ -637,12 +745,23 @@ list_tagged() {
       EXPECTED_COUNT=$((EXPECTED_COUNT + 1))
       expected="${expected}  ${arn##*:task-definition/}
 "
+    elif [ "${check_state}" = "check-state" ] && removed_record "${arn}"; then
+      REMOVED_RECORD_COUNT=$((REMOVED_RECORD_COUNT + 1))
+      removed="${removed}  $(mask_text "${arn}")
+"
     else
       TAGGED_COUNT=$((TAGGED_COUNT + 1))
       printf '  %s\n' "$(mask_text "${arn}")"
     fi
   done < <(jq -r '.ResourceTagMappingList[]?.ResourceARN' <<<"${tagged}")
   printf '  unexpected (counted): %s\n' "${TAGGED_COUNT}"
+  if [ "${check_state}" = "check-state" ]; then
+    printf 'REMOVED (tagging-API records of resources a describe call shows as already removed; L-15; not counted): %s\n' \
+      "${REMOVED_RECORD_COUNT}"
+    if [ -n "${removed}" ]; then
+      printf '%s' "${removed}"
+    fi
+  fi
   printf 'EXPECTED task-definition revisions (I-15; skip_destroy keeps them ACTIVE; not counted; Phase 17 deregisters them): %s\n' \
     "${EXPECTED_COUNT}"
   if [ -n "${expected}" ]; then
@@ -689,7 +808,11 @@ check_protection_off() {
   local table desc protected=""
   for table in $(jq -r '.dynamodb_table_names.value // {} | .[]' <<<"${OUTPUTS}"); do
     desc="$(aws_json dynamodb describe-table --table-name "${table}")" || exit "$?"
-    if [ "$(jq -r '.Table.DeletionProtectionEnabled // false' <<<"${desc}")" != "false" ]; then
+    # L-14 (Phase 16): only an explicit false passes; a missing or null
+    # field counts as protected (refused before CONFIRM, before any data is
+    # removed), never as unprotected.
+    if [ "$(jq -r '.Table.DeletionProtectionEnabled | if . == false then "off" else "on-or-unknown" end' \
+      <<<"${desc}")" != "off" ]; then
       protected="${protected} ${table}"
     fi
   done
@@ -697,13 +820,14 @@ check_protection_off() {
   endpoint="$(out neptune_endpoint)"
   if [ -n "${endpoint}" ]; then
     clusters="$(aws_json neptune describe-db-clusters --filters "Name=engine,Values=neptune")" || exit "$?"
-    if jq -e --arg e "${endpoint}" '[.DBClusters[]? | select(.Endpoint == $e and .DeletionProtection == true)] | length > 0' \
+    # L-14: a matching cluster passes only with DeletionProtection exactly false.
+    if jq -e --arg e "${endpoint}" '[.DBClusters[]? | select(.Endpoint == $e and .DeletionProtection != false)] | length > 0' \
       <<<"${clusters}" >/dev/null; then
       protected="${protected} neptune-cluster"
     fi
   fi
   [ -z "${protected}" ] ||
-    die 4 "refusing: deletion protection is on for:${protected} (apply a signed cleanup_mode=true plan first)"
+    die 4 "refusing: deletion protection is on, or not reported, for:${protected} (apply a signed cleanup_mode=true plan first)"
   info "deletion protection off on the DynamoDB tables and the Neptune cluster"
 }
 
@@ -832,12 +956,12 @@ apply_removal_plan() {
 
 check_leftovers() {
   step "check-leftovers"
-  list_tagged "LEFTOVERS tagged project=scholarchain environment=${ENVIRONMENT}:"
+  list_tagged "LEFTOVERS tagged project=scholarchain environment=${ENVIRONMENT}:" check-state
   if [ "${TAGGED_COUNT}" -ne 0 ]; then
     warn "the tagging API can show removed resources for a while; check again later before removing anything by hand"
-    die 6 "${TAGGED_COUNT} unexpected tagged resource(s) remain (listed above; the ${EXPECTED_COUNT} expected task-definition revisions are not counted)"
+    die 6 "${TAGGED_COUNT} unexpected tagged resource(s) remain (listed above; the ${EXPECTED_COUNT} expected task-definition revisions and ${REMOVED_RECORD_COUNT} records of already-removed resources are not counted)"
   fi
-  info "no unexpected tagged resource remains; expected leftovers: ${EXPECTED_COUNT} task-definition revisions (I-15, Phase 17); manual items: IAM user scholarchain-readonly, budget scholarchain-25 (Phase 17)"
+  info "no unexpected tagged resource remains; records of already-removed resources: ${REMOVED_RECORD_COUNT} (L-15); expected leftovers: ${EXPECTED_COUNT} task-definition revisions (I-15, Phase 17); manual items: IAM user scholarchain-readonly, budget scholarchain-25 (Phase 17)"
 }
 
 main() {

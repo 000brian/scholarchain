@@ -1,0 +1,5 @@
+{
+  "description": "branch fixture: the regenerated folder holds only a dot file (skipped), so it is empty; verdict failed and never a pass; exit 0 because the measurement itself completed",
+  "args": ["{case}/expected-out", "{case}/regenerated"],
+  "expectExit": 0
+}

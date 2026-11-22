@@ -1,0 +1,10 @@
+metric,value
+records,4
+records_unreadable,1
+records_with_plan_checksum,2
+records_linked_to_signed_approval,1
+records_not_linked,1
+records_with_execution_fields,2
+approval_lines,3
+approval_lines_unused,1
+wording,record consistency only; no deployment can be re-run or independently verified

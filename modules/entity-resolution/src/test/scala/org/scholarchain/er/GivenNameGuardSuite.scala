@@ -164,7 +164,7 @@ class GivenNameGuardSuite extends munit.FunSuite {
       assertEquals(d.reasonCodes, List(GivenNameRefusal))
       assert(d.confidence > 0.9, d.toString)
       // the rule it names is declared by the policy (cluster guard, inherited path)
-      assertEquals(Policy.erV1.rule(d.rulesFired.head).kind, "cluster-guard")
+      assertEquals(Policy.current.rule(d.rulesFired.head).kind, "cluster-guard")
     }
     val rep = out.report
     assertEquals(rep("pairDecisions")("mergeRefusalsByReason")(GivenNameRefusal).num, 1.0)

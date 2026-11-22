@@ -7,7 +7,6 @@ import scala.util.Try
 
 import org.scholarchain.core._
 import org.scholarchain.storage.ports.{GraphQuery, GraphResult}
-import org.scholarchain.storage.runtime.RuntimeStores
 
 /** `GET /v1/evidence/{evidenceId}` (decision 7g). */
 final class EvidenceService(app: AppContext) {
@@ -31,16 +30,19 @@ final class EvidenceService(app: AppContext) {
           Right(Some(YearWindow(s.toInt, e.toInt)))
         case Some(_) => Left(ApiError.invalid("window", "must be <startYear>-<endYear>"))
       }
+      // Phase 16 route time limit: each read waits at most `ServerOptions.readDeadlineMillis`
       item <- window match {
         case Some(w) =>
           app
-            .read(app.runtime.stores.evidence.get(id, Some(w)))
+            .timedRead("evidence", None)(app.runtime.stores.evidence.get(id, Some(w)))
             .flatMap(
               _.toRight(ApiError(ErrorCode.EVIDENCE_NOT_FOUND))
             )
         case None =>
           app
-            .read(app.runtime.stores.evidence.windows(id, ServiceLimits.EvidenceWindowLimit))
+            .timedRead("evidence", None)(
+              app.runtime.stores.evidence.windows(id, ServiceLimits.EvidenceWindowLimit)
+            )
             .flatMap {
               case Nil         => Left(ApiError(ErrorCode.EVIDENCE_NOT_FOUND))
               case only :: Nil => Right(only)
@@ -90,7 +92,10 @@ final class ExplainService(app: AppContext) {
         ApiError.invalid(query.keys.toList.sorted.map(_ -> "unknown query parameter"))
       )
       id <- RunId.parse(queryId).left.map(_ => ApiError.invalid("queryId", "is not a query ID"))
-      audits <- app.read(app.runtime.stores.audits.read(id, ServiceLimits.ExplainAuditLimit))
+      // Phase 16 route time limit: the audit read waits at most `ServerOptions.readDeadlineMillis`
+      audits <- app.timedRead("explain", None)(
+        app.runtime.stores.audits.read(id, ServiceLimits.ExplainAuditLimit)
+      )
       latest <- audits.lastOption.toRight(ApiError(ErrorCode.QUERY_NOT_FOUND))
     } yield ApiResponse.json(200, ExplainView.of(latest, audits.size))
 }
@@ -198,11 +203,10 @@ final class GraphService(app: AppContext) {
   private def cap: Int = runtime.graphResultLimit
   private def graphRunId: String = app.runtime.graphRunId.value
 
+  /** Through the graph breaker with storage's typed error class (Phase 16 FECD-1, [[GraphReads]]).
+    */
   private def graph(q: GraphQuery): Either[ApiError, GraphResult] =
-    app.breakers.graph.call(RuntimeStores.guard(app.runtime.stores.graph.run(q))).left.map {
-      case None    => ApiError.retryable(ErrorCode.CIRCUIT_OPEN)
-      case Some(_) => ApiError.downstream
-    }
+    GraphReads.run(app.breakers.graph, app.runtime.stores.graph, app.log)(q)
 
   def node(nodeId: String, query: Map[String, String]): Either[ApiError, ApiResponse] =
     for {

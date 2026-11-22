@@ -1,0 +1,5 @@
+{
+  "description": "branch fixture --release-records: a record linked to two signed lines, an unlinked record without execution fields, a record without a plan checksum, an unreadable record; approval lines that are not exact are ignored",
+  "args": ["--release-records", "--releases-dir", "{case}/releases", "--approvals-root", "{case}/approvals"],
+  "expectExit": 0
+}

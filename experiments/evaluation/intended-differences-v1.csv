@@ -1,0 +1,9 @@
+path,reason
+p15-a-hadoop/missing.csv,AB-4/J-03: emr_capacity.py no longer names the never-queried TotalUnits*/CoreUnits* series; the four 'series not exported' rows of attempt 20261120T225632Z-eb786c5275a3-5c75 disappear; every other row is unchanged
+p15-a-spark/missing.csv,AB-4/J-03: the four 'series not exported' rows for TotalUnits*/CoreUnits* disappear; every other row is unchanged
+p15-b-spark-burst/missing.csv,AB-4/J-03: the four 'series not exported' rows for TotalUnits*/CoreUnits* disappear (the file keeps only its header)
+p15-a-hadoop/capacity-20261120T225632Z-eb786c5275a3-5c75-j-05949161IHEKG5O4KFOD.svg,AB-4/J-03: first panel titled 'capacity (nodes)' with y label 'nodes'; its legend lists CoreNodesRequested CoreNodesRunning TotalNodesRequested TotalNodesRunning instead of the four Units series; data lines unchanged
+p15-a-spark/capacity-20261120T225850Z-eb786c5275a3-4f7e-j-0156143328PILM02OMF9.svg,AB-4/J-03: first panel retitled and its legend lists the four Nodes series instead of the Units series; data lines unchanged
+p15-b-spark-burst/capacity-20261120T225913Z-eb786c5275a3-fac6-j-01156902UW7NYAFY518T.svg,AB-4/J-03: first panel retitled and its legend lists the four Nodes series; TotalNodesRequested and TotalNodesRunning are now drawn (Phase 15 never plotted them)
+p15-c-embedding-backlog/queue-20261120T225730Z-eb786c5275a3-ab26.svg,L-08: queue_worker.py draws text at 14 px (title 17 px; event labels 12 px) on a 1200 px wide image with a 330 px legend margin; data unchanged
+p15-f-poison-replay/queue-20261120T223908Z-e94df52ca8fb-b4c0.svg,L-08: same label size change as the C queue plot; data unchanged

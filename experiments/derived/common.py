@@ -451,7 +451,8 @@ def nice_ticks(lo, hi, n=5):
 TIME_STEPS = [15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400]
 
 
-def time_chart(path, title, panels, x_range, events=(), windows=(), notes=(), max_gap=180):
+def time_chart(path, title, panels, x_range, events=(), windows=(), notes=(), max_gap=180,
+               font_size=11, width=1000, right=230):
     """Stacked time panels on one UTC x axis.
 
     panels: list of dicts {"title", "y_label", "series": [(name, [(epoch, value)])]}; a series
@@ -460,24 +461,29 @@ def time_chart(path, title, panels, x_range, events=(), windows=(), notes=(), ma
     events: (epoch, label, kind) drawn as vertical lines in every panel; kind scale-out,
             scale-in, lifecycle or event.
     windows: (start, end, label) shaded bands (for example load levels).
+    font_size, width, right (Phase 16 L-08): base text size, image width and legend margin.
+            The defaults (11, 1000, 230) give exactly the Phase 15 output, byte for byte; the
+            title is font_size + 3, event labels font_size - 2, legend and note lines
+            font_size + 3 apart.
     """
-    width, left, right, top, panel_h, gap_h = 1000, 70, 230, 50, 200, 45
+    left, top, panel_h, gap_h = 70, 50, 200, 45
+    line_h = font_size + 3
     x0, x1 = x_range
     if x0 is None or x1 is None:
         x0, x1 = 0, 60
     if x1 <= x0:
         x1 = x0 + 60
     plot_w = width - left - right
-    height = top + len(panels) * (panel_h + gap_h) + 40 + 14 * len(notes)
+    height = top + len(panels) * (panel_h + gap_h) + 40 + line_h * len(notes)
 
     def xp(e):
         return left + (e - x0) * plot_w / float(x1 - x0)
 
     out = [
-        '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" font-family="sans-serif" font-size="11">'
-        % (width, height),
+        '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" font-family="sans-serif" font-size="%d">'
+        % (width, height, font_size),
         '<rect x="0" y="0" width="%d" height="%d" fill="white"/>' % (width, height),
-        '<text x="%d" y="20" font-size="14" font-weight="bold">%s</text>' % (left, esc(title)),
+        '<text x="%d" y="20" font-size="%d" font-weight="bold">%s</text>' % (left, font_size + 3, esc(title)),
         '<text x="%d" y="36">x axis: time (UTC), %s to %s</text>' % (left, esc(utc(x0)), esc(utc(x1))),
     ]
     step = TIME_STEPS[-1]
@@ -540,13 +546,13 @@ def time_chart(path, title, panels, x_range, events=(), windows=(), notes=(), ma
             )
             if pi == 0:
                 out.append(
-                    '<text x="%.1f" y="%d" fill="%s" font-size="9" transform="rotate(-30 %.1f %d)">%s</text>'
-                    % (x + 2, ptop + 22, c, x + 2, ptop + 22, esc(el))
+                    '<text x="%.1f" y="%d" fill="%s" font-size="%d" transform="rotate(-30 %.1f %d)">%s</text>'
+                    % (x + 2, ptop + 22, c, font_size - 2, x + 2, ptop + 22, esc(el))
                 )
         ly = ptop + 4
         for si, (name, pts) in enumerate(panel["series"]):
             color = PALETTE[si % len(PALETTE)]
-            ly += 14
+            ly += line_h
             if not pts:
                 out.append(
                     '<text x="%d" y="%d" fill="#999">%s: missing (no data)</text>' % (left + plot_w + 10, ly, esc(name))
@@ -578,7 +584,7 @@ def time_chart(path, title, panels, x_range, events=(), windows=(), notes=(), ma
     legend = "events: green dashed = scale-out, red dashed = scale-in, gray dashed = lifecycle record"
     out.append('<text x="%d" y="%d" fill="#555">%s</text>' % (left, ny, esc(legend)))
     for i, n in enumerate(notes):
-        out.append('<text x="%d" y="%d" fill="#555">%s</text>' % (left, ny + 14 * (i + 1), esc(n)))
+        out.append('<text x="%d" y="%d" fill="#555">%s</text>' % (left, ny + line_h * (i + 1), esc(n)))
     out.append("</svg>")
     with open(path, "w", encoding="utf-8") as fh:
         fh.write("\n".join(out) + "\n")

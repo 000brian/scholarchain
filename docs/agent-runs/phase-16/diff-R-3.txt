@@ -1,0 +1,186 @@
+diff --git a/experiments/README.md b/experiments/README.md
+index d2c673f..ac692db 100644
+--- a/experiments/README.md
++++ b/experiments/README.md
+@@ -13,6 +13,12 @@ Owner: `experiment-engineer`. This folder holds experiment manifests, raw result
+ | `collectors/lib/collector-common.sh` | helpers the collectors source (never executed; no executable bit) | `experiment-engineer` |
+ | `raw/MANIFEST_ID/ATTEMPT_ID/` | raw results of one run; read-only after collection; committed by the human | `scripts/run-experiment.sh` (moved there after the run) |
+ | `derived/` | tables and plots, each reproducible from a committed script over `raw/` | `experiment-engineer` |
++| `evaluation/evaluate.py` | Phase 16 evaluation tool: one self-contained Python 3 standard-library file; usage, rules and exit codes in its docstring | `experiment-engineer` |
++| `evaluation/suite-v1.json` | the evaluation suite (entries, arguments, pinned inputs); approved only by the human's signed line at E3 | `experiment-engineer` |
++| `evaluation/rubric-v1.md`, `evaluation/intended-differences-v1.csv` | the rating rubric; the intended differences of E10's current-version regeneration | `experiment-engineer` |
++| `evaluation/spark-suite-table-v1.csv` | spark-engineer's Phase 16 group 2 suite table (43 tests), copied verbatim as the input of `evaluate.py graph` | `experiment-engineer` (content: `spark-engineer`) |
++| `evaluation/fixtures/SUBCOMMAND/CASE/` | hand-written fixture cases (`case.json`, `input/`, `expected/`), never results | `experiment-engineer` |
++| `evaluation/raw/GROUP/RUN_ID/` | evaluation outputs; immutable after collection; committed by the human (E12) | `evaluate.py`, run by the human |
+ 
+ Load generators live under `load-tests/` (also `experiment-engineer`).
+ 
+diff --git a/experiments/derived/common.py b/experiments/derived/common.py
+index 4ef5862..885332d 100644
+--- a/experiments/derived/common.py
++++ b/experiments/derived/common.py
+@@ -451,7 +451,8 @@ def nice_ticks(lo, hi, n=5):
+ TIME_STEPS = [15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400]
+ 
+ 
+-def time_chart(path, title, panels, x_range, events=(), windows=(), notes=(), max_gap=180):
++def time_chart(path, title, panels, x_range, events=(), windows=(), notes=(), max_gap=180,
++               font_size=11, width=1000, right=230):
+     """Stacked time panels on one UTC x axis.
+ 
+     panels: list of dicts {"title", "y_label", "series": [(name, [(epoch, value)])]}; a series
+@@ -460,24 +461,29 @@ def time_chart(path, title, panels, x_range, events=(), windows=(), notes=(), ma
+     events: (epoch, label, kind) drawn as vertical lines in every panel; kind scale-out,
+             scale-in, lifecycle or event.
+     windows: (start, end, label) shaded bands (for example load levels).
++    font_size, width, right (Phase 16 L-08): base text size, image width and legend margin.
++            The defaults (11, 1000, 230) give exactly the Phase 15 output, byte for byte; the
++            title is font_size + 3, event labels font_size - 2, legend and note lines
++            font_size + 3 apart.
+     """
+-    width, left, right, top, panel_h, gap_h = 1000, 70, 230, 50, 200, 45
++    left, top, panel_h, gap_h = 70, 50, 200, 45
++    line_h = font_size + 3
+     x0, x1 = x_range
+     if x0 is None or x1 is None:
+         x0, x1 = 0, 60
+     if x1 <= x0:
+         x1 = x0 + 60
+     plot_w = width - left - right
+-    height = top + len(panels) * (panel_h + gap_h) + 40 + 14 * len(notes)
++    height = top + len(panels) * (panel_h + gap_h) + 40 + line_h * len(notes)
+ 
+     def xp(e):
+         return left + (e - x0) * plot_w / float(x1 - x0)
+ 
+     out = [
+-        '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" font-family="sans-serif" font-size="11">'
+-        % (width, height),
++        '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" font-family="sans-serif" font-size="%d">'
++        % (width, height, font_size),
+         '<rect x="0" y="0" width="%d" height="%d" fill="white"/>' % (width, height),
+-        '<text x="%d" y="20" font-size="14" font-weight="bold">%s</text>' % (left, esc(title)),
++        '<text x="%d" y="20" font-size="%d" font-weight="bold">%s</text>' % (left, font_size + 3, esc(title)),
+         '<text x="%d" y="36">x axis: time (UTC), %s to %s</text>' % (left, esc(utc(x0)), esc(utc(x1))),
+     ]
+     step = TIME_STEPS[-1]
+@@ -540,13 +546,13 @@ def time_chart(path, title, panels, x_range, events=(), windows=(), notes=(), ma
+             )
+             if pi == 0:
+                 out.append(
+-                    '<text x="%.1f" y="%d" fill="%s" font-size="9" transform="rotate(-30 %.1f %d)">%s</text>'
+-                    % (x + 2, ptop + 22, c, x + 2, ptop + 22, esc(el))
++                    '<text x="%.1f" y="%d" fill="%s" font-size="%d" transform="rotate(-30 %.1f %d)">%s</text>'
++                    % (x + 2, ptop + 22, c, font_size - 2, x + 2, ptop + 22, esc(el))
+                 )
+         ly = ptop + 4
+         for si, (name, pts) in enumerate(panel["series"]):
+             color = PALETTE[si % len(PALETTE)]
+-            ly += 14
++            ly += line_h
+             if not pts:
+                 out.append(
+                     '<text x="%d" y="%d" fill="#999">%s: missing (no data)</text>' % (left + plot_w + 10, ly, esc(name))
+@@ -578,7 +584,7 @@ def time_chart(path, title, panels, x_range, events=(), windows=(), notes=(), ma
+     legend = "events: green dashed = scale-out, red dashed = scale-in, gray dashed = lifecycle record"
+     out.append('<text x="%d" y="%d" fill="#555">%s</text>' % (left, ny, esc(legend)))
+     for i, n in enumerate(notes):
+-        out.append('<text x="%d" y="%d" fill="#555">%s</text>' % (left, ny + 14 * (i + 1), esc(n)))
++        out.append('<text x="%d" y="%d" fill="#555">%s</text>' % (left, ny + line_h * (i + 1), esc(n)))
+     out.append("</svg>")
+     with open(path, "w", encoding="utf-8") as fh:
+         fh.write("\n".join(out) + "\n")
+diff --git a/experiments/derived/emr_capacity.py b/experiments/derived/emr_capacity.py
+index f62a93e..5786e8c 100644
+--- a/experiments/derived/emr_capacity.py
++++ b/experiments/derived/emr_capacity.py
+@@ -6,9 +6,12 @@ runtime: untested
+ 
+ Reads, per attempt folder (common.py has the shared layout):
+   metrics/metric-data.json  AWS/ElasticMapReduce series per cluster (dimension JobFlowId):
+-                            TotalUnitsRequested, TotalUnitsRunning, CoreUnitsRequested,
+-                            CoreUnitsRunning, CoreNodesRequested, CoreNodesRunning,
+-                            ContainerPending, AppsPending, YARNMemoryAvailablePercentage
++                            CoreNodesRequested, CoreNodesRunning, TotalNodesRequested,
++                            TotalNodesRunning, ContainerPending, AppsPending,
++                            YARNMemoryAvailablePercentage (the Phase 15 manifests query the
++                            Nodes metrics; TotalUnits* and CoreUnits* are not published for
++                            instance-group clusters and were never queried, so they are not
++                            named: Phase 16 AB-4 and J-03)
+   emr-cluster.json          (written by experiments/collectors/ab-pipeline.sh; optional)
+                             {"clusters": [{"clusterId", "createdEpoch", "readyEpoch",
+                               "terminationRequestedEpoch", "endedEpoch", "finalState",
+@@ -32,18 +35,20 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+ import common  # noqa: E402
+ 
+ DEFAULT_MANIFESTS = ["p15-a-hadoop", "p15-a-spark", "p15-b-spark-burst"]
++# The capacity series the manifests query (Phase 16 AB-4, J-03: never-queried Units series are
++# not named, so missing.csv no longer lists them as "series not exported").
+ UNIT_METRICS = [
+-    "TotalUnitsRequested",
+-    "TotalUnitsRunning",
+-    "CoreUnitsRequested",
+-    "CoreUnitsRunning",
+     "CoreNodesRequested",
+     "CoreNodesRunning",
++    "TotalNodesRequested",
++    "TotalNodesRunning",
+ ]
+ YARN_METRICS = ["ContainerPending", "AppsPending"]
+ MEMORY_METRICS = ["YARNMemoryAvailablePercentage"]
+-RUNNING_PREFERENCE = ["TotalUnitsRunning", "CoreUnitsRunning", "CoreNodesRunning"]
+-REQUESTED_PREFERENCE = ["TotalUnitsRequested", "CoreUnitsRequested", "CoreNodesRequested"]
++# CoreNodes first: the series Phase 15 classified with (the Units series never existed), so
++# attempts.csv is unchanged.
++RUNNING_PREFERENCE = ["CoreNodesRunning", "TotalNodesRunning"]
++REQUESTED_PREFERENCE = ["CoreNodesRequested", "TotalNodesRequested"]
+ 
+ 
+ def lifecycle(attempt):
+@@ -151,7 +156,7 @@ def main():
+                     xs += [w0 - 300, (w1 or w0) + 300]
+                 xr = (min(xs), max(xs)) if xs else (None, None)
+                 panels = [
+-                    {"title": "capacity units and nodes", "y_label": "units / nodes",
++                    {"title": "capacity (nodes)", "y_label": "nodes",
+                      "series": [(m, by_metric[m].points if m in by_metric else []) for m in UNIT_METRICS]},
+                     {"title": "YARN pending", "y_label": "count",
+                      "series": [(m, by_metric[m].points if m in by_metric else []) for m in YARN_METRICS]},
+diff --git a/experiments/derived/queue_worker.py b/experiments/derived/queue_worker.py
+index 32ed23d..ddf21bb 100644
+--- a/experiments/derived/queue_worker.py
++++ b/experiments/derived/queue_worker.py
+@@ -31,6 +31,11 @@ import common  # noqa: E402
+ 
+ DEFAULT_MANIFESTS = ["p15-c-embedding-backlog", "p15-f-poison-replay"]
+ QUEUES = ["embedding", "embedding-dlq", "job", "job-dlq"]
++# Phase 16 L-08: larger labels in the queue plots (Phase 15 used 11 px text on a 1000 px image,
++# hard to read in the demo); a wider image keeps the longer legend lines inside the frame.
++QUEUE_FONT_SIZE = 14
++QUEUE_WIDTH = 1200
++QUEUE_LEGEND = 330
+ 
+ 
+ def collapse(values):
+@@ -158,7 +163,7 @@ def main():
+                               panels, xr, events=sorted(events),
+                               notes=["status %s; scaling activities %s; metrics from %s" % (att.status(), act_note,
+                                                                                             att.metrics_source)],
+-                              max_gap=60)
++                              max_gap=60, font_size=QUEUE_FONT_SIZE, width=QUEUE_WIDTH, right=QUEUE_LEGEND)
+             ctx.written.append(path)
+         ctx.write_csv(manifest, "samples.csv", ["manifest", "attempt", "epoch_s", "utc", "stream", "field", "value"],
+                       sorted(long_rows, key=lambda r: (r[1], r[2], r[4], r[5])))
+diff --git a/experiments/results-summary-template.md b/experiments/results-summary-template.md
+index 51f58b1..dde7244 100644
+--- a/experiments/results-summary-template.md
++++ b/experiments/results-summary-template.md
+@@ -72,7 +72,7 @@ FILL table.
+ Experiment-specific required content:
+ 
+ - **A (`p15-a-hadoop`, `p15-a-spark`):** input and output records, task counts (Hadoop counters; Spark summaries), duration (run record, step times), shuffle (Spark event log totals, else `missing`), failures, estimated cost (instance-hours times COSTS.md rates, `estimate`), flat capacity baseline. `p15-a-hadoop` stands alone (Phase 14 D6 attempt 4 is an earlier, unmanaged reference); never a total pipeline duration across A and B.
+-- **B (`p15-b-spark-burst`):** requested, provisioned (running) and released capacity over time (`TotalUnitsRequested`, `TotalUnitsRunning`, `CoreNodesRequested`, `CoreNodesRunning`); classification `scale-out and scale-in while running`, `scale-out observed; no scale-in while running` or `no scale-out observed` (decision 11.6); released capacity at cluster end is a **lifecycle record, not a measured zero** and **not a scale-in event**. Compared only with `p15-a-spark` (partitions 32 vs 128, maximum 2 vs 4 core units, same inputs and code). B is observational and is never re-run because it did not scale.
++- **B (`p15-b-spark-burst`):** requested, provisioned (running) and released capacity over time (`CoreNodesRequested`, `CoreNodesRunning`, `TotalNodesRequested`, `TotalNodesRunning`; the Units series are not published for instance-group clusters and are not queried, Phase 16 J-03); classification `scale-out and scale-in while running`, `scale-out observed; no scale-in while running` or `no scale-out observed` (decision 11.6); released capacity at cluster end is a **lifecycle record, not a measured zero** and **not a scale-in event**. Compared only with `p15-a-spark` (partitions 32 vs 128, maximum 2 vs 4 core units, same inputs and code). B is observational and is never re-run because it did not scale.
+ - **C:** the three results kept apart (decision 13 D12): (1) spec gate, at least one worker scale-out and one scale-in shown by the service samples **and** the scaling activities (an alarm in `ALARM` alone is not a scaling event); (2) extended objective 0 to 1 to 2 to 0 (`reached` or `extended objective not reached`); (3) fully observed: queue depth, throughput, retries, drain time, embedding DLQ against its baseline (not 0 after F), counters (U-11: `processed`, `replayed`; concurrent duplicates are not observable). Re-embed write rate is the re-embed path only, not a first ingest. Handler permanent failures are workload failures (bad selected documents), reported apart from worker failures.
+ - **D (`p15-d-query-load`, `p15-d-read-load`):** per level: attempted requests (the denominator), completed per second, counts per class, error rate, p50, p95, p99 over all attempted requests and over the success population (`answered`, `ok`), `few samples` under 20, `n/a` under 1; task counts per service (samples), CPU and memory (CloudWatch), ALB latency, DynamoDB `ThrottledRequests`, the explain stage latencies (planner, graph stages, semantic, synthesis, verification) and the items they do not cover (`explain-coverage.csv`: retries, Neptune latency separate from the graph stage, Voyage latency separate from the S3 Vectors query: `missing`). 60 s periods across a level boundary or a pause are marked and not attributed. Throttling, overload and timeout answers under the deployed limits are results, not defects (decision 3); scale-out is not expected.
+ - **E:** the evaluation universe (questions with at least one labelled target researcher), `not-comparable` count, the same questions and K values for every mode, recall@K and MRR (K = 1, 5, 10, 30), nDCG only where graded labels exist, latency, errors, empty results, abstentions, `by-design-weak`; under 15 questions every table says **exploratory**; the fused mode says **"experiment only; the production workflow has no fused ranking"**; no OpenSearch tier exists.

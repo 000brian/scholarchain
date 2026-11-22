@@ -1,0 +1,14 @@
+{
+  "kind": "scholarchain-release",
+  "attempt_id": "r1",
+  "environment": "course",
+  "commit": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+  "plan_id": "plan-1",
+  "plan_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "applied_utc": "2026-01-01T00:00:00Z",
+  "verified": true,
+  "services": {
+    "worker": {"digest_check": "no running task (desired 0)"},
+    "query": {"digest_check": "verified (1 running task)"}
+  }
+}

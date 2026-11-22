@@ -1,0 +1,3 @@
+file,sha256,data_rows,run_ids,observation
+experiments/evaluation/fixtures/graph/happy/input/a/spark-outputs.csv,47db7b148c2f172c58efe79050250858ff1532748b8845e4606c70d6fc20eca3,28,run:v1:sparkfixture,observation 1
+experiments/evaluation/fixtures/graph/happy/input/b/spark-outputs.csv,47db7b148c2f172c58efe79050250858ff1532748b8845e4606c70d6fc20eca3,28,run:v1:sparkfixture,"byte-identical to observation 1 (same sha256): the same observation, not an independent one"

@@ -1,0 +1,4 @@
+# approvals (fixture)
+APPROVED-PLAN-SHA256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+APPROVED-PLAN-SHA256: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc extra words
+approved-plan-sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa

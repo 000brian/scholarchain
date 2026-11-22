@@ -1,0 +1,3 @@
+phase,file,line,reason,text
+phase-00,phase-00/review-report.md,7,finding-like row with an unknown second cell,| B-03 | weird | build-engineer | unknown severity |
+phase-01,phase-01/orchestrator-summary.md,9,step-table row without a known agent,| 4 | mystery-bot | done | - |

@@ -741,22 +741,41 @@ object JsonlExport {
     * checked before a session starts. Prints the run ID and the masked export location; any failure
     * is rethrown as [[JsonlExportFailedException]] with a masked message and no cause.
     */
-  def main(argv: Array[String]): Unit = {
-    val args = parseArgs(argv.toSeq).fold(e => throw new IllegalArgumentException(e), identity)
+  def main(argv: Array[String]): Unit =
+    mainWith(
+      argv.toSeq,
+      () => SparkSession.builder().appName("scholarchain-jsonl-export").getOrCreate()
+    )
+
+  /** The whole body of [[main]], with the session factory as a parameter (Phase 13 C-05: the
+    * wrapper is testable without starting a session). Arguments are checked first and an argument
+    * error is an `IllegalArgumentException` that echoes no value; after that, every non-fatal
+    * failure, including a failure to start the session, is rethrown by [[masked]].
+    */
+  private[spark] def mainWith(argv: Seq[String], session: () => SparkSession): Unit = {
+    val args = parseArgs(argv).fold(e => throw new IllegalArgumentException(e), identity)
     val known = (authorityOf(args.sourceRun) ++ authorityOf(args.outRoot)).toSeq
-    val spark = SparkSession.builder().appName("scholarchain-jsonl-export").getOrCreate()
-    try {
-      val r =
-        try run(spark, args.sourceRun, args.outRoot, args.recordsPerFile, 32, args.codeVersion)
-        catch {
-          case NonFatal(e) =>
-            throw new JsonlExportFailedException(
-              maskText(s"${e.getClass.getSimpleName}: ${e.getMessage}", known)
-            )
-        }
-      println(s"[scholarchain] export ${r.runId} at ${show(r.outRun)}")
-    } finally spark.stop()
+    masked(known) {
+      val spark = session()
+      try {
+        val r = run(spark, args.sourceRun, args.outRoot, args.recordsPerFile, 32, args.codeVersion)
+        println(s"[scholarchain] export ${r.runId} at ${show(r.outRun)}")
+      } finally spark.stop()
+    }
   }
+
+  /** Runs `body`; a non-fatal failure becomes a [[JsonlExportFailedException]] whose message is
+    * `SimpleClassName: message` passed through [[maskText]] with the `known` authorities, and whose
+    * cause is null (the original exception and its cause chain never reach the step log).
+    */
+  private[spark] def masked[A](known: Seq[String])(body: => A): A =
+    try body
+    catch {
+      case NonFatal(e) =>
+        throw new JsonlExportFailedException(
+          maskText(s"${e.getClass.getSimpleName}: ${e.getMessage}", known)
+        )
+    }
 }
 
 /** Older name of the entry point, kept for the local runner; same options as [[JsonlExport]]. */

@@ -1,0 +1,9 @@
+manifest,attempt,level,route,class,http_status,error_code,requests
+p15-d-read-load,D1,1,GET /v1/evidence/{evidenceId},ok,200,-,1
+p15-d-read-load,D1,1,GET /v1/graph/nodes/{nodeId}/neighbors,ok,200,-,1
+p15-d-read-load,D1,2,GET /v1/graph/nodes/{nodeId}/neighbors,overloaded,503,CIRCUIT_OPEN,2
+p15-d-read-load,D1,2,GET /v1/graph/nodes/{nodeId}/neighbors,throttled,429,-,1
+p15-d-read-load,D1,all,GET /v1/evidence/{evidenceId},ok,200,-,1
+p15-d-read-load,D1,all,GET /v1/graph/nodes/{nodeId}/neighbors,ok,200,-,1
+p15-d-read-load,D1,all,GET /v1/graph/nodes/{nodeId}/neighbors,overloaded,503,CIRCUIT_OPEN,2
+p15-d-read-load,D1,all,GET /v1/graph/nodes/{nodeId}/neighbors,throttled,429,-,1

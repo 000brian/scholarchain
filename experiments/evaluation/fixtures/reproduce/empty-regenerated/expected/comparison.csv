@@ -1,0 +1,2 @@
+path,status,expected_sha256,regenerated_sha256,marking,reason
+a.csv,missing,01a90a081d6971b86840c3fcaa8df879ab940529e676216b603a9d5ea5db45c7,,unexplained,

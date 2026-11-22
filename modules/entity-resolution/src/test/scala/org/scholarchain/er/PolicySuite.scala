@@ -171,8 +171,6 @@ class PolicySuite extends munit.FunSuite {
     assertEquals(Policy.current.rule(Rules.FlagGivenNameConflict).outcome, "conflict")
     val v2 = new String(DataFiles.readResource(Policy.DefaultResource), StandardCharsets.UTF_8)
     assert(v2.contains(Reasons.MergeGivenNameConflict), "er-v2 names the implied cannot-link")
-    // the legacy accessor is the current policy, never a second er-v1 policy
-    assert(Policy.erV1 eq Policy.current)
     // er-v1.json is byte-identical to the Phase 5 file whose sha256 every er-v1 manifest records
     val v1 = DataFiles.readResource(Policy.ErV1Resource)
     assertEquals(DataFiles.sha256OfBytes(v1), Policy.ErV1Sha256)

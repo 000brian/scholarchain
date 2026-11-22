@@ -1,0 +1,3 @@
+phase,file,line,reason,text
+phase-00,phase-00/review-report.md,1,review report without a parseable finding table,
+phase-99,,,phase folder absent,

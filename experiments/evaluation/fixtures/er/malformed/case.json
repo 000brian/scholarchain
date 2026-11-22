@@ -1,0 +1,5 @@
+{
+  "description": "malformed input: a precision cell of the researcher-resolution table is unreadable; exit 5 and no result file",
+  "args": ["--phase5-report", "{case}/er-eval-input.md", "--start-marker", "FINAL SUMMARY (verbatim):"],
+  "expectExit": 5
+}

@@ -32,6 +32,14 @@ import org.scholarchain.storage.ports.GraphQuery
   * @param embeddingConcurrency
   *   threads of the embedding-queue loop, 1..[[ServiceLimits.MaxEmbeddingWorkerConcurrency]]
   *   (default [[ServiceLimits.EmbeddingWorkerConcurrency]])
+  * @param readDeadlineMillis
+  *   Phase 16 route time limit of the evidence and explain reads, 1..
+  *   [[ServiceLimits.MaxReadRouteDeadlineMillis]] (default
+  *   [[ServiceLimits.ReadRouteDeadlineMillis]])
+  * @param embeddingDrainMillis
+  *   Phase 16 H-05: how long `close()` waits for in-flight embedding-queue calls, 1..
+  *   [[ServiceLimits.EmbeddingDrainMillis]] (the default; a test shortens it, nothing may lengthen
+  *   it)
   */
 final case class ServerOptions(
     role: Role,
@@ -45,7 +53,9 @@ final case class ServerOptions(
     closeRuntime: Boolean = true,
     name: String = "srv",
     embedding: Option[EmbeddingWork] = None,
-    embeddingConcurrency: Int = ServiceLimits.EmbeddingWorkerConcurrency
+    embeddingConcurrency: Int = ServiceLimits.EmbeddingWorkerConcurrency,
+    readDeadlineMillis: Long = ServiceLimits.ReadRouteDeadlineMillis,
+    embeddingDrainMillis: Long = ServiceLimits.EmbeddingDrainMillis
 )
 
 /** One running services process: the JDK HTTP server, the route table of its role, the bounded
@@ -59,13 +69,16 @@ final case class ServerOptions(
   *   - `worker`: `workerConcurrency` worker loop threads;
   *   - `embedding` (roles `worker` and `all` with [[ServerOptions.embedding]]):
   *     `embeddingConcurrency` embedding-queue loop threads;
-  *   - `ready`: 3 readiness check threads, queue 9.
+  *   - `ready`: 3 readiness check threads, queue 9;
+  *   - `read` (Phase 16, route time limits): `maxConcurrentQueries + 8` threads, queue of the same
+  *     size, for the evidence and explain reads, each waited for at most
+  *     [[ServerOptions.readDeadlineMillis]].
   *
   * `close()` stops accepting, stops both worker loops, shuts every pool down at once and waits for
   * them together (each at most `syncDeadlineMillis`, the embedding pool at most
-  * [[ServiceLimits.EmbeddingDrainMillis]], all measured from the same start, so the drain stays
-  * inside the ECS stop timeout), waits for its threads, then closes the RuntimeService handle.
-  * Thread-safe; idempotent.
+  * [[ServerOptions.embeddingDrainMillis]] (default [[ServiceLimits.EmbeddingDrainMillis]]), all
+  * measured from the same start, so the drain stays inside the ECS stop timeout), waits for its
+  * threads, then closes the RuntimeService handle. Thread-safe; idempotent.
   */
 final class ServiceServer private (
     val settings: ServiceSettings,
@@ -104,7 +117,7 @@ final class ServiceServer private (
       catch { case NonFatal(_) => () }
       val start = System.nanoTime()
       def waitOf(p: ThreadPoolExecutor): Long =
-        if (embeddingPool.exists(_ eq p)) ServiceLimits.EmbeddingDrainMillis
+        if (embeddingPool.exists(_ eq p)) options.embeddingDrainMillis
         else settings.syncDeadlineMillis.toLong
       // every pool stops taking work now; the waits below overlap instead of adding up
       pools.foreach { case (p, _) => p.shutdown() }
@@ -142,6 +155,18 @@ object ServiceServer {
         (),
         s"embeddingConcurrency must be in 1..${ServiceLimits.MaxEmbeddingWorkerConcurrency}"
       )
+      _ <- Either.cond(
+        options.readDeadlineMillis >= 1 &&
+          options.readDeadlineMillis <= ServiceLimits.MaxReadRouteDeadlineMillis,
+        (),
+        s"readDeadlineMillis must be in 1..${ServiceLimits.MaxReadRouteDeadlineMillis}"
+      )
+      _ <- Either.cond(
+        options.embeddingDrainMillis >= 1 &&
+          options.embeddingDrainMillis <= ServiceLimits.EmbeddingDrainMillis,
+        (),
+        s"embeddingDrainMillis must be in 1..${ServiceLimits.EmbeddingDrainMillis}"
+      )
       server <- build(runtime, stores, options, settings, keys)
     } yield server
 
@@ -174,6 +199,8 @@ object ServiceServer {
     val workerPool = pool("worker", settings.workerConcurrency, settings.workerConcurrency)
     val readyPool =
       pool("ready", ServiceLimits.ReadinessThreads, ServiceLimits.ReadinessQueueCapacity)
+    val readThreads = settings.maxConcurrentQueries + ServiceLimits.HttpExtraThreads
+    val readPool = pool("read", readThreads, readThreads)
     val workerRole = options.role == Role.Worker || options.role == Role.All
     // rag's handler, built once with this server's log (its one line per delivery)
     val handler
@@ -192,26 +219,53 @@ object ServiceServer {
     val embeddingPool = handler.toOption.flatten.map(_ =>
       pool("embedding", options.embeddingConcurrency, options.embeddingConcurrency)
     )
-    val pools = List(httpPool, queryPool, workerPool, readyPool) ++ embeddingPool.toList
+    val pools =
+      List(httpPool, queryPool, workerPool, readyPool, readPool) ++ embeddingPool.toList
     if (handler.isLeft) {
       pools.foreach { case (p, _) => p.shutdownNow() }
       return Left(handler.left.getOrElse(""))
     }
     try {
-      val breakers = new Breakers(settings, clock)
-      val ctx = new AppContext(runtime, stores, settings, clock, options.ids, log, breakers)
+      // FECD-1 (B2, B4): every breaker state change is one `circuit-state` line
+      val breakers = new Breakers(
+        settings,
+        clock,
+        (name, state) =>
+          log.event(
+            "circuit-state",
+            None,
+            List("breaker" -> ujson.Str(name), "state" -> ujson.Str(state))
+          )
+      )
+      val ctx = new AppContext(
+        runtime,
+        stores,
+        settings,
+        clock,
+        options.ids,
+        log,
+        breakers,
+        Some(new ReadTimeLimit(readPool._1, options.readDeadlineMillis))
+      )
       val probeId = ResearcherId(ServiceLimits.ProbeResearcherId)
       val storeChecks: List[(String, () => Either[String, Any])] = List(
         "metrics" -> (() =>
           runtime.stores.metrics.get(probeId, runtime.context.runtime.defaultWindowLabel)
         ),
-        "graph" -> (() => runtime.stores.graph.run(GraphQuery.ResearcherById(probeId)))
+        // G-23: the Left is storage's allowlisted code, so the failure line names its class
+        "graph" -> (() =>
+          GraphReads
+            .classified(runtime.stores.graph, GraphQuery.ResearcherById(probeId))
+            .left
+            .map(_.code)
+        )
       )
       val jobCheck: List[(String, () => Either[String, Any])] =
         if (Set[Role](Role.Query, Role.Worker, Role.All).contains(options.role))
           List("jobs" -> (() => stores.jobs.get(ServiceLimits.ProbeJobId, clock.millis())))
         else Nil
-      val health = new HealthService(options.role, storeChecks ++ jobCheck, readyPool._1, clock)
+      val health =
+        new HealthService(options.role, storeChecks ++ jobCheck, readyPool._1, clock, Some(log))
       val app = new Application(
         new QueryService(ctx, queryPool._1),
         new JobService(ctx),
@@ -241,7 +295,7 @@ object ServiceServer {
           Some(new WorkerLoop(worker, workerPool._1, settings.workerConcurrency, log))
         else None
       val embeddingWorker = handler.toOption.flatten.map { case (e, h) =>
-        new EmbeddingWorker(e.queue, h, log)
+        new EmbeddingWorker(e.queue, h, log, e.indexes)
       }
       val embeddingLoop =
         for {

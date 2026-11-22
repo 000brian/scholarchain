@@ -1,0 +1,8 @@
+run_id,stage_group,metric,value
+run:v1:fixture,decode-inputs,tasks,10
+run:v1:fixture,decode-inputs,stages,2
+run:v1:fixture,decode-inputs,shuffleReadBytes,100
+run:v1:fixture,canonical-graph,tasks,5
+run:v1:fixture,canonical-graph,stages,1
+run:v1:fixture,canonical-graph,shuffleWriteBytes,250
+run:v1:fixture,canonical-graph,diskSpillBytes,0

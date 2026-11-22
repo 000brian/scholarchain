@@ -1,0 +1,1570 @@
+diff --git a/build.sbt b/build.sbt
+index b2242d6..663db60 100644
+--- a/build.sbt
++++ b/build.sbt
+@@ -96,16 +96,66 @@ Global / onLoad := {
+ //   sbt <project>/AwsTest/test        one project (also AwsTest/testOnly)
+ // AwsTest never writes .claude/.last-test-run. Credentials and endpoints come from the test
+ // code's own configuration contracts, never from this build.
++//
++// MUnit tag for tests that need the local AWS Emulator (Phase 16, decision 5.2). `Test` and
++// `AwsTest` both exclude them. The `EmulatorTest` configuration (storage and services only) runs
++// only them, from the same test sources:
++//   sbt emulatorTest                  storage and services (both run; fails if either fails)
++//   sbt storage/EmulatorTest/test     one project (also services/EmulatorTest/test, testOnly)
++// EmulatorTest never writes .claude/.last-test-run and is never part of check or markTestRun.
++// Its tests run in one forked JVM per project, working directory = the project folder
++// (modules/storage, modules/services), inheriting the shell's environment. Only that JVM trusts
++// the emulator certificate: its options set javax.net.ssl.trustStore to
++// <user.home>/.aws/emulator/9297/truststore.p12 (user.home is the JVM system property of the sbt
++// JVM; 9297 is the one supported emulator port) and javax.net.ssl.trustStoreType=PKCS12. sbt's
++// own JVM keeps its normal trust store; no JAVA_TOOL_OPTIONS is used (it would reach every JVM).
++// The endpoint, credentials and safety checks come from the test code (decision 6.6), never from
++// this build. buildPolicyCheck (run by check) asserts these settings.
+ val requiresAwsTag = "RequiresAws"
++val requiresEmulatorTag = "RequiresEmulator"
+ lazy val AwsTest = config("awstest").extend(Test).describedAs("Tests tagged RequiresAws only.")
++lazy val EmulatorTest =
++  config("emulatortest").extend(Test).describedAs("Tests tagged RequiresEmulator only.")
+ 
+ lazy val awsTestSettings: Seq[Setting[_]] =
+   inConfig(AwsTest)(Defaults.testTasks) ++ Seq(
+     AwsTest / testOptions := Seq(
+-      Tests.Argument(TestFrameworks.MUnit, s"--include-tags=$requiresAwsTag")
++      Tests.Argument(TestFrameworks.MUnit, s"--include-tags=$requiresAwsTag"),
++      Tests.Argument(TestFrameworks.MUnit, s"--exclude-tags=$requiresEmulatorTag")
+     )
+   )
+ 
++// The one emulator port this build supports (decision 6.6: https://127.0.0.1:9297).
++lazy val emulatorPort = 9297
++lazy val emulatorTrustStore: String = {
++  val home = file(sys.props("user.home"))
++  (home / ".aws" / "emulator" / emulatorPort.toString / "truststore.p12").getPath
++}
++lazy val emulatorJvmOptions: Seq[String] = Seq(
++  "-Xmx2g",
++  s"-Djavax.net.ssl.trustStore=$emulatorTrustStore",
++  "-Djavax.net.ssl.trustStoreType=PKCS12"
++)
++
++// The fork is defined only by testGrouping (test and testOnly both read it): one forked group
++// whose fork options are Test's (working directory = project folder, Java home, inherited
++// environment) with the JVM options replaced, so the emulator JVM never depends on how sbt
++// delegates fork or forkOptions between configurations.
++lazy val emulatorTestSettings: Seq[Setting[_]] =
++  inConfig(EmulatorTest)(Defaults.testTasks) ++ Seq(
++    EmulatorTest / testOptions := Seq(
++      Tests.Argument(TestFrameworks.MUnit, s"--include-tags=$requiresEmulatorTag"),
++      Tests.Argument(TestFrameworks.MUnit, s"--exclude-tags=$requiresAwsTag")
++    ),
++    EmulatorTest / testGrouping := {
++      val opts = (Test / forkOptions).value
++        .withRunJVMOptions(emulatorJvmOptions.toVector)
++        .withWorkingDirectory(baseDirectory.value)
++      val tests = (EmulatorTest / definedTests).value.sortBy(_.name)
++      Seq(Tests.Group("emulator", tests, Tests.SubProcess(opts)))
++    }
++  )
++
+ def scalacOptionsFor(scalaV: String): Seq[String] =
+   CrossVersion.partialVersion(scalaV) match {
+     case Some((3, _)) =>
+@@ -119,7 +169,11 @@ def scalacOptionsFor(scalaV: String): Seq[String] =
+ lazy val commonSettings: Seq[Setting[_]] = Seq(
+   scalacOptions ++= scalacOptionsFor(scalaVersion.value),
+   libraryDependencies += "org.scalameta" %% "munit" % Ledger.munit % Test,
+-  Test / testOptions += Tests.Argument(TestFrameworks.MUnit, s"--exclude-tags=$requiresAwsTag"),
++  // One comma-separated MUnit argument excludes both tags.
++  Test / testOptions += Tests.Argument(
++    TestFrameworks.MUnit,
++    s"--exclude-tags=$requiresAwsTag,$requiresEmulatorTag"
++  ),
+   // Scala 2 projects run on the EMR Spark runtime's exact Scala library. Without this, test
+   // libraries built against a newer 2.13 patch would evict it on the Test classpath.
+   dependencyOverrides ++= {
+@@ -352,11 +406,12 @@ lazy val sparkAnalytics = (project in file("modules/spark"))
+ // Loaders and adapters for S3, Neptune, DynamoDB, S3 Vectors. The only module that talks to
+ // AWS data stores.
+ lazy val storage = (project in file("modules/storage"))
+-  .configs(AwsTest)
++  .configs(AwsTest, EmulatorTest)
+   .dependsOn(coreScala3)
+   .settings(
+     name := "scholarchain-storage",
+     commonSettings,
++    emulatorTestSettings,
+     libraryDependencies ++= awsSdkStorage
+   )
+ 
+@@ -395,7 +450,7 @@ lazy val dockerBuildLocal =
+   )
+ 
+ lazy val services = (project in file("modules/services"))
+-  .configs(AwsTest)
++  .configs(AwsTest, EmulatorTest)
+   .dependsOn(
+     coreScala3,
+     rag % "compile->compile;test->test",
+@@ -404,6 +459,7 @@ lazy val services = (project in file("modules/services"))
+   .settings(
+     name := "scholarchain-services",
+     commonSettings,
++    emulatorTestSettings,
+     assemblySettings,
+     libraryDependencies ++= Seq(slf4jApi, logbackClassic),
+     assembly / mainClass := Some(PackageCheck.ServicesMainClass),
+@@ -492,6 +548,24 @@ lazy val packageCheck =
+   taskKey[Unit](
+     "Opens the four assembled jars and checks classes, manifests, prompts, SDK merges and build info. No Docker."
+   )
++lazy val buildSelfTest =
++  taskKey[Unit](
++    "Self-tests of the build's checks: script classes in packageCheck lists (L-09), packageCheck on generated bad jars (B-02)."
++  )
++lazy val buildPolicyCheck =
++  taskKey[Unit](
++    "Checks the test-tag policy of Test, AwsTest and EmulatorTest and EmulatorTest's forked JVM options."
++  )
++
++// Every project with tests: the modules and contractTests (root has no tests).
++lazy val testedProjectsFilter =
++  ScopeFilter(inProjects((moduleProjects :+ (contractTests: ProjectReference)): _*))
++
++def failOnProblems(task: String, problems: Seq[String], log: Logger): Unit =
++  if (problems.nonEmpty) {
++    problems.foreach(p => log.error(s"$task: $p"))
++    throw new MessageOnlyException(s"$task failed: ${problems.size} problem(s).")
++  } else log.info(s"$task: ok")
+ 
+ lazy val root = (project in file("."))
+   .configs(AwsTest)
+@@ -537,20 +611,51 @@ lazy val root = (project in file("."))
+       streams.value.log
+     ),
+     awsTestSettings,
++    buildSelfTest / aggregate := false,
++    buildSelfTest := failOnProblems(
++      "buildSelfTest",
++      BuildSelfTest.run((ThisBuild / baseDirectory).value),
++      streams.value.log
++    ),
++    buildPolicyCheck / aggregate := false,
++    buildPolicyCheck := {
++      val tagProblems = BuildSelfTest.tagProblems(
++        (Test / testOptions).all(testedProjectsFilter).value,
++        (AwsTest / testOptions).all(testedProjectsFilter).value,
++        (Test / javaOptions).all(testedProjectsFilter).value
++      )
++      val emulator =
++        BuildSelfTest.emulatorProblems(
++          "storage",
++          (storage / EmulatorTest / testOptions).value,
++          (storage / EmulatorTest / testGrouping).value,
++          emulatorJvmOptions,
++          (storage / baseDirectory).value
++        ) ++ BuildSelfTest.emulatorProblems(
++          "services",
++          (services / EmulatorTest / testOptions).value,
++          (services / EmulatorTest / testGrouping).value,
++          emulatorJvmOptions,
++          (services / baseDirectory).value
++        )
++      failOnProblems("buildPolicyCheck", tagProblems ++ emulator, streams.value.log)
++    },
+     // markTestRun is the whole gate, in strict stages; each stage starts only after the previous
+     // one succeeded in the same invocation, so running `sbt markTestRun` alone cannot skip a
+     // check:
+-    //   1. ledgerCheck, scalafmtSbtCheck and scalafmtCheckAll in every project
+-    //   2. Test/compile in every project
++    //   1. ledgerCheck, buildSelfTest, scalafmtSbtCheck and scalafmtCheckAll in every project
++    //   2. Test/compile in every project, and buildPolicyCheck (needs the compiled test names)
+     //   3. module tests and contract tests (no AWS), concurrently; both must pass
+     //   4. write the marker, only if at least one test executed
+     // Any failure throws before stage 4, so the marker is never touched.
+     markTestRun := Def.taskDyn {
+       ledgerCheck.value
++      buildSelfTest.value
+       (Compile / scalafmtSbtCheck).all(ScopeFilter(inAnyProject)).value
+       scalafmtCheckAll.all(ScopeFilter(inAnyProject)).value
+       Def.taskDyn {
+         (Test / compile).all(ScopeFilter(inAnyProject)).value
++        buildPolicyCheck.value
+         Def.task {
+           // Both dependencies start together; this body runs only after both have succeeded.
+           val moduleCount = moduleTests.value
+@@ -597,6 +702,10 @@ addCommandAlias("fmt", "; scalafmtSbt ; scalafmtAll")
+ addCommandAlias("check", "markTestRun")
+ // Runs only tests tagged RequiresAws (needs live AWS; never part of check or markTestRun).
+ addCommandAlias("awsTest", "AwsTest/test")
++// Runs only tests tagged RequiresEmulator in storage and services (needs the local AWS Emulator;
++// never part of check or markTestRun). `all` runs both even if one fails, and fails if either
++// fails.
++addCommandAlias("emulatorTest", "all storage/EmulatorTest/test services/EmulatorTest/test")
+ addCommandAlias(
+   "packageJobs",
+   "; hadoop/assembly ; entityResolution/assembly ; sparkAnalytics/assembly"
+diff --git a/modules/entity-resolution/src/main/scala/org/scholarchain/er/eval/EvalReport.scala b/modules/entity-resolution/src/main/scala/org/scholarchain/er/eval/EvalReport.scala
+index d36214c..a867181 100644
+--- a/modules/entity-resolution/src/main/scala/org/scholarchain/er/eval/EvalReport.scala
++++ b/modules/entity-resolution/src/main/scala/org/scholarchain/er/eval/EvalReport.scala
+@@ -145,8 +145,17 @@ object EvalReport {
+     val sent = wholeCount(atOpt(llmStage, "pairsSentToAdjudicator"))
+     val abstained = wholeCount(atOpt(llmStage, "reasons", "llm-abstain"))
+     val validOutcomes = runOutcomes.filterNot(_ => malformedOutcomes)
++    // Phase 16 (test-engineer F9, part of reviewer M2): the outcome counts account for every sent
++    // pair only when each of them is a whole count (the rule above); a fractional count never lets
++    // an absent key read as 0. M2's cached-pairs part (outcomes include cache hits, pairs sent do
++    // not) is not changed here.
+     val allSentAccounted =
+-      sent.exists(n => validOutcomes.exists(_.obj.values.map(_.num).sum == n.toDouble))
++      sent.exists(n =>
++        validOutcomes.exists(o =>
++          o.obj.values.forall(v => wholeCount(Some(v)).isDefined) &&
++            o.obj.values.map(_.num).sum == n.toDouble
++        )
++      )
+     def outcomeCount(k: String): Option[Long] = validOutcomes.flatMap(o =>
+       o.obj.get(k) match {
+         case Some(v)                  => wholeCount(Some(v))
+diff --git a/modules/entity-resolution/src/main/scala/org/scholarchain/er/eval/Harness.scala b/modules/entity-resolution/src/main/scala/org/scholarchain/er/eval/Harness.scala
+index 0ca5341..f8cb3c3 100644
+--- a/modules/entity-resolution/src/main/scala/org/scholarchain/er/eval/Harness.scala
++++ b/modules/entity-resolution/src/main/scala/org/scholarchain/er/eval/Harness.scala
+@@ -712,13 +712,26 @@ object Harness {
+     // repairs 20 and 21: weighted intervals carry their reliability flag wherever they are shown
+     def reliability(w: ujson.Value): Option[ujson.Value] =
+       EvalReport.at(w, "intervalReliability", "metrics")
++    // Phase 16, reviewer M3: an unreliable interval shows its zero-event bound in the same cell
++    // or entry, never the collapsed bootstrap interval alone; M4: a partly design-fixed rate is
++    // labeled so, never "design-determined"
+     def mark(rel: Option[ujson.Value], k: String): String =
+       rel.flatMap(EvalReport.at(_, k)) match {
+         case Some(o) if EvalReport.at(o, "designDetermined").contains(ujson.Bool(true)) =>
+           " (design-determined)"
+-        case Some(o) if EvalReport.at(o, "unreliable").contains(ujson.Bool(true)) =>
+-          " (unreliable)"
+-        case _ => ""
++        case Some(o) =>
++          val flags =
++            (if (EvalReport.at(o, "partlyDesignFixed").contains(ujson.Bool(true)))
++               List("partly design-fixed")
++             else Nil) ++
++              (if (EvalReport.at(o, "unreliable").contains(ujson.Bool(true))) List("unreliable")
++               else Nil)
++          if (flags.isEmpty) ""
++          else {
++            val bound = EvalReport.at(o, "zeroEventBound95").getOrElse(ujson.Null)
++            s" (${flags.mkString(", ")}; zero-event bound ${ci(bound)})"
++          }
++        case None => ""
+       }
+     def line(name: String, x: ujson.Value, rel: Option[ujson.Value] = None) =
+       sb.append(
+@@ -756,7 +769,14 @@ object Harness {
+                 val list =
+                   if (zs.isEmpty) "no zero-event stratum"
+                   else s"${zs.size} zero-event strata, largest first: $shown$more"
+-                s"${
++                val partly = EvalReport.at(r, "partlyDesignFixed") match {
++                  case Some(ujson.Bool(true)) =>
++                    val share =
++                      EvalReport.at(r, "designFixedShareOfPopulation").getOrElse(ujson.Null)
++                    s"${r("partlyDesignFixedNote").str} Strata with the share fixed by the design hold ${pct(share)} of the population weight. "
++                  case _ => ""
++                }
++                s"$partly${
+                     if (r("unreliable").bool) "unreliable" else "not flagged"
+                   }: zero-event strata hold ${pct(r("zeroEventShareOfRelevantPopulation"))} of the relevant population weight and ${pct(r("zeroEventShareOfDenominatorWeight"))} of the observed denominator weight ($list). $bound"
+               }
+diff --git a/modules/entity-resolution/src/main/scala/org/scholarchain/er/eval/IntervalReliability.scala b/modules/entity-resolution/src/main/scala/org/scholarchain/er/eval/IntervalReliability.scala
+index 4324d6f..7d56c79 100644
+--- a/modules/entity-resolution/src/main/scala/org/scholarchain/er/eval/IntervalReliability.scala
++++ b/modules/entity-resolution/src/main/scala/org/scholarchain/er/eval/IntervalReliability.scala
+@@ -90,6 +90,19 @@ object IntervalReliability {
+       "reflects only the pooling of single-row strata and memberships whose decision differs from " +
+       "their stratum (m3), not label uncertainty."
+ 
++  /** Phase 16, reviewer M4 (test-engineer F8): the unresolved rate is wholly design-determined only
++    * when every stratum's share is fixed by the design. When only some strata are (memberships
++    * whose own decision differs from their stratum's outcome, m3, make the rest estimated), the
++    * rate is partly design-fixed: it keeps the zero-event check and its flag.
++    */
++  val PartlyDesignFixedNote: String =
++    "partly design-fixed, not wholly design-determined: the unresolved rate depends only on the " +
++      "decision, never on a label, and every stratum is defined by decision outcome, but only the " +
++      "strata whose labeled memberships all share their stratum's outcome have the share fixed by " +
++      "the strata's population decision counts; in the other strata some memberships' own " +
++      "decision differs from their stratum's outcome (m3), so their share is estimated from the " +
++      "labeled rows and is checked for zero events like any estimated share."
++
+   final case class Box(lo: Double, hi: Double, widened: Boolean)
+ 
+   private val one = Box(1.0, 1.0, widened = false)
+@@ -104,7 +117,8 @@ object IntervalReliability {
+       relevant: Boolean,
+       zeroEvent: Boolean,
+       weight: Box,
+-      rate: Box
++      rate: Box,
++      fixedByDesign: Boolean = false
+   ) {
+     def observed: Option[Double] =
+       if (denominatorUnits > 0) Some(numeratorUnits.toDouble / denominatorUnits) else None
+@@ -117,7 +131,9 @@ object IntervalReliability {
+       shareOfRelevantPopulation: Double,
+       shareOfDenominatorWeight: Double,
+       designDetermined: Boolean,
+-      bound: Option[(Double, Double)]
++      bound: Option[(Double, Double)],
++      partlyDesignFixed: Boolean = false,
++      designFixedShareOfPopulation: Double = 0.0
+   ) {
+     def unreliable: Boolean =
+       !designDetermined &&
+@@ -180,7 +196,8 @@ object IntervalReliability {
+       relevant,
+       relevant && (weight.widened || rate.widened),
+       weight,
+-      rate
++      rate,
++      fixed.isDefined
+     )
+   }
+ 
+@@ -224,8 +241,14 @@ object IntervalReliability {
+       else None
+     val relevantPop = strata.filter(_.relevant).map(_.population).sum
+     val zero = strata.filter(s => s.relevant && s.zeroEvent)
+-    val designDetermined = outcomeFixedByStratum && spec.dLab.isEmpty && spec.nLab.isEmpty &&
++    // M4 (F8): an outcome-only metric over outcome-defined strata is design-determined only when
++    // every stratum's share is actually fixed (all its labeled memberships share its outcome);
++    // when some are, it is partly design-fixed and keeps the zero-event flag
++    val outcomeOnly = outcomeFixedByStratum && spec.dLab.isEmpty && spec.nLab.isEmpty &&
+       units.nonEmpty && units.forall(u => stratumOutcome(u.stratum).nonEmpty)
++    val designDetermined = outcomeOnly && strata.forall(_.fixedByDesign)
++    val partlyDesignFixed = outcomeOnly && !designDetermined && strata.exists(_.fixedByDesign)
++    val fixedPop = strata.filter(s => s.relevant && s.fixedByDesign).map(_.population).sum
+     Result(
+       spec,
+       strata,
+@@ -233,7 +256,9 @@ object IntervalReliability {
+       if (relevantPop > 0) zero.map(_.population).sum / relevantPop else 0.0,
+       if (den > 0) zero.map(_.denominatorWeight).sum / den else 0.0,
+       designDetermined,
+-      estimate.map(e => (extreme(strata, lower = true, e), extreme(strata, lower = false, e)))
++      estimate.map(e => (extreme(strata, lower = true, e), extreme(strata, lower = false, e))),
++      partlyDesignFixed,
++      if (outcomeOnly && relevantPop > 0) fixedPop / relevantPop else 0.0
+     )
+   }
+ 
+@@ -252,6 +277,10 @@ object IntervalReliability {
+         "designDetermined" -> r.designDetermined,
+         "designDeterminedNote" -> (if (r.designDetermined) ujson.Str(DesignDeterminedNote)
+                                    else ujson.Null),
++        "partlyDesignFixed" -> r.partlyDesignFixed,
++        "partlyDesignFixedNote" -> (if (r.partlyDesignFixed) ujson.Str(PartlyDesignFixedNote)
++                                    else ujson.Null),
++        "designFixedShareOfPopulation" -> r.designFixedShareOfPopulation,
+         "zeroEventShareOfRelevantPopulation" -> r.shareOfRelevantPopulation,
+         "zeroEventShareOfDenominatorWeight" -> r.shareOfDenominatorWeight,
+         "zeroEventBound95" -> iv(r.bound),
+diff --git a/modules/entity-resolution/src/main/scala/org/scholarchain/er/policy/Policy.scala b/modules/entity-resolution/src/main/scala/org/scholarchain/er/policy/Policy.scala
+index bea6c1c..3a09eb0 100644
+--- a/modules/entity-resolution/src/main/scala/org/scholarchain/er/policy/Policy.scala
++++ b/modules/entity-resolution/src/main/scala/org/scholarchain/er/policy/Policy.scala
+@@ -93,6 +93,8 @@ final case class Policy(
+       Left("threshold overrides require a new policy version (--policy-version)")
+     else if (newVersion == policyVersion)
+       Left(s"threshold overrides require a policy version different from '$policyVersion'")
++    else if (Policy.FrozenVersions.contains(newVersion))
++      Left(Policy.frozenVersionRefusal(newVersion, policyVersion))
+     else if (!newVersion.matches(Policy.VersionPattern))
+       Left(s"policy version '$newVersion' must match ${Policy.VersionPattern}")
+     else
+@@ -119,6 +121,53 @@ object Policy {
+   val ErV1Sha256 = "4946b3504759d5f9a61f60646e6ca9d6cd27b0dd6ef26e57a1729c2fb32807ac"
+   val VersionPattern = "[A-Za-z0-9][A-Za-z0-9._:/-]*"
+ 
++  /** Versions of the frozen policy files under `er/policy/` (Phase 11 finding N-1): a threshold
++    * override may never take one of these labels, so output of the code's policy (er-v2) cannot be
++    * labeled er-v1, whose cluster behaviour the code no longer implements.
++    */
++  val FrozenVersions: Set[String] = Set("er-v1", "er-v2")
++
++  /** Phase 14 finding G-18: the blocking settings of the candidate set on which the frozen policy
++    * was evaluated. Phase 5 built its candidates with these Hadoop settings (Phase 5 Hadoop report;
++    * the Hadoop defaults equal them since the Phase 14 G-17 repair), and the gold labels judged
++    * er-v1 decisions on that candidate set. er-v2 keeps er-v1's weights, thresholds and pair rules
++    * (it changes cluster merging only) and has no gold evaluation of its own.
++    */
++  val EvaluatedBlocking: List[(String, ujson.Value)] = List(
++    "scholarchain.blocking.maxBlockSize" -> ujson.Num(200),
++    "scholarchain.blocking.fallback.maxBlockSize" -> ujson.Num(200),
++    "scholarchain.candidates.skipSameNumberedName" -> ujson.Bool(true)
++  )
++
++  /** The policy record's evaluation context (G-18), written to the run report and the manifest. A
++    * threshold override was never evaluated, so it names no blocking settings.
++    */
++  def evaluatedWith(p: Policy): ujson.Obj = p.overriddenFrom match {
++    case None if FrozenVersions.contains(p.policyVersion) =>
++      ujson.Obj(
++        "goldEvaluatedPolicyVersion" -> "er-v1",
++        "blocking" -> ujson.Obj.from(EvaluatedBlocking),
++        "note" -> ("Blocking settings of the Phase 5 candidate set on which the er-v1 decisions " +
++          "were gold-evaluated (the Hadoop defaults since Phase 14, G-17). er-v2 keeps er-v1's " +
++          "weights, thresholds and pair rules and changes cluster merging only; it has no gold " +
++          "evaluation of its own. A candidate set built with other blocking settings is outside " +
++          "what this policy was evaluated on, and this run does not check the input's settings.")
++      )
++    case _ =>
++      ujson.Obj(
++        "goldEvaluatedPolicyVersion" -> ujson.Null,
++        "blocking" -> ujson.Null,
++        "note" -> (s"policy ${p.policyVersion} overrides the thresholds of " +
++          s"${p.overriddenFrom.getOrElse("an unknown policy")}; it was never evaluated, so no " +
++          "blocking settings are named")
++      )
++  }
++
++  /** The refusal message for a threshold override that names a frozen policy version (N-1). */
++  def frozenVersionRefusal(requested: String, applied: String): String =
++    s"--policy-version '$requested' names a frozen policy file; this code applies $applied, so " +
++      s"its output must not carry the label '$requested'; choose a new version"
++
+   /** Path declared by cluster-guard rules: the refused decision keeps the match path (and
+     * confidence) of the pair decision that produced the accepted evidence, so the decision record
+     * stays honest about which path produced it (e.g. `exact_id` with `orcid.exact`).
+@@ -137,9 +186,13 @@ object Policy {
+   /** The current frozen policy, er-v2 ([[DefaultResource]]). */
+   lazy val current: Policy = fromResource(DefaultResource)
+ 
+-  /** Legacy accessor name, kept so `tests/contracts` compiles unchanged: it is the CURRENT policy
+-    * ([[current]], er-v2), not er-v1. Prefer [[current]].
++  /** Phase 11 finding N-2: the old accessor name, misleading because it returns the CURRENT policy
++    * ([[current]], er-v2), not er-v1. Renamed to [[current]]; every user in
++    * `modules/entity-resolution` uses [[current]]. Kept only as a deprecated forwarder so the
++    * contract tests under `tests/contracts` (owned by test-engineer) compile until they move to
++    * [[current]]; remove it then.
+     */
++  @deprecated("returns er-v2, not er-v1; use Policy.current", "phase-16")
+   def erV1: Policy = current
+ 
+   def fromResource(name: String): Policy =
+diff --git a/modules/entity-resolution/src/main/scala/org/scholarchain/er/run/Report.scala b/modules/entity-resolution/src/main/scala/org/scholarchain/er/run/Report.scala
+index f690e9a..3975551 100644
+--- a/modules/entity-resolution/src/main/scala/org/scholarchain/er/run/Report.scala
++++ b/modules/entity-resolution/src/main/scala/org/scholarchain/er/run/Report.scala
+@@ -55,6 +55,7 @@ object Report {
+       "format" -> "scholarchain.er.run-report",
+       "formatVersion" -> 1,
+       "policyVersion" -> policy.policyVersion,
++      "policyEvaluatedWith" -> Policy.evaluatedWith(policy),
+       "inputRun" -> job.runId,
+       "inputs" -> ujson.Obj(
+         "works" -> corpus.works.size,
+@@ -198,6 +199,8 @@ object RunManifest {
+       "runId" -> runId,
+       "codeVersion" -> c.codeVersion,
+       "policyVersion" -> c.policy.policyVersion,
++      // G-18: outside `config`, so the configuration fingerprint and run ID do not change
++      "policyEvaluatedWith" -> Policy.evaluatedWith(c.policy),
+       "decisionTime" -> c.decisionTime,
+       "seed" -> c.seed.toString,
+       "inputDir" -> input.toString,
+diff --git a/modules/entity-resolution/src/test/scala/org/scholarchain/er/DecisionSuite.scala b/modules/entity-resolution/src/test/scala/org/scholarchain/er/DecisionSuite.scala
+index 3187df3..6ce54ba 100644
+--- a/modules/entity-resolution/src/test/scala/org/scholarchain/er/DecisionSuite.scala
++++ b/modules/entity-resolution/src/test/scala/org/scholarchain/er/DecisionSuite.scala
+@@ -6,7 +6,7 @@ import org.scholarchain.er.features.PairFeatures
+ import org.scholarchain.er.policy.{Assessment, DecisionEngine, Policy, Reasons, Rules}
+ 
+ class DecisionSuite extends munit.FunSuite {
+-  private val policy = Policy.erV1
++  private val policy = Policy.current
+   private val oX = Fixture.orcid("000000021825009")
+   private val oY = Fixture.orcid("000000034567123")
+ 
+diff --git a/modules/entity-resolution/src/test/scala/org/scholarchain/er/EvalRepairRound2Suite.scala b/modules/entity-resolution/src/test/scala/org/scholarchain/er/EvalRepairRound2Suite.scala
+index 6c2e2ca..bb6944b 100644
+--- a/modules/entity-resolution/src/test/scala/org/scholarchain/er/EvalRepairRound2Suite.scala
++++ b/modules/entity-resolution/src/test/scala/org/scholarchain/er/EvalRepairRound2Suite.scala
+@@ -133,9 +133,13 @@ class EvalRepairRound2Suite extends munit.FunSuite {
+     // the Markdown marks the interval wherever it appears and names the stratum
+     val md = Harness.markdown(met)
+     val wrow = md.linesIterator.find(_.startsWith("| Weighted estimate (bootstrap)")).get
+-    assert(wrow.contains("] (unreliable) |"), wrow)
++    // Phase 16 M3: the flag carries the zero-event bound in the same cell
++    assert(wrow.contains("] (unreliable; zero-event bound ["), wrow)
+     val bline = md.linesIterator.find(_.startsWith("Weighted bootstrap 95%:")).get
+-    assert(bline.contains("precision [") && bline.contains("(unreliable)"), bline)
++    assert(
++      bline.contains("precision [") && bline.contains("(unreliable; zero-event bound ["),
++      bline
++    )
+     assert(md.contains("Weighted interval reliability (zero-event strata)."), md)
+     val pl = md.linesIterator.find(_.startsWith("- precision: bootstrap ")).get
+     assert(pl.contains("unreliable: zero-event strata hold"), pl)
+@@ -158,7 +162,7 @@ class EvalRepairRound2Suite extends munit.FunSuite {
+     val md = Harness.markdown(met)
+     val crow =
+       md.linesIterator.find(_.startsWith("| Cluster level, weighted estimate (bootstrap)")).get
+-    assert(crow.contains("(unreliable)"), crow)
++    assert(crow.contains("(unreliable; zero-event bound ["), crow)
+     assert(md.contains("Cluster-level weighted interval reliability"), md)
+   }
+ 
+diff --git a/modules/entity-resolution/src/test/scala/org/scholarchain/er/GivenNameGuardSuite.scala b/modules/entity-resolution/src/test/scala/org/scholarchain/er/GivenNameGuardSuite.scala
+index 555b2ba..63d6336 100644
+--- a/modules/entity-resolution/src/test/scala/org/scholarchain/er/GivenNameGuardSuite.scala
++++ b/modules/entity-resolution/src/test/scala/org/scholarchain/er/GivenNameGuardSuite.scala
+@@ -164,7 +164,7 @@ class GivenNameGuardSuite extends munit.FunSuite {
+       assertEquals(d.reasonCodes, List(GivenNameRefusal))
+       assert(d.confidence > 0.9, d.toString)
+       // the rule it names is declared by the policy (cluster guard, inherited path)
+-      assertEquals(Policy.erV1.rule(d.rulesFired.head).kind, "cluster-guard")
++      assertEquals(Policy.current.rule(d.rulesFired.head).kind, "cluster-guard")
+     }
+     val rep = out.report
+     assertEquals(rep("pairDecisions")("mergeRefusalsByReason")(GivenNameRefusal).num, 1.0)
+diff --git a/modules/entity-resolution/src/test/scala/org/scholarchain/er/GuardPathSuite.scala b/modules/entity-resolution/src/test/scala/org/scholarchain/er/GuardPathSuite.scala
+index dcaf6eb..91775dc 100644
+--- a/modules/entity-resolution/src/test/scala/org/scholarchain/er/GuardPathSuite.scala
++++ b/modules/entity-resolution/src/test/scala/org/scholarchain/er/GuardPathSuite.scala
+@@ -16,7 +16,7 @@ class GuardPathSuite extends munit.FunSuite {
+   private val oY = Fixture.orcid("000000034567123")
+ 
+   test("er-v1 declares path 'inherited' and no fixed confidence for every cluster-guard rule") {
+-    val guards = Policy.erV1.rules.filter(_.kind == "cluster-guard")
++    val guards = Policy.current.rules.filter(_.kind == "cluster-guard")
+     assertEquals(
+       guards.map(_.id).toSet,
+       Set(
+@@ -28,16 +28,18 @@ class GuardPathSuite extends munit.FunSuite {
+         Rules.GuardRejectedPair
+       )
+     )
+-    assertEquals(Policy.erV1.rule(Rules.GuardRejectedPair).outcome, "unresolved")
+-    assertEquals(Policy.erV1.rule(Rules.GuardConflictPair).outcome, "conflict")
++    assertEquals(Policy.current.rule(Rules.GuardRejectedPair).outcome, "unresolved")
++    assertEquals(Policy.current.rule(Rules.GuardConflictPair).outcome, "conflict")
+     guards.foreach { g =>
+       assertEquals(g.path, Policy.InheritedPath, g.id)
+       assertEquals(g.confidence, None, g.id)
+     }
+     assert(
+-      Policy.erV1.rules.filterNot(_.kind == "cluster-guard").forall(_.path != Policy.InheritedPath)
++      Policy.current.rules
++        .filterNot(_.kind == "cluster-guard")
++        .forall(_.path != Policy.InheritedPath)
+     )
+-    assert(Policy.erV1.rules.forall(r => Policy.RulePaths(r.path)))
++    assert(Policy.current.rules.forall(r => Policy.RulePaths(r.path)))
+   }
+ 
+   test("a policy file that gives a cluster guard a fixed path or confidence is rejected") {
+@@ -87,10 +89,10 @@ class GuardPathSuite extends munit.FunSuite {
+       assertEquals(d.matchPath, MatchPath.ExactId)
+       assertEquals(d.rulesFired, List(Rules.GuardDisambiguation, Rules.OrcidExact))
+       assertEquals(d.reasonCodes, List(Reasons.MergeDisambiguation))
+-      assertEquals(d.confidence, Policy.erV1.ruleConfidence(Rules.OrcidExact))
++      assertEquals(d.confidence, Policy.current.ruleConfidence(Rules.OrcidExact))
+     }
+     // every guarded decision's path is the path of the rule that produced its evidence
+-    val declared = Policy.erV1.rules.map(r => r.id -> r.path).toMap
++    val declared = Policy.current.rules.map(r => r.id -> r.path).toMap
+     ds.filter(_.rulesFired.exists(_.startsWith("cluster.guard."))).foreach { d =>
+       val evidence = d.rulesFired.filterNot(_.startsWith("cluster.guard."))
+       assert(evidence.nonEmpty, d.toString)
+diff --git a/modules/entity-resolution/src/test/scala/org/scholarchain/er/LlmSuite.scala b/modules/entity-resolution/src/test/scala/org/scholarchain/er/LlmSuite.scala
+index 2363e08..b2ee49f 100644
+--- a/modules/entity-resolution/src/test/scala/org/scholarchain/er/LlmSuite.scala
++++ b/modules/entity-resolution/src/test/scala/org/scholarchain/er/LlmSuite.scala
+@@ -16,7 +16,7 @@ final class ScriptedAdjudicator(val modelVersion: String)(reply: AdjudicationReq
+ }
+ 
+ class LlmSuite extends munit.FunSuite {
+-  private val policy = Policy.erV1
++  private val policy = Policy.current
+   private val prompt = AdjudicationPrompt.v1
+   private lazy val corpus = Fixture
+     .corpus(
+diff --git a/modules/entity-resolution/src/test/scala/org/scholarchain/er/PolicySuite.scala b/modules/entity-resolution/src/test/scala/org/scholarchain/er/PolicySuite.scala
+index d7b56ee..a7cd492 100644
+--- a/modules/entity-resolution/src/test/scala/org/scholarchain/er/PolicySuite.scala
++++ b/modules/entity-resolution/src/test/scala/org/scholarchain/er/PolicySuite.scala
+@@ -171,8 +171,6 @@ class PolicySuite extends munit.FunSuite {
+     assertEquals(Policy.current.rule(Rules.FlagGivenNameConflict).outcome, "conflict")
+     val v2 = new String(DataFiles.readResource(Policy.DefaultResource), StandardCharsets.UTF_8)
+     assert(v2.contains(Reasons.MergeGivenNameConflict), "er-v2 names the implied cannot-link")
+-    // the legacy accessor is the current policy, never a second er-v1 policy
+-    assert(Policy.erV1 eq Policy.current)
+     // er-v1.json is byte-identical to the Phase 5 file whose sha256 every er-v1 manifest records
+     val v1 = DataFiles.readResource(Policy.ErV1Resource)
+     assertEquals(DataFiles.sha256OfBytes(v1), Policy.ErV1Sha256)
+diff --git a/modules/entity-resolution/src/test/scala/org/scholarchain/er/PriorSpellingSuite.scala b/modules/entity-resolution/src/test/scala/org/scholarchain/er/PriorSpellingSuite.scala
+index d56cdf7..d7ffe20 100644
+--- a/modules/entity-resolution/src/test/scala/org/scholarchain/er/PriorSpellingSuite.scala
++++ b/modules/entity-resolution/src/test/scala/org/scholarchain/er/PriorSpellingSuite.scala
+@@ -60,7 +60,7 @@ class PriorSpellingSuite extends munit.FunSuite {
+         cands.find(x => Set(x.left, x.right) == ids).getOrElse(fail(s"no candidate $k1/$k2"))
+       DecisionEngine.assess(
+         c,
+-        Policy.erV1,
++        Policy.current,
+         cand.features,
+         c.mentions.indexOf(cand.left),
+         c.mentions.indexOf(cand.right)
+diff --git a/modules/entity-resolution/src/test/scala/org/scholarchain/er/RunSuite.scala b/modules/entity-resolution/src/test/scala/org/scholarchain/er/RunSuite.scala
+index c3247df..e4329ee 100644
+--- a/modules/entity-resolution/src/test/scala/org/scholarchain/er/RunSuite.scala
++++ b/modules/entity-resolution/src/test/scala/org/scholarchain/er/RunSuite.scala
+@@ -83,7 +83,7 @@ object RunFixture {
+       QueueSpec(10, 2, seed),
+       None,
+       None,
+-      Policy.erV1
++      Policy.current
+     )
+ 
+   def run(
+diff --git a/modules/storage/src/main/scala/org/scholarchain/storage/aws/AwsStorageEnvironment.scala b/modules/storage/src/main/scala/org/scholarchain/storage/aws/AwsStorageEnvironment.scala
+index 9b1703c..fc2ae0f 100644
+--- a/modules/storage/src/main/scala/org/scholarchain/storage/aws/AwsStorageEnvironment.scala
++++ b/modules/storage/src/main/scala/org/scholarchain/storage/aws/AwsStorageEnvironment.scala
+@@ -126,7 +126,10 @@ object AwsSdkClients {
+   * Retries (m2): SDK clients make exactly one attempt per call; the stores here wrap the adapters
+   * in storage's bounded [[Retry]] with `config.retryPolicy` (S3 Vectors puts are retried by the
+   * ingest pipeline's batcher instead). Their [[RetryCounters]] are the real request counts. Graph
+-  * reads are not retried.
++  * reads (Phase 16, FECD-1) retry transient and resource-limit failures with
++  * [[GraphRetry.Default]], inside each read's existing time budget; their counters are
++  * [[graphReadReport]] (kept apart from [[retryReport]], whose shape load and ingest reports
++  * record).
+   *
+   * Construction makes no network call. Resource names, the Region and the Neptune endpoint come
+   * from configuration; credentials from the runtime role.
+@@ -166,7 +169,13 @@ final class AwsStorageEnvironment private (
+     for {
+       client <- clients.neptune.toRight("neptune section is not configured")
+       s <- GraphReadSettings.from(config)
+-    } yield new NeptuneGraphRead(client, s)
++    } yield new NeptuneGraphRead(
++      client,
++      s,
++      NeptuneGraphRead.monotonicMillis,
++      GraphRetry.Default,
++      sleeper
++    )
+ 
+   /** The Neptune bulk loader (`StartLoaderJob`, `GetLoaderJobStatus`), when the `neptune` section
+     * is configured. Used by `org.scholarchain.storage.load.StorageLoadMain`; not retried (a start
+@@ -225,6 +234,11 @@ final class AwsStorageEnvironment private (
+     "s3VectorsReads" -> vectors.counters.toJson
+   )
+ 
++  /** Graph read attempts, retries and failures by class since construction (Phase 16); None when
++    * the graph is not configured.
++    */
++  def graphReadReport: Option[ujson.Obj] = graph.toOption.map(_.counters.toJson)
++
+   def close(): Unit = {
+     rejects.close()
+     clients.close()
+diff --git a/modules/storage/src/main/scala/org/scholarchain/storage/aws/NeptuneAdapters.scala b/modules/storage/src/main/scala/org/scholarchain/storage/aws/NeptuneAdapters.scala
+index abecc1d..8a1fefa 100644
+--- a/modules/storage/src/main/scala/org/scholarchain/storage/aws/NeptuneAdapters.scala
++++ b/modules/storage/src/main/scala/org/scholarchain/storage/aws/NeptuneAdapters.scala
+@@ -68,6 +68,14 @@ final class NeptuneBulkLoader(client: NeptunedataClient) extends GraphBulkLoader
+             e.statusCode,
+             s"StartLoaderJob refused: $name (HTTP ${e.statusCode}): ${e.getMessage}"
+           )
++        case e: SdkServiceException if NeptuneBulkLoader.isThrottled(e) =>
++          val name = e.getClass.getSimpleName
++          throw new BulkLoadStartRejected(
++            name,
++            e.statusCode,
++            s"StartLoaderJob throttled: $name (HTTP ${e.statusCode}): ${e.getMessage}",
++            throttled = true
++          )
+         case e: SdkException => throw AwsErrors.wrap(e)
+       }
+     Option(r.payload())
+@@ -98,10 +106,10 @@ object NeptuneBulkLoader {
+     * Source: Neptune Data API reference, StartLoaderJob "Errors" and "Common Error Types"
+     * (https://docs.aws.amazon.com/neptune/latest/data-api/API_StartLoaderJob.html,
+     * https://docs.aws.amazon.com/neptune/latest/data-api/CommonErrors.html). Not definite (outcome
+-    * unknown, the load may exist): `ClientTimeoutException` (408), `TooManyRequestsException`
+-    * (429), `ThrottlingException`, `InternalFailureException` (500), every other service error,
+-    * every client-side error (timeouts, I/O, interrupted calls) and a 200 response without a load
+-    * ID.
++    * unknown, the load may exist): `ClientTimeoutException` (408), `InternalFailureException`
++    * (500), every other service error, every client-side error (timeouts, I/O, interrupted calls)
++    * and a 200 response without a load ID. Throttling answers (`TooManyRequestsException` 429,
++    * `ThrottlingException`) are refusals of their own kind since Phase 16: see [[isThrottled]].
+     */
+   def isDefiniteRejection(e: SdkServiceException): Boolean = {
+     val definiteClass = e match {
+@@ -118,29 +126,143 @@ object NeptuneBulkLoader {
+     val s = e.statusCode
+     definiteClass && s >= 400 && s < 500 && s != 408 && s != 429
+   }
++
++  /** A `StartLoaderJob` throttling answer (Phase 16, storage retries): `TooManyRequestsException`
++    * with HTTP 429 ("Raised when the number of requests being processed exceeds the limit"; its
++    * request ID is "the request that could not be processed",
++    * https://docs.aws.amazon.com/neptune/latest/data-api/API_StartLoaderJob.html) or
++    * `ThrottlingException` with HTTP 400 or 429 ("The request was denied due to request
++    * throttling", https://docs.aws.amazon.com/neptune/latest/data-api/CommonErrors.html). With SDK
++    * `maxAttempts = 1` this answer belongs to the one request sent, so no load was created: a
++    * refusal that may be retried after a wait. Any other status of these classes stays unknown.
++    */
++  def isThrottled(e: SdkServiceException): Boolean = e match {
++    case _: TooManyRequestsException => e.statusCode == 429
++    case _: ThrottlingException      => e.statusCode == 400 || e.statusCode == 429
++    case _                           => false
++  }
++}
++
++/** Bounded retry of graph reads (Phase 16, FECD-1 recommendation S2). Only
++  * [[GraphReadError.Transient]] and [[GraphReadError.ResourceLimit]] failures are retried;
++  * timeouts, 4xx and every other client error never are. Every retry stays inside the read's
++  * existing time budget (`runtime.graphTimeoutMillis`; for `PathBetween` the budget left for the
++  * whole search): a retry starts only when, after its delay, at least `minAttemptMillis` of the
++  * budget remain, and its API call timeout is the budget left. No limit or threshold is raised.
++  *
++  * Delay before retry `n` (1-based): `cap = min(maxDelayMillis, baseDelayMillis * 2^(n-1))`, then
++  * equal jitter: `cap / 2 + (cap - cap / 2) * u` with `u` in [0, 1). The jitter spreads the retries
++  * of callers that failed together (D-read: every failure fell in the first 1 to 2 s of a burst).
++  *
++  * @param maxRetries
++  *   retries after the first attempt (0..3)
++  */
++final case class GraphRetry(
++    maxRetries: Int,
++    baseDelayMillis: Long,
++    maxDelayMillis: Long,
++    minAttemptMillis: Long
++) {
++  require(maxRetries >= 0 && maxRetries <= 3, "maxRetries must be in 0..3")
++  require(baseDelayMillis >= 1, "baseDelayMillis must be >= 1")
++  require(maxDelayMillis >= baseDelayMillis, "maxDelayMillis must be >= baseDelayMillis")
++  require(minAttemptMillis >= 1, "minAttemptMillis must be >= 1")
++
++  /** The delay before retry `retry` (1-based) for a jitter draw `u` in [0, 1). */
++  def delayBeforeRetry(retry: Int, u: Double): Long = {
++    val shift = math.min(math.max(retry - 1, 0), 20)
++    val cap = math.min(maxDelayMillis, baseDelayMillis * (1L << shift))
++    val half = cap / 2
++    val unit = if (u.isNaN || u < 0) 0.0 else math.min(u, 0.999999)
++    half + ((cap - half) * unit).toLong
++  }
++}
++
++object GraphRetry {
++
++  /** No retry: the behavior before Phase 16 (the class default, so stub-client tests that count
++    * calls are unchanged).
++    */
++  val Off: GraphRetry = GraphRetry(0, 1, 1, 1)
++
++  /** What [[AwsStorageEnvironment]] uses: 2 retries, 100..200 ms then 200..400 ms (at most 600 ms
++    * of waiting per read, inside the 20 s budget), and no retry with less than 250 ms of budget
++    * left. Basis (step D): every D-read failure was one Neptune 500 that returned within 0.76 s.
++    */
++  val Default: GraphRetry = GraphRetry(2, 200, 800, 250)
++}
++
++/** Counters of one [[NeptuneGraphRead]], exact under concurrent callers (atomic).
++  *
++  *   - `calls`: SDK requests sent (every attempt, so the real Neptune request count; SDK
++  *     `maxAttempts` is 1)
++  *   - `retries`: attempts after the first
++  *   - `recovered`: reads that succeeded after at least one retry
++  *   - `gaveUp`: reads that ended with a retryable failure (retries used up, or too little budget
++  *     left for another attempt)
++  *   - `transientFailures`, `resourceLimitFailures`, `timeouts`, `permanentFailures`: failed
++  *     attempts by class
++  */
++final class GraphReadCounters {
++  val calls = new java.util.concurrent.atomic.AtomicLong()
++  val retries = new java.util.concurrent.atomic.AtomicLong()
++  val recovered = new java.util.concurrent.atomic.AtomicLong()
++  val gaveUp = new java.util.concurrent.atomic.AtomicLong()
++  val transientFailures = new java.util.concurrent.atomic.AtomicLong()
++  val resourceLimitFailures = new java.util.concurrent.atomic.AtomicLong()
++  val timeouts = new java.util.concurrent.atomic.AtomicLong()
++  val permanentFailures = new java.util.concurrent.atomic.AtomicLong()
++
++  def toJson: ujson.Obj = ujson.Obj(
++    "calls" -> calls.get.toDouble,
++    "retries" -> retries.get.toDouble,
++    "recovered" -> recovered.get.toDouble,
++    "gaveUp" -> gaveUp.get.toDouble,
++    "transientFailures" -> transientFailures.get.toDouble,
++    "resourceLimitFailures" -> resourceLimitFailures.get.toDouble,
++    "timeouts" -> timeouts.get.toDouble,
++    "permanentFailures" -> permanentFailures.get.toDouble
++  )
+ }
+ 
+ /** Read-only graph queries: only the allowlisted templates (see [[CypherTemplates]]), identifiers
+   * always as parameters, bounded by [[GraphReadSettings]]. Use it with read-only credentials (Phase
+-  * 12 IAM). Graph reads are not retried: a failed read is reported to the caller (Left).
++  * 12 IAM).
+   *
+   *   - Row limits (m1): the text asks for `limit + 1` rows; the result holds at most `limit` rows
+   *     and `truncated = rows > limit`.
+   *   - `PathBetween` (iterative deepening): runs the exact-depth query for depth 1, then 2, up to
+   *     `maxDepth`, and stops at the first depth that returns a path, or when the total elapsed time
+   *     reaches `settings.timeoutMillis` (each call's API timeout is the remaining budget). The
+-  *     result's `complete` and `depthSearched` tell "no path within depth d" (complete) from
+-  *     "stopped at the time limit" (not complete).
++  *     result's `complete` and `depthSearched` tell "no path within depth d" (complete) from a
++  *     stopped search (not complete); `stoppedBy` says why it stopped: the time limit, or (Phase 16
++  *     L1) a Neptune resource limit at the next depth.
++  *   - Failures (Phase 16): [[runClassified]] gives the typed [[GraphReadError]]; [[run]] gives its
++  *     message, as before. With `retry` other than [[GraphRetry.Off]], transient and resource-limit
++  *     failures are retried within the time budget ([[GraphRetry]]); [[counters]] count attempts.
++  *
++  * Thread-safe: no mutable state besides the atomic [[counters]].
+   *
+   * @param clock
+   *   monotonic milliseconds; tests inject a fake clock
++  * @param retry
++  *   default [[GraphRetry.Off]]; [[AwsStorageEnvironment]] passes [[GraphRetry.Default]]
++  * @param sleeper
++  *   waits between retries; tests inject a recording sleeper
++  * @param jitter
++  *   a draw in [0, 1) per retry; tests inject a fixed value
+   */
+ final class NeptuneGraphRead(
+     client: NeptunedataClient,
+     val settings: GraphReadSettings,
+-    clock: () => Long = NeptuneGraphRead.monotonicMillis
++    clock: () => Long = NeptuneGraphRead.monotonicMillis,
++    val retry: GraphRetry = GraphRetry.Off,
++    sleeper: org.scholarchain.storage.Sleeper = org.scholarchain.storage.Sleeper.real,
++    jitter: () => Double = () => java.util.concurrent.ThreadLocalRandom.current().nextDouble()
+ ) extends GraphReadPort {
+ 
++  val counters = new GraphReadCounters
++
+   private def execute(c: CypherTemplates.Compiled, timeoutMillis: Long): List[GraphRow] = {
+     val r = AwsErrors.guard(
+       client.executeOpenCypherQuery(
+@@ -158,44 +280,104 @@ final class NeptuneGraphRead(
+   }
+ 
+   def run(query: GraphQuery): Either[String, GraphResult] =
+-    CypherTemplates.compile(query, settings).flatMap { compiled =>
+-      query match {
+-        case q: GraphQuery.PathBetween => pathSearch(q, compiled)
+-        case q                         =>
+-          val c = compiled.head
+-          try
+-            Right(
+-              GraphResult.bounded(q.templateId, execute(c, settings.timeoutMillis.toLong), c.limit)
+-            )
+-          catch { case e: StoreException => Left(e.getMessage) }
++    runClassified(query).left.map(_.message)
++
++  override def runClassified(query: GraphQuery): Either[GraphReadError, GraphResult] =
++    CypherTemplates.compile(query, settings).left.map(GraphReadError.Invalid(_)).flatMap {
++      compiled =>
++        query match {
++          case q: GraphQuery.PathBetween => pathSearch(q, compiled)
++          case q                         =>
++            val c = compiled.head
++            // the clock is read only when a retry may need the budget left
++            val start = if (retry.maxRetries > 0) clock() else 0L
++            attempt(c, start, settings.timeoutMillis.toLong)
++              .map(rows => GraphResult.bounded(q.templateId, rows, c.limit))
++        }
++    }
++
++  /** One read with the bounded retry. The first attempt uses `firstTimeout` (no clock read, so the
++    * pre-Phase 16 clock sequence is unchanged); each retry reads the clock and uses the budget left
++    * since `start`.
++    */
++  private def attempt(
++      c: CypherTemplates.Compiled,
++      start: Long,
++      firstTimeout: Long
++  ): Either[GraphReadError, List[GraphRow]] = {
++    val budget = settings.timeoutMillis.toLong
++    @annotation.tailrec
++    def loop(n: Int, timeout: Long): Either[GraphReadError, List[GraphRow]] = {
++      counters.calls.incrementAndGet()
++      val outcome =
++        try Right(execute(c, timeout))
++        catch { case e: StoreException => Left(NeptuneGraphRead.classify(e)) }
++      outcome match {
++        case Right(rows) =>
++          if (n > 0) counters.recovered.incrementAndGet()
++          Right(rows)
++        case Left(err) =>
++          err match {
++            case _: GraphReadError.Transient     => counters.transientFailures.incrementAndGet()
++            case _: GraphReadError.ResourceLimit => counters.resourceLimitFailures.incrementAndGet()
++            case _: GraphReadError.Timeout       => counters.timeouts.incrementAndGet()
++            case _                               => counters.permanentFailures.incrementAndGet()
++          }
++          val retryable = NeptuneGraphRead.isRetryable(err)
++          val next: Option[(Long, Long)] =
++            if (!retryable || n >= retry.maxRetries) None
++            else {
++              val delay = retry.delayBeforeRetry(n + 1, jitter())
++              val left = budget - (clock() - start) - delay
++              if (left >= retry.minAttemptMillis) Some((delay, left)) else None
++            }
++          next match {
++            case Some((delay, left)) =>
++              counters.retries.incrementAndGet()
++              sleeper.sleep(delay)
++              loop(n + 1, left)
++            case None =>
++              if (retryable && retry.maxRetries > 0) counters.gaveUp.incrementAndGet()
++              Left(err)
++          }
+       }
+     }
++    loop(0, firstTimeout)
++  }
+ 
+   private def pathSearch(
+       q: GraphQuery.PathBetween,
+       depths: List[CypherTemplates.Compiled]
+-  ): Either[String, GraphResult] = {
++  ): Either[GraphReadError, GraphResult] = {
+     val start = clock()
+-    def stopped(searched: Int) =
+-      Right(GraphResult(q.templateId, Nil, truncated = false, complete = false, Some(searched)))
++    def stopped(searched: Int, why: GraphStop) =
++      Right(
++        GraphResult(
++          q.templateId,
++          Nil,
++          truncated = false,
++          complete = false,
++          Some(searched),
++          Some(why)
++        )
++      )
+     @annotation.tailrec
+-    def loop(rest: List[CypherTemplates.Compiled], searched: Int): Either[String, GraphResult] =
++    def loop(
++        rest: List[CypherTemplates.Compiled],
++        searched: Int
++    ): Either[GraphReadError, GraphResult] =
+       rest match {
+         case Nil =>
+           Right(GraphResult(q.templateId, Nil, truncated = false, complete = true, Some(searched)))
+         case c :: tail =>
+           val remaining = settings.timeoutMillis.toLong - (clock() - start)
+-          if (remaining <= 0) stopped(searched)
++          if (remaining <= 0) stopped(searched, GraphStop.TimeLimit)
+           else {
+-            val outcome =
+-              try Right(execute(c, remaining))
+-              catch {
+-                case e: StoreException if NeptuneGraphRead.isTimeout(e) => Left(None)
+-                case e: StoreException                                  => Left(Some(e.getMessage))
+-              }
+-            outcome match {
+-              case Left(None)                   => stopped(searched)
+-              case Left(Some(err))              => Left(err)
++            attempt(c, start, remaining) match {
++              case Left(_: GraphReadError.Timeout)       => stopped(searched, GraphStop.TimeLimit)
++              case Left(_: GraphReadError.ResourceLimit) =>
++                stopped(searched, GraphStop.ResourceLimit)
++              case Left(err)                    => Left(err)
+               case Right(rows) if rows.nonEmpty =>
+                 Right(
+                   GraphResult(
+@@ -225,6 +407,33 @@ object NeptuneGraphRead {
+       case _: TimeLimitExceededException     => true
+       case _                                 => false
+     }
++
++  /** A Neptune resource-limit refusal (Phase 16 L1): `MemoryLimitExceededException` or
++    * `QueryLimitExceededException`, both HTTP 500 and documented as retryable
++    * (https://docs.aws.amazon.com/neptune/latest/data-api/API_ExecuteOpenCypherQuery.html).
++    */
++  def isResourceLimit(e: StoreException): Boolean =
++    Iterator.iterate[Throwable](e)(_.getCause).takeWhile(_ != null).take(8).exists {
++      case _: MemoryLimitExceededException => true
++      case _: QueryLimitExceededException  => true
++      case _                               => false
++    }
++
++  /** The class of a failed read, checked in this order: resource limit, timeout, then the
++    * [[AwsErrors.wrap]] retry class (transient: throttling, 429, 5xx, I/O; else permanent). The
++    * message is the store's text (the SDK message), as `run` reported it before Phase 16.
++    */
++  def classify(e: StoreException): GraphReadError =
++    if (isResourceLimit(e)) GraphReadError.ResourceLimit(e.getMessage)
++    else if (isTimeout(e)) GraphReadError.Timeout(e.getMessage)
++    else if (e.transient) GraphReadError.Transient(e.getMessage)
++    else GraphReadError.Permanent(e.getMessage)
++
++  /** Only transient and resource-limit failures are retried. */
++  def isRetryable(e: GraphReadError): Boolean = e match {
++    case _: GraphReadError.Transient | _: GraphReadError.ResourceLimit => true
++    case _                                                             => false
++  }
+ }
+ 
+ /** Parameterized MERGE upserts for small writes, capped at `neptune.mergeRowCap` rows per call. */
+diff --git a/modules/storage/src/main/scala/org/scholarchain/storage/load/StorageLoadMain.scala b/modules/storage/src/main/scala/org/scholarchain/storage/load/StorageLoadMain.scala
+index 5705229..e517bf6 100644
+--- a/modules/storage/src/main/scala/org/scholarchain/storage/load/StorageLoadMain.scala
++++ b/modules/storage/src/main/scala/org/scholarchain/storage/load/StorageLoadMain.scala
+@@ -638,20 +638,43 @@ object StorageLoadMain {
+         case _ => previous + 1
+       }
+     }
+-    // Starts one stage after its claim (version `claim`). A definite refusal appends `failedState`
+-    // (masked error class, HTTP status) and fails the run, so a later start may try again; any
+-    // other exception propagates and leaves the claim as the latest version (outcome unknown).
++    // Starts one stage after its claim (version `claim`). A throttling refusal (Phase 16) is sent
++    // again under the same claim at most ThrottleRetries times, after ThrottleDelayMillis * 2^n:
++    // each throttled request created no load, so this never starts a second load. A definite
++    // refusal (including the last throttling answer) appends `failedState` (masked error class,
++    // HTTP status) and fails the run, so a later start may try again; any other exception
++    // propagates and leaves the claim as the latest version (outcome unknown).
++    var throttleRetries = 0
+     def startStage(
+         stage: String,
+         deps: List[String],
+         claim: Long,
+         failedState: String,
+         ids: (String, String)*
+-    ): String =
+-      try loader.start(request(stage, deps))
++    ): String = {
++      @annotation.tailrec
++      def attempt(n: Int): String = {
++        val r =
++          try Right(loader.start(request(stage, deps)))
++          catch { case e: BulkLoadStartRejected if e.throttled && n < ThrottleRetries => Left(e) }
++        r match {
++          case Right(id) => id
++          case Left(e)   =>
++            val wait = ThrottleDelayMillis * (1L << n)
++            wiring.print(
++              s"[storage-load] the $stage start was throttled (${masking(e.errorClass)}, HTTP ${e.httpStatus}); no load was created; trying again in $wait ms (${n + 1} of $ThrottleRetries)"
++            )
++            wiring.sleeper.sleep(wait)
++            throttleRetries += 1
++            report("bulkLoadThrottleRetries") = throttleRetries.toDouble
++            attempt(n + 1)
++        }
++      }
++      try attempt(0)
+       catch {
+         case e: BulkLoadStartRejected =>
+           val errorClass = masking(e.errorClass)
++          val dependencyMissing = stage == "edges" && e.errorClass == DependencyNotFound
+           val recorded =
+             try {
+               val v = register(
+@@ -662,7 +685,10 @@ object StorageLoadMain {
+                   "startHttpStatus" -> e.httpStatus.toString
+                 ))*
+               )
+-              s"registry version $v records $failedState, so a new start of this graph run is allowed once the cause is fixed"
++              if (dependencyMissing)
++                s"registry version $v records $failedState; Neptune does not know the registered nodes load, so no retry of this graph run can succeed: a new start needs a new export or a new configuration (a new graph run)"
++              else
++                s"registry version $v records $failedState, so a new start of this graph run is allowed once the cause is fixed"
+             } catch {
+               case NonFatal(r) =>
+                 s"recording $failedState failed (${r.getClass.getSimpleName}), so the claim (version $claim) stays and a new start is refused"
+@@ -679,6 +705,7 @@ object StorageLoadMain {
+             s"the $stage start was refused by the loader ($errorClass, HTTP ${e.httpStatus}); $recorded: ${e.getMessage}"
+           )
+       }
++    }
+     def unknownOutcome(v: ArtifactVersion, stage: String, known: String) =
+       new LoadRefused(
+         s"a $stage start of this graph run was begun (registry version ${v.version}, ${v.item.strOpt("loadState").getOrElse("no state")}) and its outcome is unknown: the $stage load may exist in Neptune.$known Check Neptune's loader list for a load of this graph run (with a known load ID: $NeptuneBulkStatus --load-id ID). The registry is append-only and is never edited by hand; the only other way to a new start is a new export or a new configuration (a new graph run)"
+@@ -708,6 +735,13 @@ object StorageLoadMain {
+             )
+             val (id, nv) = startNodes(v.version)
+             (id, nv, true)
++          case (Some(StateEdgesFailed), Some(id))
++              if v.item.strOpt("startError").contains(DependencyNotFound) =>
++            // D-02 (Phase 14): Neptune refused the edges start because it does not know the
++            // registered nodes load; every retry would send the same dependency and be refused
++            throw new LoadRefused(
++              s"the edges start of this graph run was refused because Neptune does not know the registered nodes load $id (registry version ${v.version}, $DependencyNotFound); no retry of this graph run can succeed. Check it with $NeptuneBulkStatus --load-id $id. The registry is append-only and is never edited by hand; a new start needs a new export or a new configuration (a new graph run)"
++            )
+           case (Some(StateNodesStarted | StateEdgesFailed), Some(id)) =>
+             wiring.print(
+               s"[storage-load] resuming: nodes load $id is registered (registry version ${v.version}); starting the edges load only"
+@@ -746,6 +780,15 @@ object StorageLoadMain {
+   val StateEdgesFailed = "edges-failed"
+   val StateStarted = "started"
+ 
++  /** Throttled `StartLoaderJob` answers sent again under the same claim (Phase 16, storage
++    * retries), after 2 s then 4 s (`ThrottleDelayMillis * 2^n`): at most 6 s of waiting per stage.
++    */
++  val ThrottleRetries = 2
++  val ThrottleDelayMillis = 2000L
++
++  /** The edges start's refusal when Neptune does not know the nodes load it depends on (D-02). */
++  val DependencyNotFound = "BulkLoadIdNotFoundException"
++
+   // ---- neptune-bulk-status --------------------------------------------------------------------
+ 
+   private def neptuneBulkStatus(
+diff --git a/modules/storage/src/main/scala/org/scholarchain/storage/local/InMemoryGraph.scala b/modules/storage/src/main/scala/org/scholarchain/storage/local/InMemoryGraph.scala
+index 0af86ff..d925110 100644
+--- a/modules/storage/src/main/scala/org/scholarchain/storage/local/InMemoryGraph.scala
++++ b/modules/storage/src/main/scala/org/scholarchain/storage/local/InMemoryGraph.scala
+@@ -174,6 +174,10 @@ final class InMemoryGraph(
+ 
+   private def other(e: Edge, id: String) = if (e.from == id) e.to else e.from
+ 
++  /** The only failure here is a refused query (validation): [[GraphReadError.Invalid]]. */
++  override def runClassified(query: GraphQuery): Either[GraphReadError, GraphResult] =
++    run(query).left.map(GraphReadError.Invalid(_))
++
+   def run(query: GraphQuery): Either[String, GraphResult] = synchronized {
+     GraphQuery.validate(query, settings).map {
+       case q @ GraphQuery.ResearcherById(r) =>
+@@ -278,7 +282,14 @@ final class InMemoryGraph(
+       if (!timedOut) { depth += 1; frontier = next.result() }
+     }
+     if (timedOut)
+-      GraphResult(q.templateId, Nil, truncated = false, complete = false, Some(depth))
++      GraphResult(
++        q.templateId,
++        Nil,
++        truncated = false,
++        complete = false,
++        Some(depth),
++        Some(GraphStop.TimeLimit)
++      )
+     else if (!prev.contains(b))
+       GraphResult(q.templateId, Nil, truncated = false, complete = true, Some(d))
+     else {
+diff --git a/modules/storage/src/main/scala/org/scholarchain/storage/ports/GraphPorts.scala b/modules/storage/src/main/scala/org/scholarchain/storage/ports/GraphPorts.scala
+index 905c3d6..9b6374b 100644
+--- a/modules/storage/src/main/scala/org/scholarchain/storage/ports/GraphPorts.scala
++++ b/modules/storage/src/main/scala/org/scholarchain/storage/ports/GraphPorts.scala
+@@ -33,16 +33,26 @@ final case class BulkLoadStatus(loadId: String, status: String, totalRecords: Lo
+ /** The bulk loader refused a start request for certain (Phase 14 C-07): the service answered with
+   * an error that means the request was not accepted, so no load was created. `errorClass` is the
+   * service's error name (for example `BadRequestException`); it holds no identifier.
++  *
++  * `throttled` (Phase 16, storage retries): the refusal was Neptune's throttling answer
++  * (`TooManyRequestsException` 429, "the request could not be processed", or `ThrottlingException`,
++  * "the request was denied due to request throttling"). Such a start may be sent again after a
++  * wait: it created no load.
+   */
+-final class BulkLoadStartRejected(val errorClass: String, val httpStatus: Int, message: String)
+-    extends RuntimeException(message)
++final class BulkLoadStartRejected(
++    val errorClass: String,
++    val httpStatus: Int,
++    message: String,
++    val throttled: Boolean = false
++) extends RuntimeException(message)
+ 
+ /** Neptune bulk loader: the only path for large graph loads. */
+ trait GraphBulkLoader {
+ 
+   /** Starts one load and returns its load ID. Throws [[BulkLoadStartRejected]] only when the
+-    * request was refused for certain; any other exception (timeout, network error, throttling, 5xx,
+-    * a response without a load ID) means the outcome is unknown: the load may exist.
++    * request was refused for certain (with `throttled` set for a throttling answer, Phase 16); any
++    * other exception (timeout, network error, 5xx, a response without a load ID) means the outcome
++    * is unknown: the load may exist.
+     */
+   def start(job: BulkLoadJob): String
+   def status(loadId: String): BulkLoadStatus
+@@ -211,6 +221,28 @@ object GraphQuery {
+ /** One result row: column name -> JSON value. */
+ final case class GraphRow(values: ListMap[String, ujson.Value])
+ 
++/** Why a `PathBetween` search stopped before the end of its bounds (`complete = false`), Phase 16
++  * L1. `code` is an allowlisted word (never a store message); rag maps it to its abstention codes.
++  */
++sealed abstract class GraphStop(val code: String)
++
++object GraphStop {
++
++  /** The time budget (`runtime.graphTimeoutMillis`) ran out, or Neptune's own query time limit or a
++    * client-side API call timeout ended a depth.
++    */
++  case object TimeLimit extends GraphStop("time-limit")
++
++  /** Neptune refused a depth for a resource limit (`MemoryLimitExceededException`,
++    * `QueryLimitExceededException`), after storage's bounded retry. Whether a path exists at the
++    * deeper depths is unknown: a bounded search, not a store failure.
++    */
++  case object ResourceLimit extends GraphStop("resource-limit")
++
++  /** Every code, in a fixed order. */
++  val Codes: List[String] = List(TimeLimit.code, ResourceLimit.code)
++}
++
+ /** Rows of one query.
+   *
+   * @param truncated
+@@ -219,18 +251,23 @@ final case class GraphRow(values: ListMap[String, ujson.Value])
+   * @param complete
+   *   the search ran to the end of its bounds. Always true for single-shot templates. For
+   *   `PathBetween`: true when a path was found or every depth up to `maxDepth` was searched (so
+-  *   empty rows mean "no path within depth `maxDepth`"); false when the time budget ran out first
+-  *   (empty rows then mean "unknown: stopped at the time limit")
++  *   empty rows mean "no path within depth `maxDepth`"); false when the search stopped first (empty
++  *   rows then mean "unknown": see `stoppedBy`)
+   * @param depthSearched
+   *   `PathBetween` only: the deepest depth fully searched (the path length when found; 0 when the
+-  *   time ran out before depth 1 finished); None for other templates
++  *   search stopped before depth 1 finished); None for other templates
++  * @param stoppedBy
++  *   Phase 16 L1: why an incomplete `PathBetween` search stopped. None when `complete` is true. An
++  *   incomplete result with None comes from a producer that predates this field (test fakes); read
++  *   it as [[GraphStop.TimeLimit]], the only stop such producers had.
+   */
+ final case class GraphResult(
+     templateId: String,
+     rows: List[GraphRow],
+     truncated: Boolean,
+     complete: Boolean,
+-    depthSearched: Option[Int]
++    depthSearched: Option[Int],
++    stoppedBy: Option[GraphStop] = None
+ )
+ 
+ object GraphResult {
+@@ -240,10 +277,65 @@ object GraphResult {
+     GraphResult(templateId, rows.take(limit), rows.size > limit, complete = true, None)
+ }
+ 
++/** Why a graph read failed (Phase 16, FECD-1 S1 and L1). `code` is an allowlisted word that callers
++  * may log, count or map; `message` is the store's text and must never reach a client, a log line
++  * or a model prompt unredacted (it may name an endpoint).
++  */
++sealed abstract class GraphReadError(val code: String) {
++  def message: String
++}
++
++object GraphReadError {
++
++  /** The query was refused before any store call (validation, unknown template, bad window). */
++  final case class Invalid(message: String) extends GraphReadError("graph-invalid-query")
++
++  /** May succeed later: HTTP 5xx other than the resource limits, throttling, 429, connection or
++    * socket errors. Returned only after storage's bounded retry gave up.
++    */
++  final case class Transient(message: String) extends GraphReadError("graph-transient")
++
++  /** Neptune `MemoryLimitExceededException` or `QueryLimitExceededException` (HTTP 500, documented
++    * as retryable), after the bounded retry. For `PathBetween` this is never an error: the search
++    * returns `complete = false` with [[GraphStop.ResourceLimit]].
++    */
++  final case class ResourceLimit(message: String) extends GraphReadError("graph-resource-limit")
++
++  /** A single-shot template ran past its time budget (Neptune's query time limit or the API call
++    * timeout). For `PathBetween` this is never an error (`complete = false`, time limit).
++    */
++  final case class Timeout(message: String) extends GraphReadError("graph-timeout")
++
++  /** Will not succeed on retry: HTTP 4xx (malformed query, access denied, bad parameters) and every
++    * other client error (credentials, configuration).
++    */
++  final case class Permanent(message: String) extends GraphReadError("graph-permanent")
++
++  /** A port that reports only `run`'s String (test fakes, decorators written before Phase 16). */
++  final case class Unclassified(message: String) extends GraphReadError("graph-unclassified")
++
++  /** Every code, in a fixed order (the allowlist). */
++  val Codes: List[String] = List(
++    "graph-invalid-query",
++    "graph-transient",
++    "graph-resource-limit",
++    "graph-timeout",
++    "graph-permanent",
++    "graph-unclassified"
++  )
++}
++
+ /** Read-only graph port for runtime services. Implementations use read-only credentials (IAM is
+   * Phase 12, infra-engineer).
++  *
++  * `run` is the original contract (Left = the failure text). `runClassified` (Phase 16) gives the
++  * same outcome with a typed [[GraphReadError]]; ports that do not override it report every failure
++  * as [[GraphReadError.Unclassified]]. `run(q)` and `runClassified(q).left.map(_.message)` agree
++  * for every port in storage.
+   */
+ trait GraphReadPort {
+   def settings: GraphReadSettings
+   def run(query: GraphQuery): Either[String, GraphResult]
++  def runClassified(query: GraphQuery): Either[GraphReadError, GraphResult] =
++    run(query).left.map(GraphReadError.Unclassified(_))
+ }
+diff --git a/modules/storage/src/test/scala/org/scholarchain/storage/AwsAdaptersAwsSuite.scala b/modules/storage/src/test/scala/org/scholarchain/storage/AwsAdaptersAwsSuite.scala
+index 563f9b5..e8e5bde 100644
+--- a/modules/storage/src/test/scala/org/scholarchain/storage/AwsAdaptersAwsSuite.scala
++++ b/modules/storage/src/test/scala/org/scholarchain/storage/AwsAdaptersAwsSuite.scala
+@@ -15,11 +15,14 @@ import org.scholarchain.storage.vectors.IndexSpecCatalog
+   * 14/15). Configuration comes from `SCHOLARCHAIN_CONFIG_FILE`; credentials from the default
+   * provider chain. Bounds: at most 2 objects, 2 items, 2 vectors and 1 message per test; 5-second
+   * API call timeouts with one SDK attempt per call (m2); 60 seconds per test. Test data uses the
+-  * `itest` prefix so the cleanup script can find it.
++  * `itest` prefix so the cleanup script can find it. Failure messages are masked (Phase 16 L-10,
++  * [[MaskedFailures]]): they reach the sbt test report XML.
+   */
+-class AwsAdaptersAwsSuite extends munit.FunSuite {
++class AwsAdaptersAwsSuite extends MaskedFailures {
+   private val RequiresAws = new munit.Tag("RequiresAws")
+   override val munitTimeout: Duration = 60.seconds
++  override def maskedNames: Iterable[String] =
++    cfg.zones.values.map(_.bucket) ++ List(cfg.vectorBucket, cfg.neptuneEndpoint)
+ 
+   private lazy val cfg: StorageConfig =
+     ConfigLoader
+diff --git a/modules/storage/src/test/scala/org/scholarchain/storage/NeptuneBulkLoaderStartSuite.scala b/modules/storage/src/test/scala/org/scholarchain/storage/NeptuneBulkLoaderStartSuite.scala
+index dfe314f..882ab53 100644
+--- a/modules/storage/src/test/scala/org/scholarchain/storage/NeptuneBulkLoaderStartSuite.scala
++++ b/modules/storage/src/test/scala/org/scholarchain/storage/NeptuneBulkLoaderStartSuite.scala
+@@ -97,14 +97,35 @@ class NeptuneBulkLoaderStartSuite extends munit.FunSuite {
+     }
+   }
+ 
+-  test("timeouts, throttling, 5xx and client errors are unknown outcomes, never a refusal") {
++  test("Phase 16: throttling answers are throttled refusals (no load created), with their class") {
++    val throttled: List[(String, SdkServiceException)] = List(
++      "TooManyRequestsException" ->
++        TooManyRequestsException.builder().message("m").statusCode(429).build(),
++      "ThrottlingException" -> ThrottlingException.builder().message("m").statusCode(400).build(),
++      "ThrottlingException" -> ThrottlingException.builder().message("m").statusCode(429).build()
++    )
++    throttled.foreach { case (name, e) =>
++      start(e) match {
++        case Left(r: BulkLoadStartRejected) =>
++          assertEquals((r.errorClass, r.httpStatus, r.throttled), (name, e.statusCode, true))
++        case other => fail(s"$name: expected a throttled BulkLoadStartRejected, got $other")
++      }
++    }
++    // definite refusals are not throttled
++    start(BadRequestException.builder().message("m").statusCode(400).build()) match {
++      case Left(r: BulkLoadStartRejected) => assert(!r.throttled)
++      case other                          => fail(s"expected BulkLoadStartRejected, got $other")
++    }
++  }
++
++  test("timeouts, 5xx and client errors are unknown outcomes, never a refusal") {
+     val unknown: List[Throwable] = List(
+       ClientTimeoutException.builder().message("m").statusCode(408).build(),
+-      TooManyRequestsException.builder().message("m").statusCode(429).build(),
+-      ThrottlingException.builder().message("m").statusCode(400).build(),
+       InternalFailureException.builder().message("m").statusCode(500).build(),
+-      // A definite class with a status that is not a client refusal stays unknown.
++      // A definite or throttling class with a status that is not its documented one stays unknown.
+       BadRequestException.builder().message("m").statusCode(503).build(),
++      TooManyRequestsException.builder().message("m").statusCode(503).build(),
++      ThrottlingException.builder().message("m").statusCode(503).build(),
+       ApiCallTimeoutException.builder().message("m").build()
+     )
+     unknown.foreach { e =>
+diff --git a/modules/storage/src/test/scala/org/scholarchain/storage/load/StorageLoadMainLocalSuite.scala b/modules/storage/src/test/scala/org/scholarchain/storage/load/StorageLoadMainLocalSuite.scala
+index bc1e243..dd24a30 100644
+--- a/modules/storage/src/test/scala/org/scholarchain/storage/load/StorageLoadMainLocalSuite.scala
++++ b/modules/storage/src/test/scala/org/scholarchain/storage/load/StorageLoadMainLocalSuite.scala
+@@ -197,13 +197,22 @@ class StorageLoadMainLocalSuite extends munit.FunSuite {
+   private final class FailingStartStores(
+       local: LoadStores.Local,
+       failOnce: Map[String, String => Throwable],
+-      failRegistryStates: Set[String] = Set.empty
++      failRegistryStates: Set[String] = Set.empty,
++      repeats: Map[String, Int] = Map.empty
+   ) extends LoadStores {
+     private val pending = mutable.Map.from(failOnce)
++    private val left = mutable.Map.from(failOnce.keys.map(k => k -> repeats.getOrElse(k, 1)))
++    val attempts = mutable.ListBuffer.empty[String]
+     val loader: GraphBulkLoader = new GraphBulkLoader {
+       def start(job: BulkLoadJob): String = {
+         val stage = job.source.split("/neptune/").last.stripSuffix("/")
+-        pending.remove(stage).foreach(f => throw f(stage))
++        attempts += stage
++        pending.get(stage).foreach { f =>
++          val n = left(stage) - 1
++          if (n <= 0) { pending.remove(stage); left.remove(stage) }
++          else left.update(stage, n)
++          throw f(stage)
++        }
+         local.recorder.start(job)
+       }
+       def status(loadId: String): BulkLoadStatus = local.recorder.status(loadId)
+@@ -227,7 +236,8 @@ class StorageLoadMainLocalSuite extends munit.FunSuite {
+   private final class BulkStartCase(
+       name: String,
+       failOnce: Map[String, String => Throwable],
+-      failRegistryStates: Set[String] = Set.empty
++      failRegistryStates: Set[String] = Set.empty,
++      repeats: Map[String, Int] = Map.empty
+   ) {
+     val w = new Workspace(name)
+     val p = new Printed
+@@ -236,13 +246,15 @@ class StorageLoadMainLocalSuite extends munit.FunSuite {
+     val graphRun: String = graphRunUri(readReport(o1)._2)
+     val cfg: StorageConfig = localConfig(w)
+     val local = new LoadStores.Local(w.root, cfg)
+-    val stores = new FailingStartStores(local, failOnce, failRegistryStates)
++    val stores = new FailingStartStores(local, failOnce, failRegistryStates, repeats)
++    val slept = mutable.ListBuffer.empty[Long]
++    private val sleeper: Sleeper = (ms: Long) => { slept += ms; () }
+     def start(): (Int, ujson.Value) = {
+       val o = w.out()
+       val code = run(
+         NeptuneBulkStart :: w
+           .common(o) ++ List("--graph-run", graphRun, "--loader-role-arn", RoleArn),
+-        wiring(p, Some(stores))
++        wiring(p, Some(stores), sleeper)
+       )
+       val (text, r) = readReport(o)
+       assertMasked(text)
+@@ -370,6 +382,103 @@ class StorageLoadMainLocalSuite extends munit.FunSuite {
+     assertEquals(c.local.recorder.jobs.last.dependencies, List("local-load-0001"))
+   }
+ 
++  // ---- Phase 16: storage retries (throttled StartLoaderJob), D-02, D-03 -------------------------
++
++  private def throttled(stage: String): Throwable =
++    new BulkLoadStartRejected(
++      "TooManyRequestsException",
++      429,
++      s"simulated $stage throttling",
++      throttled = true
++    )
++
++  test("Phase 16: a throttled nodes start is sent again after 2 s then 4 s under the same claim") {
++    val c =
++      new BulkStartCase("bulk-throttled", Map("nodes" -> throttled), repeats = Map("nodes" -> 2))
++    val (code, r) = c.start()
++    assertEquals(code, Exit.Completed, c.p.text)
++    assertEquals(c.slept.toList, List(2000L, 4000L))
++    assertEquals(c.stores.attempts.toList, List("nodes", "nodes", "nodes", "edges"))
++    assertEquals(c.stages, List("nodes/", "edges/"), "one load per stage")
++    assertEquals(r("bulkLoadThrottleRetries").num, 2.0)
++    assertEquals(
++      c.states,
++      List(StateStarting, StateNodesStarted, StateEdgesStarting, StateStarted),
++      "no extra registry version for a throttled attempt"
++    )
++    assert(c.p.text.contains("no load was created"), c.p.text)
++  }
++
++  test(
++    "Phase 16: throttling that outlasts the bounded retry is recorded as nodes-failed; a later start loads once"
++  ) {
++    val c = new BulkStartCase(
++      "bulk-throttled-out",
++      Map("nodes" -> throttled),
++      repeats = Map("nodes" -> 3)
++    )
++    val (code1, r1) = c.start()
++    assertEquals(code1, Exit.Failed, c.p.text)
++    assertEquals(c.slept.toList, List(2000L, 4000L), "bounded: ThrottleRetries waits, then stop")
++    assertEquals(c.stores.attempts.toList, List("nodes", "nodes", "nodes"))
++    assertEquals(r1("bulkLoadFailure")("errorClass").str, "TooManyRequestsException")
++    assert(r1("status").str.contains("records nodes-failed"), r1("status").str)
++    assertEquals(c.states, List(StateStarting, StateNodesFailed))
++    assertEquals(c.stages, Nil, "no load was started")
++    val (code2, _) = c.start()
++    assertEquals(code2, Exit.Completed, c.p.text)
++    assertEquals(c.stages, List("nodes/", "edges/"), "exactly one load per stage for the graph run")
++    assertEquals(c.start()._1, Exit.Refused)
++    assertEquals(c.stages.size, 2)
++  }
++
++  test(
++    "D-02: edges refused for an unknown nodes load names the new graph run; a retry is refused"
++  ) {
++    val missing: String => Throwable = st =>
++      new BulkLoadStartRejected(DependencyNotFound, 404, s"simulated $st dependency not found")
++    val c = new BulkStartCase("bulk-edges-dep", Map("edges" -> missing))
++    val (code1, r1) = c.start()
++    assertEquals(code1, Exit.Failed, c.p.text)
++    val s1 = r1("status").str
++    assert(
++      s1.contains("records edges-failed") && s1.contains("no retry of this graph run can succeed"),
++      s1
++    )
++    assert(s1.contains("new graph run"), s1)
++    assert(!s1.contains("a new start of this graph run is allowed"), s1)
++    val (code2, r2) = c.start()
++    assertEquals(code2, Exit.Refused, c.p.text)
++    val s2 = r2("status").str
++    assert(s2.contains("does not know the registered nodes load local-load-0001"), s2)
++    assert(s2.contains("a new export or a new configuration (a new graph run)"), s2)
++    assertEquals(c.stores.attempts.toList, List("nodes", "edges"), "the retry sends nothing")
++    assertEquals(
++      c.states,
++      List(StateStarting, StateNodesStarted, StateEdgesStarting, StateEdgesFailed)
++    )
++  }
++
++  test(
++    "D-03: a definite refusal whose failed-state write fails keeps the claim; a retry is refused"
++  ) {
++    val c = new BulkStartCase(
++      "bulk-nodes-definite-unrecorded",
++      Map("nodes" -> definite),
++      failRegistryStates = Set(StateNodesFailed)
++    )
++    val (code1, r1) = c.start()
++    assertEquals(code1, Exit.Failed, c.p.text)
++    assert(r1("status").str.contains("recording nodes-failed failed"), r1("status").str)
++    assert(r1("status").str.contains("a new start is refused"), r1("status").str)
++    val (code2, r2) = c.start()
++    assertEquals(code2, Exit.Refused, c.p.text)
++    assert(r2("status").str.contains("outcome is unknown"), r2("status").str)
++    assertEquals(c.states, List(StateStarting))
++    assertEquals(c.stages, Nil)
++    assertEquals(c.stores.attempts.toList, List("nodes"), "the refused retry starts nothing")
++  }
++
+   test("neptune-bulk-start refuses a graph run without a manifest and one outside the graph zone") {
+     val w = new Workspace("bulk-missing")
+     val p = new Printed
+diff --git a/project/PackageCheck.scala b/project/PackageCheck.scala
+index 1240752..79ba33b 100644
+--- a/project/PackageCheck.scala
++++ b/project/PackageCheck.scala
+@@ -24,12 +24,25 @@ object PackageCheck {
+   val SparkClasses: Seq[String] =
+     Seq("org.scholarchain.spark.GraphAnalyticsJob", "org.scholarchain.spark.JsonlExport")
+ 
+-  // Services jar, the image's app.jar (four services and the ops task).
++  // Services jar, the image's app.jar (four services and the ops task). L-09 (Phase 16): the ops
++  // task's rag-retrieval-eval loader runs RetrievalEvalJob from this jar
++  // (scripts/run-bounded-pipeline.sh), so scripts/check.sh gate 8 requires it here.
+   val ServicesMainClass: String = "org.scholarchain.services.Main"
+   val ServicesClasses: Seq[String] = Seq(
+     ServicesMainClass,
+     "org.scholarchain.storage.load.StorageLoadMain",
+-    "org.scholarchain.rag.ingest.RagIngestJob"
++    "org.scholarchain.rag.ingest.RagIngestJob",
++    "org.scholarchain.rag.eval.RetrievalEvalJob"
++  )
++
++  /** Each jar's class list with the module folders whose main sources reach that jar (the module
++    * itself and its internal dependencies). buildSelfTest maps every listed class to its source.
++    */
++  val ClassListsByJar: Seq[(String, Seq[String], Seq[String])] = Seq(
++    ("hadoop jar", HadoopClasses, Seq("hadoop", "core")),
++    ("entity-resolution jar", ErClasses, Seq("entity-resolution", "core")),
++    ("spark jar", SparkClasses, Seq("spark", "core")),
++    ("services jar", ServicesClasses, Seq("services", "rag", "storage", "core"))
+   )
+ 
+   /** Provided by the EMR Spark runtime; never inside the spark jar. */

@@ -1,0 +1,13 @@
+label,mode,metric,k,numerator,denominator,value,ci_low,ci_high,ci_method,inclusion_rule
+EXPLORATORY (n = 2),graph-only,recall,1,0.5,2,0.25,0,0.5,percentile bootstrap over questions; seed 7; 2000 resamples,questions of the report universe with a result for this mode; errored or empty results score 0
+EXPLORATORY (n = 2),graph-only,recall,5,1,2,0.5,0,1,percentile bootstrap over questions; seed 7; 2000 resamples,questions of the report universe with a result for this mode; errored or empty results score 0
+EXPLORATORY (n = 2),graph-only,mrr,,1,2,0.5,0,1,percentile bootstrap over questions; seed 7; 2000 resamples,questions of the report universe with a result for this mode; errored or empty results score 0
+EXPLORATORY (n = 2),graph-only,precision,,,,not measurable (unjudged retrievals),,,,retrieved IDs outside the labels are unjudged; never counted as negatives
+EXPLORATORY (n = 2),graph-only,ndcg,,,,not computed (no graded relevance labels),,,,
+EXPLORATORY (n = 2),graph-only,unjudged_share,,1,3,0.333333,,,,retrieved IDs over all questions of this mode; unjudged = retrieved IDs outside the labels
+EXPLORATORY (n = 2),vector-only,recall,1,0,2,0,0,0,percentile bootstrap over questions; seed 7; 2000 resamples,questions of the report universe with a result for this mode; errored or empty results score 0
+EXPLORATORY (n = 2),vector-only,recall,5,1.5,2,0.75,0.5,1,percentile bootstrap over questions; seed 7; 2000 resamples,questions of the report universe with a result for this mode; errored or empty results score 0
+EXPLORATORY (n = 2),vector-only,mrr,,0.75,2,0.375,0.25,0.5,percentile bootstrap over questions; seed 7; 2000 resamples,questions of the report universe with a result for this mode; errored or empty results score 0
+EXPLORATORY (n = 2),vector-only,precision,,,,not measurable (unjudged retrievals),,,,retrieved IDs outside the labels are unjudged; never counted as negatives
+EXPLORATORY (n = 2),vector-only,ndcg,,,,not computed (no graded relevance labels),,,,
+EXPLORATORY (n = 2),vector-only,unjudged_share,,4,6,0.666667,,,,retrieved IDs over all questions of this mode; unjudged = retrieved IDs outside the labels

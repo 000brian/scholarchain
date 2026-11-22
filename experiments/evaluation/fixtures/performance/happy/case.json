@@ -1,0 +1,8 @@
+{
+  "description": "happy path: hadoop counters, spark totals, instance-seconds with one incomplete row, per-route classes, CloudWatch Sum series (one empty), per-period worker throughput, one derived table copied and one absent",
+  "args": ["--raw-root", "{case}/raw", "--derived-root", "{case}/derived",
+           "--manifests", "p15-a-hadoop,p15-b-spark-burst,p15-c-embedding-backlog,p15-d-read-load",
+           "--derived-tables", "p15-d-read-load/levels.csv,p15-e-retrieval-modes/modes.csv",
+           "--instance-hour-usd", "0.24", "--rate-source", "fixture rate"],
+  "expectExit": 0
+}

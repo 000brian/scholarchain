@@ -1,0 +1,11 @@
+{
+  "MetricDataResults": [
+    {"Id": "m0", "Label": "AWS/SQS NumberOfMessagesDeleted Sum QueueName=fixture-embedding",
+     "Timestamps": ["1970-01-01T00:22:00Z", "1970-01-01T00:20:00Z", "1970-01-01T00:21:00Z"],
+     "Values": [1440.0, 540.0, 900.0], "StatusCode": "Complete"},
+    {"Id": "m1", "Label": "AWS/SQS ApproximateNumberOfMessagesVisible Maximum QueueName=fixture-embedding",
+     "Timestamps": ["1970-01-01T00:20:00Z"], "Values": [700.0], "StatusCode": "Complete"},
+    {"Id": "m2", "Label": "AWS/SQS NumberOfMessagesSent Sum QueueName=fixture-embedding-dlq",
+     "Timestamps": [], "Values": [], "StatusCode": "Complete"}
+  ]
+}

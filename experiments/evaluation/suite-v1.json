@@ -1,0 +1,292 @@
+{
+  "format": "scholarchain.evaluation-suite",
+  "formatVersion": 1,
+  "suiteId": "suite-v1",
+  "status": "COMPLETE DRAFT: written by experiment-engineer in steps X1 and X2 (X2 completed the answers, graph and er entries and the E11 answer-file specification and checked every entry's arguments against the tool's argument parsers); not approved until the human commits the line APPROVED-EVALUATION-SUITE-SHA256: HEX64 for this file in docs/agent-runs/phase-16/approvals.md (E3). The suite has no approval field. The session 2 repair round (step 9, repair-01-experiment-engineer: P16-B-02, P16-B-04, P16-B-05, P16-C-01) changed evaluate.py and re-pinned evaluationCode and the rating-sheet generator; a later change to evaluate.py must re-pin both again before E3.",
+  "workOrder": {
+    "path": "docs/agent-runs/phase-16/prompt.md",
+    "sha256": "c75cc5f895faed13880a69ec285231c5498fd50924c7b875fe7e02cce1707dc8"
+  },
+  "draftedAtCommit": "9da45ab616a764e449f74f25feca85ed77d6dfe4",
+  "factoryPopulationEndsAt": "9da45ab616a764e449f74f25feca85ed77d6dfe4",
+  "evaluationCode": {
+    "path": "experiments/evaluation/evaluate.py",
+    "version": "evaluate-v1-r1",
+    "sha256": "ba42ad4dba868ab1aa2367ddb9437f841d59eb702e3444cd8f5494416208ecae",
+    "run": "python3 -I experiments/evaluation/evaluate.py SUBCOMMAND ARGUMENTS --suite experiments/evaluation/suite-v1.json --entry ID (from the repository root; run only by the human)",
+    "fixtures": "python3 -I experiments/evaluation/evaluate.py SUBCOMMAND --fixtures (E1)"
+  },
+  "versionedInputs": [
+    {
+      "name": "benchmark questions and relevance labels",
+      "path": "modules/rag/src/test/resources/benchmark/benchmark-v1.json",
+      "version": "benchmark-v1",
+      "sha256": "b58c5e1a6cb29e192035ce77308c20e2597d2d1dbaf8d136761ae5c3316ff3ac"
+    },
+    {
+      "name": "entity-resolution gold labels (300 pairs: 112 MATCH, 135 NON_MATCH, 53 UNSURE; made by the human)",
+      "path": "docs/agent-runs/phase-05/gold/gold-labels.csv",
+      "version": "phase-05 gold labels",
+      "sha256": "fc39c15fba1ab7b8cb2ed8337a439683dce4e457ed52d08b294cfb2feba71fa9"
+    },
+    {
+      "name": "answer rating rubric",
+      "path": "experiments/evaluation/rubric-v1.md",
+      "version": "rubric-v1",
+      "sha256": "102478a0339ec3a0fd4cf0d3a805cdd418956075e9d77a599d73c7e17459d012"
+    },
+    {
+      "name": "rating-sheet generator (subcommand ratings-sheet of the evaluation code)",
+      "path": "experiments/evaluation/evaluate.py",
+      "version": "evaluate-v1-r1 ratings-sheet",
+      "sha256": "ba42ad4dba868ab1aa2367ddb9437f841d59eb702e3444cd8f5494416208ecae"
+    },
+    {
+      "name": "group 2 suite table (spark-engineer's Phase 16 step 5 table of KnownGraphSuite and PipelineFixtureSuite: which group 2 check each test asserts and whether its expected values were worked out by hand), copied verbatim from agent-report-spark.md (session 2 scratchpad; the human copies it to docs/agent-runs/phase-16/agent-report-spark.md), pipes turned into commas, no cell changed",
+      "path": "experiments/evaluation/spark-suite-table-v1.csv",
+      "version": "spark-suite-table-v1 (43 tests)",
+      "sha256": "91184acfce712f2265b608c99ceb096e2f460c342cce0db921e6000df64378e7"
+    },
+    {
+      "name": "intended differences of the current-version regeneration (E10 result 3)",
+      "path": "experiments/evaluation/intended-differences-v1.csv",
+      "version": "intended-differences-v1",
+      "sha256": "e1782852ea5f29bc8f17b3a2a8519f42cfad0b2c5b4d000c7b84e9edc6f5fab5"
+    }
+  ],
+  "treeDigestRule": "sha256 of the text made of one line 'SHA256  REPO_RELATIVE_PATH' (two spaces, newline-terminated) per file below the tree roots, file names starting with '.' skipped, optional file-name suffix filter, lines sorted by path. On a clean tree it equals: git ls-files -- ROOT | xargs shasum -a 256 | shasum -a 256 (with a grep for the suffix filter where one is given). evaluate.py checks every pinned file and tree of its entry before computing and exits 3 on a difference.",
+  "outputRoot": "experiments/evaluation/raw/GROUP/RUN_ID/ (RUN_ID = UTC stamp, short HEAD, 4 random hex); run metadata in run.json; results in CSV files",
+  "exitCodes": {"0": "success", "2": "usage", "3": "missing input or input differs from this suite", "5": "tool failure or malformed input or failed fixture comparison"},
+  "evidenceKinds": {
+    "a": "internal consistency (ScholarChain's own verifier, invariants, tests or reports)",
+    "b": "independent ground truth (labels made by the human, or facts from a source outside the pipeline)",
+    "c": "human judgment (the human's ratings)"
+  },
+  "evaluations": [
+    {
+      "id": "E4-er",
+      "step": "E4",
+      "group": 1,
+      "groupName": "entity resolution",
+      "subcommand": "er",
+      "status": "ready (X2); REDUCED PLAN of decision 3 (entity-resolution-engineer step 2: the Phase 5 ER run folder, review queue and key and the er-v1 decision set are gone, so there is no EvalMain command at E4 and no --compare-decisions)",
+      "command": "python3 -I experiments/evaluation/evaluate.py er --phase5-report docs/agent-runs/phase-05/agent-report-er-eval.md --start-marker 'FULL FINAL summary.md (verbatim):' --end-marker '## Part 3: addendum' --gold docs/agent-runs/phase-05/gold/gold-labels.csv --note 'M3 and M4 are fixed in code in Phase 16 (entity-resolution-engineer step 2) but not re-rendered: the table shows the Phase 5 wording, and the zero-event bounds are copied from the reliability paragraph of the same summary' --note 'er-v2 accuracy is not measurable from the frozen evidence: the er-v1 decision set and the Phase 5 review queue and key are gone (agent-report-er.md group 1 plan); equal counts are not equal decisions' --suite experiments/evaluation/suite-v1.json --entry E4-er",
+      "arguments": ["--phase5-report", "docs/agent-runs/phase-05/agent-report-er-eval.md", "--start-marker", "FULL FINAL summary.md (verbatim):", "--end-marker", "## Part 3: addendum", "--gold", "docs/agent-runs/phase-05/gold/gold-labels.csv", "--note", "M3 and M4 are fixed in code in Phase 16 (entity-resolution-engineer step 2) but not re-rendered: the table shows the Phase 5 wording, and the zero-event bounds are copied from the reliability paragraph of the same summary", "--note", "er-v2 accuracy is not measurable from the frozen evidence: the er-v1 decision set and the Phase 5 review queue and key are gone (agent-report-er.md group 1 plan); equal counts are not equal decisions"],
+      "inputs": [
+        {"path": "docs/agent-runs/phase-05/agent-report-er-eval.md", "sha256": "e20023ce6152a65cdd1b89f30489844e0532f9ff0098ead8f09fb75b6b5baf9b"},
+        {"path": "docs/agent-runs/phase-05/gold/gold-labels.csv", "sha256": "fc39c15fba1ab7b8cb2ed8337a439683dce4e457ed52d08b294cfb2feba71fa9"}
+      ],
+      "outputs": "experiments/evaluation/raw/er/RUN_ID/: table.csv, weighted-intervals.csv, confusion.csv, recomputed.csv, checks.csv, notes.csv, run.json",
+      "method": "Reads the final summary.md that Part 2 of the committed Phase 5 report reproduces verbatim (from the line 'FULL FINAL summary.md (verbatim):' to the Part 3 heading; Part 1's older summary is outside that section): the researcher-resolution table (all rows unweighted, weighted estimate, per matching path, per name family, per evidence class) copied as printed with its interval method; the weighted bootstrap line and the zero-event bounds of the reliability paragraph (first occurrence per metric, the pair-level one); both confusion matrices; then recomputes the all-rows precision, recall, F1, coverage and unresolved rate with numerator and denominator from the unweighted confusion matrix and compares them with the printed values at one decimal; checks the gold file's label counts and sha256 against the matrix and the summary.",
+      "evidenceKind": "b (the human's gold labels on er-v1 decisions); the recomputation and count checks are a (internal consistency of the report)",
+      "variability": "as printed in the Phase 5 summary: Wilson score 95% for unweighted rows; stratified percentile bootstrap (seed 20261114, 1000 resamples, per the Phase 5 EvalMain command at agent-report-er-eval.md:40) for the weighted estimate, with its unreliable flags and zero-event bounds; nothing is recomputed except point estimates",
+      "knownGap": "the labels judge er-v1 decisions (Phase 5 run run:v1:9f96c70b5115294dcc9d3b2d1d4438b9); er-v2 accuracy is not measurable (no gold-pair decision comparison is possible: the er-v1 decision set is gone); numerators and denominators exist only for the all-rows row; M3 and M4 are fixed in code but the summary keeps the Phase 5 wording; metrics by matching path come from the printed table only"
+    },
+    {
+      "id": "E5-graph",
+      "step": "E5",
+      "group": 2,
+      "groupName": "graph correctness",
+      "subcommand": "graph",
+      "status": "ready (X2); E5_SBT_LOG is filled by the orchestrator with the path of the E5 sbt log of the Spark suites (argument path, sha256 recorded at run); without that log the command runs with --test-log left out and test-log.csv is not written",
+      "command": "python3 -I experiments/evaluation/evaluate.py graph --suite-table experiments/evaluation/spark-suite-table-v1.csv --spark-outputs experiments/raw/p15-a-spark/20261120T225850Z-eb786c5275a3-4f7e/spark-outputs.csv --spark-outputs experiments/raw/p15-b-spark-burst/20261120T225913Z-eb786c5275a3-fac6/spark-outputs.csv --sample ResearcherMetricCache=docs/agent-runs/phase-15/dynamodb-sample/researcher-metric-cache-sample25.json --sample EvidenceBundle=docs/agent-runs/phase-15/dynamodb-sample/evidence-bundle-sample25.json --sample EntityLinkCache=docs/agent-runs/phase-15/dynamodb-sample/entity-link-cache-sample25.json --sample RunLedger=docs/agent-runs/phase-15/dynamodb-sample/run-ledger-clip01-query.json --test-log E5_SBT_LOG --suite experiments/evaluation/suite-v1.json --entry E5-graph",
+      "arguments": ["--suite-table", "experiments/evaluation/spark-suite-table-v1.csv", "--spark-outputs", "experiments/raw/p15-a-spark/20261120T225850Z-eb786c5275a3-4f7e/spark-outputs.csv", "--spark-outputs", "experiments/raw/p15-b-spark-burst/20261120T225913Z-eb786c5275a3-fac6/spark-outputs.csv", "--sample", "ResearcherMetricCache=docs/agent-runs/phase-15/dynamodb-sample/researcher-metric-cache-sample25.json", "--sample", "EvidenceBundle=docs/agent-runs/phase-15/dynamodb-sample/evidence-bundle-sample25.json", "--sample", "EntityLinkCache=docs/agent-runs/phase-15/dynamodb-sample/entity-link-cache-sample25.json", "--sample", "RunLedger=docs/agent-runs/phase-15/dynamodb-sample/run-ledger-clip01-query.json", "--test-log", "E5_SBT_LOG"],
+      "inputs": [
+        {"path": "experiments/evaluation/spark-suite-table-v1.csv", "sha256": "91184acfce712f2265b608c99ceb096e2f460c342cce0db921e6000df64378e7"},
+        {"path": "experiments/raw/p15-a-spark/20261120T225850Z-eb786c5275a3-4f7e/spark-outputs.csv", "sha256": "ad70f64017cd4a071d1ab1a8dd8b7b121149e342059e8e1a856da3a695dedc6d"},
+        {"path": "experiments/raw/p15-b-spark-burst/20261120T225913Z-eb786c5275a3-fac6/spark-outputs.csv", "sha256": "ad70f64017cd4a071d1ab1a8dd8b7b121149e342059e8e1a856da3a695dedc6d"},
+        {"path": "docs/agent-runs/phase-15/dynamodb-sample/researcher-metric-cache-sample25.json", "sha256": "569d01879c59f10b4cc74358af95912d20a4c58be6a2303005e9a1d95041ae8b"},
+        {"path": "docs/agent-runs/phase-15/dynamodb-sample/evidence-bundle-sample25.json", "sha256": "a8b6e4ee5c07b954d939d11d1370f7a3d8e733b7299bf945ee940d37854a6bfe"},
+        {"path": "docs/agent-runs/phase-15/dynamodb-sample/entity-link-cache-sample25.json", "sha256": "50ef38efc35fc16c503a400b5cccc372daa34d96e027a7a8690c3aa63e068c80"},
+        {"path": "docs/agent-runs/phase-15/dynamodb-sample/run-ledger-clip01-query.json", "sha256": "f818418e8c75e0e2c76e3fe698e34701db9f3d0566e1d6339ebd4408edf4bb97"},
+        {"path": "E5_SBT_LOG (the E5 sbt log of KnownGraphSuite and PipelineFixtureSuite, optional)", "sha256": "argument path, sha256 recorded at run"}
+      ],
+      "outputs": "experiments/evaluation/raw/graph/RUN_ID/: suite-coverage.csv, suite-summary.csv, spark-files.csv, invariants.csv, not-measurable.csv, provenance.csv, test-log.csv (only with --test-log), run.json",
+      "method": "(1) Recounts spark-engineer's 43-row suite table: per group 2 check (degree, weighted degree, components, paths, communities, bridges, k-core, integrity, duplicates, orphans) the tests asserting it, split by expectation source (independent = worked out by hand, mixed, property), and whether at least one hand-worked test covers it; per suite totals. (2) Reads both Phase 15 spark-outputs.csv files, computes the invariant checks once per distinct file content (the two files are byte-identical: one observation of run run:v1:0f02b5f22d1187932df0fc1decd7e6a5): invalid_records total, integrity_violations, rejects and unresolved_mention records, and the equal-count checks node/canonical researcher, work/venue edge, coauthor edge/graph edge per window, one metric row per researcher per window and metric table, path evidence/path summary, plus the authorship/authored-edge difference (not an invariant). (3) For each DynamoDB sample table, the share of sampled items carrying each provenance field of the CLAUDE.md invariant (run ID, snapshot, dataset, source record IDs, policy version, schema version, item hash, content hash) as a top-level attribute or inside the item's record JSON; schema version is only the schemaVersion attribute or field, never the top-level version attribute, which is the storage layer's conditional-write item version. (4) Optionally the sbt summary line of the E5 run, compared with the table's 43 tests.",
+      "evidenceKind": "b (hand-worked small graphs, as classified by spark-engineer; the E5 sbt run shows whether they pass) and a (invariant counts; provenance fields present per sampled item per table)",
+      "variability": "counts and descriptive proportions only, with numerator and denominator; no confidence interval (the DynamoDB samples were not drawn at random and their selection method is not recorded; the two spark-outputs.csv files are one observation)",
+      "knownGap": "full-graph referential integrity, duplicate, orphan and edge-support rates are not measurable beyond the invariant counts (no export exists); the DynamoDB samples were not drawn at random (no confidence interval)"
+    },
+    {
+      "id": "E6-retrieval",
+      "step": "E6",
+      "group": 3,
+      "groupName": "retrieval",
+      "subcommand": "retrieval",
+      "status": "ready (X1)",
+      "command": "python3 -I experiments/evaluation/evaluate.py retrieval --report experiments/raw/p15-e-retrieval-modes/20261120T221402Z-6a6c31a06d60-b6c7/retrieval-eval-report.json --benchmark modules/rag/src/test/resources/benchmark/benchmark-v1.json --seed 20261122 --resamples 2000 --suite experiments/evaluation/suite-v1.json --entry E6-retrieval",
+      "arguments": ["--report", "experiments/raw/p15-e-retrieval-modes/20261120T221402Z-6a6c31a06d60-b6c7/retrieval-eval-report.json", "--benchmark", "modules/rag/src/test/resources/benchmark/benchmark-v1.json", "--seed", "20261122", "--resamples", "2000"],
+      "seed": 20261122,
+      "inputs": [
+        {"path": "experiments/raw/p15-e-retrieval-modes/20261120T221402Z-6a6c31a06d60-b6c7/retrieval-eval-report.json", "sha256": "cadd90b82da7fa8c53ac9f2452897f31f04079c21b225805803a0061c8b15cff"},
+        {"path": "modules/rag/src/test/resources/benchmark/benchmark-v1.json", "sha256": "b58c5e1a6cb29e192035ce77308c20e2597d2d1dbaf8d136761ae5c3316ff3ac"}
+      ],
+      "outputs": "experiments/evaluation/raw/retrieval/RUN_ID/: per-question.csv, summary.csv, checks.csv, run.json",
+      "method": "For each of the report's universe questions and each mode, recall@K (K from the report: 1, 5, 10, 30) = labelled targets ranked at or above K divided by the question's labelled targets, and reciprocal rank = 1 / best labelled rank (0 if none), recomputed from the report's targetRanks; means over the questions; retrieved IDs outside the labels are unjudged (precision@K not measurable; nDCG not computed: no graded labels); checks compare the recomputation with the report's own numbers and the benchmark sha256.",
+      "evidenceKind": "a (internal consistency, with label caveats)",
+      "variability": "percentile bootstrap over questions (paired across modes and metrics), seed 20261122, 2000 resamples, nearest-rank 2.5 % and 97.5 %; every table headed EXPLORATORY (n = 11) and never read as generalization",
+      "knownGap": "benchmark-v1's labels were generated from the Phase 7 graph's own rankings (graph-only agrees partly by construction) and from a different graph run than the deployed Phase 14 graph (3r R2); 19 questions are not comparable and excluded from every mode by design; no OpenSearch tier"
+    },
+    {
+      "id": "E6-performance",
+      "step": "E6",
+      "group": 5,
+      "groupName": "performance and elasticity",
+      "subcommand": "performance",
+      "status": "ready (X1); run before E10 regenerates experiments/derived/out (the derived-out tree pin would differ afterwards)",
+      "command": "python3 -I experiments/evaluation/evaluate.py performance --raw-root experiments/raw --derived-root experiments/derived/out --instance-hour-usd 0.240 --rate-source 'infra/terraform/COSTS.md EMR row (EC2 0.192 + EMR 0.048 USD per instance-hour; estimate; unverified)' --suite experiments/evaluation/suite-v1.json --entry E6-performance",
+      "arguments": ["--raw-root", "experiments/raw", "--derived-root", "experiments/derived/out", "--instance-hour-usd", "0.240", "--rate-source", "infra/terraform/COSTS.md EMR row (EC2 0.192 + EMR 0.048 USD per instance-hour; estimate; unverified)"],
+      "inputs": [
+        {"treeRoots": ["experiments/raw"], "treeSuffix": "", "files": 145, "treeSha256": "98c2e97e6c2d8c7f9d7e5af757fc78dfcce227867dec0111cb154643397d1d76"},
+        {"treeRoots": ["experiments/derived/out"], "treeSuffix": "", "files": 59, "treeSha256": "93b9bd8920b9c2207a2a0431243958ada26656ae20031d3a120edbdf055c9b55"}
+      ],
+      "outputs": "experiments/evaluation/raw/performance/RUN_ID/: computed.csv, route-classes.csv, cloudwatch-sums.csv, minute-throughput.csv, throughput-by-tasks.csv, derived-values.csv, missing.csv, run.json",
+      "method": "Copies the Phase 15 derived summary tables verbatim (attempts.csv of A and B, observed.csv of C and F, parts.csv of F, levels.csv of both D runs, modes.csv of E) and computes from the raw folders the by-hand totals of results-summary.md section 8: Spark task, stage, shuffle and spill totals and stage-timing sums, EMR step durations, Hadoop map-split sum and per-family output records summed over years, instance-seconds and an estimated EMR cost, per-route request classes of both D runs, totals of every CloudWatch Sum series, and per-period worker throughput of C and F grouped by the worker's running count.",
+      "evidenceKind": "a (measured by the system's own tools and CloudWatch); costs are estimates",
+      "variability": "percentiles with sample counts as derived in Phase 15; periods below 20 marked few samples; no new runs (no repeated runs are feasible)",
+      "knownGap": "costs are estimates from COSTS.md rates (unverified); the Phase 15 limitations list applies (A no requested series, B confounded n = 1, D API throttle, C drain under concurrent enqueue, missing shuffle and reduce counters for Hadoop)"
+    },
+    {
+      "id": "E8-answers",
+      "step": "E8",
+      "group": 4,
+      "groupName": "answer quality",
+      "subcommand": "answers",
+      "status": "ready (X2) without the E7 demo answers; if the human copied them at E7, use commandWithDemo instead, with each copied file as one --demo-answer, PROVENANCE written by the orchestrator before scoring (origin, copy time, identifier-scan result) and the two demo labels filled from the records or left out",
+      "command": "python3 -I experiments/evaluation/evaluate.py answers --run-report docs/agent-runs/phase-10/run-report-attempt-06-anthropic.json --benchmark modules/rag/src/test/resources/benchmark/benchmark-v1.json --explain-csv experiments/raw/p15-d-query-load/20261120T235521Z-ff00cfa278c8-ca0c/load-explain.csv --audit docs/agent-runs/phase-15/dynamodb-sample/run-ledger-clip01-query.json --label 'explain-csv.code_version=build commit 684636ef997ee041912e2b57d1c597ded8e9778d (D-query run-record.json build_commit)' --label 'explain-csv.graph_run=run:v1:f2625d504b12749389cf4f5b1a26aed4 (D-query run-record.json dataset_snapshot)' --seed 20261122 --resamples 2000 --suite experiments/evaluation/suite-v1.json --entry E8-answers",
+      "commandWithDemo": "the command above with these arguments added before --suite: --demo-answer experiments/evaluation/raw/answers/p15-demo/FILE.json (once per copied file) --demo-provenance 'PROVENANCE' [--label 'demo.code_version=TEXT'] [--label 'demo.prompt_set=TEXT']",
+      "arguments": ["--run-report", "docs/agent-runs/phase-10/run-report-attempt-06-anthropic.json", "--benchmark", "modules/rag/src/test/resources/benchmark/benchmark-v1.json", "--explain-csv", "experiments/raw/p15-d-query-load/20261120T235521Z-ff00cfa278c8-ca0c/load-explain.csv", "--audit", "docs/agent-runs/phase-15/dynamodb-sample/run-ledger-clip01-query.json", "--label", "explain-csv.code_version=build commit 684636ef997ee041912e2b57d1c597ded8e9778d (D-query run-record.json build_commit)", "--label", "explain-csv.graph_run=run:v1:f2625d504b12749389cf4f5b1a26aed4 (D-query run-record.json dataset_snapshot)", "--seed", "20261122", "--resamples", "2000"],
+      "seed": 20261122,
+      "inputs": [
+        {"path": "docs/agent-runs/phase-10/run-report-attempt-06-anthropic.json", "sha256": "41cf57e6af1f4266e2faad77401b9f4a9228e844537073ea8a179bd25708f5b2"},
+        {"path": "modules/rag/src/test/resources/benchmark/benchmark-v1.json", "sha256": "b58c5e1a6cb29e192035ce77308c20e2597d2d1dbaf8d136761ae5c3316ff3ac"},
+        {"path": "experiments/raw/p15-d-query-load/20261120T235521Z-ff00cfa278c8-ca0c/load-explain.csv", "sha256": "53273fe7d01893e1b138d3712d69b15bccd7c0d98ec87cb442e1ce0759cf1e6c"},
+        {"path": "docs/agent-runs/phase-15/dynamodb-sample/run-ledger-clip01-query.json", "sha256": "f818418e8c75e0e2c76e3fe698e34701db9f3d0566e1d6339ebd4408edf4bb97"},
+        {"path": "experiments/evaluation/raw/answers/p15-demo/ (E7, optional)", "sha256": "argument path, sha256 recorded at run; provenance recorded before scoring"}
+      ],
+      "outputs": "experiments/evaluation/raw/answers/RUN_ID/: sources.csv, rates.csv, per-answer.csv, checks.csv, run.json",
+      "method": "Per source, never pooled across sources, from rag-engineer's answer-report field table: attempt-06 (aggregated claimCounts only: verifier-reported claim support rate = verified / all claims, contradiction rate = conflicting / all claims, the other status shares; answer-key agreement per claim not available; the answer key against the evidence bundle and the paths against Spark path evidence reported as retrieval agreement, not claim accuracy; planted-error catch rates as a verifier test; abstention rate, abstention recall on the questions benchmark-v1 labels to abstain and false-abstention rate on the others, derived from abstentionsExpected, expectedAbstentionsHappened, unexpectedAbstentions and missedAbstentions); D-query explains (no claim counts or codes: abstention rate per explain row and per benchmark label); clip 01's audit (per-answer verificationCounts, abstained flag and abstentionCodes of each attempt); the E7 demo answers if given (per-claim statuses, and claim rates by cited evidence type: coauthor_edge, graph_path, work or authorship, metric). Every rate has numerator, denominator, inclusion rule and kind; claim-type rows are not measurable wherever the frozen fields hold no type; each source carries its code version, prompt set and graph run with the origin of each label (file, argument or not available).",
+      "evidenceKind": "a (verifier-reported claim statuses, abstention codes, answer key and verifier tests: internal consistency, never accuracy); the optional dblp.org existence check is b and is recorded on the rating sheet (E11)",
+      "variability": "claim rates: percentile bootstrap over answers (ratio of sums, seed 20261122, 2000 resamples) only where per-answer counts exist (clip 01, demo answers), else 'no dependence-aware interval'; answer-level rates (abstention): Wilson score 95%; nothing pooled across sources or code versions; clip 01's two attempts answer one question and are not independent",
+      "knownGap": "independent factual accuracy of answers is not independently measurable except the optional dblp.org existence check; attempt-06 holds aggregated counts only (rag-runtime/2, prompts v2, Phase 7 export via the benchmark harness, fake embeddings); load-explain.csv holds no verification counts or codes, and FECD-3 applies to its rows (explain shows the latest execution only); clip 01 holds counts but no claim texts; no claim type is stored per claim except through cited evidence types in the demo answers; prompt set labels for D-query and clip 01 code version are not recorded in the frozen files and are reported not available"
+    },
+    {
+      "id": "E9-factory",
+      "step": "E9",
+      "group": 6,
+      "groupName": "agentic software factory",
+      "subcommand": "factory",
+      "status": "ready (X1)",
+      "command": "python3 -I experiments/evaluation/evaluate.py factory --root docs/agent-runs --seed 20261122 --sample-size 20 --suite experiments/evaluation/suite-v1.json --entry E9-factory",
+      "arguments": ["--root", "docs/agent-runs", "--seed", "20261122", "--sample-size", "20"],
+      "seed": 20261122,
+      "inputs": [
+        {"treeRoots": ["docs/agent-runs/phase-00", "docs/agent-runs/phase-01", "docs/agent-runs/phase-02", "docs/agent-runs/phase-03", "docs/agent-runs/phase-04", "docs/agent-runs/phase-05", "docs/agent-runs/phase-06", "docs/agent-runs/phase-07", "docs/agent-runs/phase-08", "docs/agent-runs/phase-09", "docs/agent-runs/phase-10", "docs/agent-runs/phase-11", "docs/agent-runs/phase-12", "docs/agent-runs/phase-13", "docs/agent-runs/phase-14", "docs/agent-runs/phase-15", "docs/agent-runs/amendment-01", "docs/agent-runs/amendment-02"], "treeSuffix": ".md", "files": 254, "treeSha256": "9bee8d8aa17b85d5db8a6540151d3f447320bb1fb3c79c87b3906a96c53d6626", "orchestratorCheck": "git ls-files -- docs/agent-runs | grep -E '^docs/agent-runs/(phase-(0[0-9]|1[0-5])|amendment-0[12])/.*[.]md$' | xargs shasum -a 256 | shasum -a 256"}
+      ],
+      "outputs": "experiments/evaluation/raw/factory/RUN_ID/: events.csv, counts-by-phase.csv, counts-by-agent.csv, totals.csv, unclassified.csv, audit-sample.csv, audit-strata.csv, run.json",
+      "method": "Deduplicated canonical events from the .md files of phase-00 to phase-15, amendment-01 and amendment-02 (population ends at the Phase 15 gate commit; phase-16 excluded as incomplete): a finding is its ID in the review report that raised it (first mention per phase; re-check rows and later mentions not counted again); an agent execution is phase, step, agent and attempt from an orchestrator summary's step table, or one agent-report file where a phase has no step table; a repair is one repair-*.md file; BLOCKED-ON is two numbers (terminal STATUS lines of agent reports, and summary and runbook-log rows deduplicated by phase, step and agent, an empty step matching any step: a row matching a terminal report, or a row before it in source precedence (summaries, then runbook logs, file then line order), is marked duplicate_of and not counted; rows naming no agent are counted; total incidence not measurable for phases without a summary step table or runbook log); first-pass acceptance is a done execution with no repair file and no critical or major finding for that agent in that phase; manual interventions, hook blocks, ownership violations and human rewrites are the gate's or summary's own list rows (list items and table body rows, never prose), with one source precedence per phase (the gate, then summaries in file order): a row matching a still unmatched counted row of the same phase, event type and agent in a higher-precedence file is marked duplicate_of and not counted, one to one; rows the rules cannot place go to unclassified.csv, never guessed; a fixed-seed sample of 20 counted events, stratified by event type (at least one per type, then lowest sha256 of SEED:EVENT_ID), is written for the human's audit (E11).",
+      "evidenceKind": "a (the project's own records), audited by c (the human's 20-event spot check: classification agreement, not completeness)",
+      "variability": "counts with denominators; no interval (the records are a full population, not a random sample); the audit's agreement rate is reported",
+      "knownGap": "report formats changed over the phases; findings outside markdown tables, prose step logs (phase 11) and per-agent first-pass attribution at phase granularity are limits of the rules; the audit measures classification agreement, not extraction completeness"
+    },
+    {
+      "id": "E10-reproduce-historical",
+      "step": "E10",
+      "group": 7,
+      "groupName": "reproducibility (result 2: historical regeneration at 08bbb9d629ef2f11eea98bdfbc699179c2f1f107)",
+      "subcommand": "reproduce",
+      "status": "ready (X1); ATTEMPT is filled by the orchestrator (a UTC stamp; never reuse a folder)",
+      "command": "python3 -I experiments/evaluation/evaluate.py reproduce /tmp/p16-expected-out-ATTEMPT /tmp/p16-repro-ATTEMPT/experiments/derived/out --suite experiments/evaluation/suite-v1.json --entry E10-reproduce-historical",
+      "arguments": ["/tmp/p16-expected-out-ATTEMPT", "/tmp/p16-repro-ATTEMPT/experiments/derived/out"],
+      "inputs": [],
+      "outputs": "experiments/evaluation/raw/repro/RUN_ID/: comparison.csv, summary.csv, run.json",
+      "method": "Every committed output file at 08bbb9d (copied aside) is compared by sha256 with the file the five derive scripts regenerate in a fresh clone at that commit; equal, different, missing and extra files are listed; no intended-differences list (every expected file must be regenerated and byte-equal); an empty or missing regenerated folder is a failure, never a pass.",
+      "evidenceKind": "a",
+      "variability": "exact match or listed differences",
+      "knownGap": "the temporary folders cannot be pinned in advance; the orchestrator records the clone's HEAD and the git status check of decision 17"
+    },
+    {
+      "id": "E10-release-records",
+      "step": "E10",
+      "group": 7,
+      "groupName": "reproducibility (deployment from approved plans, historical)",
+      "subcommand": "reproduce",
+      "status": "ready (X1)",
+      "command": "python3 -I experiments/evaluation/evaluate.py reproduce --release-records --releases-dir releases/course --approvals-root docs/agent-runs --suite experiments/evaluation/suite-v1.json --entry E10-release-records",
+      "arguments": ["--release-records", "--releases-dir", "releases/course", "--approvals-root", "docs/agent-runs"],
+      "inputs": [
+        {"treeRoots": ["releases/course"], "treeSuffix": "", "files": 7, "treeSha256": "23cc2c3f06789a413d1ec10bdb494653ec3ad12da5c4d7b27643b8e22053fe24"},
+        {"path": "docs/agent-runs/phase-13/human-gate.md", "sha256": "1fd5a8ee73ba7a30050ff2350c2b2e458c77b8fd7565992f2804623f859bfb4a"},
+        {"path": "docs/agent-runs/phase-14/approvals.md", "sha256": "92c8c750df0b75b1fdc0d467bedef54438ea8b8ad37d427d4d1d903fe2f93b4b"},
+        {"path": "docs/agent-runs/phase-15/approvals.md", "sha256": "95dbe2262b90666bafc54162b83d866a052ddbf30632afcfaa83ec6204ad6b43"}
+      ],
+      "outputs": "experiments/evaluation/raw/repro/RUN_ID/: release-records.csv, approvals.csv, summary.csv, run.json",
+      "method": "Per release record under releases/course: (1) plan-approval linkage, its plan_sha256 against whole lines APPROVED-PLAN-SHA256: HEX64 in approvals.md and human-gate.md of every docs/agent-runs folder; (2) deployment execution as the record itself states it (applied_utc, verified, per-service digest checks); worded as record consistency, with deployment not independently verified wherever the record lacks those fields; also lists signed plan lines that no record uses (for example the removal plan).",
+      "evidenceKind": "a (record consistency only)",
+      "variability": "none (counts)",
+      "knownGap": "no new cloud deployment is possible; the records are written by the deploy script itself, so execution is never independently verified; phase-16/approvals.md is scanned but cannot be pinned (it changes at E0 and E3)"
+    },
+    {
+      "id": "E10-reproduce-current",
+      "step": "E10",
+      "group": 7,
+      "groupName": "reproducibility (result 3: current-version regeneration with the fixed derive scripts)",
+      "subcommand": "reproduce",
+      "status": "ready (X1); ATTEMPT is filled by the orchestrator",
+      "command": "python3 -I experiments/evaluation/evaluate.py reproduce /tmp/p16-current-expected-ATTEMPT experiments/derived/out --intended experiments/evaluation/intended-differences-v1.csv --suite experiments/evaluation/suite-v1.json --entry E10-reproduce-current",
+      "arguments": ["/tmp/p16-current-expected-ATTEMPT", "experiments/derived/out", "--intended", "experiments/evaluation/intended-differences-v1.csv"],
+      "inputs": [
+        {"path": "experiments/evaluation/intended-differences-v1.csv", "sha256": "e1782852ea5f29bc8f17b3a2a8519f42cfad0b2c5b4d000c7b84e9edc6f5fab5"}
+      ],
+      "outputs": "experiments/evaluation/raw/repro/RUN_ID/: comparison.csv, summary.csv, run.json",
+      "method": "The committed derived outputs (copied aside first) are compared by sha256 with the outputs the current derive scripts regenerate in this working tree; each different, missing or extra file is marked intended if it is on intended-differences-v1.csv (the 8 files that AB-4, J-03 and L-08 change), else unexplained; intended entries that did not change are listed; the orchestrator opens each intended difference and checks it matches its reason.",
+      "evidenceKind": "a",
+      "variability": "exact match or listed differences, each intended or unexplained",
+      "knownGap": "the expected copy lives in a temporary folder and cannot be pinned; regeneration rewrites experiments/derived/out, which the human commits at E12"
+    },
+    {
+      "id": "E11-ratings-sheet",
+      "step": "E11",
+      "group": 4,
+      "groupName": "answer quality (human rating rubric)",
+      "subcommand": "ratings-sheet",
+      "status": "ready (X2) only if the human copied the demo answers at E7: rag-engineer's field table shows that neither attempt-06 nor clip 01's audit holds an answer text (attempt-06 aggregated only; clip 01 only answerHash), so the E7 demo answers are the only source with answer texts; without E7 the step is not run and the rating result is 'not measurable from the frozen evidence (no answer text)'. FILE is each copied file name; the orchestrator writes one --answer-file per file (the spec assumes the completed query result shape of services Models.scala CompletedResult: queryId, answer.question, answer.answerText; the orchestrator confirms these keys in each copied file with the Read tool before E11)",
+      "command": "python3 -I experiments/evaluation/evaluate.py ratings-sheet --answer-file 'experiments/evaluation/raw/answers/p15-demo/FILE.json#id=queryId;question=answer.question;answer=answer.answerText' (once per copied file) --rubric experiments/evaluation/rubric-v1.md --seed 20261122 --max 20 --suite experiments/evaluation/suite-v1.json --entry E11-ratings-sheet",
+      "arguments": ["--answer-file", "experiments/evaluation/raw/answers/p15-demo/FILE.json#id=queryId;question=answer.question;answer=answer.answerText", "--rubric", "experiments/evaluation/rubric-v1.md", "--seed", "20261122", "--max", "20"],
+      "seed": 20261122,
+      "inputs": [
+        {"path": "experiments/evaluation/rubric-v1.md", "sha256": "102478a0339ec3a0fd4cf0d3a805cdd418956075e9d77a599d73c7e17459d012"},
+        {"path": "experiments/evaluation/raw/answers/p15-demo/p15-demo-*.json (E7, optional)", "sha256": "argument path, sha256 recorded at run; provenance recorded before scoring"}
+      ],
+      "excludedSources": [
+        {"path": "docs/agent-runs/phase-10/run-report-attempt-06-anthropic.json", "reason": "no answer text (aggregated report; rag-engineer field table, Phase 16 step 4)"},
+        {"path": "docs/agent-runs/phase-15/dynamodb-sample/run-ledger-clip01-query.json", "reason": "no answer text (only answerHash; rag-engineer field table, Phase 16 step 4)"}
+      ],
+      "outputs": "experiments/evaluation/raw/ratings/RUN_ID/: sheet.csv (question and answer text only, empty score columns), key.csv (answer key to source file, item and answer sha256; opened only after rating), excluded.csv, summary.csv, run.json",
+      "method": "All answers with a question and an answer text are found in the given files, ordered by sha256 of SEED:FILE_NAME:ITEM_ID, capped at 20; the sheet shows only the question and the answer text, never a verification status; the human rates every row with rubric-v1 (usefulness and clarity 1 to 5, not rateable, optional dblp.org column).",
+      "evidenceKind": "c (human judgment; the optional dblp.org column is b)",
+      "variability": "none computed (one rater; no inter-rater agreement); n is reported",
+      "knownGap": "one human rater; the completed ratings are an E12 output and are not part of this suite"
+    },
+    {
+      "id": "E2-clean-checkout",
+      "step": "E2",
+      "group": 7,
+      "groupName": "reproducibility (result 1: clean-checkout build and tests of the current commit)",
+      "subcommand": null,
+      "status": "not an evaluate.py run: bash scripts/check.sh in a fresh local clone (decision 17, E2); log, exit status and tested SHA kept under experiments/evaluation/raw/repro/RUN_ID/",
+      "evidenceKind": "a",
+      "knownGap": "build and tests of the current commit only; no cloud deployment"
+    },
+    {
+      "id": "E5-bounded-pipeline",
+      "step": "E5",
+      "group": 7,
+      "groupName": "reproducibility (result 4: bounded pipeline replay) and group 2 suites",
+      "subcommand": null,
+      "status": "not an evaluate.py run: the Spark KnownGraphSuite and PipelineFixtureSuite run with sbt, and the local Hadoop bounded pipeline as Phase 15 clip 19c ran it, both tee'd into the group 2 raw folder (decision 17, E5)",
+      "evidenceKind": "b (hand-worked small graphs) and a (pipeline counters)",
+      "knownGap": "Phase 14 and 15's AWS runs are historical evidence only"
+    }
+  ]
+}

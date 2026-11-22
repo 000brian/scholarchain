@@ -1,0 +1,5 @@
+{
+  "description": "malformed input: the intended-differences list lacks the path and reason columns; exit 5 and no result file",
+  "args": ["{case}/expected-out", "{case}/regenerated", "--intended", "{case}/intended.csv"],
+  "expectExit": 5
+}

@@ -1,0 +1,6 @@
+{
+  "description": "happy path: 4-row suite table (one check covered only by a mixed test, one none row); two byte-identical spark CSVs (the second is the same observation); one window count differs, one metric table is absent, one invalid row; two sample tables (TableA: top-level attributes only, one item with schemaVersion and two items with only the conditional-write `version` attribute, which never counts as a schema version (P16-C-01); TableB: record JSON, one unparseable record, one NULL attribute); an sbt summary line equal to the table's test count",
+  "args": ["--suite-table", "{case}/suite-table.csv", "--spark-outputs", "{case}/a/spark-outputs.csv", "--spark-outputs", "{case}/b/spark-outputs.csv",
+           "--sample", "TableA={case}/sample-a.json", "--sample", "TableB={case}/sample-b.json", "--test-log", "{case}/sbt.log"],
+  "expectExit": 0
+}

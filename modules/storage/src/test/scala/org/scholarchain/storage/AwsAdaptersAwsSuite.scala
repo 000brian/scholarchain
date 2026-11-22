@@ -15,11 +15,14 @@ import org.scholarchain.storage.vectors.IndexSpecCatalog
   * 14/15). Configuration comes from `SCHOLARCHAIN_CONFIG_FILE`; credentials from the default
   * provider chain. Bounds: at most 2 objects, 2 items, 2 vectors and 1 message per test; 5-second
   * API call timeouts with one SDK attempt per call (m2); 60 seconds per test. Test data uses the
-  * `itest` prefix so the cleanup script can find it.
+  * `itest` prefix so the cleanup script can find it. Failure messages are masked (Phase 16 L-10,
+  * [[MaskedFailures]]): they reach the sbt test report XML.
   */
-class AwsAdaptersAwsSuite extends munit.FunSuite {
+class AwsAdaptersAwsSuite extends MaskedFailures {
   private val RequiresAws = new munit.Tag("RequiresAws")
   override val munitTimeout: Duration = 60.seconds
+  override def maskedNames: Iterable[String] =
+    cfg.zones.values.map(_.bucket) ++ List(cfg.vectorBucket, cfg.neptuneEndpoint)
 
   private lazy val cfg: StorageConfig =
     ConfigLoader

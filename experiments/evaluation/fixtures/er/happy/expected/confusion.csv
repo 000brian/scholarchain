@@ -1,0 +1,9 @@
+matrix,decision,MATCH,NON_MATCH,UNSURE
+unweighted,accepted,8,1,1
+unweighted,rejected,1,4,0
+unweighted,unresolved,1,1,2
+unweighted,conflict,0,0,1
+weighted,accepted,800.5,10.0,5.25
+weighted,rejected,3.0,400.0,0.0
+weighted,unresolved,20.0,15.0,30.0
+weighted,conflict,0.0,0.0,12.0

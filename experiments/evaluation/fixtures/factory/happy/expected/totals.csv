@@ -1,0 +1,19 @@
+metric,numerator,denominator,value,inclusion_rule
+phases_in_population,,,2,folders named by --include
+executions,,,5,step-table rows naming a known agent (deduplicated by phase step agent attempt); agent-report files where a phase has no step table
+first_pass_acceptance,2,3,0.666667,done executions with no repair file and no critical or major finding for the same agent in the same phase
+findings_total,,,2,finding rows of review reports; first mention of an ID per phase
+findings_critical,,,0,severity critical or blocker
+findings_major,,,1,severity major
+findings_minor,,,1,severity minor or nit
+findings_advisory,,,0,severity advisory or info
+repairs_total,,,1,one repair-*.md file = one repair invocation
+repairs_per_phase,1,2,0.5,repair files over phases in the population
+blocked_on_terminal_reports,,,1,final STATUS line of an agent report is BLOCKED-ON
+blocked_on_rows_not_in_terminal,,,1,BLOCKED-ON rows of summaries and logs deduplicated by phase step and agent (empty step matches any): rows matching a terminal report or an earlier row (summaries then runbook logs) are duplicate_of and not counted; rows naming no agent counted
+blocked_on_total_measurable_phases,2,1,2,terminal reports plus unmatched rows; only phases with a summary step table or a runbook log
+manual_interventions,,,1,gate or summary list rows naming a manual intervention; list items and table body rows only (prose not counted); a row matching an unmatched row of the same phase type and agent in a higher-precedence file (gate then summaries) is duplicate_of and not counted
+hook_blocks,,,2,gate or summary list rows saying a guard or hook blocked something; list items and table body rows only (prose not counted); a row matching an unmatched row of the same phase type and agent in a higher-precedence file (gate then summaries) is duplicate_of and not counted
+ownership_violations_caught,,,0,gate or summary list rows naming an ownership violation; list items and table body rows only (prose not counted); a row matching an unmatched row of the same phase type and agent in a higher-precedence file (gate then summaries) is duplicate_of and not counted
+human_rewrites,,,0,gate or summary list rows saying the human rewrote an artifact; list items and table body rows only (prose not counted); a row matching an unmatched row of the same phase type and agent in a higher-precedence file (gate then summaries) is duplicate_of and not counted
+unclassified_rows,,,2,rows and files the rules cannot place (never guessed)

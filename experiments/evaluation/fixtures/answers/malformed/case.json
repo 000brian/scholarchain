@@ -1,0 +1,5 @@
+{
+  "description": "malformed input: the run report's claimCounts holds a non-count (a string); exit 5 and no result file",
+  "args": ["--run-report", "{case}/run-report.json", "--seed", "7"],
+  "expectExit": 5
+}

@@ -1,0 +1,11 @@
+{
+  "description": "happy path: all four sources; run report aggregated only (no interval; abstention rates all 0 or 1 so Wilson bounds are n/(n+z^2)); explain CSV without claim counts (one question not in the benchmark, one FALSE in capitals); audit with 2 attempts of equal ratios and demo answers with equal ratios, so every bootstrap bound equals the point value; demo-2 has no evidence list (untyped claims); a --label for the run report is ignored because the file holds the value",
+  "args": ["--run-report", "{case}/run-report.json", "--benchmark", "{case}/benchmark.json", "--explain-csv", "{case}/explain.csv",
+           "--audit", "{case}/audit.json", "--demo-answer", "{case}/demo-1.json", "--demo-answer", "{case}/demo-2.json",
+           "--demo-provenance", "fixture files written by hand",
+           "--label", "explain-csv.code_version=commit-fixture", "--label", "explain-csv.graph_run=run:v1:graphfixture",
+           "--label", "audit.code_version=code-y", "--label", "demo.code_version=code-z",
+           "--label", "run-report.code_version=ignored-because-the-file-has-it",
+           "--seed", "7", "--resamples", "50"],
+  "expectExit": 0
+}

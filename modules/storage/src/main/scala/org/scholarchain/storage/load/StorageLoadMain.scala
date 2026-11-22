@@ -638,20 +638,43 @@ object StorageLoadMain {
         case _ => previous + 1
       }
     }
-    // Starts one stage after its claim (version `claim`). A definite refusal appends `failedState`
-    // (masked error class, HTTP status) and fails the run, so a later start may try again; any
-    // other exception propagates and leaves the claim as the latest version (outcome unknown).
+    // Starts one stage after its claim (version `claim`). A throttling refusal (Phase 16) is sent
+    // again under the same claim at most ThrottleRetries times, after ThrottleDelayMillis * 2^n:
+    // each throttled request created no load, so this never starts a second load. A definite
+    // refusal (including the last throttling answer) appends `failedState` (masked error class,
+    // HTTP status) and fails the run, so a later start may try again; any other exception
+    // propagates and leaves the claim as the latest version (outcome unknown).
+    var throttleRetries = 0
     def startStage(
         stage: String,
         deps: List[String],
         claim: Long,
         failedState: String,
         ids: (String, String)*
-    ): String =
-      try loader.start(request(stage, deps))
+    ): String = {
+      @annotation.tailrec
+      def attempt(n: Int): String = {
+        val r =
+          try Right(loader.start(request(stage, deps)))
+          catch { case e: BulkLoadStartRejected if e.throttled && n < ThrottleRetries => Left(e) }
+        r match {
+          case Right(id) => id
+          case Left(e)   =>
+            val wait = ThrottleDelayMillis * (1L << n)
+            wiring.print(
+              s"[storage-load] the $stage start was throttled (${masking(e.errorClass)}, HTTP ${e.httpStatus}); no load was created; trying again in $wait ms (${n + 1} of $ThrottleRetries)"
+            )
+            wiring.sleeper.sleep(wait)
+            throttleRetries += 1
+            report("bulkLoadThrottleRetries") = throttleRetries.toDouble
+            attempt(n + 1)
+        }
+      }
+      try attempt(0)
       catch {
         case e: BulkLoadStartRejected =>
           val errorClass = masking(e.errorClass)
+          val dependencyMissing = stage == "edges" && e.errorClass == DependencyNotFound
           val recorded =
             try {
               val v = register(
@@ -662,7 +685,10 @@ object StorageLoadMain {
                   "startHttpStatus" -> e.httpStatus.toString
                 ))*
               )
-              s"registry version $v records $failedState, so a new start of this graph run is allowed once the cause is fixed"
+              if (dependencyMissing)
+                s"registry version $v records $failedState; Neptune does not know the registered nodes load, so no retry of this graph run can succeed: a new start needs a new export or a new configuration (a new graph run)"
+              else
+                s"registry version $v records $failedState, so a new start of this graph run is allowed once the cause is fixed"
             } catch {
               case NonFatal(r) =>
                 s"recording $failedState failed (${r.getClass.getSimpleName}), so the claim (version $claim) stays and a new start is refused"
@@ -679,6 +705,7 @@ object StorageLoadMain {
             s"the $stage start was refused by the loader ($errorClass, HTTP ${e.httpStatus}); $recorded: ${e.getMessage}"
           )
       }
+    }
     def unknownOutcome(v: ArtifactVersion, stage: String, known: String) =
       new LoadRefused(
         s"a $stage start of this graph run was begun (registry version ${v.version}, ${v.item.strOpt("loadState").getOrElse("no state")}) and its outcome is unknown: the $stage load may exist in Neptune.$known Check Neptune's loader list for a load of this graph run (with a known load ID: $NeptuneBulkStatus --load-id ID). The registry is append-only and is never edited by hand; the only other way to a new start is a new export or a new configuration (a new graph run)"
@@ -708,6 +735,13 @@ object StorageLoadMain {
             )
             val (id, nv) = startNodes(v.version)
             (id, nv, true)
+          case (Some(StateEdgesFailed), Some(id))
+              if v.item.strOpt("startError").contains(DependencyNotFound) =>
+            // D-02 (Phase 14): Neptune refused the edges start because it does not know the
+            // registered nodes load; every retry would send the same dependency and be refused
+            throw new LoadRefused(
+              s"the edges start of this graph run was refused because Neptune does not know the registered nodes load $id (registry version ${v.version}, $DependencyNotFound); no retry of this graph run can succeed. Check it with $NeptuneBulkStatus --load-id $id. The registry is append-only and is never edited by hand; a new start needs a new export or a new configuration (a new graph run)"
+            )
           case (Some(StateNodesStarted | StateEdgesFailed), Some(id)) =>
             wiring.print(
               s"[storage-load] resuming: nodes load $id is registered (registry version ${v.version}); starting the edges load only"
@@ -745,6 +779,15 @@ object StorageLoadMain {
   val StateEdgesStarting = "edges-starting"
   val StateEdgesFailed = "edges-failed"
   val StateStarted = "started"
+
+  /** Throttled `StartLoaderJob` answers sent again under the same claim (Phase 16, storage
+    * retries), after 2 s then 4 s (`ThrottleDelayMillis * 2^n`): at most 6 s of waiting per stage.
+    */
+  val ThrottleRetries = 2
+  val ThrottleDelayMillis = 2000L
+
+  /** The edges start's refusal when Neptune does not know the nodes load it depends on (D-02). */
+  val DependencyNotFound = "BulkLoadIdNotFoundException"
 
   // ---- neptune-bulk-status --------------------------------------------------------------------
 

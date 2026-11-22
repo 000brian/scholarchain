@@ -1,0 +1,872 @@
+diff --git a/experiments/README.md b/experiments/README.md
+index d2c673f..1615a80 100644
+--- a/experiments/README.md
++++ b/experiments/README.md
+@@ -13,6 +13,11 @@ Owner: `experiment-engineer`. This folder holds experiment manifests, raw result
+ | `collectors/lib/collector-common.sh` | helpers the collectors source (never executed; no executable bit) | `experiment-engineer` |
+ | `raw/MANIFEST_ID/ATTEMPT_ID/` | raw results of one run; read-only after collection; committed by the human | `scripts/run-experiment.sh` (moved there after the run) |
+ | `derived/` | tables and plots, each reproducible from a committed script over `raw/` | `experiment-engineer` |
++| `evaluation/evaluate.py` | Phase 16 evaluation tool: one self-contained Python 3 standard-library file; usage, rules and exit codes in its docstring | `experiment-engineer` |
++| `evaluation/suite-v1.json` | the evaluation suite (entries, arguments, pinned inputs); approved only by the human's signed line at E3 | `experiment-engineer` |
++| `evaluation/rubric-v1.md`, `evaluation/intended-differences-v1.csv` | the rating rubric; the intended differences of E10's current-version regeneration | `experiment-engineer` |
++| `evaluation/fixtures/SUBCOMMAND/CASE/` | hand-written fixture cases (`case.json`, `input/`, `expected/`), never results | `experiment-engineer` |
++| `evaluation/raw/GROUP/RUN_ID/` | evaluation outputs; immutable after collection; committed by the human (E12) | `evaluate.py`, run by the human |
+ 
+ Load generators live under `load-tests/` (also `experiment-engineer`).
+ 
+diff --git a/experiments/derived/common.py b/experiments/derived/common.py
+index 4ef5862..885332d 100644
+--- a/experiments/derived/common.py
++++ b/experiments/derived/common.py
+@@ -451,7 +451,8 @@ def nice_ticks(lo, hi, n=5):
+ TIME_STEPS = [15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400]
+ 
+ 
+-def time_chart(path, title, panels, x_range, events=(), windows=(), notes=(), max_gap=180):
++def time_chart(path, title, panels, x_range, events=(), windows=(), notes=(), max_gap=180,
++               font_size=11, width=1000, right=230):
+     """Stacked time panels on one UTC x axis.
+ 
+     panels: list of dicts {"title", "y_label", "series": [(name, [(epoch, value)])]}; a series
+@@ -460,24 +461,29 @@ def time_chart(path, title, panels, x_range, events=(), windows=(), notes=(), ma
+     events: (epoch, label, kind) drawn as vertical lines in every panel; kind scale-out,
+             scale-in, lifecycle or event.
+     windows: (start, end, label) shaded bands (for example load levels).
++    font_size, width, right (Phase 16 L-08): base text size, image width and legend margin.
++            The defaults (11, 1000, 230) give exactly the Phase 15 output, byte for byte; the
++            title is font_size + 3, event labels font_size - 2, legend and note lines
++            font_size + 3 apart.
+     """
+-    width, left, right, top, panel_h, gap_h = 1000, 70, 230, 50, 200, 45
++    left, top, panel_h, gap_h = 70, 50, 200, 45
++    line_h = font_size + 3
+     x0, x1 = x_range
+     if x0 is None or x1 is None:
+         x0, x1 = 0, 60
+     if x1 <= x0:
+         x1 = x0 + 60
+     plot_w = width - left - right
+-    height = top + len(panels) * (panel_h + gap_h) + 40 + 14 * len(notes)
++    height = top + len(panels) * (panel_h + gap_h) + 40 + line_h * len(notes)
+ 
+     def xp(e):
+         return left + (e - x0) * plot_w / float(x1 - x0)
+ 
+     out = [
+-        '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" font-family="sans-serif" font-size="11">'
+-        % (width, height),
++        '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" font-family="sans-serif" font-size="%d">'
++        % (width, height, font_size),
+         '<rect x="0" y="0" width="%d" height="%d" fill="white"/>' % (width, height),
+-        '<text x="%d" y="20" font-size="14" font-weight="bold">%s</text>' % (left, esc(title)),
++        '<text x="%d" y="20" font-size="%d" font-weight="bold">%s</text>' % (left, font_size + 3, esc(title)),
+         '<text x="%d" y="36">x axis: time (UTC), %s to %s</text>' % (left, esc(utc(x0)), esc(utc(x1))),
+     ]
+     step = TIME_STEPS[-1]
+@@ -540,13 +546,13 @@ def time_chart(path, title, panels, x_range, events=(), windows=(), notes=(), ma
+             )
+             if pi == 0:
+                 out.append(
+-                    '<text x="%.1f" y="%d" fill="%s" font-size="9" transform="rotate(-30 %.1f %d)">%s</text>'
+-                    % (x + 2, ptop + 22, c, x + 2, ptop + 22, esc(el))
++                    '<text x="%.1f" y="%d" fill="%s" font-size="%d" transform="rotate(-30 %.1f %d)">%s</text>'
++                    % (x + 2, ptop + 22, c, font_size - 2, x + 2, ptop + 22, esc(el))
+                 )
+         ly = ptop + 4
+         for si, (name, pts) in enumerate(panel["series"]):
+             color = PALETTE[si % len(PALETTE)]
+-            ly += 14
++            ly += line_h
+             if not pts:
+                 out.append(
+                     '<text x="%d" y="%d" fill="#999">%s: missing (no data)</text>' % (left + plot_w + 10, ly, esc(name))
+@@ -578,7 +584,7 @@ def time_chart(path, title, panels, x_range, events=(), windows=(), notes=(), ma
+     legend = "events: green dashed = scale-out, red dashed = scale-in, gray dashed = lifecycle record"
+     out.append('<text x="%d" y="%d" fill="#555">%s</text>' % (left, ny, esc(legend)))
+     for i, n in enumerate(notes):
+-        out.append('<text x="%d" y="%d" fill="#555">%s</text>' % (left, ny + 14 * (i + 1), esc(n)))
++        out.append('<text x="%d" y="%d" fill="#555">%s</text>' % (left, ny + line_h * (i + 1), esc(n)))
+     out.append("</svg>")
+     with open(path, "w", encoding="utf-8") as fh:
+         fh.write("\n".join(out) + "\n")
+diff --git a/experiments/derived/emr_capacity.py b/experiments/derived/emr_capacity.py
+index f62a93e..5786e8c 100644
+--- a/experiments/derived/emr_capacity.py
++++ b/experiments/derived/emr_capacity.py
+@@ -6,9 +6,12 @@ runtime: untested
+ 
+ Reads, per attempt folder (common.py has the shared layout):
+   metrics/metric-data.json  AWS/ElasticMapReduce series per cluster (dimension JobFlowId):
+-                            TotalUnitsRequested, TotalUnitsRunning, CoreUnitsRequested,
+-                            CoreUnitsRunning, CoreNodesRequested, CoreNodesRunning,
+-                            ContainerPending, AppsPending, YARNMemoryAvailablePercentage
++                            CoreNodesRequested, CoreNodesRunning, TotalNodesRequested,
++                            TotalNodesRunning, ContainerPending, AppsPending,
++                            YARNMemoryAvailablePercentage (the Phase 15 manifests query the
++                            Nodes metrics; TotalUnits* and CoreUnits* are not published for
++                            instance-group clusters and were never queried, so they are not
++                            named: Phase 16 AB-4 and J-03)
+   emr-cluster.json          (written by experiments/collectors/ab-pipeline.sh; optional)
+                             {"clusters": [{"clusterId", "createdEpoch", "readyEpoch",
+                               "terminationRequestedEpoch", "endedEpoch", "finalState",
+@@ -32,18 +35,20 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+ import common  # noqa: E402
+ 
+ DEFAULT_MANIFESTS = ["p15-a-hadoop", "p15-a-spark", "p15-b-spark-burst"]
++# The capacity series the manifests query (Phase 16 AB-4, J-03: never-queried Units series are
++# not named, so missing.csv no longer lists them as "series not exported").
+ UNIT_METRICS = [
+-    "TotalUnitsRequested",
+-    "TotalUnitsRunning",
+-    "CoreUnitsRequested",
+-    "CoreUnitsRunning",
+     "CoreNodesRequested",
+     "CoreNodesRunning",
++    "TotalNodesRequested",
++    "TotalNodesRunning",
+ ]
+ YARN_METRICS = ["ContainerPending", "AppsPending"]
+ MEMORY_METRICS = ["YARNMemoryAvailablePercentage"]
+-RUNNING_PREFERENCE = ["TotalUnitsRunning", "CoreUnitsRunning", "CoreNodesRunning"]
+-REQUESTED_PREFERENCE = ["TotalUnitsRequested", "CoreUnitsRequested", "CoreNodesRequested"]
++# CoreNodes first: the series Phase 15 classified with (the Units series never existed), so
++# attempts.csv is unchanged.
++RUNNING_PREFERENCE = ["CoreNodesRunning", "TotalNodesRunning"]
++REQUESTED_PREFERENCE = ["CoreNodesRequested", "TotalNodesRequested"]
+ 
+ 
+ def lifecycle(attempt):
+@@ -151,7 +156,7 @@ def main():
+                     xs += [w0 - 300, (w1 or w0) + 300]
+                 xr = (min(xs), max(xs)) if xs else (None, None)
+                 panels = [
+-                    {"title": "capacity units and nodes", "y_label": "units / nodes",
++                    {"title": "capacity (nodes)", "y_label": "nodes",
+                      "series": [(m, by_metric[m].points if m in by_metric else []) for m in UNIT_METRICS]},
+                     {"title": "YARN pending", "y_label": "count",
+                      "series": [(m, by_metric[m].points if m in by_metric else []) for m in YARN_METRICS]},
+diff --git a/experiments/derived/queue_worker.py b/experiments/derived/queue_worker.py
+index 32ed23d..ddf21bb 100644
+--- a/experiments/derived/queue_worker.py
++++ b/experiments/derived/queue_worker.py
+@@ -31,6 +31,11 @@ import common  # noqa: E402
+ 
+ DEFAULT_MANIFESTS = ["p15-c-embedding-backlog", "p15-f-poison-replay"]
+ QUEUES = ["embedding", "embedding-dlq", "job", "job-dlq"]
++# Phase 16 L-08: larger labels in the queue plots (Phase 15 used 11 px text on a 1000 px image,
++# hard to read in the demo); a wider image keeps the longer legend lines inside the frame.
++QUEUE_FONT_SIZE = 14
++QUEUE_WIDTH = 1200
++QUEUE_LEGEND = 330
+ 
+ 
+ def collapse(values):
+@@ -158,7 +163,7 @@ def main():
+                               panels, xr, events=sorted(events),
+                               notes=["status %s; scaling activities %s; metrics from %s" % (att.status(), act_note,
+                                                                                             att.metrics_source)],
+-                              max_gap=60)
++                              max_gap=60, font_size=QUEUE_FONT_SIZE, width=QUEUE_WIDTH, right=QUEUE_LEGEND)
+             ctx.written.append(path)
+         ctx.write_csv(manifest, "samples.csv", ["manifest", "attempt", "epoch_s", "utc", "stream", "field", "value"],
+                       sorted(long_rows, key=lambda r: (r[1], r[2], r[4], r[5])))
+diff --git a/experiments/results-summary-template.md b/experiments/results-summary-template.md
+index 51f58b1..dde7244 100644
+--- a/experiments/results-summary-template.md
++++ b/experiments/results-summary-template.md
+@@ -72,7 +72,7 @@ FILL table.
+ Experiment-specific required content:
+ 
+ - **A (`p15-a-hadoop`, `p15-a-spark`):** input and output records, task counts (Hadoop counters; Spark summaries), duration (run record, step times), shuffle (Spark event log totals, else `missing`), failures, estimated cost (instance-hours times COSTS.md rates, `estimate`), flat capacity baseline. `p15-a-hadoop` stands alone (Phase 14 D6 attempt 4 is an earlier, unmanaged reference); never a total pipeline duration across A and B.
+-- **B (`p15-b-spark-burst`):** requested, provisioned (running) and released capacity over time (`TotalUnitsRequested`, `TotalUnitsRunning`, `CoreNodesRequested`, `CoreNodesRunning`); classification `scale-out and scale-in while running`, `scale-out observed; no scale-in while running` or `no scale-out observed` (decision 11.6); released capacity at cluster end is a **lifecycle record, not a measured zero** and **not a scale-in event**. Compared only with `p15-a-spark` (partitions 32 vs 128, maximum 2 vs 4 core units, same inputs and code). B is observational and is never re-run because it did not scale.
++- **B (`p15-b-spark-burst`):** requested, provisioned (running) and released capacity over time (`CoreNodesRequested`, `CoreNodesRunning`, `TotalNodesRequested`, `TotalNodesRunning`; the Units series are not published for instance-group clusters and are not queried, Phase 16 J-03); classification `scale-out and scale-in while running`, `scale-out observed; no scale-in while running` or `no scale-out observed` (decision 11.6); released capacity at cluster end is a **lifecycle record, not a measured zero** and **not a scale-in event**. Compared only with `p15-a-spark` (partitions 32 vs 128, maximum 2 vs 4 core units, same inputs and code). B is observational and is never re-run because it did not scale.
+ - **C:** the three results kept apart (decision 13 D12): (1) spec gate, at least one worker scale-out and one scale-in shown by the service samples **and** the scaling activities (an alarm in `ALARM` alone is not a scaling event); (2) extended objective 0 to 1 to 2 to 0 (`reached` or `extended objective not reached`); (3) fully observed: queue depth, throughput, retries, drain time, embedding DLQ against its baseline (not 0 after F), counters (U-11: `processed`, `replayed`; concurrent duplicates are not observable). Re-embed write rate is the re-embed path only, not a first ingest. Handler permanent failures are workload failures (bad selected documents), reported apart from worker failures.
+ - **D (`p15-d-query-load`, `p15-d-read-load`):** per level: attempted requests (the denominator), completed per second, counts per class, error rate, p50, p95, p99 over all attempted requests and over the success population (`answered`, `ok`), `few samples` under 20, `n/a` under 1; task counts per service (samples), CPU and memory (CloudWatch), ALB latency, DynamoDB `ThrottledRequests`, the explain stage latencies (planner, graph stages, semantic, synthesis, verification) and the items they do not cover (`explain-coverage.csv`: retries, Neptune latency separate from the graph stage, Voyage latency separate from the S3 Vectors query: `missing`). 60 s periods across a level boundary or a pause are marked and not attributed. Throttling, overload and timeout answers under the deployed limits are results, not defects (decision 3); scale-out is not expected.
+ - **E:** the evaluation universe (questions with at least one labelled target researcher), `not-comparable` count, the same questions and K values for every mode, recall@K and MRR (K = 1, 5, 10, 30), nDCG only where graded labels exist, latency, errors, empty results, abstentions, `by-design-weak`; under 15 questions every table says **exploratory**; the fused mode says **"experiment only; the production workflow has no fused ranking"**; no OpenSearch tier exists.
+diff --git a/scripts/README.md b/scripts/README.md
+index 9a85691..2431707 100644
+--- a/scripts/README.md
++++ b/scripts/README.md
+@@ -214,3 +214,37 @@ For smoke-test.sh, export the full-access service key in your shell without echo
+ - B (collaboration path, Neptune path template; benchmark q13): `Find the shortest path between Tommaso Green and Yiannis Demiris in the coauthorship graph for 2015-2025.` A correct answer resolves both researchers, has a path of exactly 2 hops through one shared coauthor and no direct edge, with a COAUTHORED_WITH edge fact per hop and at least one verified claim. A failure here is a finding, not a gate failure.
+ 
+ Phase 13 (decision 13): only check.sh (fresh clone), package.sh (no `--publish`), plan.sh and `archive-evidence.sh --local-only` were run, by the human.
++
++## AWS Emulator (Phase 16, decision 12; run book step E14)
++
++Local only: no AWS account, no cost, no network beyond Docker's image build. The emulator is AWS's local emulator of the AWS APIs (https://docs.aws.amazon.com/emulator/latest/userguide/what-is-service.html); on macOS it runs in Docker from an image you build (https://docs.aws.amazon.com/emulator/latest/userguide/getting-started-docker.html). Files: `docker/emulator/Dockerfile` (build-engineer), `config/emulator.json`, `scripts/emulator/env.sh`, `scripts/emulator/setup.sh`, `scripts/emulator/probes.sh`, `scripts/emulator/lib.sh` (shared safety contract), `scripts/emulator/OPERATIONS.md` (which operations are documented, and which stay probes). Status of every emulator script: `static: shellcheck clean`, `runtime: untested`, `human execution required`.
++
++Two terminals: the **emulator terminal** runs only `docker run` (step 5) and shows the emulator's log; the **[EMULATOR] terminal** is every other step after step 8, with the `[EMULATOR] ` prompt. Never use the [EMULATOR] terminal for anything else (its AWS variables point at the emulator), and never run the emulator steps while another sbt process, a source-changing repair or a commit runs. Every line is one zsh line from the repository root.
++
++| Step | Terminal | Command | Success looks like |
++|---|---|---|---|
++| 1 | any | `docker info` | prints the server section (Docker is running) |
++| 2 | any | `docker build -t scholarchain-emulator docker/emulator` | ends with the image named `scholarchain-emulator` |
++| 3 | any | `docker image inspect scholarchain-emulator --format '{{.Architecture}}'` | prints `arm64` (Apple silicon package) |
++| 3b | any | `docker image inspect scholarchain-emulator --format '{{.Id}}'` | the image ID: record it (later E14 runs reuse this image) |
++| 4 | any | `mkdir -p ~/.aws/emulator` | no output (the folder the container shares, so its files belong to you) |
++| 5 | emulator terminal | `docker run --rm --memory=2g --memory-swap=2g -p 127.0.0.1:9297:9297 -e HOME="$HOME" -v "$HOME/.aws/emulator:$HOME/.aws/emulator" scholarchain-emulator -p 9297 --telemetry off` | a JSON startup line whose `message` is `emulator server information`; record the version the emulator prints (the package is the documentation's `LTS/latest`). `127.0.0.1:` in `-p` keeps the port off your network; `--telemetry off` sends no usage data (https://docs.aws.amazon.com/emulator/latest/userguide/telemetry.html) |
++| 6 | second terminal | `aws --version` | AWS CLI v2 |
++| 7 | second terminal | `for i in $(seq 30); do curl -sf --cacert ~/.aws/emulator/9297/ca.pem https://127.0.0.1:9297/__admin/health && break; sleep 1; done; echo` | prints `ok` within 30 tries (the documentation's wait loop, https://docs.aws.amazon.com/emulator/latest/userguide/point-sdk-to-emulator.html) |
++| 7b | second terminal | `ls ~/.aws/emulator/9297/` | lists `ca.pem`, `config`, `emulator_credentials`, `truststore.p12` |
++| 8 | second terminal (becomes the [EMULATOR] terminal) | `source scripts/emulator/env.sh` | `INFO: env.sh: this terminal now targets the AWS Emulator ... Credentials file present: yes`; the prompt starts with `[EMULATOR] ` |
++| 9 | [EMULATOR] | `export SCHOLARCHAIN_EMULATOR_RUN_ID=...` and `export SCHOLARCHAIN_EMULATOR_RESULTS_DIR=...` (absolute, `experiments/emulator/raw/RUN_ID/`) | the orchestrator writes both lines with the values filled in; one run ID for the whole attempt |
++| 10 | [EMULATOR] | `mkdir -p "$SCHOLARCHAIN_EMULATOR_RESULTS_DIR"` then `ls -d "$SCHOLARCHAIN_EMULATOR_RESULTS_DIR"` | the folder exists |
++| 11 | [EMULATOR] | `bash scripts/emulator/setup.sh` | `INFO: setup.sh emulator account confirmed: yes`, then `SUMMARY: setup.sh created=... failed=0`; exit 0 (6 means a create failed: the RESULT lines say which) |
++| 12 | [EMULATOR] | `sbt storage/EmulatorTest/test` | the storage emulator suite ran; coverage is read from `results-*.jsonl` in the results folder, not from the exit code |
++| 13 | [EMULATOR] | `sbt services/EmulatorTest/test` | the services emulator suite ran (after step 12, never at the same time) |
++| 14 | [EMULATOR] | `bash scripts/emulator/probes.sh` | `SUMMARY: probes.sh ...`; `probes.jsonl` in the results folder; exit 0, or 6 when a probe recorded implemented-failed or infrastructure-failure (results complete) |
++| 15 | emulator terminal | Ctrl+C | the emulator stops; it deletes its files in `~/.aws/emulator/9297/` and all emulated resources (state is in memory only, https://docs.aws.amazon.com/emulator/latest/userguide/cli-reference.html) |
++
++Rules the scripts and suites enforce (the emulator safety contract, Phase 16 decision 6.6; the scripts' copy is `scripts/emulator/lib.sh`): the endpoint is exactly `https://127.0.0.1:9297` (no `localhost`: with it the Java SDK puts the bucket in the host name, point-sdk-to-emulator.html) and `AWS_ENDPOINT_URL` equals it; `AWS_SHARED_CREDENTIALS_FILE` and `AWS_CONFIG_FILE` are exactly the emulator's files under `$HOME/.aws/emulator/9297/`; `AWS_PROFILE`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_ROLE_ARN`, `AWS_WEB_IDENTITY_TOKEN_FILE`, `AWS_CONTAINER_CREDENTIALS_RELATIVE_URI` and `AWS_CONTAINER_CREDENTIALS_FULL_URI` are unset; `SCHOLARCHAIN_CONFIG_FILE` and `SCHOLARCHAIN_EMULATOR_RESULTS_DIR` are absolute. The scripts also check the health route and that STS answers with the emulator's single account (compared, never printed or recorded: they print `emulator account confirmed: yes|no`), and pass `--endpoint-url` explicitly on every AWS CLI call. `JAVA_TOOL_OPTIONS` is never set: the sbt `EmulatorTest` configuration gives the emulator trust store to the forked test JVM only.
++
++A re-run, full or partial, starts with a restarted emulator (step 15, then step 5 with the same image), a new run ID and results folder, and `setup.sh` again; setup.sh and probes.sh refuse a results folder that already holds their file.
++
++Environment variables (names): read by the scripts: `SCHOLARCHAIN_EMULATOR_ENDPOINT`, `AWS_ENDPOINT_URL`, `AWS_SHARED_CREDENTIALS_FILE`, `AWS_CONFIG_FILE`, the eight unset variables above, `SCHOLARCHAIN_CONFIG_FILE`, `SCHOLARCHAIN_EMULATOR_RESULTS_DIR`, `SCHOLARCHAIN_EMULATOR_RUN_ID` (probes.sh, vector key tag), `HOME`, `TMPDIR`; set by env.sh: `AWS_ENDPOINT_URL`, `AWS_SHARED_CREDENTIALS_FILE`, `AWS_CONFIG_FILE`, `AWS_CA_BUNDLE`, `AWS_EC2_METADATA_DISABLED`, `AWS_DISABLE_HOST_PREFIX_INJECTION`, `AWS_REGION`, `AWS_DEFAULT_REGION`, `SCHOLARCHAIN_EMULATOR_ENDPOINT`, `SCHOLARCHAIN_CONFIG_FILE`.
++
++Exit codes (setup.sh, probes.sh): 0 ok; 2 usage; 3 missing prerequisite (tool, file, results folder, emulator not healthy); 4 refused by a safety rule (one `preflight` line in the results file when the results folder is usable); 5 unexpected command failure; 6 a create or probe call failed (results complete); 7 interrupted.
+diff --git a/scripts/check.sh b/scripts/check.sh
+index 49c9fba..1830a4c 100644
+--- a/scripts/check.sh
++++ b/scripts/check.sh
+@@ -112,7 +112,18 @@ Gates, in order (each has its own "STEP: check.sh gate-NAME" marker and a
+                      (exit 0; the tar has one root folder, MANIFEST.json,
+                      repo/, no top-level reports/, and the archive_keys rule
+                      that cleanup.sh uses gives keys under repo/, plans/ and
+-                     MANIFEST.json only). A probe that reached a cloud call
++                     MANIFEST.json only). Two in-process probes of shared
++                     functions of scripts/lib/identity.sh (Phase 16), no
++                     script run, no network: output-value (L-12:
++                     sc_output_value on a fixture prints true, false, a
++                     string, and nothing for a null or missing output, and
++                     cleanup.sh's out() still calls it) and er-upload-plan
++                     (G-04: er_upload_plan on a fixture ER output tree under
++                     the private temporary folder selects exactly the
++                     identity_assignment data file in mode
++                     identity-assignments-only, every data file in mode full,
++                     never a _SUCCESS or _manifest.json file, and refuses an
++                     unknown mode). A probe that reached a cloud call
+                      would fail for lack of credentials, so no probe can
+                      change AWS. These probes are the first execution of the
+                      scripts; they test refusal paths and the local archive.
+@@ -824,6 +835,88 @@ probe_archive_layout() {
+   return "${bad}"
+ }
+ 
++# probe_record NAME STATUS(0 passed, else failed): prints and records an
++# in-process probe (no command is run under probe(), so no exit code).
++probe_record() {
++  if [ "$2" -eq 0 ]; then
++    printf '  PROBE: %s passed\n' "$1"
++    printf '%s\tpassed\t0\t0\n' "$1" >>"${TMP_DIR}/probes.tsv"
++  else
++    printf '  PROBE: %s failed\n' "$1"
++    printf '%s\tfailed\t1\t0\n' "$1" >>"${TMP_DIR}/probes.tsv"
++    PROBES_BAD=1
++  fi
++}
++
++# L-12 (Phase 16): sc_output_value (scripts/lib/identity.sh) on a fixture of
++# `terraform output -json`; boolean false must print "false" (L-11, D27).
++probe_output_value() {
++  local fx='{"flag_on":{"value":true},"flag_off":{"value":false},"gone":{"value":null},"name":{"value":"x-1"},"count":{"value":0}}'
++  local bad=0 got
++  got="$(sc_output_value "${fx}" flag_off)" || bad=1
++  [ "${got}" = "false" ] || {
++    printf '  output-value: false printed as "%s"\n' "${got}"
++    bad=1
++  }
++  got="$(sc_output_value "${fx}" flag_on)" || bad=1
++  [ "${got}" = "true" ] || bad=1
++  got="$(sc_output_value "${fx}" count)" || bad=1
++  [ "${got}" = "0" ] || bad=1
++  got="$(sc_output_value "${fx}" name)" || bad=1
++  [ "${got}" = "x-1" ] || bad=1
++  got="$(sc_output_value "${fx}" gone)" || bad=1
++  [ -z "${got}" ] || bad=1
++  got="$(sc_output_value "${fx}" missing)" || bad=1
++  [ -z "${got}" ] || bad=1
++  # The literal line of cleanup.sh, not an expansion.
++  # shellcheck disable=SC2016
++  grep -qxF 'out() { sc_output_value "${OUTPUTS}" "$1"; }' scripts/cleanup.sh || {
++    printf '  output-value: scripts/cleanup.sh out() no longer calls sc_output_value\n'
++    bad=1
++  }
++  return "${bad}"
++}
++
++# G-04 (Phase 16): er_upload_plan (scripts/lib/identity.sh) on a fixture ER
++# output tree; the expected lines follow the LC_ALL=C order of the paths.
++probe_er_upload_plan() {
++  local root="${PROBE_DIR}/er-fixture/out" run bad=0 got want tab
++  tab="$(printf '\t')"
++  run="${root}/run=0123abcd"
++  mkdir -p -- "${run}/decisions/identity_assignment" "${run}/decisions/mention_pair" "${run}/review"
++  printf 'x' >"${run}/_SUCCESS"
++  printf '{}' >"${run}/_manifest.json"
++  printf 'ab' >"${run}/decisions/identity_assignment/part-00000.parquet"
++  printf 'x' >"${run}/decisions/identity_assignment/_SUCCESS"
++  printf 'abc' >"${run}/decisions/mention_pair/part-00000.parquet"
++  printf 'x' >"${run}/decisions/mention_pair/_SUCCESS"
++  printf 'abcde' >"${run}/review/queue.csv"
++  printf 'abcd' >"${run}/run-report.json"
++  got="$(er_upload_plan "${root}" "${run}" identity-assignments-only)" || bad=1
++  want="upload${tab}run=0123abcd/decisions/identity_assignment/part-00000.parquet
++left${tab}run=0123abcd/decisions/mention_pair/part-00000.parquet${tab}3
++left${tab}run=0123abcd/review/queue.csv${tab}5
++left${tab}run=0123abcd/run-report.json${tab}4"
++  [ "${got}" = "${want}" ] || {
++    printf '  er-upload-plan: identity-assignments-only selection differs from the fixture expectation\n'
++    bad=1
++  }
++  got="$(er_upload_plan "${root}" "${run}" full)" || bad=1
++  want="upload${tab}run=0123abcd/decisions/identity_assignment/part-00000.parquet
++upload${tab}run=0123abcd/decisions/mention_pair/part-00000.parquet
++upload${tab}run=0123abcd/review/queue.csv
++upload${tab}run=0123abcd/run-report.json"
++  [ "${got}" = "${want}" ] || {
++    printf '  er-upload-plan: full selection differs from the fixture expectation\n'
++    bad=1
++  }
++  if er_upload_plan "${root}" "${run}" bogus >/dev/null 2>&1; then
++    printf '  er-upload-plan: an unknown mode was accepted\n'
++    bad=1
++  fi
++  return "${bad}"
++}
++
+ gate_probes() {
+   local s rc example_sha dirty
+   PROBE_DIR="${TMP_DIR}/probes"
+@@ -868,6 +961,12 @@ gate_probes() {
+       PROBES_BAD=1
+     fi
+   fi
++  rc=0
++  probe_output_value || rc=1
++  probe_record output-value "${rc}"
++  rc=0
++  probe_er_upload_plan || rc=1
++  probe_record er-upload-plan "${rc}"
+   return "${PROBES_BAD}"
+ }
+ 
+diff --git a/scripts/cleanup.sh b/scripts/cleanup.sh
+index 479ffa8..9b5efaf 100644
+--- a/scripts/cleanup.sh
++++ b/scripts/cleanup.sh
+@@ -4,7 +4,10 @@
+ # invocation only; never run by an agent. Owner: infra-engineer (author).
+ #
+ # Status (Phase 13): static: shellcheck clean; runtime: untested; human
+-# execution required.
++# execution required. Phase 16 changes (L-12 out() through
++# scripts/lib/identity.sh sc_output_value; L-14 a missing protection field
++# counts as protected; L-15 check-leftovers checks the state of each
++# tagging-API entry before counting it): runtime: untested.
+ 
+ set -Eeuo pipefail
+ umask 077
+@@ -94,6 +97,8 @@ outside .gitignore).
+      service at desired 0 and running 0), no pipeline execution is running,
+      and deletion protection is off on the six DynamoDB tables and Neptune
+      (apply a signed cleanup_mode=true plan first; README "Cleanup mode").
++     Only an explicit "false" counts as off: a missing protection field is
++     treated as protected (L-14, Phase 16).
+   4. Asks for ONE typed confirmation on the terminal:
+        REMOVE course <first 12 characters of the plan sha256>
+      Anything else, or no answer within 300 s, stops with nothing removed.
+@@ -110,6 +115,13 @@ outside .gitignore).
+      environment's families (query, evidence, graph, worker, ops). They stay
+      because the task definitions use skip_destroy (rollback keeps the
+      previous revision); they cost nothing; Phase 17 deregisters them.
++     L-15 (Phase 16): before an entry is counted, one read-only describe
++     call checks its state for the types the tagging API keeps listing
++     after removal (EC2 NAT gateway, VPC endpoint, security group and
++     security-group rule; EMR cluster; ECS cluster and service). An entry
++     shown as already removed (deleted, terminated, inactive or not found)
++     is listed apart as REMOVED and not counted; any other type, a failed
++     call or a live state is counted (fail closed).
+ 
+ Never touched: the repository (reports/, docs/agent-runs/, releases/ and the
+ evidence archive are local grading evidence and stay as they are), the local
+@@ -132,7 +144,7 @@ task-definition leftovers are listed); 2 usage error; 3 missing
+ prerequisite; 4 refused by a safety check (not at the repository root,
+ archive, dirty tree, no or several matching records, checksum, plan
+ validity, approval line, account, runtime on, running execution, protection
+-on, confirmation); 5 terraform or AWS command failed; 6 unexpected leftovers
++on or not reported, confirmation); 5 terraform or AWS command failed; 6 unexpected leftovers
+ remain after removal (listed), or (--list) the removal-plan record or
+ .plan.txt still holds an identifier; 7 timed out.
+ 
+@@ -361,8 +373,11 @@ read_outputs() {
+ 
+ # out NAME: prints the value of terraform output NAME, or nothing when the
+ # output is missing or null. Not `// empty`: jq's `//` also drops boolean
+-# false, so `out runtime_enabled` printed "" for false (L-11, D27).
+-out() { jq -r --arg k "$1" '.[$k].value | if . == null then empty else . end' <<<"${OUTPUTS}"; }
++# false, so `out runtime_enabled` printed "" for false (L-11, D27). Phase 16
++# L-12: the rule lives in scripts/lib/identity.sh (sc_output_value), which
++# check.sh gate 9 probes with a fixture, and that probe also checks that this
++# line still calls it.
++out() { sc_output_value "${OUTPUTS}" "$1"; }
+ 
+ check_reports_archived() {
+   step "reports-archived"
+@@ -621,21 +636,118 @@ expected_leftover() {
+     <<<"${OUTPUTS}" >/dev/null 2>&1
+ }
+ 
+-# list_tagged TITLE: lists every resource tagged project=scholarchain
+-# environment=course; TAGGED_COUNT counts the UNEXPECTED ones,
+-# EXPECTED_COUNT the task-definition revisions of expected_leftover.
++REMOVED_RECORD_COUNT=0
++STATE_RC=0
++STATE_CODE=""
++
++# state_call ARGS...: one read-only describe call for removed_record; the
++# answer goes to "$TMP_DIR/state.out", the error text to "$TMP_DIR/state.err"
++# (never printed). Sets STATE_RC and STATE_CODE (the AWS error code, if any).
++# Never dies: a failed or timed-out call leaves the entry counted.
++state_call() {
++  local err
++  STATE_RC=0
++  STATE_CODE=""
++  with_timeout "${AWS_TIMEOUT}" aws --region "${EXPECTED_REGION}" --cli-connect-timeout 10 \
++    --cli-read-timeout 60 --no-cli-pager --output json "$@" >"${TMP_DIR}/state.out" \
++    2>"${TMP_DIR}/state.err" || STATE_RC=$?
++  if [ "${STATE_RC}" -ne 0 ]; then
++    err="$(head -c 4000 "${TMP_DIR}/state.err" 2>/dev/null || true)"
++    if [[ "${err}" =~ An\ error\ occurred\ \(([^\)]+)\) ]]; then
++      STATE_CODE="${BASH_REMATCH[1]}"
++    fi
++  fi
++  return 0
++}
++
++# state_jq FILTER: status 0 when the last state_call succeeded and FILTER is
++# true on its answer.
++state_jq() {
++  [ "${STATE_RC}" -eq 0 ] && jq -e "$1" "${TMP_DIR}/state.out" >/dev/null 2>&1
++}
++
++# removed_record ARN (L-15, Phase 16): status 0 when one read-only describe
++# call shows that the resource behind a tagging-API entry is already removed
++# (the tagging API keeps listing deleted NAT gateways, terminated EMR clusters
++# and similar for a while, D27/D28). Only these resource types are checked:
++# ec2 natgateway, vpc-endpoint, security-group and security-group-rule; EMR
++# cluster; ECS cluster and service. Any other type, a failed or timed-out
++# call, or a live state keeps the entry counted (fail closed).
++removed_record() {
++  local arn="$1" service resource id cluster name
++  # arn:PARTITION:SERVICE:REGION:ACCOUNT:RESOURCE (RESOURCE may hold ':').
++  IFS=':' read -r _ _ service _ _ resource <<<"${arn}"
++  [ -n "${service}" ] && [ -n "${resource}" ] || return 1
++  case "${service}:${resource}" in
++    ec2:natgateway/*)
++      id="${resource#natgateway/}"
++      state_call ec2 describe-nat-gateways --nat-gateway-ids "${id}"
++      state_jq '[.NatGateways[]? | select(.State != "deleted")] | length == 0' && return 0
++      case "${STATE_CODE}" in NatGatewayNotFound | InvalidNatGatewayID.NotFound) return 0 ;; esac
++      ;;
++    ec2:vpc-endpoint/*)
++      id="${resource#vpc-endpoint/}"
++      state_call ec2 describe-vpc-endpoints --vpc-endpoint-ids "${id}"
++      state_jq '[.VpcEndpoints[]? | select((.State | ascii_downcase) != "deleted")] | length == 0' && return 0
++      case "${STATE_CODE}" in InvalidVpcEndpointId.NotFound) return 0 ;; esac
++      ;;
++    ec2:security-group/*)
++      id="${resource#security-group/}"
++      state_call ec2 describe-security-groups --group-ids "${id}"
++      state_jq '[.SecurityGroups[]?] | length == 0' && return 0
++      case "${STATE_CODE}" in InvalidGroup.NotFound | InvalidGroupId.NotFound) return 0 ;; esac
++      ;;
++    ec2:security-group-rule/*)
++      id="${resource#security-group-rule/}"
++      state_call ec2 describe-security-group-rules --security-group-rule-ids "${id}"
++      state_jq '[.SecurityGroupRules[]?] | length == 0' && return 0
++      case "${STATE_CODE}" in InvalidSecurityGroupRuleId.NotFound) return 0 ;; esac
++      ;;
++    elasticmapreduce:cluster/*)
++      id="${resource#cluster/}"
++      state_call emr describe-cluster --cluster-id "${id}"
++      state_jq '.Cluster.Status.State == "TERMINATED" or .Cluster.Status.State == "TERMINATED_WITH_ERRORS"' && return 0
++      ;;
++    ecs:cluster/*)
++      state_call ecs describe-clusters --clusters "${arn}"
++      state_jq '([.clusters[]? | select(.status != "INACTIVE")] | length == 0)
++        and (([.clusters[]?] | length) + ([.failures[]? | select(.reason == "MISSING")] | length) > 0)' && return 0
++      ;;
++    ecs:service/*/*)
++      name="${resource#service/}"
++      cluster="${name%%/*}"
++      name="${name#*/}"
++      state_call ecs describe-services --cluster "${cluster}" --services "${name}"
++      state_jq '([.services[]? | select(.status != "INACTIVE")] | length == 0)
++        and (([.services[]?] | length) + ([.failures[]? | select(.reason == "MISSING")] | length) > 0)' && return 0
++      ;;
++  esac
++  return 1
++}
++
++# list_tagged TITLE [check-state]: lists every resource tagged
++# project=scholarchain environment=course; TAGGED_COUNT counts the UNEXPECTED
++# ones, EXPECTED_COUNT the task-definition revisions of expected_leftover.
++# With check-state (check-leftovers, after the removal; L-15) an entry whose
++# resource removed_record shows as already removed is listed apart and counted
++# in REMOVED_RECORD_COUNT, not in TAGGED_COUNT.
+ list_tagged() {
+-  local title="$1" tagged arn expected=""
++  local title="$1" check_state="${2:-}" tagged arn expected="" removed=""
+   tagged="$(aws_json resourcegroupstaggingapi get-resources \
+     --tag-filters "Key=project,Values=scholarchain" "Key=environment,Values=${ENVIRONMENT}")" || exit "$?"
+   TAGGED_COUNT=0
+   EXPECTED_COUNT=0
++  REMOVED_RECORD_COUNT=0
+   printf '%s\n' "${title}"
+   while IFS= read -r arn; do
+     [ -n "${arn}" ] || continue
+     if expected_leftover "${arn}"; then
+       EXPECTED_COUNT=$((EXPECTED_COUNT + 1))
+       expected="${expected}  ${arn##*:task-definition/}
++"
++    elif [ "${check_state}" = "check-state" ] && removed_record "${arn}"; then
++      REMOVED_RECORD_COUNT=$((REMOVED_RECORD_COUNT + 1))
++      removed="${removed}  $(mask_text "${arn}")
+ "
+     else
+       TAGGED_COUNT=$((TAGGED_COUNT + 1))
+@@ -643,6 +755,13 @@ list_tagged() {
+     fi
+   done < <(jq -r '.ResourceTagMappingList[]?.ResourceARN' <<<"${tagged}")
+   printf '  unexpected (counted): %s\n' "${TAGGED_COUNT}"
++  if [ "${check_state}" = "check-state" ]; then
++    printf 'REMOVED (tagging-API records of resources a describe call shows as already removed; L-15; not counted): %s\n' \
++      "${REMOVED_RECORD_COUNT}"
++    if [ -n "${removed}" ]; then
++      printf '%s' "${removed}"
++    fi
++  fi
+   printf 'EXPECTED task-definition revisions (I-15; skip_destroy keeps them ACTIVE; not counted; Phase 17 deregisters them): %s\n' \
+     "${EXPECTED_COUNT}"
+   if [ -n "${expected}" ]; then
+@@ -689,7 +808,11 @@ check_protection_off() {
+   local table desc protected=""
+   for table in $(jq -r '.dynamodb_table_names.value // {} | .[]' <<<"${OUTPUTS}"); do
+     desc="$(aws_json dynamodb describe-table --table-name "${table}")" || exit "$?"
+-    if [ "$(jq -r '.Table.DeletionProtectionEnabled // false' <<<"${desc}")" != "false" ]; then
++    # L-14 (Phase 16): only an explicit false passes; a missing or null
++    # field counts as protected (refused before CONFIRM, before any data is
++    # removed), never as unprotected.
++    if [ "$(jq -r '.Table.DeletionProtectionEnabled | if . == false then "off" else "on-or-unknown" end' \
++      <<<"${desc}")" != "off" ]; then
+       protected="${protected} ${table}"
+     fi
+   done
+@@ -697,13 +820,14 @@ check_protection_off() {
+   endpoint="$(out neptune_endpoint)"
+   if [ -n "${endpoint}" ]; then
+     clusters="$(aws_json neptune describe-db-clusters --filters "Name=engine,Values=neptune")" || exit "$?"
+-    if jq -e --arg e "${endpoint}" '[.DBClusters[]? | select(.Endpoint == $e and .DeletionProtection == true)] | length > 0' \
++    # L-14: a matching cluster passes only with DeletionProtection exactly false.
++    if jq -e --arg e "${endpoint}" '[.DBClusters[]? | select(.Endpoint == $e and .DeletionProtection != false)] | length > 0' \
+       <<<"${clusters}" >/dev/null; then
+       protected="${protected} neptune-cluster"
+     fi
+   fi
+   [ -z "${protected}" ] ||
+-    die 4 "refusing: deletion protection is on for:${protected} (apply a signed cleanup_mode=true plan first)"
++    die 4 "refusing: deletion protection is on, or not reported, for:${protected} (apply a signed cleanup_mode=true plan first)"
+   info "deletion protection off on the DynamoDB tables and the Neptune cluster"
+ }
+ 
+@@ -832,12 +956,12 @@ apply_removal_plan() {
+ 
+ check_leftovers() {
+   step "check-leftovers"
+-  list_tagged "LEFTOVERS tagged project=scholarchain environment=${ENVIRONMENT}:"
++  list_tagged "LEFTOVERS tagged project=scholarchain environment=${ENVIRONMENT}:" check-state
+   if [ "${TAGGED_COUNT}" -ne 0 ]; then
+     warn "the tagging API can show removed resources for a while; check again later before removing anything by hand"
+-    die 6 "${TAGGED_COUNT} unexpected tagged resource(s) remain (listed above; the ${EXPECTED_COUNT} expected task-definition revisions are not counted)"
++    die 6 "${TAGGED_COUNT} unexpected tagged resource(s) remain (listed above; the ${EXPECTED_COUNT} expected task-definition revisions and ${REMOVED_RECORD_COUNT} records of already-removed resources are not counted)"
+   fi
+-  info "no unexpected tagged resource remains; expected leftovers: ${EXPECTED_COUNT} task-definition revisions (I-15, Phase 17); manual items: IAM user scholarchain-readonly, budget scholarchain-25 (Phase 17)"
++  info "no unexpected tagged resource remains; records of already-removed resources: ${REMOVED_RECORD_COUNT} (L-15); expected leftovers: ${EXPECTED_COUNT} task-definition revisions (I-15, Phase 17); manual items: IAM user scholarchain-readonly, budget scholarchain-25 (Phase 17)"
+ }
+ 
+ main() {
+diff --git a/scripts/deploy.sh b/scripts/deploy.sh
+index 7f1df34..724feb0 100644
+--- a/scripts/deploy.sh
++++ b/scripts/deploy.sh
+@@ -5,7 +5,9 @@
+ # executed by deploy-engineer after the human commits the approval line.
+ #
+ # Status (Phase 14, I-28): static: shellcheck clean; runtime: untested; human
+-# execution required.
++# execution required. Phase 16 L-07 change (endpoint values registered for
++# masking before the apply; the saved apply copy masked again after it):
++# runtime: untested.
+ 
+ set -Eeuo pipefail
+ umask 077
+@@ -73,8 +75,14 @@ step 6 happens before any cloud call:
+      Terraform itself refuses a saved plan that is stale. The full apply
+      output is shown with every line masked (the account ID as <account>;
+      bucket names of this environment, even ones this apply creates, as
+-     <data-bucket> and <vector-bucket>) and that masked copy is kept next
+-     to the plan (.apply.txt).
++     <data-bucket> and <vector-bucket>; Phase 16 L-07: the endpoint values
++     of the current Terraform outputs, read before the apply, as
++     <api-host>, <job-queue-url>, <embedding-queue-url>, <job-dlq-url>,
++     <embedding-dlq-url>, <alb-host> and <neptune-host>) and that masked
++     copy is kept next to the plan (.apply.txt). After the apply, the
++     outputs are read again (endpoints the apply created exist only now),
++     the saved copy is masked once more in place with every value known
++     then, and checked; a value still found is named by kind in a warning.
+   8. Verifies the deployed revision: every ECS service (query, evidence,
+      graph, worker) runs the latest ACTIVE revision of its task-definition
+      family and its image tag equals the plan's image tag. Runtime on: waits
+@@ -457,6 +465,14 @@ apply_plan() {
+   base="${base%.tfplan}"
+   text="${TF_DIR}/${PLANS_SUBDIR}/${base}.apply.txt"
+   [ ! -e "${text}" ] || die 4 "refusing: ${text} exists (this plan was applied before; make a new plan)"
++  # L-07 (Phase 16): the apply output ends with the Terraform outputs, which
++  # hold the API host, queue URLs and endpoint hosts. Register the values the
++  # state already has, so mask_stream hides them on screen and in the copy.
++  local before_outputs
++  before_outputs="$(tf_output_json)" || exit "$?"
++  register_output_identifiers "${before_outputs}" ||
++    die 5 "could not register the endpoint values of the current outputs for masking (nothing applied)"
++  before_outputs=""
+   APPLY_TEXT="${text}"
+   info "full apply output follows, masked (the masked copy is saved to ${text})"
+   with_timeout "${APPLY_TIMEOUT}" terraform "-chdir=${TF_DIR}" apply -input=false \
+@@ -465,6 +481,22 @@ apply_plan() {
+   [ "${rc}" -eq 0 ] || die 5 "terraform apply failed (status ${rc}); no release record written; run scripts/plan.sh to see what was applied"
+ }
+ 
++# L-07 (Phase 16): masks the saved apply copy once more, in place, with every
++# identifier registered now (account, real bucket names, endpoint values of
++# the outputs after the apply). Best effort: a failure is a warning, and the
++# check that follows still names any value left.
++remask_apply_text() {
++  [ -n "${APPLY_TEXT}" ] && [ -f "${APPLY_TEXT}" ] || return 0
++  local tmp="${APPLY_TEXT}.remask"
++  if mask_stream <"${APPLY_TEXT}" >"${tmp}" && mv -f -- "${tmp}" "${APPLY_TEXT}"; then
++    info "saved apply output masked again with the identifiers known after the apply"
++  else
++    rm -f -- "${tmp}"
++    warn "could not mask the saved apply output again"
++  fi
++  return 0
++}
++
+ APPLY_TEXT=""
+ SERVICES_RECORD='{}'
+ CLUSTER=""
+@@ -520,6 +552,12 @@ verify_deployment() {
+   # apply copy once more.
+   register_identifiers "${ACCOUNT_ID}" "$(jq -r '.data_bucket_name.value // empty' <<<"${outputs}")" \
+     "$(jq -r '.vector_bucket_name.value // empty' <<<"${outputs}")" || die 5 "could not register the identifiers"
++  # L-07 (Phase 16): endpoints this apply created are known only now. A
++  # registration problem is a warning here (the apply has happened; the
++  # release record must still be written).
++  register_output_identifiers "${outputs}" ||
++    warn "could not register every endpoint value of the new outputs; the masked copy may hold one"
++  remask_apply_text
+   if [ -n "${APPLY_TEXT}" ] && ! check_no_identifiers "${APPLY_TEXT}"; then
+     warn "the saved apply output ${APPLY_TEXT} still holds an identifier (listed above); do not share it"
+   fi
+diff --git a/scripts/lib/identity.sh b/scripts/lib/identity.sh
+index 278f46b..f8f0ab9 100644
+--- a/scripts/lib/identity.sh
++++ b/scripts/lib/identity.sh
+@@ -308,6 +308,21 @@ register_output_identifiers() {
+   return 0
+ }
+ 
++# sc_output_value OUTPUTS_JSON NAME (Phase 16, L-12): prints the value of the
++# Terraform output NAME from the JSON of `terraform output -json`, or nothing
++# when the output is missing or null. A boolean prints true or false: the
++# filter is NOT `// empty`, because jq's `//` also drops false (L-11, D27).
++# A map or list output prints as JSON. check.sh gate 9 probes this function
++# with a fixture (probe output-value). Status 0; 3 without jq; 5 when the
++# JSON cannot be read.
++sc_output_value() {
++  command -v jq >/dev/null 2>&1 || {
++    sc_lib_err "jq not found"
++    return 3
++  }
++  jq -r --arg k "${2:-}" '.[$k].value | if . == null then empty else . end' <<<"${1:-}" 2>/dev/null || return 5
++}
++
+ # sc_mask_extras TEXT: sets SC_MASK_OUT to TEXT with every registered extra
+ # identifier replaced by <KIND> (no subshell).
+ sc_mask_extras() {
+@@ -677,3 +692,59 @@ archive_keys() {
+     printf '%s\n' "${entry}"
+   done <"${listing}"
+ }
++
++# ---- ER upload selection (run-bounded-pipeline.sh --stage er; check.sh probe) ---
++
++# er_upload_plan OUT_ROOT RUN_DIR MODE (Phase 16, G-04; moved unchanged in
++# meaning from run-bounded-pipeline.sh's er-upload loop, Phase 14 G-01):
++# prints, for every file under OUT_ROOT in LC_ALL=C order of its path, one
++# tab-separated line
++#   upload<TAB>RELPATH                 a data file to upload, or
++#   left<TAB>RELPATH<TAB>BYTES         a file kept only in the local folder
++# where RELPATH is relative to OUT_ROOT. Files named _SUCCESS or
++# _manifest.json are never listed (the caller uploads RUN_DIR's two last).
++# MODE full lists every other file as upload; MODE identity-assignments-only
++# lists as upload only files under RUN_DIR/decisions/identity_assignment/
++# (the only data the Spark stage reads: Pipeline.checkErRun, inputListing)
++# and every other file as left. check.sh gate 9 probes it on a fixture tree
++# (probe er-upload-plan). Status 0; 2 bad MODE or RUN_DIR not under OUT_ROOT;
++# 3 OUT_ROOT is not a folder.
++er_upload_plan() {
++  local root="${1:-}" run_dir="${2:-}" mode="${3:-}" f relf ia_rel
++  case "${mode}" in
++    full | identity-assignments-only) ;;
++    *)
++      sc_lib_err "er_upload_plan: MODE must be full or identity-assignments-only"
++      return 2
++      ;;
++  esac
++  [ -n "${root}" ] && [ -d "${root}" ] || {
++    sc_lib_err "er_upload_plan: OUT_ROOT is not a folder"
++    return 3
++  }
++  case "${run_dir}" in
++    "${root}"/?*) ;;
++    *)
++      sc_lib_err "er_upload_plan: RUN_DIR is not under OUT_ROOT"
++      return 2
++      ;;
++  esac
++  ia_rel="${run_dir#"${root}/"}/decisions/identity_assignment/"
++  while IFS= read -r f; do
++    relf="${f#"${root}/"}"
++    case "${relf##*/}" in
++      _SUCCESS | _manifest.json) continue ;;
++    esac
++    if [ "${mode}" = "identity-assignments-only" ]; then
++      case "${relf}" in
++        "${ia_rel}"*) ;;
++        *)
++          printf 'left\t%s\t%s\n' "${relf}" "$(sc_bytes "${f}")"
++          continue
++          ;;
++      esac
++    fi
++    printf 'upload\t%s\n' "${relf}"
++  done < <(find "${root}" -type f | LC_ALL=C sort)
++  return 0
++}
+diff --git a/scripts/run-bounded-pipeline.sh b/scripts/run-bounded-pipeline.sh
+index e2cf204..aaee743 100644
+--- a/scripts/run-bounded-pipeline.sh
++++ b/scripts/run-bounded-pipeline.sh
+@@ -14,6 +14,9 @@
+ # untested (first live use: p15-a-hadoop, D7a). Phase 15 decision 9.4: load
+ # options --max-documents (rag-ingest) and the loader rag-retrieval-eval
+ # (RetrievalEvalJob); runtime: untested (first live use: D7 probe and E, D11).
++# Phase 16 G-04: the ER upload selection moved to scripts/lib/identity.sh
++# er_upload_plan (probed by check.sh gate 9 on a fixture tree); runtime:
++# untested.
+ 
+ set -Eeuo pipefail
+ umask 077
+@@ -1592,28 +1595,27 @@ stage_er() {
+   add_str RUN_IDS_JSON er_run_id "${run_id}"
+ 
+   step "er-upload"
+-  local dest="${P_CURATED}/er/${ATTEMPT_ID}" f relf ia_rel left="${TMP_DIR}/er-left-out.tsv" n_up=0
++  local dest="${P_CURATED}/er/${ATTEMPT_ID}" relf left="${TMP_DIR}/er-left-out.tsv" n_up=0
++  local upload_plan="${TMP_DIR}/er-upload-plan.tsv" kind bytes
+   # The Spark stage reads only run=HEX/_SUCCESS, run=HEX/_manifest.json and
+   # run=HEX/decisions/identity_assignment/** (Pipeline.checkErRun, inputListing).
+-  ia_rel="${run_dir#"${out_root}/"}/decisions/identity_assignment/"
++  # Phase 16 G-04: the selection is scripts/lib/identity.sh er_upload_plan,
++  # which check.sh gate 9 probes on a fixture tree (probe er-upload-plan).
++  er_upload_plan "${out_root}" "${run_dir}" "${A_ER_UPLOAD}" >"${upload_plan}" ||
++    die 5 "could not list the ER output root for the upload"
+   : >"${left}"
+-  while IFS= read -r f; do
+-    relf="${f#"${out_root}/"}"
+-    case "${relf##*/}" in
+-      _SUCCESS | _manifest.json) continue ;;
++  while IFS="$(printf '\t')" read -r kind relf bytes; do
++    case "${kind}" in
++      upload)
++        put_once "${out_root}/${relf}" "${dest}/${relf}"
++        n_up=$((n_up + 1))
++        ;;
++      left)
++        printf '%s\t%s\n' "${relf}" "${bytes}" >>"${left}"
++        ;;
++      *) die 5 "unexpected line in the ER upload plan" ;;
+     esac
+-    if [ "${A_ER_UPLOAD}" = "identity-assignments-only" ]; then
+-      case "${relf}" in
+-        "${ia_rel}"*) ;;
+-        *)
+-          printf '%s\t%s\n' "${relf}" "$(sc_bytes "${f}")" >>"${left}"
+-          continue
+-          ;;
+-      esac
+-    fi
+-    put_once "${f}" "${dest}/${relf}"
+-    n_up=$((n_up + 1))
+-  done < <(find "${out_root}" -type f | LC_ALL=C sort)
++  done <"${upload_plan}"
+   if [ "${A_ER_UPLOAD}" = "identity-assignments-only" ] && [ "${n_up}" -eq 0 ]; then
+     die 6 "decisions/identity_assignment holds no data file; _manifest.json and _SUCCESS not uploaded"
+   fi
+diff --git a/scripts/run-experiment.sh b/scripts/run-experiment.sh
+index c25ac36..521c642 100644
+--- a/scripts/run-experiment.sh
++++ b/scripts/run-experiment.sh
+@@ -8,7 +8,9 @@
+ # Status (Phase 13): static: shellcheck clean; runtime: untested; human
+ # execution required. Phase 15 decision 9.5 and 9.6 (identifier list,
+ # {attempt-id}, ALB placeholders, --check, metrics for failed and timed-out
+-# actions, exit 8, --export-metrics): runtime: untested.
++# actions, exit 8, --export-metrics): runtime: untested. Phase 15 tested
++# runs: see docs/agent-runs/phase-15/runbook-log.md. Phase 16 FECD-4 (INT
++# and TERM ignored during finalize): runtime: untested.
+ 
+ set -Eeuo pipefail
+ umask 077
+@@ -223,12 +225,15 @@ Exit codes:
+   3  missing prerequisite or Terraform output (the runner's own)
+   4  refused by a safety check (list above, or the run or raw folder exists)
+   5  the action failed (metrics still exported; status failed), a command of
+-     the runner failed, or (--check) the action's preflight failed
++     the runner failed, (--check) the action's preflight failed, or Ctrl-C
++     (INT) stopped the runner (status failed, signal INT, no export; the
++     folder is still recorded, moved and made read-only: further INT and
++     TERM signals are ignored while the runner finalizes, FECD-4)
+   6  the action succeeded but the metric export failed or was partial
+      (succeeded-metrics-failed)
+   7  the local time limit (maxDurationSeconds) stopped the action (metrics
+      exported; status timed-out; remote work may still run), or a TERM
+-     signal stopped the runner (no export)
++     signal stopped the runner (no export; finalized as for INT)
+   8  (Phase 15) an identifier (account ID, bucket name, API host, queue or
+      DLQ URL, ALB or Neptune host) was found in the run folder or its
+      record; the folder stays under evidence/experiment-runs/ (never commit
+@@ -266,6 +271,11 @@ on_signal() {
+ on_exit() {
+   local rc="$?"
+   trap - ERR
++  # FECD-4 (Phase 16): once the runner is ending, a further Ctrl-C or TERM
++  # must not cut finalize short (D-read attempt 2: the folder was recorded
++  # and moved but never made read-only). finalize is bounded: one record
++  # write, one grep over the run folder, one move, one chmod.
++  trap '' INT TERM
+   set +e
+   if [ "${STARTED_WRITTEN}" = "true" ] && [ "${FINALIZED}" = "false" ]; then
+     finalize "${rc}"

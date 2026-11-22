@@ -1,0 +1,21 @@
+leftMentionId,rightMentionId,candidateId,label,evidence,note,labeler,labeledAt
+m-a01,m-b01,c-01,MATCH,independent,,fixture,2026-11-14
+m-a02,m-b02,c-02,MATCH,independent,,fixture,2026-11-14
+m-a03,m-b03,c-03,MATCH,independent,,fixture,2026-11-14
+m-a04,m-b04,c-04,MATCH,independent,,fixture,2026-11-14
+m-a05,m-b05,c-05,MATCH,independent,,fixture,2026-11-14
+m-a06,m-b06,c-06,MATCH,independent,,fixture,2026-11-14
+m-a07,m-b07,c-07,MATCH,independent,,fixture,2026-11-14
+m-a08,m-b08,c-08,MATCH,independent,,fixture,2026-11-14
+m-a09,m-b09,c-09,MATCH,independent,"a note, with a comma",fixture,2026-11-14
+m-a10,m-b10,c-10,MATCH,independent,,fixture,2026-11-14
+m-a11,m-b11,c-11,NON_MATCH,independent,,fixture,2026-11-14
+m-a12,m-b12,c-12,NON_MATCH,independent,,fixture,2026-11-14
+m-a13,m-b13,c-13,NON_MATCH,independent,,fixture,2026-11-14
+m-a14,m-b14,c-14,NON_MATCH,independent,,fixture,2026-11-14
+m-a15,m-b15,c-15,NON_MATCH,independent,,fixture,2026-11-14
+m-a16,m-b16,c-16,NON_MATCH,independent,,fixture,2026-11-14
+m-a17,m-b17,c-17,UNSURE,independent,,fixture,2026-11-14
+m-a18,m-b18,c-18,UNSURE,independent,,fixture,2026-11-14
+m-a19,m-b19,c-19,UNSURE,independent,,fixture,2026-11-14
+m-a20,m-b20,c-20,UNSURE,independent,,fixture,2026-11-14

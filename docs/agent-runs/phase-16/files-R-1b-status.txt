@@ -1,0 +1,30 @@
+ M modules/hadoop/src/test/scala/org/scholarchain/hadoop/LocalPipelineRunner.scala
+ M modules/hadoop/src/test/scala/org/scholarchain/hadoop/LocalPipelineRunnerSuite.scala
+ M modules/rag/src/main/scala/org/scholarchain/rag/runtime/Abstentions.scala
+ M modules/rag/src/main/scala/org/scholarchain/rag/runtime/ClaimVerification.scala
+ M modules/rag/src/main/scala/org/scholarchain/rag/runtime/EvidenceBuilder.scala
+ M modules/rag/src/main/scala/org/scholarchain/rag/runtime/QueryWorkflow.scala
+ M modules/rag/src/main/scala/org/scholarchain/rag/runtime/RuntimeModel.scala
+ M modules/rag/src/main/scala/org/scholarchain/rag/runtime/Stages.scala
+ M modules/rag/src/main/scala/org/scholarchain/rag/runtime/Synthesis.scala
+ M modules/services/src/main/scala/org/scholarchain/services/EmbeddingWorker.scala
+ M modules/services/src/main/scala/org/scholarchain/services/Errors.scala
+ M modules/services/src/main/scala/org/scholarchain/services/HealthService.scala
+ M modules/services/src/main/scala/org/scholarchain/services/Main.scala
+ M modules/services/src/main/scala/org/scholarchain/services/QueryService.scala
+ M modules/services/src/main/scala/org/scholarchain/services/ReadServices.scala
+ M modules/services/src/main/scala/org/scholarchain/services/ServiceLimits.scala
+ M modules/services/src/main/scala/org/scholarchain/services/ServiceServer.scala
+ M modules/services/src/main/scala/org/scholarchain/services/Support.scala
+ M modules/services/src/test/scala/org/scholarchain/services/EmbeddingWorkerSuite.scala
+ M modules/services/src/test/scala/org/scholarchain/services/HttpBehaviorSuite.scala
+ M modules/services/src/test/scala/org/scholarchain/services/ReadRoutesSuite.scala
+ M modules/services/src/test/scala/org/scholarchain/services/ServiceTestKit.scala
+ M modules/spark/src/main/scala/org/scholarchain/spark/JsonlExport.scala
+ M modules/spark/src/test/scala/org/scholarchain/spark/JsonlExportArgsSuite.scala
+ M tests/contracts/src/test/scala/org/scholarchain/contracts/er/EvalReportRound3AdversarialSuite.scala
+?? modules/rag/src/test/scala/org/scholarchain/rag/runtime/PathAbsenceSuite.scala
+?? modules/services/src/main/scala/org/scholarchain/services/GraphReads.scala
+?? modules/services/src/test/scala/org/scholarchain/services/EmbeddingWorkerEmulatorSuite.scala
+?? modules/services/src/test/scala/org/scholarchain/services/GraphBreakerSuite.scala
+?? modules/services/src/test/scala/org/scholarchain/services/RouteTimeLimitSuite.scala

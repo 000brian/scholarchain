@@ -331,7 +331,7 @@ final class EvidenceBuilder(ctx: RuntimeContext) {
           "nameB" -> p.to.displayName,
           "researcherB" -> p.to.id.value,
           "windowLabel" -> p.windowLabel
-        ),
+        ) ++ p.stop.map(s => "stoppedBy" -> s.code), // Phase 16 L1: incomplete searches only
         p.source
       )
     case w: WorkFact =>

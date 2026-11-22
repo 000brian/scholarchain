@@ -33,16 +33,26 @@ final case class BulkLoadStatus(loadId: String, status: String, totalRecords: Lo
 /** The bulk loader refused a start request for certain (Phase 14 C-07): the service answered with
   * an error that means the request was not accepted, so no load was created. `errorClass` is the
   * service's error name (for example `BadRequestException`); it holds no identifier.
+  *
+  * `throttled` (Phase 16, storage retries): the refusal was Neptune's throttling answer
+  * (`TooManyRequestsException` 429, "the request could not be processed", or `ThrottlingException`,
+  * "the request was denied due to request throttling"). Such a start may be sent again after a
+  * wait: it created no load.
   */
-final class BulkLoadStartRejected(val errorClass: String, val httpStatus: Int, message: String)
-    extends RuntimeException(message)
+final class BulkLoadStartRejected(
+    val errorClass: String,
+    val httpStatus: Int,
+    message: String,
+    val throttled: Boolean = false
+) extends RuntimeException(message)
 
 /** Neptune bulk loader: the only path for large graph loads. */
 trait GraphBulkLoader {
 
   /** Starts one load and returns its load ID. Throws [[BulkLoadStartRejected]] only when the
-    * request was refused for certain; any other exception (timeout, network error, throttling, 5xx,
-    * a response without a load ID) means the outcome is unknown: the load may exist.
+    * request was refused for certain (with `throttled` set for a throttling answer, Phase 16); any
+    * other exception (timeout, network error, 5xx, a response without a load ID) means the outcome
+    * is unknown: the load may exist.
     */
   def start(job: BulkLoadJob): String
   def status(loadId: String): BulkLoadStatus
@@ -211,6 +221,28 @@ object GraphQuery {
 /** One result row: column name -> JSON value. */
 final case class GraphRow(values: ListMap[String, ujson.Value])
 
+/** Why a `PathBetween` search stopped before the end of its bounds (`complete = false`), Phase 16
+  * L1. `code` is an allowlisted word (never a store message); rag maps it to its abstention codes.
+  */
+sealed abstract class GraphStop(val code: String)
+
+object GraphStop {
+
+  /** The time budget (`runtime.graphTimeoutMillis`) ran out, or Neptune's own query time limit or a
+    * client-side API call timeout ended a depth.
+    */
+  case object TimeLimit extends GraphStop("time-limit")
+
+  /** Neptune refused a depth for a resource limit (`MemoryLimitExceededException`,
+    * `QueryLimitExceededException`), after storage's bounded retry. Whether a path exists at the
+    * deeper depths is unknown: a bounded search, not a store failure.
+    */
+  case object ResourceLimit extends GraphStop("resource-limit")
+
+  /** Every code, in a fixed order. */
+  val Codes: List[String] = List(TimeLimit.code, ResourceLimit.code)
+}
+
 /** Rows of one query.
   *
   * @param truncated
@@ -219,18 +251,23 @@ final case class GraphRow(values: ListMap[String, ujson.Value])
   * @param complete
   *   the search ran to the end of its bounds. Always true for single-shot templates. For
   *   `PathBetween`: true when a path was found or every depth up to `maxDepth` was searched (so
-  *   empty rows mean "no path within depth `maxDepth`"); false when the time budget ran out first
-  *   (empty rows then mean "unknown: stopped at the time limit")
+  *   empty rows mean "no path within depth `maxDepth`"); false when the search stopped first (empty
+  *   rows then mean "unknown": see `stoppedBy`)
   * @param depthSearched
   *   `PathBetween` only: the deepest depth fully searched (the path length when found; 0 when the
-  *   time ran out before depth 1 finished); None for other templates
+  *   search stopped before depth 1 finished); None for other templates
+  * @param stoppedBy
+  *   Phase 16 L1: why an incomplete `PathBetween` search stopped. None when `complete` is true. An
+  *   incomplete result with None comes from a producer that predates this field (test fakes); read
+  *   it as [[GraphStop.TimeLimit]], the only stop such producers had.
   */
 final case class GraphResult(
     templateId: String,
     rows: List[GraphRow],
     truncated: Boolean,
     complete: Boolean,
-    depthSearched: Option[Int]
+    depthSearched: Option[Int],
+    stoppedBy: Option[GraphStop] = None
 )
 
 object GraphResult {
@@ -240,10 +277,65 @@ object GraphResult {
     GraphResult(templateId, rows.take(limit), rows.size > limit, complete = true, None)
 }
 
+/** Why a graph read failed (Phase 16, FECD-1 S1 and L1). `code` is an allowlisted word that callers
+  * may log, count or map; `message` is the store's text and must never reach a client, a log line
+  * or a model prompt unredacted (it may name an endpoint).
+  */
+sealed abstract class GraphReadError(val code: String) {
+  def message: String
+}
+
+object GraphReadError {
+
+  /** The query was refused before any store call (validation, unknown template, bad window). */
+  final case class Invalid(message: String) extends GraphReadError("graph-invalid-query")
+
+  /** May succeed later: HTTP 5xx other than the resource limits, throttling, 429, connection or
+    * socket errors. Returned only after storage's bounded retry gave up.
+    */
+  final case class Transient(message: String) extends GraphReadError("graph-transient")
+
+  /** Neptune `MemoryLimitExceededException` or `QueryLimitExceededException` (HTTP 500, documented
+    * as retryable), after the bounded retry. For `PathBetween` this is never an error: the search
+    * returns `complete = false` with [[GraphStop.ResourceLimit]].
+    */
+  final case class ResourceLimit(message: String) extends GraphReadError("graph-resource-limit")
+
+  /** A single-shot template ran past its time budget (Neptune's query time limit or the API call
+    * timeout). For `PathBetween` this is never an error (`complete = false`, time limit).
+    */
+  final case class Timeout(message: String) extends GraphReadError("graph-timeout")
+
+  /** Will not succeed on retry: HTTP 4xx (malformed query, access denied, bad parameters) and every
+    * other client error (credentials, configuration).
+    */
+  final case class Permanent(message: String) extends GraphReadError("graph-permanent")
+
+  /** A port that reports only `run`'s String (test fakes, decorators written before Phase 16). */
+  final case class Unclassified(message: String) extends GraphReadError("graph-unclassified")
+
+  /** Every code, in a fixed order (the allowlist). */
+  val Codes: List[String] = List(
+    "graph-invalid-query",
+    "graph-transient",
+    "graph-resource-limit",
+    "graph-timeout",
+    "graph-permanent",
+    "graph-unclassified"
+  )
+}
+
 /** Read-only graph port for runtime services. Implementations use read-only credentials (IAM is
   * Phase 12, infra-engineer).
+  *
+  * `run` is the original contract (Left = the failure text). `runClassified` (Phase 16) gives the
+  * same outcome with a typed [[GraphReadError]]; ports that do not override it report every failure
+  * as [[GraphReadError.Unclassified]]. `run(q)` and `runClassified(q).left.map(_.message)` agree
+  * for every port in storage.
   */
 trait GraphReadPort {
   def settings: GraphReadSettings
   def run(query: GraphQuery): Either[String, GraphResult]
+  def runClassified(query: GraphQuery): Either[GraphReadError, GraphResult] =
+    run(query).left.map(GraphReadError.Unclassified(_))
 }

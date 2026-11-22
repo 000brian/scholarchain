@@ -1,0 +1,6 @@
+mode,level,clients,client,seq,ticket,item,start_epoch_s,end_epoch_s,route,http_status,curl_exit,time_total_s,class,error_code,query_id
+read,1,1,1,1,1,x,1,1,GET /v1/graph/nodes/{nodeId}/neighbors,200,0,0.2,ok,-,-
+read,1,1,1,2,2,x,1,1,GET /v1/evidence/{evidenceId},200,0,0.2,ok,-,-
+read,2,5,1,1,3,x,2,2,GET /v1/graph/nodes/{nodeId}/neighbors,503,0,0.1,overloaded,CIRCUIT_OPEN,-
+read,2,5,2,1,4,x,2,2,GET /v1/graph/nodes/{nodeId}/neighbors,503,0,0.1,overloaded,CIRCUIT_OPEN,-
+read,2,5,3,1,5,x,2,2,GET /v1/graph/nodes/{nodeId}/neighbors,429,0,0.1,throttled,-,-

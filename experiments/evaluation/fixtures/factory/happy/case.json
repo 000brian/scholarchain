@@ -1,0 +1,5 @@
+{
+  "description": "happy path: phase-00 without a step table (execution from the agent report; a finding repeated in the re-check counted once; repair; gate phrases incl. a negated one); phase-01 with a step table and two summaries (P16-B-02: the gate's prose line is not counted, its list row is; the summary repeats that hook block and is marked duplicate_of the gate row; the step-table BLOCKED-ON row and the summary bullet for rag-engineer are duplicate_of its terminal report; test-engineer's BLOCKED-ON row with no terminal report is repeated in orchestrator-summary-s2.md and counted once; an unknown agent unclassified)",
+  "args": ["--root", "{case}/agent-runs", "--include", "phase-00,phase-01", "--seed", "7"],
+  "expectExit": 0
+}

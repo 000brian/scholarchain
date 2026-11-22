@@ -1,0 +1,6 @@
+metric,bootstrap_low_pct,bootstrap_high_pct,flag,zero_event_low_pct,zero_event_high_pct,note
+coverage,90.1,94.5,,91.8,93.4,as printed in the report (bootstrap line and reliability paragraph); not recomputed
+f1,95.6,99.2,unreliable,83.9,97.6,as printed in the report (bootstrap line and reliability paragraph); not recomputed
+precision,100.0,100.0,unreliable,82.9,100.0,as printed in the report (bootstrap line and reliability paragraph); not recomputed
+recall,91.6,98.4,unreliable,84.9,95.3,as printed in the report (bootstrap line and reliability paragraph); not recomputed
+unresolvedRate,4.3,4.3,design-determined,4.3,5.9,as printed in the report (bootstrap line and reliability paragraph); not recomputed

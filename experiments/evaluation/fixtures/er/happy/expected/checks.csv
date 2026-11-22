@@ -1,0 +1,12 @@
+check,expected,found,equal
+All rows units equal the unweighted confusion matrix total,20,20,yes
+report Labeled rows equal the confusion matrix total,20,20,yes
+report MATCH count equals the confusion matrix column sum,10,10,yes
+report NON_MATCH count equals the confusion matrix column sum,6,6,yes
+report UNSURE count equals the confusion matrix column sum,4,4,yes
+gold file rows equal the confusion matrix total,20,20,yes
+gold file MATCH labels equal the confusion matrix column sum,10,10,yes
+gold file NON_MATCH labels equal the confusion matrix column sum,6,6,yes
+gold file UNSURE labels equal the confusion matrix column sum,4,4,yes
+"gold file labels outside MATCH, NON_MATCH, UNSURE",0,0,yes
+gold file sha256 equals the report's gold input sha256,b25d8743af2d368ba8736e9adac3b9f9924bd7ba189537de5797722a8df13b42,b25d8743af2d368ba8736e9adac3b9f9924bd7ba189537de5797722a8df13b42,yes

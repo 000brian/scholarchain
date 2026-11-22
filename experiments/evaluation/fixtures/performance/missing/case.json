@@ -1,0 +1,5 @@
+{
+  "description": "missing input: the raw root does not exist; exit 3 and no result file",
+  "args": ["--raw-root", "{case}/absent-raw", "--derived-root", "{case}/absent-derived", "--instance-hour-usd", "0.24"],
+  "expectExit": 3
+}

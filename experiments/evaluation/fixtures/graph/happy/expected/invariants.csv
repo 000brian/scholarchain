@@ -1,0 +1,24 @@
+observation,check,left_table,left_value,right_table,right_value,result,integrity_property,kind
+observation 1,invalid_records total,all tables,2,tables,28,nonzero,"schema validity of every output row (core contract check); rejects and integrity_violations have no mirror, so their invalid_records are 0 by construction",a
+observation 1,records,integrity_violations,0,,,zero,"sum of the graph integrity checks (referential, orphan, duplicate assignment, consistency); per-check counts are not in this file",a
+observation 1,records,rejects,0,,,zero,invalid input records (decode or contract failure),a
+observation 1,records,unresolved_mention,0,,,zero,mentions without an identity assignment,a
+observation 1,equal counts,nodes:researcher,10,canonical_researcher,10,equal,every canonical researcher is a node,a
+observation 1,equal counts,nodes:work,6,edges:published_in,6,equal,every work has one venue edge,a
+observation 1,equal counts,coauthor_edge:full-2015-2025,20,edges:coauthored_with:full-2015-2025,20,equal,every coauthor edge has its graph edge (window full-2015-2025),a
+observation 1,equal counts,coauthor_edge:w2024-2025,7,edges:coauthored_with:w2024-2025,6,different,every coauthor edge has its graph edge (window w2024-2025),a
+observation 1,equal counts,metrics:breadth:full-2015-2025,10,metrics:group_size:full-2015-2025,10,equal,one metric row per active researcher in every metric table (window full-2015-2025),a
+observation 1,equal counts,metrics:breadth:full-2015-2025,10,bridges:full-2015-2025,10,equal,one metric row per active researcher in every metric table (window full-2015-2025),a
+observation 1,equal counts,metrics:breadth:full-2015-2025,10,kcore:full-2015-2025,10,equal,one metric row per active researcher in every metric table (window full-2015-2025),a
+observation 1,equal counts,metrics:breadth:full-2015-2025,10,components:full-2015-2025,10,equal,one metric row per active researcher in every metric table (window full-2015-2025),a
+observation 1,equal counts,metrics:breadth:full-2015-2025,10,communities:full-2015-2025,10,equal,one metric row per active researcher in every metric table (window full-2015-2025),a
+observation 1,equal counts,metrics:breadth:full-2015-2025,10,evidence:metric:full-2015-2025,10,equal,one metric row per active researcher in every metric table (window full-2015-2025),a
+observation 1,equal counts,metrics:breadth:w2024-2025,5,metrics:group_size:w2024-2025,5,equal,one metric row per active researcher in every metric table (window w2024-2025),a
+observation 1,equal counts,metrics:breadth:w2024-2025,5,bridges:w2024-2025,5,equal,one metric row per active researcher in every metric table (window w2024-2025),a
+observation 1,equal counts,metrics:breadth:w2024-2025,5,kcore:w2024-2025,5,equal,one metric row per active researcher in every metric table (window w2024-2025),a
+observation 1,equal counts,metrics:breadth:w2024-2025,5,components:w2024-2025,5,equal,one metric row per active researcher in every metric table (window w2024-2025),a
+observation 1,equal counts,metrics:breadth:w2024-2025,5,communities:w2024-2025,,not measurable from the frozen evidence (table absent: communities:w2024-2025),one metric row per active researcher in every metric table (window w2024-2025),a
+observation 1,equal counts,metrics:breadth:w2024-2025,5,evidence:metric:w2024-2025,5,equal,one metric row per active researcher in every metric table (window w2024-2025),a
+observation 1,equal counts,canonical_researcher,10,metrics:breadth:full-2015-2025,10,equal,every canonical researcher has a full-window metric row,a
+observation 1,equal counts,path_evidence:full-2015-2025,3,semantic_summary:path:full-2015-2025,3,equal,one path summary per path evidence row (window full-2015-2025),a
+observation 1,difference (not an invariant),authorship,15,edges:authored,14,difference 1,authored edges are one per researcher and work; authorship rows are one per mention: a difference is possible where a researcher has two mentions on one work (not checked further),a

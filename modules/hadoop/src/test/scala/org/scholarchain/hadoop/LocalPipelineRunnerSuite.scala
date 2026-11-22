@@ -57,6 +57,36 @@ class LocalPipelineRunnerSuite extends munit.FunSuite {
     assertEquals(LocalPipelineRunner.overLimit(179 * min, 0, None, 120, 180), None)
   }
 
+  test("effective settings: defaults plus -D (override wins), -D Hadoop keys, no per-run keys") {
+    val conf = TestSupport.localConf(
+      TestSupport.tempDir("runner-settings"),
+      Settings.Keys.CodeVersion -> "v1",
+      Settings.Keys.BlockingMaxBlock -> "3",
+      "mapreduce.task.timeout" -> "60000",
+      Settings.Keys.RunId -> "per-run"
+    )
+    val overrides = List(
+      Settings.Keys.CodeVersion -> "v1",
+      Settings.Keys.BlockingMaxBlock -> "3",
+      "mapreduce.task.timeout" -> "60000"
+    )
+    val eff = LocalPipelineRunner.effectiveSettings(conf, overrides)
+    val m = eff.toMap
+    assertEquals(eff.map(_._1), eff.map(_._1).sorted)
+    assertEquals(m(Settings.Keys.CodeVersion), "v1")
+    assertEquals(m(Settings.Keys.BlockingMaxBlock), "3")
+    // keys left at their default (scholarchain-hadoop-defaults.xml) are recorded too
+    assertEquals(m(Settings.Keys.FallbackMaxBlock), "200")
+    assertEquals(m(Settings.Keys.CandidateMaxPairsPerBlock), "125000")
+    assertEquals(m("mapreduce.task.timeout"), "60000")
+    // per-run keys and Hadoop keys not given with -D are left out
+    assert(!m.keys.exists(_.startsWith(Settings.RunPrefix)))
+    assert(!m.keys.exists(_.startsWith(Settings.PathPrefix)))
+    assert(!m.contains("fs.defaultFS"))
+    // the caller's configuration is not changed (defaults are added to a copy)
+    assertEquals(Option(conf.get(Settings.Keys.FallbackMaxBlock)), None)
+  }
+
   test("a full run on the synthetic sample writes the report; a non-empty output is refused") {
     val work = TestSupport.tempDir("runner")
     val out = work.resolve("attempt-01")
@@ -110,12 +140,24 @@ class LocalPipelineRunnerSuite extends munit.FunSuite {
     // both fallback size stats are surfaced; the emitted one never exceeds the fallback cap
     assert(s("fallback").obj.contains("largestFallbackBlock"))
     assert(s("fallback").obj.contains("largestEmittedFallbackBlock"))
+    // G-19: settings holds effective values, so the fallback cap left at its default is recorded
+    // (default 200 since Phase 14 G-17, scholarchain-hadoop-defaults.xml); overrides holds the -D
+    assertEquals(saved("settings")(Settings.Keys.FallbackMaxBlock).str, "200")
+    assertEquals(saved("settings")(Settings.Keys.BlockingMaxBlock).str, "3")
+    assertEquals(saved("settings")(Settings.Keys.CandidateMaxPairsPerBlock).str, "125000")
+    assertEquals(
+      saved("overrides").obj.keySet.toSet,
+      Set(
+        Settings.Keys.CodeVersion,
+        Settings.Keys.BlockingFamilies,
+        Settings.Keys.BlockingMaxBlock,
+        Settings.Keys.CandidateSkipSameNumberedName
+      )
+    )
+    assertEquals(saved("overrides")(Settings.Keys.BlockingMaxBlock).str, "3")
     val emittedFallback = s("fallback")("largestEmittedFallbackBlock")
     if (!emittedFallback.isNull) {
-      val cap = saved("settings").obj
-        .get(Settings.Keys.FallbackMaxBlock)
-        .map(_.str.toDouble)
-        .getOrElse(500.0)
+      val cap = saved("settings")(Settings.Keys.FallbackMaxBlock).str.toDouble
       assert(emittedFallback("value").num <= cap)
       assert(emittedFallback("value").num <= s("fallback")("largestFallbackBlock")("value").num)
     }

@@ -1,0 +1,5 @@
+{
+  "description": "malformed input: the report has the wrong format field; exit 5 and no result file",
+  "args": ["--report", "{case}/report.json", "--seed", "7"],
+  "expectExit": 5
+}

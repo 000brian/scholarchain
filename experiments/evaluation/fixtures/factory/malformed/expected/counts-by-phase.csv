@@ -1,0 +1,3 @@
+phase,execution_source,executions,executions_done,first_pass_accepted,findings_total,findings_critical,findings_major,findings_minor,findings_advisory,repairs,blocked_on_terminal,blocked_on_rows,blocked_on_rows_not_in_terminal,blocked_on_total,manual_interventions,hook_blocks,ownership_violations,human_rewrites,unclassified
+phase-00,none,0,0,0,0,0,0,0,0,0,0,0,0,not measurable (no summary step table or runbook log),0,0,0,0,1
+phase-99,none,0,0,0,0,0,0,0,0,0,0,0,0,not measurable (no summary step table or runbook log),0,0,0,0,1

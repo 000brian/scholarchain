@@ -1,0 +1,3 @@
+answer_key,question,answer_text,usefulness_1_to_5,clarity_1_to_5,not_rateable,dblp_names_exist,rater_note
+R01,Is there a path from A to B?,No path within 6 hops was found.,,,,,
+R02,Who works with B?,"B works with C, see the evidence list.",,,,,

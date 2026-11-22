@@ -59,6 +59,19 @@ object ServiceLimits {
   val MaxPathChars: Int = 512
   val MaxQueryChars: Int = 2048
 
+  /** Default time limit of one `GET /v1/evidence/{id}` or `GET /v1/explain/{queryId}` read (Phase
+    * 12 item, built in Phase 16; `ServerOptions.readDeadlineMillis`). A read past it answers 504
+    * `READ_TIMEOUT` (retryable) and counts as a failure of the reads breaker. Ten seconds is longer
+    * than storage's bounded key-value retry needs in the worst case (5 retries, delays 200 ms
+    * doubling: about 6.2 s of waiting, an estimate from the `vectors` retry settings of
+    * `config/course.json`), well under `service.syncDeadlineMillis` (25 s) and under a load
+    * balancer's 60 s idle timeout, so an interactive read never hangs a handler thread for longer.
+    */
+  val ReadRouteDeadlineMillis: Long = 10000L
+
+  /** Largest accepted `ServerOptions.readDeadlineMillis`: a load balancer's 60 s idle timeout. */
+  val MaxReadRouteDeadlineMillis: Long = 60000L
+
   /** Audit events read for one explain request (storage's read bound). */
   val ExplainAuditLimit: Int = 1000
 

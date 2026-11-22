@@ -37,7 +37,13 @@ final case class VerifiedClaim(
   *     Y`, `since X`, `in X`, ...) must equal a first or last year of a cited edge or the year of a
   *     cited work. A window year alone never supports a single year;
   *   - every number the claim binds (`numbers[]`) equals the named field of the named cited item;
-  *   - "N hops" equals the hop count of a cited path item;
+  *   - "N hops" equals the hop count of a cited path item; against a cited complete `path=none`
+  *     item whose `maxDepth` is at least N it is a conflict (P16-A-09);
+  *   - an absence claim ("no path within N hops", "not connected within depth N") citing a
+  *     `path=none` item is supported only by a complete search whose `maxDepth` is at least N; a
+  *     search that stopped early (time or graph store resource limit) never supports it (Phase 16
+  *     L2). Only a clause whose negation governs the path phrase is an absence statement; hop
+  *     counts outside such a clause are checked as positive hop counts (P16-A-09);
   *   - every quoted title equals the title of a cited work item;
   *   - every identifier and every capitalized name in the text belongs to a cited graph item;
   *   - a `semantic_context` item never supports a number, edge, path, component, community or
@@ -85,6 +91,11 @@ object ClaimVerification {
     val SemanticGraph =
       "semantic context cannot support a number, edge, path, component, community or bridge claim"
     val NoCitedEvidence = "no cited evidence is in the bundle"
+    // Phase 16 L2: absence claims ("no path within N hops") against `path=none` items
+    val AbsenceBoundedSearch =
+      "an absence claim cites a path search that stopped early, so whether a path exists is unknown"
+    val AbsenceBeyondDepth = "an absence claim states a depth beyond the completed path search"
+    val AbsenceNoDepth = "an absence claim states no depth limit, but the path search was bounded"
     val all: List[String] = List(
       CitedNotInBundle,
       EvidenceIdNotCited,
@@ -106,6 +117,9 @@ object ClaimVerification {
       BoundConflict,
       SemanticGraph,
       NoCitedEvidence,
+      AbsenceBoundedSearch,
+      AbsenceBeyondDepth,
+      AbsenceNoDepth,
       NothingCheckable
     )
   }
@@ -116,6 +130,57 @@ object ClaimVerification {
   // a cited work item (its venueKey's last segment, case-insensitive), as in `ACL (1)`
   private val VenueNumRe = "(\\p{Lu}[\\p{L}]{0,30}) \\(([0-9]{1,2})\\)".r
   private val HopRe = "\\b([0-9]+)\\s+(?:hops?|steps?)\\b".r
+  // Phase 16 L2: a path absence statement. Uncertainty phrases are blanked first, so "did not
+  // complete; whether a path exists is unknown" is not an absence claim, while a governed absence
+  // phrase beside it still is ("did not complete, but no path exists")
+  private val UncertainRe: Regex =
+    ("(?i)\\b(?:did not|didn't|could not|couldn't|cannot|can't)\\s+(?:be\\s+)?" +
+      "(?:complete|completed|finish|finished|determine|determined|decide|decided|tell)\\b|" +
+      "(?i)\\bnot\\s+(?:known|determined|decided)\\b").r
+  // P16-A-09: a negation counts only when it governs the path phrase: "no [up to two modifiers]
+  // path/connection", "not [up to two fillers] connected/linked/reachable", "not within N hops" or
+  // "not within depth N". A negation elsewhere ("is not a direct coauthor; they are connected
+  // within 3 hops", "although they never coauthored, ... linked within 3 hops") is not an absence
+  // statement, so its hop counts are checked as positive hop counts.
+  private val AbsencePhraseRe: Regex =
+    ("(?i)\\b(?:no|without)\\s+(?:(?:any|such|known|direct|indirect|coauthorship|co-authorship|" +
+      "collaboration|collaborative|connecting|shortest|other)\\s+){0,2}" +
+      "(?:paths?|connections?|routes?|chains?)\\b|" +
+      "(?i)\\b(?:not|never|neither|nor|isn't|aren't|wasn't|weren't|doesn't|don't|didn't|cannot|" +
+      "can't)\\s+(?:(?:be|been|directly|indirectly|even|yet|mutually|find|found|any|a|have|has)" +
+      "\\s+){0,2}(?:connected|connects?|linked|links?|reachable|reached|reach|joined|paths?)\\b|" +
+      "(?i)\\bnot\\s+(?:even\\s+)?(?:with)?in\\s+(?:depth\\s+(?:limit\\s+)?(?:of\\s+)?[0-9]+|" +
+      "[0-9]+\\s+(?:hops?|steps?))\\b").r
+  // the bounds of an absence phrase's clause: a comma, semicolon or colon before a space, a
+  // sentence end after a word of two or more characters (never the initial of `J. Smith`), a
+  // contrastive conjunction, or `and` that starts a new clause ("and they ..."); a plain `and`
+  // between two names ("Alice Smith and Bob Jones") does not end the clause
+  private val AbsenceClauseSep: Regex =
+    ("(?i)[,;:](?=\\s|$)|(?<=[\\p{L}\\p{N}]{2})[.!?](?=\\s|$)|" +
+      "\\s(?:but|while|whereas|although|though|yet|however)\\s|" +
+      "\\sand\\s+(?=(?:they|there|it|he|she|both|are|is|was|were|have|has)\\b)").r
+  private val DepthRe: Regex = "(?i)\\bdepth\\s+(?:limit\\s+)?(?:of\\s+)?([0-9]+)\\b".r
+
+  /** The clauses (start, end) of `text` that state that no path exists: each clause holds a
+    * negation that governs a path phrase (Phase 16 L2, P16-A-09). Uncertainty phrases are blanked
+    * first. Positions refer to `text`.
+    */
+  private[runtime] def absenceSpans(text: String): List[(Int, Int)] = {
+    val t = UncertainRe.replaceAllIn(text, m => " " * m.matched.length)
+    val seps = AbsenceClauseSep.findAllMatchIn(t).toList
+    AbsencePhraseRe
+      .findAllMatchIn(t)
+      .map { m =>
+        val start = seps.map(_.end).filter(_ <= m.start).maxOption.getOrElse(0)
+        val end = seps.map(_.start).filter(_ >= m.end).minOption.getOrElse(t.length)
+        (start, end)
+      }
+      .toList
+      .distinct
+  }
+
+  /** The text states that no path exists (Phase 16 L2). */
+  private[runtime] def statesAbsence(text: String): Boolean = absenceSpans(text).nonEmpty
   private val Year = "((?:19|20)[0-9]{2})"
   private val RangeRe: Regex = s"(?<![\\p{N}])$Year\\s*[-–—]\\s*$Year(?![\\p{N}])".r
   private val BetweenRe: Regex = s"(?i)\\bbetween\\s+$Year\\s+and\\s+$Year\\b".r
@@ -278,14 +343,49 @@ object ClaimVerification {
       }
     )
 
-    // ---- hop counts ----
+    // ---- path absence (Phase 16 L2) ----
+    // An absence claim citing a `path=none` item is checked against that item's completeness and
+    // searched depth: only a complete search supports it, and only up to its `maxDepth`. A bounded
+    // search (time or resource limit, `complete=false`) never supports it.
+    val absentItems = graph.filter(i =>
+      i.evidenceType == EvidenceType.GraphPath &&
+        EvidenceValues.pairs(i).get("found").contains("false")
+    )
+    // P16-A-09: only the clauses whose negation governs a path phrase are absence statements; a hop
+    // count or depth inside them is an absence depth, every hop count outside them is a positive
+    // hop count and is checked below
+    val spans = if (absentItems.nonEmpty) absenceSpans(stripped) else Nil
+    val absence = spans.nonEmpty
+    def inAbsence(m: Regex.Match): Boolean =
+      spans.exists { case (s, e) => m.start >= s && m.end <= e }
+    val completeDepths = absentItems
+      .filter(i => EvidenceValues.pairs(i).get("complete").contains("true"))
+      .flatMap(i => EvidenceValues.numbers(i).get("maxDepth"))
+    if (absence) {
+      val stated = (HopRe.findAllMatchIn(stripped) ++ DepthRe.findAllMatchIn(stripped))
+        .filter(inAbsence)
+        .map(_.group(1).toDouble)
+        .toList
+      if (completeDepths.isEmpty) unbacked += Reasons.AbsenceBoundedSearch
+      else if (stated.isEmpty) uncovered += Reasons.AbsenceNoDepth
+      else
+        stated.foreach { d =>
+          if (completeDepths.exists(_ >= d)) checked += 1
+          else unbacked += Reasons.AbsenceBeyondDepth
+        }
+    }
+
+    // ---- hop counts (of found paths; an absence statement's depth was checked above) ----
+    // P16-A-09: a positive hop count N against a complete search that found no path within a
+    // depth of at least N contradicts that search
     val paths = graph
       .filter(_.evidenceType == EvidenceType.GraphPath)
       .flatMap(i => EvidenceValues.numbers(i).get("hops"))
-    HopRe.findAllMatchIn(stripped).foreach { m =>
+    HopRe.findAllMatchIn(stripped).filterNot(inAbsence).foreach { m =>
       val h = m.group(1).toDouble
       if (paths.contains(h)) checked += 1
       else if (paths.nonEmpty) conflicts += Reasons.HopsConflict
+      else if (completeDepths.exists(_ >= h)) conflicts += Reasons.HopsConflict
       else uncovered += Reasons.HopsNoPath
     }
 
@@ -308,7 +408,12 @@ object ClaimVerification {
           .flatMap(i => EvidenceValues.pairs(i).get("contextWindowLabel"))
           .flatMap(windows.get)
           .map(w => (w.startYear, w.endYear))).toSet
-    var rest = stripped
+    // an absence statement's depths were checked above; they are not free numbers (hop counts
+    // outside an absence clause stay, as before)
+    var rest =
+      List(HopRe, DepthRe).foldLeft(stripped)((t, re) =>
+        re.findAllMatchIn(t).filter(inAbsence).foldLeft(t)((u, m) => blank(u, m.start, m.end))
+      )
     List(RangeRe, BetweenRe).foreach { re =>
       re.findAllMatchIn(rest).toList.foreach { m =>
         val r = (m.group(1).toInt, m.group(2).toInt)

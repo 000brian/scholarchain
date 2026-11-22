@@ -1,0 +1,10 @@
+{
+  "format": "scholarchain.rag.benchmark-run-report",
+  "formatVersion": 1,
+  "results": {
+    "questions": 2,
+    "answers": {
+      "claimCounts": {"verified": "five", "unsupported": 1}
+    }
+  }
+}

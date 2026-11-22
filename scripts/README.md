@@ -214,3 +214,37 @@ For smoke-test.sh, export the full-access service key in your shell without echo
 - B (collaboration path, Neptune path template; benchmark q13): `Find the shortest path between Tommaso Green and Yiannis Demiris in the coauthorship graph for 2015-2025.` A correct answer resolves both researchers, has a path of exactly 2 hops through one shared coauthor and no direct edge, with a COAUTHORED_WITH edge fact per hop and at least one verified claim. A failure here is a finding, not a gate failure.
 
 Phase 13 (decision 13): only check.sh (fresh clone), package.sh (no `--publish`), plan.sh and `archive-evidence.sh --local-only` were run, by the human.
+
+## AWS Emulator (Phase 16, decision 12; run book step E14)
+
+Local only: no AWS account, no cost, no network beyond Docker's image build. The emulator is AWS's local emulator of the AWS APIs (https://docs.aws.amazon.com/emulator/latest/userguide/what-is-service.html); on macOS it runs in Docker from an image you build (https://docs.aws.amazon.com/emulator/latest/userguide/getting-started-docker.html). Files: `docker/emulator/Dockerfile` (build-engineer), `config/emulator.json`, `scripts/emulator/env.sh`, `scripts/emulator/setup.sh`, `scripts/emulator/probes.sh`, `scripts/emulator/lib.sh` (shared safety contract), `scripts/emulator/OPERATIONS.md` (which operations are documented, and which stay probes). Status of every emulator script: `static: shellcheck clean`, `runtime: untested`, `human execution required`.
+
+Two terminals: the **emulator terminal** runs only `docker run` (step 5) and shows the emulator's log; the **[EMULATOR] terminal** is every other step after step 8, with the `[EMULATOR] ` prompt. Never use the [EMULATOR] terminal for anything else (its AWS variables point at the emulator), and never run the emulator steps while another sbt process, a source-changing repair or a commit runs. Every line is one zsh line from the repository root.
+
+| Step | Terminal | Command | Success looks like |
+|---|---|---|---|
+| 1 | any | `docker info` | prints the server section (Docker is running) |
+| 2 | any | `docker build -t scholarchain-emulator docker/emulator` | ends with the image named `scholarchain-emulator` |
+| 3 | any | `docker image inspect scholarchain-emulator --format '{{.Architecture}}'` | prints `arm64` (Apple silicon package) |
+| 3b | any | `docker image inspect scholarchain-emulator --format '{{.Id}}'` | the image ID: record it (later E14 runs reuse this image) |
+| 4 | any | `mkdir -p ~/.aws/emulator` | no output (the folder the container shares, so its files belong to you) |
+| 5 | emulator terminal | `docker run --rm --memory=2g --memory-swap=2g -p 127.0.0.1:9297:9297 -e HOME="$HOME" -v "$HOME/.aws/emulator:$HOME/.aws/emulator" scholarchain-emulator -p 9297 --telemetry off` | a JSON startup line whose `message` is `emulator server information`; record the version the emulator prints (the package is the documentation's `LTS/latest`). `127.0.0.1:` in `-p` keeps the port off your network; `--telemetry off` sends no usage data (https://docs.aws.amazon.com/emulator/latest/userguide/telemetry.html) |
+| 6 | second terminal | `aws --version` | AWS CLI v2 |
+| 7 | second terminal | `for i in $(seq 30); do curl -sf --cacert ~/.aws/emulator/9297/ca.pem https://127.0.0.1:9297/__admin/health && break; sleep 1; done; echo` | prints `ok` within 30 tries (the documentation's wait loop, https://docs.aws.amazon.com/emulator/latest/userguide/point-sdk-to-emulator.html) |
+| 7b | second terminal | `ls ~/.aws/emulator/9297/` | lists `ca.pem`, `config`, `emulator_credentials`, `truststore.p12` |
+| 8 | second terminal (becomes the [EMULATOR] terminal) | `source scripts/emulator/env.sh` | `INFO: env.sh: this terminal now targets the AWS Emulator ... Credentials file present: yes`; the prompt starts with `[EMULATOR] ` |
+| 9 | [EMULATOR] | `export SCHOLARCHAIN_EMULATOR_RUN_ID=...` and `export SCHOLARCHAIN_EMULATOR_RESULTS_DIR=...` (absolute, `experiments/emulator/raw/RUN_ID/`) | the orchestrator writes both lines with the values filled in; one run ID for the whole attempt |
+| 10 | [EMULATOR] | `mkdir -p "$SCHOLARCHAIN_EMULATOR_RESULTS_DIR"` then `ls -d "$SCHOLARCHAIN_EMULATOR_RESULTS_DIR"` | the folder exists |
+| 11 | [EMULATOR] | `bash scripts/emulator/setup.sh` | `INFO: setup.sh emulator account confirmed: yes`, then `SUMMARY: setup.sh created=... failed=0`; exit 0 (6 means a create failed: the RESULT lines say which) |
+| 12 | [EMULATOR] | `sbt storage/EmulatorTest/test` | the storage emulator suite ran; coverage is read from `results-*.jsonl` in the results folder, not from the exit code |
+| 13 | [EMULATOR] | `sbt services/EmulatorTest/test` | the services emulator suite ran (after step 12, never at the same time) |
+| 14 | [EMULATOR] | `bash scripts/emulator/probes.sh` | `SUMMARY: probes.sh ...`; `probes.jsonl` in the results folder; exit 0, or 6 when a probe recorded implemented-failed or infrastructure-failure (results complete) |
+| 15 | emulator terminal | Ctrl+C | the emulator stops; it deletes its files in `~/.aws/emulator/9297/` and all emulated resources (state is in memory only, https://docs.aws.amazon.com/emulator/latest/userguide/cli-reference.html) |
+
+Rules the scripts and suites enforce (the emulator safety contract, Phase 16 decision 6.6; the scripts' copy is `scripts/emulator/lib.sh`): the endpoint is exactly `https://127.0.0.1:9297` (no `localhost`: with it the Java SDK puts the bucket in the host name, point-sdk-to-emulator.html) and `AWS_ENDPOINT_URL` equals it; `AWS_SHARED_CREDENTIALS_FILE` and `AWS_CONFIG_FILE` are exactly the emulator's files under `$HOME/.aws/emulator/9297/`; `AWS_PROFILE`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_ROLE_ARN`, `AWS_WEB_IDENTITY_TOKEN_FILE`, `AWS_CONTAINER_CREDENTIALS_RELATIVE_URI` and `AWS_CONTAINER_CREDENTIALS_FULL_URI` are unset; `SCHOLARCHAIN_CONFIG_FILE` and `SCHOLARCHAIN_EMULATOR_RESULTS_DIR` are absolute. The scripts also check the health route and that STS answers with the emulator's single account (compared, never printed or recorded: they print `emulator account confirmed: yes|no`), and pass `--endpoint-url` explicitly on every AWS CLI call. `JAVA_TOOL_OPTIONS` is never set: the sbt `EmulatorTest` configuration gives the emulator trust store to the forked test JVM only.
+
+A re-run, full or partial, starts with a restarted emulator (step 15, then step 5 with the same image), a new run ID and results folder, and `setup.sh` again; setup.sh and probes.sh refuse a results folder that already holds their file.
+
+Environment variables (names): read by the scripts: `SCHOLARCHAIN_EMULATOR_ENDPOINT`, `AWS_ENDPOINT_URL`, `AWS_SHARED_CREDENTIALS_FILE`, `AWS_CONFIG_FILE`, the eight unset variables above, `SCHOLARCHAIN_CONFIG_FILE`, `SCHOLARCHAIN_EMULATOR_RESULTS_DIR`, `SCHOLARCHAIN_EMULATOR_RUN_ID` (probes.sh, vector key tag), `HOME`, `TMPDIR`; set by env.sh: `AWS_ENDPOINT_URL`, `AWS_SHARED_CREDENTIALS_FILE`, `AWS_CONFIG_FILE`, `AWS_CA_BUNDLE`, `AWS_EC2_METADATA_DISABLED`, `AWS_DISABLE_HOST_PREFIX_INJECTION`, `AWS_REGION`, `AWS_DEFAULT_REGION`, `SCHOLARCHAIN_EMULATOR_ENDPOINT`, `SCHOLARCHAIN_CONFIG_FILE`.
+
+Exit codes (setup.sh, probes.sh): 0 ok; 2 usage; 3 missing prerequisite (tool, file, results folder, emulator not healthy); 4 refused by a safety rule (one `preflight` line in the results file when the results folder is usable); 5 unexpected command failure; 6 a create or probe call failed (results complete); 7 interrupted.

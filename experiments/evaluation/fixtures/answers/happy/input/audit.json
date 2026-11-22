@@ -1,0 +1,11 @@
+{
+  "Items": [
+    {"eventType": {"S": "claim"}, "attempt": {"N": "1"}, "runId": {"S": "run:v1:abc"}},
+    {"eventType": {"S": "query-audit"}, "attempt": {"N": "1"}, "runId": {"S": "run:v1:abc"},
+     "record": {"S": "{\"schemaVersion\":3,\"queryRunId\":\"run:v1:abc\",\"questionHash\":\"sha256:qh\",\"graphRunId\":\"run:v1:graphfixture\",\"promptVersions\":[\"synthesis-p3\",\"planner-p1\"],\"verificationCounts\":{\"verified\":3,\"partially_supported\":0,\"unsupported\":1,\"conflicting\":0},\"abstained\":false,\"abstentionCodes\":[]}"}},
+    {"eventType": {"S": "claim"}, "attempt": {"N": "2"}, "runId": {"S": "run:v1:abc"}},
+    {"eventType": {"S": "query-audit"}, "attempt": {"N": "2"}, "runId": {"S": "run:v1:abc"},
+     "record": {"S": "{\"schemaVersion\":3,\"queryRunId\":\"run:v1:abc\",\"questionHash\":\"sha256:qh\",\"graphRunId\":\"run:v1:graphfixture\",\"promptVersions\":[\"planner-p1\",\"synthesis-p3\"],\"verificationCounts\":{\"verified\":3,\"partially_supported\":0,\"unsupported\":1,\"conflicting\":0},\"abstained\":false,\"abstentionCodes\":[]}"}}
+  ],
+  "Count": 4
+}

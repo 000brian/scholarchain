@@ -6,9 +6,12 @@ runtime: untested
 
 Reads, per attempt folder (common.py has the shared layout):
   metrics/metric-data.json  AWS/ElasticMapReduce series per cluster (dimension JobFlowId):
-                            TotalUnitsRequested, TotalUnitsRunning, CoreUnitsRequested,
-                            CoreUnitsRunning, CoreNodesRequested, CoreNodesRunning,
-                            ContainerPending, AppsPending, YARNMemoryAvailablePercentage
+                            CoreNodesRequested, CoreNodesRunning, TotalNodesRequested,
+                            TotalNodesRunning, ContainerPending, AppsPending,
+                            YARNMemoryAvailablePercentage (the Phase 15 manifests query the
+                            Nodes metrics; TotalUnits* and CoreUnits* are not published for
+                            instance-group clusters and were never queried, so they are not
+                            named: Phase 16 AB-4 and J-03)
   emr-cluster.json          (written by experiments/collectors/ab-pipeline.sh; optional)
                             {"clusters": [{"clusterId", "createdEpoch", "readyEpoch",
                               "terminationRequestedEpoch", "endedEpoch", "finalState",
@@ -32,18 +35,20 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
 
 DEFAULT_MANIFESTS = ["p15-a-hadoop", "p15-a-spark", "p15-b-spark-burst"]
+# The capacity series the manifests query (Phase 16 AB-4, J-03: never-queried Units series are
+# not named, so missing.csv no longer lists them as "series not exported").
 UNIT_METRICS = [
-    "TotalUnitsRequested",
-    "TotalUnitsRunning",
-    "CoreUnitsRequested",
-    "CoreUnitsRunning",
     "CoreNodesRequested",
     "CoreNodesRunning",
+    "TotalNodesRequested",
+    "TotalNodesRunning",
 ]
 YARN_METRICS = ["ContainerPending", "AppsPending"]
 MEMORY_METRICS = ["YARNMemoryAvailablePercentage"]
-RUNNING_PREFERENCE = ["TotalUnitsRunning", "CoreUnitsRunning", "CoreNodesRunning"]
-REQUESTED_PREFERENCE = ["TotalUnitsRequested", "CoreUnitsRequested", "CoreNodesRequested"]
+# CoreNodes first: the series Phase 15 classified with (the Units series never existed), so
+# attempts.csv is unchanged.
+RUNNING_PREFERENCE = ["CoreNodesRunning", "TotalNodesRunning"]
+REQUESTED_PREFERENCE = ["CoreNodesRequested", "TotalNodesRequested"]
 
 
 def lifecycle(attempt):
@@ -151,7 +156,7 @@ def main():
                     xs += [w0 - 300, (w1 or w0) + 300]
                 xr = (min(xs), max(xs)) if xs else (None, None)
                 panels = [
-                    {"title": "capacity units and nodes", "y_label": "units / nodes",
+                    {"title": "capacity (nodes)", "y_label": "nodes",
                      "series": [(m, by_metric[m].points if m in by_metric else []) for m in UNIT_METRICS]},
                     {"title": "YARN pending", "y_label": "count",
                      "series": [(m, by_metric[m].points if m in by_metric else []) for m in YARN_METRICS]},

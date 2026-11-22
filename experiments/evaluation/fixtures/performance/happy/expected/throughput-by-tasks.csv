@@ -1,0 +1,3 @@
+manifest,attempt,worker_running,periods,deleted_total,per_second_mean,sample_note,rule
+p15-c-embedding-backlog,C1,1,1,540,9,few samples,periods in which every worker sample shows this running count
+p15-c-embedding-backlog,C1,2,1,1440,24,few samples,periods in which every worker sample shows this running count

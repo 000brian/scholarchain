@@ -649,7 +649,9 @@ final class PathFinder(
                           "graph-v1",
                           ctx.graphRunId.value
                         ),
-                        20
+                        20,
+                        // Phase 16 L1: why an incomplete search stopped (time or resource limit)
+                        if (r.complete) None else r.stoppedBy
                       )
                     )
                 }
@@ -663,7 +665,7 @@ final class PathFinder(
             if (absent.complete)
               s"No path between ${a.displayName} and ${b.displayName} exists within depth ${absent.maxDepth} in ${s.windowLabel}."
             else
-              s"The path search between ${a.displayName} and ${b.displayName} stopped at the time limit after depth ${absent.depthSearched}; whether a path exists is unknown."
+              s"The path search between ${a.displayName} and ${b.displayName} stopped at ${absent.stopPhrase} after depth ${absent.depthSearched}; whether a path exists is unknown."
           StageOutput(List(absent), List(note), Nil)
         case Right(Right((ids, origin, sparkId, truncated, src))) =>
           if (ids.size < 2 || ids.exists(!_.isWellFormed) || ids.head != a.id || ids.last != b.id)

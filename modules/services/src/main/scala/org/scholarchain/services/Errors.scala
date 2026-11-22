@@ -81,6 +81,10 @@ object ErrorCode {
   case object WORKFLOW_TIMEOUT
       extends ErrorCode(504, true, "The query did not finish within the synchronous deadline.")
 
+  /** Phase 16 (route time limits): an evidence or explain read passed its time limit. */
+  case object READ_TIMEOUT
+      extends ErrorCode(504, true, "The read did not finish within the route time limit.")
+
   val all: List[ErrorCode] = List(
     INVALID_JSON,
     INVALID_REQUEST,
@@ -110,7 +114,8 @@ object ErrorCode {
     DOWNSTREAM_FAILURE,
     OVERLOADED,
     CIRCUIT_OPEN,
-    WORKFLOW_TIMEOUT
+    WORKFLOW_TIMEOUT,
+    READ_TIMEOUT
   )
 }
 

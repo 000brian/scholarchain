@@ -13,6 +13,12 @@ Owner: `experiment-engineer`. This folder holds experiment manifests, raw result
 | `collectors/lib/collector-common.sh` | helpers the collectors source (never executed; no executable bit) | `experiment-engineer` |
 | `raw/MANIFEST_ID/ATTEMPT_ID/` | raw results of one run; read-only after collection; committed by the human | `scripts/run-experiment.sh` (moved there after the run) |
 | `derived/` | tables and plots, each reproducible from a committed script over `raw/` | `experiment-engineer` |
+| `evaluation/evaluate.py` | Phase 16 evaluation tool: one self-contained Python 3 standard-library file; usage, rules and exit codes in its docstring | `experiment-engineer` |
+| `evaluation/suite-v1.json` | the evaluation suite (entries, arguments, pinned inputs); approved only by the human's signed line at E3 | `experiment-engineer` |
+| `evaluation/rubric-v1.md`, `evaluation/intended-differences-v1.csv` | the rating rubric; the intended differences of E10's current-version regeneration | `experiment-engineer` |
+| `evaluation/spark-suite-table-v1.csv` | spark-engineer's Phase 16 group 2 suite table (43 tests), copied verbatim as the input of `evaluate.py graph` | `experiment-engineer` (content: `spark-engineer`) |
+| `evaluation/fixtures/SUBCOMMAND/CASE/` | hand-written fixture cases (`case.json`, `input/`, `expected/`), never results | `experiment-engineer` |
+| `evaluation/raw/GROUP/RUN_ID/` | evaluation outputs; immutable after collection; committed by the human (E12) | `evaluate.py`, run by the human |
 
 Load generators live under `load-tests/` (also `experiment-engineer`).
 

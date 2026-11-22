@@ -1,0 +1,4 @@
+cluster_id,step_name,log,job_id,counter,value
+j-FIXTURE,pipeline,syslog,job_1,map_input_splits,1
+j-FIXTURE,pipeline,syslog,job_2,map_input_splits,12
+j-FIXTURE,pipeline,syslog,job_2,other_counter,99

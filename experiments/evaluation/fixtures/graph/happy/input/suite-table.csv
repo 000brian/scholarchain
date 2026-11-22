@@ -1,0 +1,5 @@
+suite,test_ref,test_title,group2_checks,expectation_source,evidence,note
+KG,KG.scala:10,degree sheet,degree;weighted_degree,independent,literal sheet,
+KG,KG.scala:20,paths sheet,paths,independent,literal hops,calls Paths directly
+PF,PF.scala:30,path evidence,paths;integrity,mixed,code report,
+PF,PF.scala:40,determinism,none,property,run 2 vs run 1,group 7

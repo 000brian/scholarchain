@@ -112,7 +112,18 @@ Gates, in order (each has its own "STEP: check.sh gate-NAME" marker and a
                      (exit 0; the tar has one root folder, MANIFEST.json,
                      repo/, no top-level reports/, and the archive_keys rule
                      that cleanup.sh uses gives keys under repo/, plans/ and
-                     MANIFEST.json only). A probe that reached a cloud call
+                     MANIFEST.json only). Two in-process probes of shared
+                     functions of scripts/lib/identity.sh (Phase 16), no
+                     script run, no network: output-value (L-12:
+                     sc_output_value on a fixture prints true, false, a
+                     string, and nothing for a null or missing output, and
+                     cleanup.sh's out() still calls it) and er-upload-plan
+                     (G-04: er_upload_plan on a fixture ER output tree under
+                     the private temporary folder selects exactly the
+                     identity_assignment data file in mode
+                     identity-assignments-only, every data file in mode full,
+                     never a _SUCCESS or _manifest.json file, and refuses an
+                     unknown mode). A probe that reached a cloud call
                      would fail for lack of credentials, so no probe can
                      change AWS. These probes are the first execution of the
                      scripts; they test refusal paths and the local archive.
@@ -824,6 +835,88 @@ probe_archive_layout() {
   return "${bad}"
 }
 
+# probe_record NAME STATUS(0 passed, else failed): prints and records an
+# in-process probe (no command is run under probe(), so no exit code).
+probe_record() {
+  if [ "$2" -eq 0 ]; then
+    printf '  PROBE: %s passed\n' "$1"
+    printf '%s\tpassed\t0\t0\n' "$1" >>"${TMP_DIR}/probes.tsv"
+  else
+    printf '  PROBE: %s failed\n' "$1"
+    printf '%s\tfailed\t1\t0\n' "$1" >>"${TMP_DIR}/probes.tsv"
+    PROBES_BAD=1
+  fi
+}
+
+# L-12 (Phase 16): sc_output_value (scripts/lib/identity.sh) on a fixture of
+# `terraform output -json`; boolean false must print "false" (L-11, D27).
+probe_output_value() {
+  local fx='{"flag_on":{"value":true},"flag_off":{"value":false},"gone":{"value":null},"name":{"value":"x-1"},"count":{"value":0}}'
+  local bad=0 got
+  got="$(sc_output_value "${fx}" flag_off)" || bad=1
+  [ "${got}" = "false" ] || {
+    printf '  output-value: false printed as "%s"\n' "${got}"
+    bad=1
+  }
+  got="$(sc_output_value "${fx}" flag_on)" || bad=1
+  [ "${got}" = "true" ] || bad=1
+  got="$(sc_output_value "${fx}" count)" || bad=1
+  [ "${got}" = "0" ] || bad=1
+  got="$(sc_output_value "${fx}" name)" || bad=1
+  [ "${got}" = "x-1" ] || bad=1
+  got="$(sc_output_value "${fx}" gone)" || bad=1
+  [ -z "${got}" ] || bad=1
+  got="$(sc_output_value "${fx}" missing)" || bad=1
+  [ -z "${got}" ] || bad=1
+  # The literal line of cleanup.sh, not an expansion.
+  # shellcheck disable=SC2016
+  grep -qxF 'out() { sc_output_value "${OUTPUTS}" "$1"; }' scripts/cleanup.sh || {
+    printf '  output-value: scripts/cleanup.sh out() no longer calls sc_output_value\n'
+    bad=1
+  }
+  return "${bad}"
+}
+
+# G-04 (Phase 16): er_upload_plan (scripts/lib/identity.sh) on a fixture ER
+# output tree; the expected lines follow the LC_ALL=C order of the paths.
+probe_er_upload_plan() {
+  local root="${PROBE_DIR}/er-fixture/out" run bad=0 got want tab
+  tab="$(printf '\t')"
+  run="${root}/run=0123abcd"
+  mkdir -p -- "${run}/decisions/identity_assignment" "${run}/decisions/mention_pair" "${run}/review"
+  printf 'x' >"${run}/_SUCCESS"
+  printf '{}' >"${run}/_manifest.json"
+  printf 'ab' >"${run}/decisions/identity_assignment/part-00000.parquet"
+  printf 'x' >"${run}/decisions/identity_assignment/_SUCCESS"
+  printf 'abc' >"${run}/decisions/mention_pair/part-00000.parquet"
+  printf 'x' >"${run}/decisions/mention_pair/_SUCCESS"
+  printf 'abcde' >"${run}/review/queue.csv"
+  printf 'abcd' >"${run}/run-report.json"
+  got="$(er_upload_plan "${root}" "${run}" identity-assignments-only)" || bad=1
+  want="upload${tab}run=0123abcd/decisions/identity_assignment/part-00000.parquet
+left${tab}run=0123abcd/decisions/mention_pair/part-00000.parquet${tab}3
+left${tab}run=0123abcd/review/queue.csv${tab}5
+left${tab}run=0123abcd/run-report.json${tab}4"
+  [ "${got}" = "${want}" ] || {
+    printf '  er-upload-plan: identity-assignments-only selection differs from the fixture expectation\n'
+    bad=1
+  }
+  got="$(er_upload_plan "${root}" "${run}" full)" || bad=1
+  want="upload${tab}run=0123abcd/decisions/identity_assignment/part-00000.parquet
+upload${tab}run=0123abcd/decisions/mention_pair/part-00000.parquet
+upload${tab}run=0123abcd/review/queue.csv
+upload${tab}run=0123abcd/run-report.json"
+  [ "${got}" = "${want}" ] || {
+    printf '  er-upload-plan: full selection differs from the fixture expectation\n'
+    bad=1
+  }
+  if er_upload_plan "${root}" "${run}" bogus >/dev/null 2>&1; then
+    printf '  er-upload-plan: an unknown mode was accepted\n'
+    bad=1
+  fi
+  return "${bad}"
+}
+
 gate_probes() {
   local s rc example_sha dirty
   PROBE_DIR="${TMP_DIR}/probes"
@@ -868,6 +961,12 @@ gate_probes() {
       PROBES_BAD=1
     fi
   fi
+  rc=0
+  probe_output_value || rc=1
+  probe_record output-value "${rc}"
+  rc=0
+  probe_er_upload_plan || rc=1
+  probe_record er-upload-plan "${rc}"
   return "${PROBES_BAD}"
 }
 

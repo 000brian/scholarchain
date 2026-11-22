@@ -1,0 +1,8 @@
+{
+  "Items": [
+    {"runId": {"S": "run:v1:x"}, "itemHash": {"S": "sha256:item-a"}, "version": {"N": "1"}, "schemaVersion": {"N": "2"}, "policyVersion": {"S": "graph-v1"}, "snapshotId": {"S": "snap"}},
+    {"runId": {"S": "run:v1:x"}, "itemHash": {"S": ""}, "version": {"N": "1"}},
+    {"runId": {"S": "run:v1:x"}, "version": {"N": "3"}}
+  ],
+  "Count": 3
+}

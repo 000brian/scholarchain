@@ -1,0 +1,7 @@
+manifest,attempt,item,reason
+p15-a-hadoop,A1,emr-instances.csv,not measurable from the frozen evidence (file absent)
+p15-a-hadoop,A1,metrics/metric-data.json and metrics/queries.json,not measurable from the frozen evidence (file absent)
+p15-b-spark-burst,B1,metrics/metric-data.json and metrics/queries.json,not measurable from the frozen evidence (file absent)
+p15-b-spark-burst,B1,emr-instances.csv row 3,not measurable from the frozen evidence (created_epoch or ended_epoch empty)
+p15-d-read-load,D1,metrics/metric-data.json and metrics/queries.json,not measurable from the frozen evidence (file absent)
+p15-e-retrieval-modes,-,derived p15-e-retrieval-modes/modes.csv,not measurable from the frozen evidence (file absent)

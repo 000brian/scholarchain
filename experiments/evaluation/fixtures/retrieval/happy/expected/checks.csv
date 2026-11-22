@@ -1,0 +1,9 @@
+label,check,mode,k,report_value,recomputed_value,equal
+EXPLORATORY (n = 2),benchmark sha256 equals report evalSet.benchmarkSha256,,,05736d43e3351461bf4d0d6bcc314b2134956871a62e7b0c129193f19aead4df,05736d43e3351461bf4d0d6bcc314b2134956871a62e7b0c129193f19aead4df,yes
+EXPLORATORY (n = 2),universe size equals report evalSet.questions,,,2,2,yes
+EXPLORATORY (n = 2),mean recall equals report modes summary,graph-only,1,0.25,0.25,yes
+EXPLORATORY (n = 2),mean recall equals report modes summary,graph-only,5,0.5,0.5,yes
+EXPLORATORY (n = 2),MRR equals report modes summary,graph-only,,0.5,0.5,yes
+EXPLORATORY (n = 2),mean recall equals report modes summary,vector-only,1,0,0,yes
+EXPLORATORY (n = 2),mean recall equals report modes summary,vector-only,5,0.75,0.75,yes
+EXPLORATORY (n = 2),MRR equals report modes summary,vector-only,,0.4,0.375,no
