@@ -1,0 +1,4 @@
+E2 attempt 1: fresh clone /tmp/p16-clone-20261122T1500Z
+tested HEAD: 7951f94cca7da7d9bf30a5b22dce1639a156e330
+check.sh exit=6 (sbt gate failed: P16-L-16, tests not hermetic against SCHOLARCHAIN_CFG_* exports)
+full log kept outside Git: ~/scholarchain-evidence-p16/p16-E2.log

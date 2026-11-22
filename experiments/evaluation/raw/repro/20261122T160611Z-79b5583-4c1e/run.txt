@@ -1,0 +1,4 @@
+E2 attempt 2: fresh clone /tmp/p16-clone-20261122T1603Z
+tested HEAD: 79b558375162b758d35a580781c3f169e202b965
+check.sh exit=0
+full log kept outside Git (twelve-zero fixture names): ~/scholarchain-evidence-p16/p16-E2-a2.log

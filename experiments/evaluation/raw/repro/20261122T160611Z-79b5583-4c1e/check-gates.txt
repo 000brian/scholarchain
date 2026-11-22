@@ -1,0 +1,36 @@
+1:STEP: check.sh prerequisites
+3:STEP: check.sh record-dir
+6:STEP: check.sh gate-constitution
+8:GATE: constitution passed (1s)
+9:STEP: check.sh gate-json
+214:GATE: json passed (1s)
+215:STEP: check.sh gate-hook-syntax
+693:GATE: hook-syntax passed (48s)
+694:STEP: check.sh gate-shell
+696:GATE: shell passed (4s)
+697:STEP: check.sh gate-datasets
+717:RESULT: PASS (0 error(s))
+783:GATE: datasets passed (4s)
+784:STEP: check.sh gate-terraform
+814:GATE: terraform passed (19s)
+815:STEP: check.sh gate-sbt
+11592:GATE: sbt passed (1092s)
+11593:STEP: check.sh gate-script-contracts
+11671:GATE: script-contracts passed (4s)
+11672:STEP: check.sh gate-probes
+11692:GATE: probes passed (10s)
+11693:STEP: check.sh summary
+11694:SUMMARY: gate               status      exit  seconds
+11695:SUMMARY: constitution       passed         0        1
+11696:SUMMARY: json               passed         0        1
+11697:SUMMARY: hook-syntax        passed         0       48
+11698:SUMMARY: shell              passed         0        4
+11699:SUMMARY: datasets           passed         0        4
+11700:SUMMARY: terraform          passed         0       19
+11701:SUMMARY: sbt                passed         0     1092
+11702:SUMMARY: script-contracts   passed         0        4
+11703:SUMMARY: probes             passed         0       10
+11704:SUMMARY: module_tests=2306 contract_tests=399
+11705:STEP: check.sh done
+11706:CHECK-RECORD: /private/tmp/p16-clone-20261122T1603Z/evidence/checks/check-20261122T160611Z-79b558375162-7bca.json
+11707:RESULT: check.sh ok

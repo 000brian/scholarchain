@@ -1,0 +1,38 @@
+1:STEP: check.sh prerequisites
+3:STEP: check.sh record-dir
+6:STEP: check.sh gate-constitution
+8:GATE: constitution passed (1s)
+9:STEP: check.sh gate-json
+214:GATE: json passed (1s)
+215:STEP: check.sh gate-hook-syntax
+693:GATE: hook-syntax passed (48s)
+694:STEP: check.sh gate-shell
+696:GATE: shell passed (5s)
+697:STEP: check.sh gate-datasets
+717:RESULT: PASS (0 error(s))
+783:GATE: datasets passed (4s)
+784:STEP: check.sh gate-terraform
+814:GATE: terraform passed (19s)
+815:STEP: check.sh gate-sbt
+11085:[error] Module tests failed suite: org.scholarchain.rag.RagIngestJobSuite
+11086:[error] Module tests failed suite: org.scholarchain.rag.eval.RetrievalEvalSuite
+11631:GATE: sbt failed (1038s)
+11632:STEP: check.sh gate-script-contracts
+11710:GATE: script-contracts passed (3s)
+11711:STEP: check.sh gate-probes
+11731:GATE: probes passed (10s)
+11732:STEP: check.sh summary
+11733:SUMMARY: gate               status      exit  seconds
+11734:SUMMARY: constitution       passed         0        1
+11735:SUMMARY: json               passed         0        1
+11736:SUMMARY: hook-syntax        passed         0       48
+11737:SUMMARY: shell              passed         0        5
+11738:SUMMARY: datasets           passed         0        4
+11739:SUMMARY: terraform          passed         0       19
+11740:SUMMARY: sbt                failed         1     1038
+11741:SUMMARY: script-contracts   passed         0        3
+11742:SUMMARY: probes             passed         0       10
+11743:SUMMARY: module_tests=null contract_tests=null
+11744:ERROR: check.sh step=summary exit=6: one or more gates failed (summary above)
+11745:CHECK-RECORD: /private/tmp/p16-clone-20261122T1500Z/evidence/checks/check-20261122T150259Z-7951f94cca7d-fbe5.json
+11746:RESULT: check.sh failed exit=6 step=summary
