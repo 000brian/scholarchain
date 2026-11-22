@@ -1,0 +1,18 @@
+{
+  "queryId": "run:v1:d2",
+  "answer": {
+    "schemaVersion": 2,
+    "question": "Fixture demo question B?",
+    "answerText": "Fixture demo answer B.",
+    "plan": {"graphRunId": "run:v1:graphfixture"},
+    "claims": [
+      {"claimId": "claim-1", "claimText": "first", "status": "verified", "evidenceIds": ["evidence:e1"]},
+      {"claimId": "claim-2", "claimText": "second", "status": "conflicting", "evidenceIds": ["evidence:e2"]}
+    ],
+    "abstained": false,
+    "abstentionReason": null,
+    "evidence": null
+  },
+  "links": {"explain": "/v1/explain/run:v1:d2", "evidence": []},
+  "notes": []
+}

@@ -3,7 +3,6 @@ explain-csv,row 1 qa,q1,,,,,,,no,not available (no column),,
 explain-csv,row 2 qb,q1,,,,,,,no,not available (no column),,
 explain-csv,row 3 qc,q9,,,,,,,no,not available (no column),,
 explain-csv,row 4 qd,q1,,,,,,,no,not available (no column),,
-audit,run:v1:abc#attempt-1,sha256:qh,4,3,0,1,0,0,no,,not available (no evidence types),
-audit,run:v1:abc#attempt-2,sha256:qh,4,3,0,1,0,0,no,,not available (no evidence types),
+audit,run:v1:abc#attempt-2 (last of 2 attempt(s)),sha256:qh,4,3,0,1,0,0,no,,not available (no evidence types),
 demo,run:v1:d1,demo-1.json,2,1,0,0,1,0,no,"not available (the answer view holds a reason text, not codes)",coauthor_edge;metric,0
 demo,run:v1:d2,demo-2.json,2,1,0,0,1,0,no,"not available (the answer view holds a reason text, not codes)",not available (evidence not included),2

@@ -43,7 +43,11 @@ final case class VerifiedClaim(
   *     `path=none` item is supported only by a complete search whose `maxDepth` is at least N; a
   *     search that stopped early (time or graph store resource limit) never supports it (Phase 16
   *     L2). Only a clause whose negation governs the path phrase is an absence statement; hop
-  *     counts outside such a clause are checked as positive hop counts (P16-A-09);
+  *     counts outside such a clause are checked as positive hop counts (P16-A-09). The search must
+  *     be for the researcher pair the clause names and over the window the clause (or else the
+  *     claim) states, and a cited found path for that pair inside that window contradicts the
+  *     absence; inside the clause only a bounded hop count ("within N hops") or a depth is a
+  *     searched depth (P16-K-01);
   *   - every quoted title equals the title of a cited work item;
   *   - every identifier and every capitalized name in the text belongs to a cited graph item;
   *   - a `semantic_context` item never supports a number, edge, path, component, community or
@@ -96,6 +100,9 @@ object ClaimVerification {
       "an absence claim cites a path search that stopped early, so whether a path exists is unknown"
     val AbsenceBeyondDepth = "an absence claim states a depth beyond the completed path search"
     val AbsenceNoDepth = "an absence claim states no depth limit, but the path search was bounded"
+    // P16-K-01: the named pair and the stated window must be the ones a cited search covered
+    val AbsenceNotSearched =
+      "an absence claim states a researcher pair or window that no cited path search covered"
     val all: List[String] = List(
       CitedNotInBundle,
       EvidenceIdNotCited,
@@ -120,6 +127,7 @@ object ClaimVerification {
       AbsenceBoundedSearch,
       AbsenceBeyondDepth,
       AbsenceNoDepth,
+      AbsenceNotSearched,
       NothingCheckable
     )
   }
@@ -160,6 +168,11 @@ object ClaimVerification {
       "\\s(?:but|while|whereas|although|though|yet|however)\\s|" +
       "\\sand\\s+(?=(?:they|there|it|he|she|both|are|is|was|were|have|has)\\b)").r
   private val DepthRe: Regex = "(?i)\\bdepth\\s+(?:limit\\s+)?(?:of\\s+)?([0-9]+)\\b".r
+  // P16-K-01: inside an absence clause, a hop count is a searched depth only when a bound word
+  // governs it ("within 6 hops", "up to 6 hops", "at most 6 hops"); any other hop count there
+  // ("shorter than the 2 hops between ...") states a connection and is a positive hop count
+  private val BoundHopRe: Regex =
+    "(?i)\\b(?:within|up\\s+to|at\\s+most)\\s+(?:even\\s+)?([0-9]+)\\s+(?:hops?|steps?)\\b".r
 
   /** The clauses (start, end) of `text` that state that no path exists: each clause holds a
     * negation that governs a path phrase (Phase 16 L2, P16-A-09). Uncertainty phrases are blanked
@@ -347,32 +360,97 @@ object ClaimVerification {
     // An absence claim citing a `path=none` item is checked against that item's completeness and
     // searched depth: only a complete search supports it, and only up to its `maxDepth`. A bounded
     // search (time or resource limit, `complete=false`) never supports it.
-    val absentItems = graph.filter(i =>
-      i.evidenceType == EvidenceType.GraphPath &&
-        EvidenceValues.pairs(i).get("found").contains("false")
-    )
-    // P16-A-09: only the clauses whose negation governs a path phrase are absence statements; a hop
-    // count or depth inside them is an absence depth, every hop count outside them is a positive
-    // hop count and is checked below
+    val pathItems = graph.filter(_.evidenceType == EvidenceType.GraphPath)
+    val absentItems = pathItems.filter(i => EvidenceValues.pairs(i).get("found").contains("false"))
+    val foundPaths = pathItems.filter(i => EvidenceValues.numbers(i).contains("hops"))
+    // P16-A-09: only the clauses whose negation governs a path phrase are absence statements;
+    // P16-K-01: inside them, only a bounded hop count ("within 6 hops") or a depth ("depth 6") is
+    // an absence depth; every other hop count is a positive hop count and is checked below
     val spans = if (absentItems.nonEmpty) absenceSpans(stripped) else Nil
-    val absence = spans.nonEmpty
-    def inAbsence(m: Regex.Match): Boolean =
-      spans.exists { case (s, e) => m.start >= s && m.end <= e }
+    val depthMatches: List[((Int, Int), Regex.Match)] = spans.flatMap { case sp @ (s, e) =>
+      (BoundHopRe.findAllMatchIn(stripped) ++ DepthRe.findAllMatchIn(stripped))
+        .filter(m => m.start >= s && m.end <= e)
+        .map(sp -> _)
+        .toList
+    }
+    def isAbsenceDepth(m: Regex.Match): Boolean =
+      depthMatches.exists { case (_, d) => d.start <= m.start && m.end <= d.end }
     val completeDepths = absentItems
       .filter(i => EvidenceValues.pairs(i).get("complete").contains("true"))
       .flatMap(i => EvidenceValues.numbers(i).get("maxDepth"))
-    if (absence) {
-      val stated = (HopRe.findAllMatchIn(stripped) ++ DepthRe.findAllMatchIn(stripped))
-        .filter(inAbsence)
-        .map(_.group(1).toDouble)
-        .toList
-      if (completeDepths.isEmpty) unbacked += Reasons.AbsenceBoundedSearch
-      else if (stated.isEmpty) uncovered += Reasons.AbsenceNoDepth
+    // P16-K-01: an absence clause is about one researcher pair and one or more windows. The pair is
+    // the endpoints of a cited path item whose two names the clause states (or the whole claim,
+    // when the clause names fewer than two endpoints). The windows are the year ranges the clause
+    // states, else the ranges the claim states. With no stated range the decision is conservative:
+    // the cited path items for the pair must all share one window, which is then the clause's
+    // window, and any cited found path for the pair contradicts the absence. Support needs a
+    // complete `path=none` item for that pair whose window equals each window and whose `maxDepth`
+    // is at least each stated depth. A cited found path for the pair whose window lies within a
+    // stated window (a path in a sub-window also exists in the wider window) and whose hop count
+    // is within the stated depth contradicts the absence (HopsConflict).
+    def baseName(n: String): String = normName(HomonymRe.replaceAllIn(n, ""))
+    def mentions(t: String, n: String): Boolean = {
+      val b = baseName(n)
+      b.nonEmpty && s"(?<![\\p{L}])${java.util.regex.Pattern.quote(b)}(?![\\p{L}])".r
+        .findFirstIn(normName(t))
+        .isDefined
+    }
+    def endpoints(i: EvidenceItem): Option[(String, String)] = {
+      val p = EvidenceValues.pairs(i)
+      (p.get("nameA"), p.get("nameB")) match {
+        case (Some(a), Some(b)) => Some((a, b))
+        case _                  =>
+          p.get("pathNames").map(_.split(" \\| ").toList).collect {
+            case ns if ns.size >= 2 => (ns.head, ns.last)
+          }
+      }
+    }
+    def yw(i: EvidenceItem): Option[(Int, Int)] = i.window.map(w => (w.startYear, w.endYear))
+    def rangesIn(t: String): Set[(Int, Int)] =
+      (RangeRe.findAllMatchIn(t) ++ BetweenRe.findAllMatchIn(t))
+        .map(m => (m.group(1).toInt, m.group(2).toInt))
+        .toSet
+    val endpointNames =
+      (absentItems ++ foundPaths).flatMap(endpoints).flatMap(p => List(p._1, p._2)).distinct
+    spans.foreach { case sp @ (s, e) =>
+      val clause = stripped.substring(s, e)
+      val depths = depthMatches.collect { case (`sp`, m) => m.group(1).toDouble }
+      val nameText = if (endpointNames.count(mentions(clause, _)) >= 2) clause else stripped
+      def aboutPair(i: EvidenceItem): Boolean =
+        endpoints(i).exists { case (a, b) => mentions(nameText, a) && mentions(nameText, b) }
+      val pairNone = absentItems.filter(aboutPair)
+      val pairFound = foundPaths.filter(aboutPair)
+      val stated = Some(rangesIn(clause)).filter(_.nonEmpty).getOrElse(rangesIn(stripped))
+      val windows =
+        if (stated.nonEmpty) stated
+        else
+          Some((pairNone ++ pairFound).flatMap(yw).toSet).filter(_.size == 1).getOrElse(Set.empty)
+      if (pairNone.isEmpty || windows.isEmpty) unbacked += Reasons.AbsenceNotSearched
       else
-        stated.foreach { d =>
-          if (completeDepths.exists(_ >= d)) checked += 1
-          else unbacked += Reasons.AbsenceBeyondDepth
+        windows.foreach { w =>
+          val inWindow = pairNone.filter(i => yw(i).contains(w))
+          val maxDepths = inWindow
+            .filter(i => EvidenceValues.pairs(i).get("complete").contains("true"))
+            .flatMap(i => EvidenceValues.numbers(i).get("maxDepth"))
+          if (inWindow.isEmpty) unbacked += Reasons.AbsenceNotSearched
+          else if (maxDepths.isEmpty) unbacked += Reasons.AbsenceBoundedSearch
+          else if (depths.isEmpty) uncovered += Reasons.AbsenceNoDepth
+          else
+            depths.foreach { d =>
+              if (maxDepths.exists(_ >= d)) checked += 1
+              else unbacked += Reasons.AbsenceBeyondDepth
+            }
         }
+      val contradicted = pairFound.exists { f =>
+        val hopsOk = EvidenceValues
+          .numbers(f)
+          .get("hops")
+          .exists(h => depths.isEmpty || depths.exists(h <= _))
+        val windowOk = stated.isEmpty ||
+          stated.exists { case (ws, we) => yw(f).exists { case (fs, fe) => fs >= ws && fe <= we } }
+        hopsOk && windowOk
+      }
+      if (contradicted) conflicts += Reasons.HopsConflict
     }
 
     // ---- hop counts (of found paths; an absence statement's depth was checked above) ----
@@ -381,7 +459,7 @@ object ClaimVerification {
     val paths = graph
       .filter(_.evidenceType == EvidenceType.GraphPath)
       .flatMap(i => EvidenceValues.numbers(i).get("hops"))
-    HopRe.findAllMatchIn(stripped).filterNot(inAbsence).foreach { m =>
+    HopRe.findAllMatchIn(stripped).filterNot(isAbsenceDepth).foreach { m =>
       val h = m.group(1).toDouble
       if (paths.contains(h)) checked += 1
       else if (paths.nonEmpty) conflicts += Reasons.HopsConflict
@@ -408,12 +486,10 @@ object ClaimVerification {
           .flatMap(i => EvidenceValues.pairs(i).get("contextWindowLabel"))
           .flatMap(windows.get)
           .map(w => (w.startYear, w.endYear))).toSet
-    // an absence statement's depths were checked above; they are not free numbers (hop counts
-    // outside an absence clause stay, as before)
+    // an absence statement's depths were checked above; they are not free numbers (every other
+    // hop count stays, as before)
     var rest =
-      List(HopRe, DepthRe).foldLeft(stripped)((t, re) =>
-        re.findAllMatchIn(t).filter(inAbsence).foldLeft(t)((u, m) => blank(u, m.start, m.end))
-      )
+      depthMatches.foldLeft(stripped) { case (t, (_, m)) => blank(t, m.start, m.end) }
     List(RangeRe, BetweenRe).foreach { re =>
       re.findAllMatchIn(rest).toList.foreach { m =>
         val r = (m.group(1).toInt, m.group(2).toInt)

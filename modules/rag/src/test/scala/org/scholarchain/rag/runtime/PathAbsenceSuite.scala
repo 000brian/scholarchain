@@ -198,8 +198,90 @@ class PathAbsenceSuite extends munit.FunSuite {
     ).foreach(t => assert(!ClaimVerification.statesAbsence(t), t))
   }
 
+  // ---- P16-K-01: an absence clause is checked against the named pair and the stated window -------
+
+  // complete path=none for Alice Smith / Bob Jones, depth 6, in W1 (2021-2023)
+  private val noneW1K = PathAbsentFact(alice, bob, W1, W1W, 6, true, 6, src, 20, None)
+  // a non-path item whose window is 2015-2025 (so the range alone is a cited window)
+  private val metricFull = MetricFact(
+    alice,
+    Full,
+    FullW,
+    CollaborationMetric.DistinctCoauthors,
+    12.0,
+    None,
+    None,
+    src,
+    20
+  )
+
+  test("P16-K-01: a complete search over another window does not support the absence") {
+    val v = verifyAll(
+      "Alice Smith and Bob Jones are not connected within 6 hops in 2015-2025.",
+      List(noneW1K, metricFull)
+    )
+    assertNotEquals(v.status, Verified, v.reasons.toString)
+    assert(!v.kept, s"${v.status} ${v.reasons}")
+    assert(v.reasons.contains(Reasons.AbsenceNotSearched), v.reasons.toString)
+  }
+
+  test("P16-K-01: a cited found path for the same pair and window contradicts the absence") {
+    val v = verifyAll(
+      "Alice Smith and Bob Jones are not connected within 6 hops in 2015-2025.",
+      List(found, noneW1K)
+    )
+    assertEquals(v.status, Conflicting, v.reasons.toString)
+    assert(!v.kept, v.reasons.toString)
+    assert(v.reasons.contains(Reasons.HopsConflict), v.reasons.toString)
+  }
+
+  test("P16-K-01: an in-clause hop count that states a connection is a positive hop count") {
+    val v = verifyAll(
+      "No other path is shorter than the 2 hops between Alice Smith and Bob Jones.",
+      List(noneW1K)
+    )
+    assertNotEquals(v.status, Verified, v.reasons.toString)
+    assert(!v.kept, s"${v.status} ${v.reasons}")
+    assert(v.reasons.contains(Reasons.HopsConflict), v.reasons.toString)
+  }
+
+  test("P16-K-01: an absence about another pair than the completed search is not verified") {
+    val v = verifyAll(
+      "Alice Smith and Carol King are not connected within 6 hops in 2021-2023.",
+      List(found, noneW1K)
+    )
+    assert(!v.kept, s"${v.status} ${v.reasons}")
+    assert(v.reasons.contains(Reasons.AbsenceNotSearched), v.reasons.toString)
+  }
+
+  test("P16-K-01: with no stated window, two searched windows for the pair are ambiguous") {
+    val v = verifyAll(
+      "Alice Smith and Bob Jones are not connected within 6 hops.",
+      List(found, noneW1K)
+    )
+    assert(!v.kept, s"${v.status} ${v.reasons}")
+  }
+
+  test("P16-K-01: the matching window, pair and depth are still verified") {
+    List(
+      "Alice Smith and Bob Jones are not connected within 6 hops in 2021-2023.",
+      "In 2021-2023, no coauthorship path between Alice Smith and Bob Jones exists within depth 6 (the bounded search completed).",
+      "No path between Alice Smith and Bob Jones exists within depth 6 in w2021-2023."
+    ).foreach { t =>
+      val v = verifyAll(t, List(found, noneW1K))
+      assertEquals(v.status, Verified, s"$t -> ${v.reasons}")
+      val alone = verifyAll(t, List(noneW1K))
+      assertEquals(alone.status, Verified, s"$t (alone) -> ${alone.reasons}")
+    }
+  }
+
   test("L2: the new reasons are fixed texts without digits") {
-    List(Reasons.AbsenceBoundedSearch, Reasons.AbsenceBeyondDepth, Reasons.AbsenceNoDepth)
+    List(
+      Reasons.AbsenceBoundedSearch,
+      Reasons.AbsenceBeyondDepth,
+      Reasons.AbsenceNoDepth,
+      Reasons.AbsenceNotSearched
+    )
       .foreach { r =>
         assert(Reasons.all.contains(r), r)
         assert(!r.exists(_.isDigit), r)

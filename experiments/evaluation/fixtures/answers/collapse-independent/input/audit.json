@@ -1,0 +1,12 @@
+{
+  "Items": [
+    {"eventType": {"S": "query-audit"}, "attempt": {"N": "2"}, "runId": {"S": "run:v1:qa"},
+     "record": {"S": "{\"schemaVersion\":3,\"queryRunId\":\"run:v1:qa\",\"questionHash\":\"sha256:qa\",\"graphRunId\":\"run:v1:graphfixture\",\"promptVersions\":[\"planner-p1\",\"synthesis-p3\"],\"verificationCounts\":{\"verified\":3,\"partially_supported\":0,\"unsupported\":1,\"conflicting\":0},\"abstained\":false,\"abstentionCodes\":[]}"}},
+    {"eventType": {"S": "claim"}, "attempt": {"N": "1"}, "runId": {"S": "run:v1:qb"}},
+    {"eventType": {"S": "query-audit"}, "attempt": {"N": "1"}, "runId": {"S": "run:v1:qb"},
+     "record": {"S": "{\"schemaVersion\":3,\"queryRunId\":\"run:v1:qb\",\"questionHash\":\"sha256:qb\",\"graphRunId\":\"run:v1:graphfixture\",\"promptVersions\":[\"planner-p1\",\"synthesis-p3\"],\"verificationCounts\":{\"verified\":3,\"partially_supported\":0,\"unsupported\":1,\"conflicting\":0},\"abstained\":false,\"abstentionCodes\":[]}"}},
+    {"eventType": {"S": "query-audit"}, "attempt": {"N": "1"}, "runId": {"S": "run:v1:qa"},
+     "record": {"S": "{\"schemaVersion\":3,\"queryRunId\":\"run:v1:qa\",\"questionHash\":\"sha256:qa\",\"graphRunId\":\"run:v1:graphfixture\",\"promptVersions\":[\"planner-p1\",\"synthesis-p3\"],\"verificationCounts\":{\"verified\":0,\"partially_supported\":0,\"unsupported\":0,\"conflicting\":0},\"abstained\":true,\"abstentionCodes\":[\"NO_EVIDENCE\"]}"}}
+  ],
+  "Count": 4
+}

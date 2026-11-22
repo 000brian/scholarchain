@@ -1,0 +1,5 @@
+source,answer_id,question_ref,claims,verified,partially_supported,unsupported,conflicting,other_statuses,abstained,abstention_codes,evidence_types_cited,untyped_claims
+audit,run:v1:qa#attempt-2 (last of 2 attempt(s)),sha256:qa,4,3,0,1,0,0,no,,not available (no evidence types),
+audit,run:v1:qb#attempt-1 (last of 1 attempt(s)),sha256:qb,4,3,0,1,0,0,no,,not available (no evidence types),
+demo,run:v1:d1,demo-a.json,2,1,0,0,1,0,no,"not available (the answer view holds a reason text, not codes)",coauthor_edge;metric,0
+demo,run:v1:d2,demo-b.json,2,1,0,0,1,0,no,"not available (the answer view holds a reason text, not codes)",not available (evidence not included),2

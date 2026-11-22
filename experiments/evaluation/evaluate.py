@@ -17,8 +17,10 @@ Subcommands (X1 builds the first five; X2 builds the last three):
   reproduce      group 7: folder comparison by sha256 (intended or unexplained), or --release-records
   ratings-sheet  group 4 (c): the blind rating sheet built from answer files
   answers        group 4 (a): verifier-reported claim rates, abstention rates and codes, answer-key agreement
-                 where the frozen fields hold it, per source (never pooled), bootstrap over answers only
-                 where per-answer values exist, Wilson intervals for answer-level rates
+                 where the frozen fields hold it, per source (never pooled); intervals only over
+                 independent answers (P16-C-02): bootstrap over answers where per-answer values exist and
+                 Wilson for answer-level rates, else descriptive (k, n, proportion); explain rows are
+                 always descriptive; clip 01's attempts are collapsed into one answer per question
   graph          group 2: spark-engineer's suite table summarized (hand-worked coverage per check), the
                  invariant counts of the Phase 15 spark-outputs.csv files, provenance fields per sampled
                  DynamoDB item per table (descriptive; no interval), optional E5 sbt summary line
@@ -64,7 +66,7 @@ from datetime import datetime, timezone
 
 sys.dont_write_bytecode = True
 
-TOOL_VERSION = "evaluate-v1-r1"
+TOOL_VERSION = "evaluate-v1-r2"
 SCRIPT_PATH = os.path.abspath(__file__)
 EVAL_DIR = os.path.dirname(SCRIPT_PATH)
 REPO_ROOT = os.path.dirname(os.path.dirname(EVAL_DIR))
@@ -1721,6 +1723,29 @@ LABEL_SOURCES = ["run-report", "explain-csv", "audit", "demo"]
 LABEL_FIELDS = ["code_version", "prompt_set", "graph_run"]
 NOT_AVAILABLE = "not available (%s)"
 CLAIM_RULE = "all claims of the source's answers, every verification status; claims of one answer are not independent"
+# P16-C-02 (human decision): intervals only over independent answers. A row over dependent units
+# keeps k, n and the proportion, leaves ci_low and ci_high empty and carries a "descriptive; ..." note.
+NO_INTERVAL = "no interval (descriptive)"
+EXPLAIN_DESCRIPTIVE = "descriptive; explain rows are neither independent nor a random sample"
+AUDIT_COLLAPSE_RULE = ("one answer per question: attempt records grouped by questionHash (by queryRunId when a record "
+                       "has no questionHash); each answer keeps its last attempt's outcome (largest numeric attempt; a "
+                       "record without a numeric attempt counts as earlier; file order breaks ties)")
+
+
+def join_notes(*parts):
+    return "; ".join(p for p in parts if p)
+
+
+def independence_reason(questions, what):
+    """'' when the answers can count as independent (at least 2 answers, every one with a question
+    reference, no question repeated), else the 'descriptive; ...' note saying why not."""
+    if len(questions) < 2:
+        return "descriptive; %d %s, an interval needs at least 2 independent answers" % (len(questions), what)
+    if not all(questions):
+        return "descriptive; an answer lacks its question reference, so distinct questions cannot be shown"
+    if len(set(questions)) < len(questions):
+        return "descriptive; answers repeat a question, so they are not independent"
+    return ""
 
 
 def nonneg_int(v):
@@ -1757,15 +1782,20 @@ def bootstrap_ratios(series_by_key, n, seed, resamples):
     return out
 
 
-def claim_rows(src, breakdown, totals, units, has_conflicting, seed, resamples, note=""):
+def claim_rows(src, breakdown, totals, units, has_conflicting, seed, resamples, note="", descriptive=""):
     """Rate rows for one set of claims. totals: status -> pooled count. units: None when only
     aggregated counts exist (no interval), else one status -> count map per answer (None for an
-    answer without claims in this set), resampled by bootstrap_ratios."""
+    answer without claims in this set), resampled by bootstrap_ratios. descriptive: a non-empty
+    'descriptive; ...' note when the answers are not independent (P16-C-02): no bootstrap, the note
+    is added to the note of every row of this set."""
     total = sum(totals.values())
     metrics = list(CLAIM_METRICS) + [("other_status_share:" + s, s) for s in sorted(totals) if s not in CLAIM_STATUSES]
     ci = {}
     method = "no dependence-aware interval (aggregated counts only; no per-answer values)"
-    if units is not None:
+    if units is not None and descriptive:
+        method = NO_INTERVAL
+        note = join_notes(note, descriptive)
+    elif units is not None:
         series = {}
         for _, status in metrics:
             series[status] = [((u.get(status, 0), sum(u.values())) if u and sum(u.values()) > 0 else None) for u in units]
@@ -1796,9 +1826,18 @@ def type_rows_not_measurable(src, reason):
     return rows
 
 
-def wilson_row(src, metric, breakdown, k, n, rule, note=""):
+def wilson_row(src, metric, breakdown, k, n, rule, note="", descriptive=""):
+    """Answer-level rate. Wilson score 95 % only over independent answers; with a non-empty
+    'descriptive; ...' note (P16-C-02) the row keeps k, n and the proportion, ci_low and ci_high
+    stay empty and ci_method says no interval. A denominator of 1 is always descriptive: like
+    independence_reason, an interval needs at least 2 independent answers."""
+    if n == 1 and not descriptive:
+        descriptive = "descriptive; 1 answer(s), an interval needs at least 2 independent answers"
     if n <= 0:
-        return [src, metric, breakdown, "a", k, n, NOT_MEASURABLE % "empty denominator", None, None, "", rule, note]
+        return [src, metric, breakdown, "a", k, n, NOT_MEASURABLE % "empty denominator", None, None, "", rule,
+                join_notes(note, descriptive)]
+    if descriptive:
+        return [src, metric, breakdown, "a", k, n, k / float(n), None, None, NO_INTERVAL, rule, join_notes(note, descriptive)]
     lo, hi = wilson(k, n)
     return [src, metric, breakdown, "a", k, n, k / float(n), lo, hi, "Wilson score 95% (answer-level)", rule, note]
 
@@ -1904,9 +1943,14 @@ def answers_audit(run, path):
         if not isinstance(vc, dict) or not all(nonneg_int(v) for v in vc.values()) or not isinstance(rec.get("abstained"), bool):
             raise ToolExit(EXIT_FAILURE, bad % "a query-audit record lacks verificationCounts or abstained")
         codes = rec.get("abstentionCodes")
+        att = dyn_s(it, "attempt")
+        qh = rec.get("questionHash")
+        qr = rec.get("queryRunId")
         out.append({
-            "id": "%s#attempt-%s" % (rec.get("queryRunId") or "unknown", dyn_s(it, "attempt") or "unknown"),
-            "question": rec.get("questionHash") or "",
+            "id": "%s#attempt-%s" % (qr or "unknown", att or "unknown"),
+            "query": qr if isinstance(qr, str) and qr else "unknown",
+            "attempt_no": to_int(att) if isinstance(att, str) and re.match(r"^[0-9]+$", att) else None,
+            "question": qh if isinstance(qh, str) else "",
             "counts": dict(vc),
             "abstained": rec["abstained"],
             "codes": [str(c) for c in codes] if isinstance(codes, list) else None,
@@ -1915,6 +1959,27 @@ def answers_audit(run, path):
         })
     if not out:
         raise ToolExit(EXIT_FAILURE, bad % "no query-audit record")
+    return out
+
+
+def collapse_attempts(records):
+    """AUDIT_COLLAPSE_RULE: one answer per question, in order of first appearance. Each answer is
+    the kept record (its last attempt) plus 'attempts', the number of records collapsed into it.
+    Records without questionHash group by queryRunId ('unknown' when absent), so two such records
+    of one query never count as two answers."""
+    groups, order = {}, []
+    for pos, a in enumerate(records):
+        key = ("questionHash", a["question"]) if a["question"] else ("queryRunId", a["query"])
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append((a["attempt_no"] if a["attempt_no"] is not None else -1, pos, a))
+    out = []
+    for key in order:
+        ranked = sorted(groups[key], key=lambda t: (t[0], t[1]))
+        kept = dict(ranked[-1][2])
+        kept["attempts"] = len(ranked)
+        out.append(kept)
     return out
 
 
@@ -2088,7 +2153,8 @@ def cmd_answers(run, argv):
         rates += type_rows_not_measurable(src, "no claim or evidence type in the file")
         abst = [(r.get("abstained") or "").strip().lower() == "true" for r in erows]
         rule_rows = "explain rows (one per explain read of an answered or abstained query; questions repeat across levels)"
-        rates.append(wilson_row(src, "abstention_rate", "all explain rows", sum(1 for a in abst if a), len(erows), rule_rows))
+        rates.append(wilson_row(src, "abstention_rate", "all explain rows", sum(1 for a in abst if a), len(erows), rule_rows,
+                                descriptive=EXPLAIN_DESCRIPTIVE))
         if bench is None:
             for metric, bd in (("abstention_recall_on_labelled", "abstain-labelled questions"),
                                ("false_abstention_rate", "questions labelled not to abstain")):
@@ -2098,12 +2164,14 @@ def cmd_answers(run, argv):
             unl = [a for r, a in zip(erows, abst) if bench.get((r.get("question") or "").strip()) is False]
             if lab:
                 rates.append(wilson_row(src, "abstention_recall_on_labelled", "abstain-labelled questions",
-                                        sum(1 for a in lab if a), len(lab), rule_lab + " (explain rows)"))
+                                        sum(1 for a in lab if a), len(lab), rule_lab + " (explain rows)",
+                                        descriptive=EXPLAIN_DESCRIPTIVE))
             else:
                 rates.append([src, "abstention_recall_on_labelled", "abstain-labelled questions", "a", 0, 0,
                               NOT_MEASURABLE % "no explain row for an abstain-labelled question", None, None, "", rule_lab, ""])
             rates.append(wilson_row(src, "false_abstention_rate", "questions labelled not to abstain",
-                                    sum(1 for a in unl if a), len(unl), rule_unlab + " (explain rows)"))
+                                    sum(1 for a in unl if a), len(unl), rule_unlab + " (explain rows)",
+                                    descriptive=EXPLAIN_DESCRIPTIVE))
             unknown = len([r for r in erows if (r.get("question") or "").strip() not in bench])
             checks.append([src, "explain rows whose question is not in the benchmark", 0, unknown, unknown == 0])
         codes_why = "abstention codes present but not read by this tool version" if "abstention_codes" in fields else "the file holds no abstention codes"
@@ -2118,35 +2186,44 @@ def cmd_answers(run, argv):
         graphs = sorted(set(a["graph"] for a in audit if a["graph"]))
         from_file = {"code_version": "", "prompt_set": " ".join(prompts), "graph_run": " ".join(graphs)}
         dq = len(set(a["question"] for a in audit))
-        sources.append([src, repo_rel(ns.audit), sha256_file(ns.audit), "per answer (attempt) counts; no claim texts",
+        records = len(audit)
+        # P16-C-02: attempts of one question count as one answer; every rate below is over answers.
+        audit = collapse_attempts(audit)
+        abst_rule_audit = "all answers of the source, " + AUDIT_COLLAPSE_RULE
+        sources.append([src, repo_rel(ns.audit), sha256_file(ns.audit),
+                        "per answer counts (attempts collapsed, last attempt kept); no claim texts",
                         len(audit), dq] + label_cells(src, from_file, labels)
-                       + ["answers are attempts; attempts of one question are not independent"])
+                       + ["%d attempt record(s) collapsed into %d answer(s): %s" % (records, len(audit), AUDIT_COLLAPSE_RULE)])
+        audit_desc = independence_reason([a["question"] for a in audit], "answer(s) after collapsing attempts")
         totals = {}
         for a in audit:
             for s, v in a["counts"].items():
                 totals[s] = totals.get(s, 0) + v
         has_conf = any("conflicting" in a["counts"] for a in audit)
-        rates += claim_rows(src, "all claims", totals, [a["counts"] for a in audit], has_conf, seed, reps)
+        rates += claim_rows(src, "all claims", totals, [a["counts"] for a in audit], has_conf, seed, reps,
+                            "claims of each answer's last attempt", audit_desc)
         rates += type_rows_not_measurable(src, "no claim or evidence type stored per claim")
-        rates.append(wilson_row(src, "abstention_rate", "all answers", sum(1 for a in audit if a["abstained"]), len(audit), abst_rule_all))
+        rates.append(wilson_row(src, "abstention_rate", "all answers", sum(1 for a in audit if a["abstained"]), len(audit),
+                                abst_rule_audit, descriptive=audit_desc))
         for metric, bd in (("abstention_recall_on_labelled", "abstain-labelled questions"),
                            ("false_abstention_rate", "questions labelled not to abstain")):
             rates.append([src, metric, bd, "a", None, None, NOT_MEASURABLE % "the audit holds no benchmark question ID",
                           None, None, "", "", ""])
         if any(a["codes"] is None for a in audit):
             rates.append([src, "abstention_code", "all answers", "a", None, None, NOT_AVAILABLE % "a record lacks abstentionCodes",
-                          None, None, "", abst_rule_all, ""])
+                          None, None, "", abst_rule_audit, ""])
         else:
             code_set = sorted(set(c for a in audit for c in a["codes"]))
             if not code_set:
-                rates.append([src, "abstention_code", "(none)", "a", 0, len(audit), 0.0, None, None, "", abst_rule_all,
+                rates.append([src, "abstention_code", "(none)", "a", 0, len(audit), 0.0, None, None, "", abst_rule_audit,
                               "no answer carries an abstention code"])
             for c in code_set:
                 k = len([a for a in audit if c in a["codes"]])
                 rates.append([src, "abstention_code", c, "a", k, len(audit), k / float(len(audit)), None, None, "",
-                              abst_rule_all, "descriptive"])
+                              abst_rule_audit, "descriptive"])
         for a in audit:
-            per.append(per_answer_row(src, a["id"], a["question"], a["counts"], a["abstained"],
+            per.append(per_answer_row(src, "%s (last of %d attempt(s))" % (a["id"], a["attempts"]), a["question"],
+                                      a["counts"], a["abstained"],
                                       ";".join(a["codes"]) if a["codes"] is not None else NOT_AVAILABLE % "not recorded",
                                       NOT_AVAILABLE % "no evidence types", None))
 
@@ -2154,9 +2231,13 @@ def cmd_answers(run, argv):
         src = "demo"
         graphs = sorted(set(d["graph"] for d in demos if d["graph"]))
         from_file = {"code_version": "", "prompt_set": "", "graph_run": " ".join(graphs)}
+        # P16-C-02: saved answers are not collapsed (each is its own query); intervals only when they
+        # answer distinct questions, else every rate of this source is descriptive.
+        demo_desc = independence_reason([d["question"] for d in demos], "answer(s)")
         sources.append([src, ";".join(repo_rel(x) for x in ns.demo_answer), ";".join(sha256_file(x) for x in ns.demo_answer),
                         "per claim", len(demos), len(set(d["question"] for d in demos))]
-                       + label_cells(src, from_file, labels) + ["provenance: %s" % ns.demo_provenance.strip()])
+                       + label_cells(src, from_file, labels)
+                       + [join_notes("provenance: %s" % ns.demo_provenance.strip(), demo_desc)])
         units, totals = [], {}
         type_units = dict((name, []) for name, _ in CLAIM_TYPES)
         type_totals = dict((name, {}) for name, _ in CLAIM_TYPES)
@@ -2185,7 +2266,7 @@ def cmd_answers(run, argv):
                                       ";".join(sorted(cited_all)) if d["types"] is not None else NOT_AVAILABLE % "evidence not included",
                                       untyped))
         rates += claim_rows(src, "all claims", totals, units, True, seed, reps,
-                            "conflicting is a status of the answer view's verifier vocabulary")
+                            "conflicting is a status of the answer view's verifier vocabulary", demo_desc)
         for name, wires in CLAIM_TYPES:
             if not wires:
                 rates.append([src, "claim_support_rate", "claim type: %s" % name, "a", None, None,
@@ -2193,8 +2274,9 @@ def cmd_answers(run, argv):
                 continue
             rates += claim_rows(src, "claim type: %s (claims citing %s evidence)" % (name, "/".join(wires)),
                                 type_totals[name], type_units[name], True, seed, reps,
-                                "by cited evidence type (proxy); answers without included evidence are left out")
-        rates.append(wilson_row(src, "abstention_rate", "all answers", sum(1 for d in demos if d["abstained"]), len(demos), abst_rule_all))
+                                "by cited evidence type (proxy); answers without included evidence are left out", demo_desc)
+        rates.append(wilson_row(src, "abstention_rate", "all answers", sum(1 for d in demos if d["abstained"]), len(demos), abst_rule_all,
+                                descriptive=demo_desc))
         for metric, bd in (("abstention_recall_on_labelled", "abstain-labelled questions"),
                            ("false_abstention_rate", "questions labelled not to abstain")):
             rates.append([src, metric, bd, "a", None, None, NOT_MEASURABLE % "the saved answers hold no benchmark question ID",
