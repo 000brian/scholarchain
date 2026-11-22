@@ -1,0 +1,4 @@
+suite,tests,independent,mixed,property
+KnownGraphSuite,15,15,0,0
+PipelineFixtureSuite,28,22,4,2
+all,43,37,4,2

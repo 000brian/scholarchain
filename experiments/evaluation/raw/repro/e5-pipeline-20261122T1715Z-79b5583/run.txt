@@ -1,0 +1,4 @@
+E5 local bounded Hadoop pipeline (Phase 15 clip 19c runner LocalBoundedPipeline)
+clone: /tmp/p16-clone-20261122T1603Z at 79b558375162b758d35a580781c3f169e202b965
+output: /tmp/p16-E5-hadoop-20261122T1715Z (fresh)
+exit=0

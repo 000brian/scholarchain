@@ -1,0 +1,374 @@
+{
+  "answer": {
+    "abstained": false,
+    "abstentionReason": null,
+    "answerText": "Overview (not verified; only the claims below are checked against evidence): Ranking of researchers by distinct coauthors in the requested window, taken from the metric rows. Distinct coauthors count breadth only; intensity and team size are not part of this answer.\n\nClaims:\n- [claim-1] Radu Timofte ranks 1 by distinct coauthors in 2018-2020, with 594 distinct coauthors. (Uncertainty: Identity outcome is not provided in the facts, so the researcher match is unverified.)\n- [claim-2] Thomas S. Huang ranks 2 by distinct coauthors in 2018-2020, with 389 distinct coauthors. (Uncertainty: Identity outcome is not provided in the facts, so the researcher match is unverified.)\n- [claim-3] Ling Shao 0001 ranks 3 by distinct coauthors in 2018-2020, with 357 distinct coauthors. (Uncertainty: Identity outcome is not provided in the facts, so the researcher match is unverified.)\n- [claim-4] Wangmeng Zuo ranks 4 by distinct coauthors in 2018-2020, with 315 distinct coauthors. (Uncertainty: Identity outcome is not provided in the facts, so the researcher match is unverified.)\n- [claim-5] Se Young Chun ranks 5 by distinct coauthors in 2018-2020, with 307 distinct coauthors. (Uncertainty: Identity outcome is not provided in the facts, so the researcher match is unverified.)\n\nMissing evidence (model-written, not verified):\n- Identity outcome for each researcher is not provided.\n- Collaboration intensity and team size measures are not provided for these researchers.",
+    "bundleId": "evidence:v1:6d921228227bbe571433d26df3589e88",
+    "claims": [
+      {
+        "claimId": "claim-1",
+        "claimText": "Radu Timofte ranks 1 by distinct coauthors in 2018-2020, with 594 distinct coauthors.",
+        "evidenceIds": [
+          "evidence:v1:dba1c1158e3492fcb6e28bfacb3d8061"
+        ],
+        "provenance": {
+          "contentHash": "sha256:f0b4d27aafd30e44f11cc9f933a7a0d165ce686e64cbf2da209dc33733845f6f",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:1a9fc9175cce88b3f54985ed4ebc6981",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:dba1c1158e3492fcb6e28bfacb3d8061"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": "Identity outcome is not provided in the facts, so the researcher match is unverified.",
+        "window": {
+          "endYear": 2020,
+          "startYear": 2018
+        }
+      },
+      {
+        "claimId": "claim-2",
+        "claimText": "Thomas S. Huang ranks 2 by distinct coauthors in 2018-2020, with 389 distinct coauthors.",
+        "evidenceIds": [
+          "evidence:v1:8f10460c71b3afeb0e5e8bdd54493c2a"
+        ],
+        "provenance": {
+          "contentHash": "sha256:18b5fc988d1230dd5e48ba88fcba43a2f95781a97e7dc73fc252b1bc9d046d24",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:1a9fc9175cce88b3f54985ed4ebc6981",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:8f10460c71b3afeb0e5e8bdd54493c2a"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": "Identity outcome is not provided in the facts, so the researcher match is unverified.",
+        "window": {
+          "endYear": 2020,
+          "startYear": 2018
+        }
+      },
+      {
+        "claimId": "claim-3",
+        "claimText": "Ling Shao 0001 ranks 3 by distinct coauthors in 2018-2020, with 357 distinct coauthors.",
+        "evidenceIds": [
+          "evidence:v1:031299ff6b549e8d146a5cab3b5dd1ff"
+        ],
+        "provenance": {
+          "contentHash": "sha256:9d62e150b854490d99c24fe4408ffeb90245d1d9b83ff5c2f1ecd66b011b5704",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:1a9fc9175cce88b3f54985ed4ebc6981",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:031299ff6b549e8d146a5cab3b5dd1ff"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": "Identity outcome is not provided in the facts, so the researcher match is unverified.",
+        "window": {
+          "endYear": 2020,
+          "startYear": 2018
+        }
+      },
+      {
+        "claimId": "claim-4",
+        "claimText": "Wangmeng Zuo ranks 4 by distinct coauthors in 2018-2020, with 315 distinct coauthors.",
+        "evidenceIds": [
+          "evidence:v1:d625eb5e6bd6a40fdf4bb8a45aebc043"
+        ],
+        "provenance": {
+          "contentHash": "sha256:092fead364e4feac7ebe16b3430391f6b7f7e445f4d098a1b180ff8bbd917ba5",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:1a9fc9175cce88b3f54985ed4ebc6981",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:d625eb5e6bd6a40fdf4bb8a45aebc043"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": "Identity outcome is not provided in the facts, so the researcher match is unverified.",
+        "window": {
+          "endYear": 2020,
+          "startYear": 2018
+        }
+      },
+      {
+        "claimId": "claim-5",
+        "claimText": "Se Young Chun ranks 5 by distinct coauthors in 2018-2020, with 307 distinct coauthors.",
+        "evidenceIds": [
+          "evidence:v1:8c3a483384f3c19da7b07bd225886901"
+        ],
+        "provenance": {
+          "contentHash": "sha256:366eff1395997985f464e3cb9c86bfaebcbd2a5323dbc0b45d28bb7f31c2ebf2",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:1a9fc9175cce88b3f54985ed4ebc6981",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:8c3a483384f3c19da7b07bd225886901"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": "Identity outcome is not provided in the facts, so the researcher match is unverified.",
+        "window": {
+          "endYear": 2020,
+          "startYear": 2018
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "evidenceId": "evidence:v1:dba1c1158e3492fcb6e28bfacb3d8061",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "distinct_coauthors",
+          "value": 594
+        },
+        "provenance": {
+          "contentHash": "sha256:1c451fbd6177a2169f2de6c22c433c2708780a2e4f1698f9fb0affaedd679860",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:1a9fc9175cce88b3f54985ed4ebc6981",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:ranking#w2018-2020#distinct_coauthors/rank#0001",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Radu Timofte\nresearcherId=researcher:v1:32ad9abca8538109a54a81cef181dd6d\nrank=1\nwindowLabel=w2018-2020",
+        "subjectIds": [
+          "researcher:v1:32ad9abca8538109a54a81cef181dd6d",
+          "metric=distinct_coauthors",
+          "window=w2018-2020"
+        ],
+        "window": {
+          "endYear": 2020,
+          "startYear": 2018
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:8f10460c71b3afeb0e5e8bdd54493c2a",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "distinct_coauthors",
+          "value": 389
+        },
+        "provenance": {
+          "contentHash": "sha256:c533e4b6ad8a112c635895b7bd73c402df8200243542f50da968bc7a8dd5c40e",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:1a9fc9175cce88b3f54985ed4ebc6981",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:ranking#w2018-2020#distinct_coauthors/rank#0002",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Thomas S. Huang\nresearcherId=researcher:v1:f632417f6dca3b02c691c6fd06c6c36c\nrank=2\nwindowLabel=w2018-2020",
+        "subjectIds": [
+          "researcher:v1:f632417f6dca3b02c691c6fd06c6c36c",
+          "metric=distinct_coauthors",
+          "window=w2018-2020"
+        ],
+        "window": {
+          "endYear": 2020,
+          "startYear": 2018
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:031299ff6b549e8d146a5cab3b5dd1ff",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "distinct_coauthors",
+          "value": 357
+        },
+        "provenance": {
+          "contentHash": "sha256:348e6f3784560819324ea947b7dcbf4f11ff76a6ae7823ef4d87aab2bd73a6f1",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:1a9fc9175cce88b3f54985ed4ebc6981",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:ranking#w2018-2020#distinct_coauthors/rank#0003",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Ling Shao 0001\nresearcherId=researcher:v1:4eedb2569673a02288f55e0b85725f74\nrank=3\nwindowLabel=w2018-2020",
+        "subjectIds": [
+          "researcher:v1:4eedb2569673a02288f55e0b85725f74",
+          "metric=distinct_coauthors",
+          "window=w2018-2020"
+        ],
+        "window": {
+          "endYear": 2020,
+          "startYear": 2018
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:d625eb5e6bd6a40fdf4bb8a45aebc043",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "distinct_coauthors",
+          "value": 315
+        },
+        "provenance": {
+          "contentHash": "sha256:6746bcda7bada9e8143570d9cc1ece56552d6c4015a366c10a9860a541ea924a",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:1a9fc9175cce88b3f54985ed4ebc6981",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:ranking#w2018-2020#distinct_coauthors/rank#0004",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Wangmeng Zuo\nresearcherId=researcher:v1:c8e08951bf2e63c585e77de4a76470e3\nrank=4\nwindowLabel=w2018-2020",
+        "subjectIds": [
+          "researcher:v1:c8e08951bf2e63c585e77de4a76470e3",
+          "metric=distinct_coauthors",
+          "window=w2018-2020"
+        ],
+        "window": {
+          "endYear": 2020,
+          "startYear": 2018
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:8c3a483384f3c19da7b07bd225886901",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "distinct_coauthors",
+          "value": 307
+        },
+        "provenance": {
+          "contentHash": "sha256:894b3976ef08243f5ae64cc9b4e0f153132a3d7110313670399c7932ebc37bdc",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:1a9fc9175cce88b3f54985ed4ebc6981",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:ranking#w2018-2020#distinct_coauthors/rank#0005",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Se Young Chun\nresearcherId=researcher:v1:1d33c40b431fb3a1c59aeb173868595c\nrank=5\nwindowLabel=w2018-2020",
+        "subjectIds": [
+          "researcher:v1:1d33c40b431fb3a1c59aeb173868595c",
+          "metric=distinct_coauthors",
+          "window=w2018-2020"
+        ],
+        "window": {
+          "endYear": 2020,
+          "startYear": 2018
+        }
+      }
+    ],
+    "identityNotes": [],
+    "modelId": "claude-haiku-5-5",
+    "plan": {
+      "graphRunId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+      "provenance": {
+        "contentHash": "sha256:a846d5a93ddb870942c2e241bef97df938fe7f3e721622a1aff4ae8502e81e30",
+        "datasetId": "scholarchain-graph",
+        "jobName": "rag.query",
+        "policyVersion": "query-planner-v2@sha256:60b5260e9c2eeabff46150fb09cf41a89fe39fbd23701b7023cdf0663e5684a1",
+        "runId": "run:v1:1a9fc9175cce88b3f54985ed4ebc6981",
+        "schemaVersion": 1,
+        "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+        "sourceRecordIds": [
+          "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+        ],
+        "sourceType": "runtime"
+      },
+      "question": "Who are the top 5 researchers by number of distinct coauthors between 2018 and 2020?",
+      "schemaVersion": 1,
+      "steps": [
+        {
+          "operation": "researcher_ranking",
+          "parameters": {
+            "limit": "5",
+            "metric": "distinct_coauthors",
+            "windowLabel": "w2018-2020"
+          },
+          "researcherIds": [],
+          "window": {
+            "endYear": 2020,
+            "startYear": 2018
+          }
+        }
+      ]
+    },
+    "provenance": {
+      "contentHash": "sha256:5e5e11b166fc93ce193c0c381d431199e60f0782f4a6477204fd0e0654784308",
+      "datasetId": "scholarchain-graph",
+      "jobName": "rag.answer",
+      "policyVersion": "answer-synthesis-v3",
+      "runId": "run:v1:1a9fc9175cce88b3f54985ed4ebc6981",
+      "schemaVersion": 1,
+      "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+      "sourceRecordIds": [
+        "evidence:v1:6d921228227bbe571433d26df3589e88"
+      ],
+      "sourceType": "runtime"
+    },
+    "question": "Who are the top 5 researchers by number of distinct coauthors between 2018 and 2020?",
+    "schemaVersion": 2
+  },
+  "links": {
+    "evidence": [
+      "/v1/evidence/evidence:v1:dba1c1158e3492fcb6e28bfacb3d8061?window=2018-2020",
+      "/v1/evidence/evidence:v1:8f10460c71b3afeb0e5e8bdd54493c2a?window=2018-2020",
+      "/v1/evidence/evidence:v1:031299ff6b549e8d146a5cab3b5dd1ff?window=2018-2020",
+      "/v1/evidence/evidence:v1:d625eb5e6bd6a40fdf4bb8a45aebc043?window=2018-2020",
+      "/v1/evidence/evidence:v1:8c3a483384f3c19da7b07bd225886901?window=2018-2020"
+    ],
+    "explain": "/v1/explain/run:v1:1a9fc9175cce88b3f54985ed4ebc6981"
+  },
+  "notes": [],
+  "queryId": "run:v1:1a9fc9175cce88b3f54985ed4ebc6981"
+}

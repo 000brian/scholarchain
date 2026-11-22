@@ -1,0 +1,264 @@
+{
+  "argv": [
+    "--raw-root",
+    "experiments/raw",
+    "--derived-root",
+    "experiments/derived/out",
+    "--instance-hour-usd",
+    "0.240",
+    "--rate-source",
+    "infra/terraform/COSTS.md EMR row (EC2 0.192 + EMR 0.048 USD per instance-hour; estimate; unverified)",
+    "--suite",
+    "experiments/evaluation/suite-v1.json",
+    "--entry",
+    "E6-performance"
+  ],
+  "endedUtc": "2026-11-22T17:05:16Z",
+  "entry": "E6-performance",
+  "format": "scholarchain.evaluation-run",
+  "formatVersion": 1,
+  "inputs": [
+    {
+      "path": "experiments/evaluation/suite-v1.json",
+      "sha256": "0f7f7d336433e00363a94d522a2bbbfdc93274cd32605cb411d445b98a339970"
+    },
+    {
+      "path": "experiments/raw/p15-a-hadoop/20261120T215912Z-b0c92f533c70-5a01/metrics/queries.json",
+      "sha256": "aadf9812b56f875e1b29bd6af69a2b52ebbb272b3f2cabed64a2952295c37100"
+    },
+    {
+      "path": "experiments/raw/p15-a-hadoop/20261120T215912Z-b0c92f533c70-5a01/metrics/metric-data.json",
+      "sha256": "2aa2005e75184c176ffed7fc01cfedc2f3d93a2efec70d64f8d2a091c431a562"
+    },
+    {
+      "path": "experiments/raw/p15-a-hadoop/20261120T215912Z-b0c92f533c70-5a01/emr-steps.csv",
+      "sha256": "81065316770d8206261c7a58ad51212354623bbbf8410f5dd4321fd3744c955a"
+    },
+    {
+      "path": "experiments/raw/p15-a-hadoop/20261120T215912Z-b0c92f533c70-5a01/hadoop-step-counters.csv",
+      "sha256": "dd21b5c6c099ae42d44b20a322ffe5a8d1735f0a2cd1583697b382a118a30cdc"
+    },
+    {
+      "path": "experiments/raw/p15-a-hadoop/20261120T215912Z-b0c92f533c70-5a01/hadoop-job-counters.csv",
+      "sha256": "90d65f001a28554d663e1e5d72c7da84e7197aedb3092b3ca16514507c7a6881"
+    },
+    {
+      "path": "experiments/raw/p15-a-hadoop/20261120T215912Z-b0c92f533c70-5a01/emr-instances.csv",
+      "sha256": "4e0953ff84645364c0b4d0d07de8cae998ebb2b1b16fe787ec279c9759216e39"
+    },
+    {
+      "path": "experiments/raw/p15-a-hadoop/20261120T225632Z-eb786c5275a3-5c75/metrics/queries.json",
+      "sha256": "d277161327e4ba8cee9a63b87815ca67c3a5f50f66c9dbff5860ba316385b035"
+    },
+    {
+      "path": "experiments/raw/p15-a-hadoop/20261120T225632Z-eb786c5275a3-5c75/metrics/metric-data.json",
+      "sha256": "e6506efed79a44b8aee92b6c296ed419512e44fe5b1e3f4e7d30105416ea670a"
+    },
+    {
+      "path": "experiments/raw/p15-a-hadoop/20261120T225632Z-eb786c5275a3-5c75/emr-steps.csv",
+      "sha256": "a9bce2dde208e275c187d37db2831a00952b4bd3abd364716694f01183cbd1ab"
+    },
+    {
+      "path": "experiments/raw/p15-a-hadoop/20261120T225632Z-eb786c5275a3-5c75/hadoop-step-counters.csv",
+      "sha256": "37b091aab5048ea0907f6817dbfb093d30c2377ee9961a593555afd73ad2c8f3"
+    },
+    {
+      "path": "experiments/raw/p15-a-hadoop/20261120T225632Z-eb786c5275a3-5c75/hadoop-job-counters.csv",
+      "sha256": "9467e52acf81a45472e0a2e0808292606377780fbbf9deb07b2eb606bc188f9c"
+    },
+    {
+      "path": "experiments/raw/p15-a-hadoop/20261120T225632Z-eb786c5275a3-5c75/emr-instances.csv",
+      "sha256": "3fa06ce624703a9c1ea2cbfcf7da6a659096fa6a51b9ca20041508ab0ccf6fe4"
+    },
+    {
+      "path": "experiments/raw/p15-a-spark/20261120T225850Z-eb786c5275a3-4f7e/metrics/queries.json",
+      "sha256": "28049a394d4cfe8b8386ed4c8443671937f4007cb20574c91ae1259dc4236152"
+    },
+    {
+      "path": "experiments/raw/p15-a-spark/20261120T225850Z-eb786c5275a3-4f7e/metrics/metric-data.json",
+      "sha256": "3c8a50b8a07d410883b8c46cb0407ad16885b0416007f6beb0da532abc56b868"
+    },
+    {
+      "path": "experiments/raw/p15-a-spark/20261120T225850Z-eb786c5275a3-4f7e/spark-stage-metrics.csv",
+      "sha256": "23c6501193469b83d11993461c70fc07e06e50e9f0bd3df3e8a1bd88f525ed71"
+    },
+    {
+      "path": "experiments/raw/p15-a-spark/20261120T225850Z-eb786c5275a3-4f7e/spark-stage-timings.csv",
+      "sha256": "b6377dc003be35316fb36d31356ce48f5a0f47100edfe9dbe5d8e8147e7b925d"
+    },
+    {
+      "path": "experiments/raw/p15-a-spark/20261120T225850Z-eb786c5275a3-4f7e/emr-steps.csv",
+      "sha256": "bbfb0b0272d8af17baa99e8923bcc628d41dd88e83d582a632d0bea10fbc74ad"
+    },
+    {
+      "path": "experiments/raw/p15-a-spark/20261120T225850Z-eb786c5275a3-4f7e/emr-instances.csv",
+      "sha256": "72061b10032ece992b7e7968261ac086a0ab5fe201012390b305e6439f33eea8"
+    },
+    {
+      "path": "experiments/raw/p15-b-spark-burst/20261120T225913Z-eb786c5275a3-fac6/metrics/queries.json",
+      "sha256": "2bd1582918ddfbda8790af5b8c2805c295bc49644c2475586f60ecfd9ce178da"
+    },
+    {
+      "path": "experiments/raw/p15-b-spark-burst/20261120T225913Z-eb786c5275a3-fac6/metrics/metric-data.json",
+      "sha256": "8c2e71af59babe59e0daf95e5df0d679ee985c415210e2c1fc561d4ef7d3d62c"
+    },
+    {
+      "path": "experiments/raw/p15-b-spark-burst/20261120T225913Z-eb786c5275a3-fac6/spark-stage-metrics.csv",
+      "sha256": "d303af042db50f24fee510eb9a040088d5874ed22f660ac3cda69cfdc2923822"
+    },
+    {
+      "path": "experiments/raw/p15-b-spark-burst/20261120T225913Z-eb786c5275a3-fac6/spark-stage-timings.csv",
+      "sha256": "38f39fe185c4ed806b385384050ca3ba7dbab9ff79fcc4d6e063e264c005494c"
+    },
+    {
+      "path": "experiments/raw/p15-b-spark-burst/20261120T225913Z-eb786c5275a3-fac6/emr-steps.csv",
+      "sha256": "5f2f048d4186450f4c7018fa609c8719c9b2fbe91d4abfe59458d517a6c74f44"
+    },
+    {
+      "path": "experiments/raw/p15-b-spark-burst/20261120T225913Z-eb786c5275a3-fac6/emr-instances.csv",
+      "sha256": "128ff40a481cf970960e07f9458519ca38a61a8bc2a4547aa2cb055541e98610"
+    },
+    {
+      "path": "experiments/raw/p15-c-embedding-backlog/20261120T225730Z-eb786c5275a3-ab26/metrics/queries.json",
+      "sha256": "d198ed020567e50214492185346d96185922b10d60b21275b759c42b0218cded"
+    },
+    {
+      "path": "experiments/raw/p15-c-embedding-backlog/20261120T225730Z-eb786c5275a3-ab26/metrics/metric-data.json",
+      "sha256": "82d5ddc9c538d8d44303409917e25076c0f5464d768aec0abf82be803eb50994"
+    },
+    {
+      "path": "experiments/raw/p15-c-embedding-backlog/20261120T225730Z-eb786c5275a3-ab26/service-samples.csv",
+      "sha256": "4eab4c08f7709a290d526db3b2d713fcc404c994927e1eeb0c821e63586f82b8"
+    },
+    {
+      "path": "experiments/raw/p15-d-query-load/20261120T235521Z-ff00cfa278c8-ca0c/metrics/queries.json",
+      "sha256": "7008535aa27076571e8fd9394430c6ea927ca2d39d06398fffbf2411e17e08f5"
+    },
+    {
+      "path": "experiments/raw/p15-d-query-load/20261120T235521Z-ff00cfa278c8-ca0c/metrics/metric-data.json",
+      "sha256": "303cfdcf878222a106c8ec5aafa2d35382a1ffda4a8fbc7b32110e37496c574f"
+    },
+    {
+      "path": "experiments/raw/p15-d-query-load/20261120T235521Z-ff00cfa278c8-ca0c/load-requests.csv",
+      "sha256": "47fe4c9e0a4aa5a44185af89b395b04776a1769c6662427442b83671ebfdc548"
+    },
+    {
+      "path": "experiments/raw/p15-d-query-load/20261120T235521Z-ff00cfa278c8-ca0c/service-samples.csv",
+      "sha256": "8b7ced2ca88c89e7633b7de93da462ee1faa6d33dfcbea8c56f45ecb4eb945d0"
+    },
+    {
+      "path": "experiments/raw/p15-d-read-load/20261121T001529Z-abe4764a8293-b3f0/metrics/queries.json",
+      "sha256": "dd92dd2d0d991ee2d4c880de90fae864354613d51685fb8cbfbf184debe0a033"
+    },
+    {
+      "path": "experiments/raw/p15-d-read-load/20261121T001529Z-abe4764a8293-b3f0/metrics/metric-data.json",
+      "sha256": "cfca482ec076766df7704d729952cf9cc8a221989be82260faddc0a9ad8ac446"
+    },
+    {
+      "path": "experiments/raw/p15-d-read-load/20261121T001529Z-abe4764a8293-b3f0/load-requests.csv",
+      "sha256": "a16d17290b3ecb764ac31bf010170c2f6116807d5569e306a1fbf6366dc3884c"
+    },
+    {
+      "path": "experiments/raw/p15-d-read-load/20261121T001529Z-abe4764a8293-b3f0/service-samples.csv",
+      "sha256": "6aef5e6fb10b47fbd552d92a9e6b93d4a375d20f252abe561badf3b09d3085d6"
+    },
+    {
+      "path": "experiments/raw/p15-d-read-load/20261121T002254Z-abe4764a8293-db0d/service-samples.csv",
+      "sha256": "4a57cc3876caf4bd9bc2a3d289347148b79ffed0d7ccefa4cbb2d7751aefa956"
+    },
+    {
+      "path": "experiments/raw/p15-e-retrieval-modes/20261120T221402Z-6a6c31a06d60-b6c7/metrics/queries.json",
+      "sha256": "122df3ffa0b716b0dca81ff56a82ebf36d3027ff7d8cd6b4ace1c1253b6f217f"
+    },
+    {
+      "path": "experiments/raw/p15-e-retrieval-modes/20261120T221402Z-6a6c31a06d60-b6c7/metrics/metric-data.json",
+      "sha256": "f5235788f3b299bcfc2583bf93352dde9a46f4bbbd792680ebb76abfbdd599fc"
+    },
+    {
+      "path": "experiments/raw/p15-f-poison-replay/20261120T223908Z-e94df52ca8fb-b4c0/metrics/queries.json",
+      "sha256": "1a7bbb1c2cb387352ca2fde0a6e926b9e9af8b76eeeb63292c5a56db3e800d52"
+    },
+    {
+      "path": "experiments/raw/p15-f-poison-replay/20261120T223908Z-e94df52ca8fb-b4c0/metrics/metric-data.json",
+      "sha256": "1161275e980f7b4f1df02f3a3ed3f359d04a9d418ea4c66cb950cca919e961f0"
+    },
+    {
+      "path": "experiments/raw/p15-f-poison-replay/20261120T223908Z-e94df52ca8fb-b4c0/service-samples.csv",
+      "sha256": "80dd97b940ca77d0d956257f7dcd4c102cf8f52f11d2c5627f0a8d1122ce46a2"
+    },
+    {
+      "path": "experiments/derived/out/p15-a-hadoop/attempts.csv",
+      "sha256": "1cbede91de46da37c8ac9f36810e6743a186d9243d14c025a61b9117d5605a2c"
+    },
+    {
+      "path": "experiments/derived/out/p15-a-spark/attempts.csv",
+      "sha256": "beb5fc7c9e849627d2ff1d07a9f95cbe9b9a995d5e2ada0c2d1d46c6bca26b36"
+    },
+    {
+      "path": "experiments/derived/out/p15-b-spark-burst/attempts.csv",
+      "sha256": "63555f5fa0bfb1e7c36d4614bcdad5c2101b890a1d566af8643b0d1107fcea16"
+    },
+    {
+      "path": "experiments/derived/out/p15-c-embedding-backlog/observed.csv",
+      "sha256": "801919ae3228a499f66e7b97bb928c9c1f7f9162c9c85c063744b28620e0087a"
+    },
+    {
+      "path": "experiments/derived/out/p15-d-query-load/levels.csv",
+      "sha256": "5e72698f501ce65eb5e26eb23bcb4b492add997c29791d17a0ff172aa9ecf411"
+    },
+    {
+      "path": "experiments/derived/out/p15-d-read-load/levels.csv",
+      "sha256": "c070d9270c1b44c7e68da66a2000123de3055fe36ff89cb14bebd4bb46faa2ff"
+    },
+    {
+      "path": "experiments/derived/out/p15-e-retrieval-modes/modes.csv",
+      "sha256": "0f725eea4eec94aaa7e5c799c384ccdf1507801b5bf985dea63644c381171e9d"
+    },
+    {
+      "path": "experiments/derived/out/p15-f-poison-replay/observed.csv",
+      "sha256": "85e2717a78ab8bab4582de96c7fbe8a4c3773bc55a9308dee21fd067915e5a98"
+    },
+    {
+      "path": "experiments/derived/out/p15-f-poison-replay/parts.csv",
+      "sha256": "bb2f4a10da8deb619882f8379932335a9070cf4ca0726d53bc836c5577c7c981"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "experiments/evaluation/raw/performance/20261122T170516Z-7e551c8003c3-78bc/computed.csv",
+      "sha256": "9e148b70dad34d4ad88ba8abe960dc8e246480280cce05def9308cb49a6304ac"
+    },
+    {
+      "path": "experiments/evaluation/raw/performance/20261122T170516Z-7e551c8003c3-78bc/route-classes.csv",
+      "sha256": "bc543f0b99eebe1e52a6710b5aaad32c8e64945f3d2dab4fbb65001c973a53db"
+    },
+    {
+      "path": "experiments/evaluation/raw/performance/20261122T170516Z-7e551c8003c3-78bc/cloudwatch-sums.csv",
+      "sha256": "6af741ddfbd0aafce2a456fd1409275262ee9aa987737b955fefc5a1adb87c80"
+    },
+    {
+      "path": "experiments/evaluation/raw/performance/20261122T170516Z-7e551c8003c3-78bc/minute-throughput.csv",
+      "sha256": "6511f09bb0b7c4c6ddbf8cebbe1d28fa2e1349b151b7dcd257f068bc1214b110"
+    },
+    {
+      "path": "experiments/evaluation/raw/performance/20261122T170516Z-7e551c8003c3-78bc/throughput-by-tasks.csv",
+      "sha256": "90bc3ce6726c08aa44703de4c3e6a2289ebf834c5e8f7e307191afa378362db4"
+    },
+    {
+      "path": "experiments/evaluation/raw/performance/20261122T170516Z-7e551c8003c3-78bc/derived-values.csv",
+      "sha256": "0fb2ecd7ee81ec5c2d6fe9f28233cc689729f943860ef209ff8da025a3c6dad2"
+    },
+    {
+      "path": "experiments/evaluation/raw/performance/20261122T170516Z-7e551c8003c3-78bc/missing.csv",
+      "sha256": "f8e7d7a0997425f75c5c16a0bc19425158f7272fe2257920688bf83ed5f7a38e"
+    }
+  ],
+  "runId": "20261122T170516Z-7e551c8003c3-78bc",
+  "startedUtc": "2026-11-22T17:05:16Z",
+  "subcommand": "performance",
+  "suite": "experiments/evaluation/suite-v1.json",
+  "suiteSha256": "0f7f7d336433e00363a94d522a2bbbfdc93274cd32605cb411d445b98a339970",
+  "tool": "experiments/evaluation/evaluate.py",
+  "toolSha256": "8e7f3e7478266a3de43ece14e40c351aa44262a61fd46e0058e01f95e5df96b3",
+  "toolVersion": "evaluate-v1-r3"
+}

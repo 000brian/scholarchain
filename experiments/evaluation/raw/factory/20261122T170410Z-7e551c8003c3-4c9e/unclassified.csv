@@ -1,0 +1,28 @@
+phase,file,line,reason,text
+phase-00,phase-00/agent-report.md,1,agent report without a known agent,
+phase-01,phase-01/repair-01.md,1,repair file without a known agent,
+phase-03,phase-03/review-report.md,1,review report without a parseable finding table,
+phase-03,phase-03/review-report-02.md,1,review report without a parseable finding table,
+phase-04,phase-04/review-report.md,1,review report without a parseable finding table,
+phase-06,phase-06/review-report.md,1,review report without a parseable finding table,
+phase-06,phase-06/review-report-02.md,1,review report without a parseable finding table,
+phase-07,phase-07/review-report.md,119,finding-like row with an unknown second cell,"| m1 | `aws/NeptuneAdapters.scala:103` with `neptune/NeptuneModel.scala:41,62` | `CoauthorNeighbors(r, w, limit=10)` for a researcher with 50 coauthors on real Neptune | The query sends `LIMIT $limit`"
+phase-07,phase-07/review-report.md,120,finding-like row with an unknown second cell,"| m2 | `aws/AwsSupport.scala:46-48` with `Retry.scala:45-64` | A throttled PutVectors call | The SDK standard retry (up to 3 attempts) runs inside storage's own retry (up to 5 retries), allowing up to"
+phase-07,phase-07/review-report.md,121,finding-like row with an unknown second cell,"| m3 | `ingest/VectorIngestPipeline.scala:419-443` | Two writers race on one vector key with different text | The vector is overwritten first. The registry write then conflicts, and the registry holds"
+phase-07,phase-07/review-report-02.md,1,review report without a parseable finding table,
+phase-09,phase-09/review-report-02.md,99,finding-like row with an unknown second cell,"| R-1 | was major, **CLOSED** | `ResearcherResolver.scala:256-317`; `QueryWorkflow.scala:118-127, 189-211`; `RuntimeModel.scala:345-366` | Conflict researcher reached through ranking, bridge or neighb"
+phase-09,phase-09/review-report-02.md,100,finding-like row with an unknown second cell,"| R-2 | was major, **CLOSED** | `ClaimVerification.scala:51-56, 149-174` | `99/100`, `Alice Smith (99)` | Now checked as numbers, so not `Verified`; test `ClaimVerificationSuite.scala:302-332` | rag-e"
+phase-09,phase-09/review-report-02.md,101,finding-like row with an unknown second cell,"| R-3 | was major, **CLOSED** | `Synthesis.scala:327-378`; `QueryWorkflow.scala:284-289, 310-313` | Newline before a digit or ID; unknown name in the summary | Summary replaced, or labelled not verifi"
+phase-10,phase-10/review-report.md,1,review report without a parseable finding table,
+phase-10,phase-10/review-report-02.md,1,review report without a parseable finding table,
+phase-10,phase-10/review-report-03.md,1,review report without a parseable finding table,
+phase-11,phase-11/repair-round-2.md,1,repair file without a known agent,
+phase-13,phase-13/review-report-04.md,1,review report without a parseable finding table,
+phase-14,phase-14/orchestrator-summary-s2.md,32,step-table row without a known agent,| 9 | owners repair | not needed | – | – |
+phase-14,phase-14/review-report-G-21.md,1,review report without a parseable finding table,
+phase-14,phase-14/review-report-G-24.md,1,review report without a parseable finding table,
+amendment-01,amendment-01/review-report.md,1,review report without a parseable finding table,
+amendment-02,amendment-02/review-report.md,1,review report without a parseable finding table,
+amendment-02,amendment-02/review-report-02.md,1,review report without a parseable finding table,
+amendment-02,amendment-02/review-report-03.md,1,review report without a parseable finding table,
+amendment-02,amendment-02/review-report-05.md,1,review report without a parseable finding table,

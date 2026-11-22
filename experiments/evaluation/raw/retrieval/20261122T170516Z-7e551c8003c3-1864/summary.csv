@@ -1,0 +1,25 @@
+label,mode,metric,k,numerator,denominator,value,ci_low,ci_high,ci_method,inclusion_rule
+EXPLORATORY (n = 11),graph-only,recall,1,1.1,11,0.1,0.063636,0.136364,percentile bootstrap over questions; seed 20261122; 2000 resamples,questions of the report universe with a result for this mode; errored or empty results score 0
+EXPLORATORY (n = 11),graph-only,recall,5,5.5,11,0.5,0.318182,0.681818,percentile bootstrap over questions; seed 20261122; 2000 resamples,questions of the report universe with a result for this mode; errored or empty results score 0
+EXPLORATORY (n = 11),graph-only,recall,10,9,11,0.818182,0.545455,1,percentile bootstrap over questions; seed 20261122; 2000 resamples,questions of the report universe with a result for this mode; errored or empty results score 0
+EXPLORATORY (n = 11),graph-only,recall,30,9,11,0.818182,0.545455,1,percentile bootstrap over questions; seed 20261122; 2000 resamples,questions of the report universe with a result for this mode; errored or empty results score 0
+EXPLORATORY (n = 11),graph-only,mrr,,9,11,0.818182,0.545455,1,percentile bootstrap over questions; seed 20261122; 2000 resamples,questions of the report universe with a result for this mode; errored or empty results score 0
+EXPLORATORY (n = 11),graph-only,precision,,,,not measurable (unjudged retrievals),,,,retrieved IDs outside the labels are unjudged; never counted as negatives
+EXPLORATORY (n = 11),graph-only,ndcg,,,,not computed (no graded relevance labels),,,,
+EXPLORATORY (n = 11),graph-only,unjudged_share,,0,80,0,,,,retrieved IDs over all questions of this mode; unjudged = retrieved IDs outside the labels
+EXPLORATORY (n = 11),vector-only,recall,1,0,11,0,0,0,percentile bootstrap over questions; seed 20261122; 2000 resamples,questions of the report universe with a result for this mode; errored or empty results score 0
+EXPLORATORY (n = 11),vector-only,recall,5,0,11,0,0,0,percentile bootstrap over questions; seed 20261122; 2000 resamples,questions of the report universe with a result for this mode; errored or empty results score 0
+EXPLORATORY (n = 11),vector-only,recall,10,0,11,0,0,0,percentile bootstrap over questions; seed 20261122; 2000 resamples,questions of the report universe with a result for this mode; errored or empty results score 0
+EXPLORATORY (n = 11),vector-only,recall,30,0.1,11,0.009091,0,0.027273,percentile bootstrap over questions; seed 20261122; 2000 resamples,questions of the report universe with a result for this mode; errored or empty results score 0
+EXPLORATORY (n = 11),vector-only,mrr,,0.035714,11,0.003247,0,0.00974,percentile bootstrap over questions; seed 20261122; 2000 resamples,questions of the report universe with a result for this mode; errored or empty results score 0
+EXPLORATORY (n = 11),vector-only,precision,,,,not measurable (unjudged retrievals),,,,retrieved IDs outside the labels are unjudged; never counted as negatives
+EXPLORATORY (n = 11),vector-only,ndcg,,,,not computed (no graded relevance labels),,,,
+EXPLORATORY (n = 11),vector-only,unjudged_share,,179,180,0.994444,,,,retrieved IDs over all questions of this mode; unjudged = retrieved IDs outside the labels
+EXPLORATORY (n = 11),fused,recall,1,1,11,0.090909,0.054545,0.127273,percentile bootstrap over questions; seed 20261122; 2000 resamples,questions of the report universe with a result for this mode; errored or empty results score 0
+EXPLORATORY (n = 11),fused,recall,5,4.5,11,0.409091,0.227273,0.6,percentile bootstrap over questions; seed 20261122; 2000 resamples,questions of the report universe with a result for this mode; errored or empty results score 0
+EXPLORATORY (n = 11),fused,recall,10,7,11,0.636364,0.409091,0.863636,percentile bootstrap over questions; seed 20261122; 2000 resamples,questions of the report universe with a result for this mode; errored or empty results score 0
+EXPLORATORY (n = 11),fused,recall,30,9.1,11,0.827273,0.572727,1,percentile bootstrap over questions; seed 20261122; 2000 resamples,questions of the report universe with a result for this mode; errored or empty results score 0
+EXPLORATORY (n = 11),fused,mrr,,8.535714,11,0.775974,0.548701,1,percentile bootstrap over questions; seed 20261122; 2000 resamples,questions of the report universe with a result for this mode; errored or empty results score 0
+EXPLORATORY (n = 11),fused,precision,,,,not measurable (unjudged retrievals),,,,retrieved IDs outside the labels are unjudged; never counted as negatives
+EXPLORATORY (n = 11),fused,ndcg,,,,not computed (no graded relevance labels),,,,
+EXPLORATORY (n = 11),fused,unjudged_share,,139,220,0.631818,,,,retrieved IDs over all questions of this mode; unjudged = retrieved IDs outside the labels

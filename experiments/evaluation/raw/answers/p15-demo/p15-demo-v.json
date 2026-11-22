@@ -1,0 +1,271 @@
+{
+  "answer": {
+    "abstained": false,
+    "abstentionReason": null,
+    "answerText": "The answer below lists only claims checked against ScholarChain graph evidence.\n\nClaims:\n- [claim-1] Horacio Saggion ranks first with weighted degree 54 for 2015-2025 among researchers matched to the SIGIR-profile topic by profile similarity. (Uncertainty: Identity outcome for this researcher is not reported, and the topic match is by profile similarity, not topic labels.)\n\nMissing evidence (model-written, not verified):\n- Identity outcome for the top-ranked researcher\n- Weighted-degree values and ranks for other topic-matched candidates\n- Breadth and team-size metrics for the top-ranked researcher\n\nNotes:\n- Topic filter: researchers were matched to the topic by researcher-profile similarity within full-2015-2025 (top 30 profiles), not by topic labels; ranks are positions among those candidates.\n- The model summary contained numbers, identifiers or names not in the graph evidence and was replaced; facts appear only in verified claims.",
+    "bundleId": "evidence:v1:6e1640fd12a1bc0b17c8fd98d9329ced",
+    "claims": [
+      {
+        "claimId": "claim-1",
+        "claimText": "Horacio Saggion ranks first with weighted degree 54 for 2015-2025 among researchers matched to the SIGIR-profile topic by profile similarity.",
+        "evidenceIds": [
+          "evidence:v1:d56364bd4da92e2e6bb576b716def6db"
+        ],
+        "provenance": {
+          "contentHash": "sha256:1d8e944df368c4d449891f0623a1d7087bb270439e1ff8c45137203a6dffe384",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:d18f4b3a1b458ef92f7867fd57fd3273",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:d56364bd4da92e2e6bb576b716def6db"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": "Identity outcome for this researcher is not reported, and the topic match is by profile similarity, not topic labels.",
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "evidenceId": "evidence:v1:d56364bd4da92e2e6bb576b716def6db",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "weighted_degree",
+          "value": 54
+        },
+        "provenance": {
+          "contentHash": "sha256:52d92452bcabfb9e2c07032fd883f09fdc4d6f3f281d4ee3a63820c0fa028511",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:d18f4b3a1b458ef92f7867fd57fd3273",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:91f93eb0a8008ba0634727a8172f1868/window#full-2015-2025",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Horacio Saggion\nresearcherId=researcher:v1:91f93eb0a8008ba0634727a8172f1868\nrank=1\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:91f93eb0a8008ba0634727a8172f1868",
+          "metric=weighted_degree",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:6aee2cd1c653a6af390f23a88d95f7fc",
+        "evidenceType": "semantic_context",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:811378dac9b93311e3954ca7993e0b64501f5ff03e0acc34226321bcef751623",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "semantic-context-v1",
+          "runId": "run:v1:d18f4b3a1b458ef92f7867fd57fd3273",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "rp:full-2015-2025:researcher:v1:90fc6d459f5a82e54777f54fa69c2893"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": null,
+        "subjectIds": [
+          "rp:full-2015-2025:researcher:v1:90fc6d459f5a82e54777f54fa69c2893",
+          "researcher:v1:90fc6d459f5a82e54777f54fa69c2893"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:99a6a85978dc67e9d0eef798f98688ab",
+        "evidenceType": "semantic_context",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:9c620dc55e676ee05282c07f2973c189a9e0a50e0aa8606e9099f2a81ca345ba",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "semantic-context-v1",
+          "runId": "run:v1:d18f4b3a1b458ef92f7867fd57fd3273",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "rp:full-2015-2025:researcher:v1:81ef377c438b28c528c622ce0d7f9db6"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": null,
+        "subjectIds": [
+          "rp:full-2015-2025:researcher:v1:81ef377c438b28c528c622ce0d7f9db6",
+          "researcher:v1:81ef377c438b28c528c622ce0d7f9db6"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:465e1b99c8ccf0fc57defafbe4d974c9",
+        "evidenceType": "semantic_context",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:7f72ae13f83dca513a442639e9e534f3d80765721d660926ed5277359ca61489",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "semantic-context-v1",
+          "runId": "run:v1:d18f4b3a1b458ef92f7867fd57fd3273",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "rp:full-2015-2025:researcher:v1:59936418f3adbf7a767fe8c48616eec3"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": null,
+        "subjectIds": [
+          "rp:full-2015-2025:researcher:v1:59936418f3adbf7a767fe8c48616eec3",
+          "researcher:v1:59936418f3adbf7a767fe8c48616eec3"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:a1fc70023e985215b3408a9010fb297d",
+        "evidenceType": "semantic_context",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:4df3812c0105bf61497b0934213b8aaf6bcf8aa13fab70a9ce9832876018a942",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "semantic-context-v1",
+          "runId": "run:v1:d18f4b3a1b458ef92f7867fd57fd3273",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "rp:full-2015-2025:researcher:v1:2f71890961f1c14f93674be356691066"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": null,
+        "subjectIds": [
+          "rp:full-2015-2025:researcher:v1:2f71890961f1c14f93674be356691066",
+          "researcher:v1:2f71890961f1c14f93674be356691066"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:499308094c8bb363b48fcf8f89ccb126",
+        "evidenceType": "semantic_context",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:7fd2cd5b9decdacecea4979bb723159a5153b16bf889829a618b30476e1ba223",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "semantic-context-v1",
+          "runId": "run:v1:d18f4b3a1b458ef92f7867fd57fd3273",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "rp:full-2015-2025:researcher:v1:2615d07bfb0646bc1c24df36f2b36134"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": null,
+        "subjectIds": [
+          "rp:full-2015-2025:researcher:v1:2615d07bfb0646bc1c24df36f2b36134",
+          "researcher:v1:2615d07bfb0646bc1c24df36f2b36134"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      }
+    ],
+    "identityNotes": [],
+    "modelId": "claude-haiku-5-5",
+    "plan": {
+      "graphRunId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+      "provenance": {
+        "contentHash": "sha256:e71606876b8a81a3faceb54f6f51e437dc8ebdecf80b14187d7508f03bf9a1d7",
+        "datasetId": "scholarchain-graph",
+        "jobName": "rag.query",
+        "policyVersion": "query-planner-v2@sha256:60b5260e9c2eeabff46150fb09cf41a89fe39fbd23701b7023cdf0663e5684a1",
+        "runId": "run:v1:d18f4b3a1b458ef92f7867fd57fd3273",
+        "schemaVersion": 1,
+        "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+        "sourceRecordIds": [
+          "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+        ],
+        "sourceType": "runtime"
+      },
+      "question": "Among researchers whose profiles mention SIGIR, who has the highest weighted degree in 2015-2025?",
+      "schemaVersion": 1,
+      "steps": [
+        {
+          "operation": "researcher_ranking",
+          "parameters": {
+            "limit": "1",
+            "metric": "weighted_degree",
+            "topic": "SIGIR",
+            "windowLabel": "full-2015-2025"
+          },
+          "researcherIds": [],
+          "window": {
+            "endYear": 2025,
+            "startYear": 2015
+          }
+        }
+      ]
+    },
+    "provenance": {
+      "contentHash": "sha256:852608b7aecacbf6408b046273b341a18c040449f8f6902ed403bc1cfdbcc542",
+      "datasetId": "scholarchain-graph",
+      "jobName": "rag.answer",
+      "policyVersion": "answer-synthesis-v3",
+      "runId": "run:v1:d18f4b3a1b458ef92f7867fd57fd3273",
+      "schemaVersion": 1,
+      "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+      "sourceRecordIds": [
+        "evidence:v1:6e1640fd12a1bc0b17c8fd98d9329ced"
+      ],
+      "sourceType": "runtime"
+    },
+    "question": "Among researchers whose profiles mention SIGIR, who has the highest weighted degree in 2015-2025?",
+    "schemaVersion": 2
+  },
+  "links": {
+    "evidence": [
+      "/v1/evidence/evidence:v1:d56364bd4da92e2e6bb576b716def6db?window=2015-2025"
+    ],
+    "explain": "/v1/explain/run:v1:d18f4b3a1b458ef92f7867fd57fd3273"
+  },
+  "notes": [],
+  "queryId": "run:v1:d18f4b3a1b458ef92f7867fd57fd3273"
+}

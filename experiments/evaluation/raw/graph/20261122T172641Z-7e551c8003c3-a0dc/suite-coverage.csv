@@ -1,0 +1,12 @@
+group2_check,tests,independent,mixed,property,covered_by_independent,kind
+degree,12,12,0,0,yes,"b where independent (hand-worked), a where mixed or property; classification by spark-engineer, not re-verified by this tool"
+weighted_degree,11,11,0,0,yes,"b where independent (hand-worked), a where mixed or property; classification by spark-engineer, not re-verified by this tool"
+components,8,8,0,0,yes,"b where independent (hand-worked), a where mixed or property; classification by spark-engineer, not re-verified by this tool"
+paths,3,2,1,0,yes,"b where independent (hand-worked), a where mixed or property; classification by spark-engineer, not re-verified by this tool"
+communities,3,3,0,0,yes,"b where independent (hand-worked), a where mixed or property; classification by spark-engineer, not re-verified by this tool"
+bridges,2,2,0,0,yes,"b where independent (hand-worked), a where mixed or property; classification by spark-engineer, not re-verified by this tool"
+kcore,6,6,0,0,yes,"b where independent (hand-worked), a where mixed or property; classification by spark-engineer, not re-verified by this tool"
+integrity,11,9,2,0,yes,"b where independent (hand-worked), a where mixed or property; classification by spark-engineer, not re-verified by this tool"
+duplicates,4,4,0,0,yes,"b where independent (hand-worked), a where mixed or property; classification by spark-engineer, not re-verified by this tool"
+orphans,4,4,0,0,yes,"b where independent (hand-worked), a where mixed or property; classification by spark-engineer, not re-verified by this tool"
+none,11,8,1,2,not a group 2 check,"b where independent (hand-worked), a where mixed or property; classification by spark-engineer, not re-verified by this tool"

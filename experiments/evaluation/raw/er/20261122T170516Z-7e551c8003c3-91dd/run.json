@@ -1,0 +1,72 @@
+{
+  "argv": [
+    "--phase5-report",
+    "docs/agent-runs/phase-05/agent-report-er-eval.md",
+    "--start-marker",
+    "FULL FINAL summary.md (verbatim):",
+    "--end-marker",
+    "## Part 3: addendum",
+    "--gold",
+    "docs/agent-runs/phase-05/gold/gold-labels.csv",
+    "--note",
+    "M3 and M4 are fixed in code in Phase 16 (entity-resolution-engineer step 2) but not re-rendered: the table shows the Phase 5 wording, and the zero-event bounds are copied from the reliability paragraph of the same summary",
+    "--note",
+    "er-v2 accuracy is not measurable from the frozen evidence: the er-v1 decision set and the Phase 5 review queue and key are gone (agent-report-er.md group 1 plan); equal counts are not equal decisions",
+    "--suite",
+    "experiments/evaluation/suite-v1.json",
+    "--entry",
+    "E4-er"
+  ],
+  "endedUtc": "2026-11-22T17:05:16Z",
+  "entry": "E4-er",
+  "format": "scholarchain.evaluation-run",
+  "formatVersion": 1,
+  "inputs": [
+    {
+      "path": "experiments/evaluation/suite-v1.json",
+      "sha256": "0f7f7d336433e00363a94d522a2bbbfdc93274cd32605cb411d445b98a339970"
+    },
+    {
+      "path": "docs/agent-runs/phase-05/agent-report-er-eval.md",
+      "sha256": "e20023ce6152a65cdd1b89f30489844e0532f9ff0098ead8f09fb75b6b5baf9b"
+    },
+    {
+      "path": "docs/agent-runs/phase-05/gold/gold-labels.csv",
+      "sha256": "fc39c15fba1ab7b8cb2ed8337a439683dce4e457ed52d08b294cfb2feba71fa9"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "experiments/evaluation/raw/er/20261122T170516Z-7e551c8003c3-91dd/table.csv",
+      "sha256": "cb86d4edd7587afb2f640abfa5dbcf553a9b832eee583f75dbbeafed9c6f6aa4"
+    },
+    {
+      "path": "experiments/evaluation/raw/er/20261122T170516Z-7e551c8003c3-91dd/weighted-intervals.csv",
+      "sha256": "fde6c63af01b9badbc4303890ef3f3fc5170508324710179f84a5b5a9fdfb22f"
+    },
+    {
+      "path": "experiments/evaluation/raw/er/20261122T170516Z-7e551c8003c3-91dd/confusion.csv",
+      "sha256": "f7a6630ead28c2e5d9971f5218331767835e7e0b618a4dcf630f39e6790f6a63"
+    },
+    {
+      "path": "experiments/evaluation/raw/er/20261122T170516Z-7e551c8003c3-91dd/recomputed.csv",
+      "sha256": "08e04eb3da6f975cb5d306fbc79c8236b977cba31cde51ad5e11957938abe6ae"
+    },
+    {
+      "path": "experiments/evaluation/raw/er/20261122T170516Z-7e551c8003c3-91dd/checks.csv",
+      "sha256": "811053a179de278c053a7137a9bfe6fbff19f29a3790bff7822eff48f762b6fb"
+    },
+    {
+      "path": "experiments/evaluation/raw/er/20261122T170516Z-7e551c8003c3-91dd/notes.csv",
+      "sha256": "ed1a43c1062f43a565b6e40bcaa0ba0573ea384d53d3b228093be902fa06270a"
+    }
+  ],
+  "runId": "20261122T170516Z-7e551c8003c3-91dd",
+  "startedUtc": "2026-11-22T17:05:16Z",
+  "subcommand": "er",
+  "suite": "experiments/evaluation/suite-v1.json",
+  "suiteSha256": "0f7f7d336433e00363a94d522a2bbbfdc93274cd32605cb411d445b98a339970",
+  "tool": "experiments/evaluation/evaluate.py",
+  "toolSha256": "8e7f3e7478266a3de43ece14e40c351aa44262a61fd46e0058e01f95e5df96b3",
+  "toolVersion": "evaluate-v1-r3"
+}

@@ -1,0 +1,218 @@
+{
+  "answer": {
+    "abstained": false,
+    "abstentionReason": null,
+    "answerText": "The answer below lists only claims checked against ScholarChain graph evidence.\n\nClaims:\n- [claim-1] Wanli Ouyang's maximum number of coauthors on one paper from 2015-2025 is 19.\n- [claim-2] The Lumina-Next paper (2024, conf/nips) is listed with a team size of 20 coauthors in the work facts.\n\nMissing evidence (model-written, not verified):\n- Explicit link between the maximum-team paper and the Lumina-Next work row\n\nNotes:\n- 'Wanli Ouyang' was resolved to Wanli Ouyang (researcher:v1:fe1177235d9a724607da7e9700d133c4).\n- The model summary contained numbers, identifiers or names not in the graph evidence and was replaced; facts appear only in verified claims.\n- 1 missing-evidence note(s) contained numbers, identifiers or names not in the graph evidence and were left out.\n- 2 model uncertainty note(s) contained numbers, identifiers or names not in the claim's cited evidence and were left out.",
+    "bundleId": "evidence:v1:baa7a243bcbe1fa0dd1be25b0882ff5c",
+    "claims": [
+      {
+        "claimId": "claim-1",
+        "claimText": "Wanli Ouyang's maximum number of coauthors on one paper from 2015-2025 is 19.",
+        "evidenceIds": [
+          "evidence:v1:b70b58dd1ca686b90dd5fcb1940c3159",
+          "evidence:v1:c884c6a8c5a4b3c5a620138cfce1b08a"
+        ],
+        "provenance": {
+          "contentHash": "sha256:db48f13dce9cd2faccb5283226367cdd2433e44400cfcc7870f9fb800e2da0ce",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:4f74439a72646af75c238901a8e07863",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:b70b58dd1ca686b90dd5fcb1940c3159",
+            "evidence:v1:c884c6a8c5a4b3c5a620138cfce1b08a"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": null,
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "claimId": "claim-2",
+        "claimText": "The Lumina-Next paper (2024, conf/nips) is listed with a team size of 20 coauthors in the work facts.",
+        "evidenceIds": [
+          "evidence:v1:9da58a66278cd0ad641366124c0b1a41"
+        ],
+        "provenance": {
+          "contentHash": "sha256:37c57aeffe31fe3355dbca158b343eea3bced899af6f715973ea085535514723",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:4f74439a72646af75c238901a8e07863",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:9da58a66278cd0ad641366124c0b1a41"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": null,
+        "window": {
+          "endYear": 2024,
+          "startYear": 2024
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "evidenceId": "evidence:v1:c884c6a8c5a4b3c5a620138cfce1b08a",
+        "evidenceType": "match_decision",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:cebab18f2ff6b89b32c44ca16c6703e7dae39c1630adfe00d756640653fbd6a6",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:4f74439a72646af75c238901a8e07863",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "EntityLinkCache:name#wanli ouyang/researcher#researcher:v1:fe1177235d9a724607da7e9700d133c4",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Wanli Ouyang\nresearcherId=researcher:v1:fe1177235d9a724607da7e9700d133c4\naskedName=Wanli Ouyang\nmatchedValue=Wanli Ouyang\nresolved=true\noutcome=accepted\nconfidence=0.9500\npublicationCount=193\ndistinctCoauthors=622\ntopCoauthorNames=Xiaogang Wang 0001 | Lei Bai 0001 | Shixiang Tang\ntopCoauthorIds=researcher:v1:b44a742bc8187107fe29b217cbf2b933,researcher:v1:8b72fc9b1121116540c919b993a54228,researcher:v1:83b570c251aea2cc747cbbcdfc1b8ed8\ncontextWindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:fe1177235d9a724607da7e9700d133c4",
+          "identity=wanli ouyang"
+        ],
+        "window": null
+      },
+      {
+        "evidenceId": "evidence:v1:b70b58dd1ca686b90dd5fcb1940c3159",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "max_coauthors_on_one_paper",
+          "value": 19
+        },
+        "provenance": {
+          "contentHash": "sha256:5dd56b95cb88d1dccc6595e1c592f1653ebc843b4db1c081c2535596af94ac34",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:4f74439a72646af75c238901a8e07863",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:fe1177235d9a724607da7e9700d133c4/window#full-2015-2025",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Wanli Ouyang\nresearcherId=researcher:v1:fe1177235d9a724607da7e9700d133c4\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:fe1177235d9a724607da7e9700d133c4",
+          "metric=max_coauthors_on_one_paper",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:9da58a66278cd0ad641366124c0b1a41",
+        "evidenceType": "work",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:c114bde11816ffd36424c0e6dc9ef3fef63954b07ce15851c90c71363e2f67b7",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:4f74439a72646af75c238901a8e07863",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "graph:Work/work:v1:daa83d005f1e6313587b1f3d3c65c243",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "title=Lumina-Next : Making Lumina-T2X Stronger and Faster with Next-DiT.\nyear=2024\nvenueKey=conf/nips\nteamSize=20\ndblpKey=conf/nips/ZhuoDXLLHLZWML024",
+        "subjectIds": [
+          "work:v1:daa83d005f1e6313587b1f3d3c65c243"
+        ],
+        "window": {
+          "endYear": 2024,
+          "startYear": 2024
+        }
+      }
+    ],
+    "identityNotes": [
+      "'Wanli Ouyang' was resolved to Wanli Ouyang (researcher:v1:fe1177235d9a724607da7e9700d133c4)."
+    ],
+    "modelId": "claude-haiku-5-5",
+    "plan": {
+      "graphRunId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+      "provenance": {
+        "contentHash": "sha256:f42f1d79c0f27ea64d6bcddf0c361f2a6a13b42ea9fb1991a71670bf18b4127c",
+        "datasetId": "scholarchain-graph",
+        "jobName": "rag.query",
+        "policyVersion": "query-planner-v2@sha256:60b5260e9c2eeabff46150fb09cf41a89fe39fbd23701b7023cdf0663e5684a1",
+        "runId": "run:v1:4f74439a72646af75c238901a8e07863",
+        "schemaVersion": 1,
+        "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+        "sourceRecordIds": [
+          "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+        ],
+        "sourceType": "runtime"
+      },
+      "question": "Which paper of Wanli Ouyang had the most coauthors on one paper between 2015 and 2025?",
+      "schemaVersion": 1,
+      "steps": [
+        {
+          "operation": "max_team_size",
+          "parameters": {
+            "metric": "max_coauthors_on_one_paper",
+            "windowLabel": "full-2015-2025"
+          },
+          "researcherIds": [
+            "researcher:v1:fe1177235d9a724607da7e9700d133c4"
+          ],
+          "window": {
+            "endYear": 2025,
+            "startYear": 2015
+          }
+        }
+      ]
+    },
+    "provenance": {
+      "contentHash": "sha256:3b41c4b6f05f49d3056857c2c2c1ed0c4523aab9cf7a168ef61e5df082a3a44c",
+      "datasetId": "scholarchain-graph",
+      "jobName": "rag.answer",
+      "policyVersion": "answer-synthesis-v3",
+      "runId": "run:v1:4f74439a72646af75c238901a8e07863",
+      "schemaVersion": 1,
+      "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+      "sourceRecordIds": [
+        "evidence:v1:baa7a243bcbe1fa0dd1be25b0882ff5c"
+      ],
+      "sourceType": "runtime"
+    },
+    "question": "Which paper of Wanli Ouyang had the most coauthors on one paper between 2015 and 2025?",
+    "schemaVersion": 2
+  },
+  "links": {
+    "evidence": [
+      "/v1/evidence/evidence:v1:b70b58dd1ca686b90dd5fcb1940c3159?window=2015-2025",
+      "/v1/evidence/evidence:v1:c884c6a8c5a4b3c5a620138cfce1b08a",
+      "/v1/evidence/evidence:v1:9da58a66278cd0ad641366124c0b1a41?window=2024-2024"
+    ],
+    "explain": "/v1/explain/run:v1:4f74439a72646af75c238901a8e07863"
+  },
+  "notes": [],
+  "queryId": "run:v1:4f74439a72646af75c238901a8e07863"
+}

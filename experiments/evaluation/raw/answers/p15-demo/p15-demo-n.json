@@ -1,0 +1,823 @@
+{
+  "answer": {
+    "abstained": false,
+    "abstentionReason": null,
+    "answerText": "The answer below lists only claims checked against ScholarChain graph evidence.\n\nClaims:\n- [claim-2] Wanli Ouyang was resolved to a researcher record with accepted identity outcome and 193 publications in 2015-2025. (Uncertainty: Partially supported: a number is bound to a field the cited item does not have.)\n- [claim-3] Xiaogang Wang 0001 is the top coauthor with 31 joint publications from 2015 to 2022.\n- [claim-4] Lei Bai 0001 is the second coauthor with 27 joint publications from 2021 to 2025.\n- [claim-5] Shixiang Tang has 18 joint publications with Wanli Ouyang from 2021 to 2025.\n- [claim-6] Wanli Ouyang has 622 distinct coauthors and 1227 total coauthor occurrences, with weighted degree equal to that total, in 2015-2025. (Uncertainty: Partially supported: a number is bound to a field the cited item does not have.)\n- [claim-7] Average team size is 6.3575 coauthors per paper, with a maximum of 19 coauthors on one paper.\n\nRemoved claims:\n- claim-1: conflicting: a year is not a first or last year of a cited edge or a cited work's year\n\nMissing evidence (model-written, not verified):\n- Coauthor lists beyond the top ten direct collaborators are not shown.\n\nNotes:\n- Not supported: Nobel Prize won by Wanli Ouyang in 2019 is not in the coauthorship graph\n- 'Wanli Ouyang' was resolved to Wanli Ouyang (researcher:v1:fe1177235d9a724607da7e9700d133c4).\n- Wanli Ouyang has more direct collaborators in full-2015-2025 than the 10 listed (by edge weight).\n- The model summary contained numbers, identifiers or names not in the graph evidence and was replaced; facts appear only in verified claims.\n- 1 missing-evidence note(s) contained numbers, identifiers or names not in the graph evidence and were left out.",
+    "bundleId": "evidence:v1:0e371d36294da7dce9954c6a9d838225",
+    "claims": [
+      {
+        "claimId": "claim-1",
+        "claimText": "Removed (conflicting): a year is not a first or last year of a cited edge or a cited work's year",
+        "evidenceIds": [
+          "evidence:v1:17095ecf740a119737310e4e32fce91a"
+        ],
+        "provenance": {
+          "contentHash": "sha256:f6315622a8aa51a88441a1f479a1c3bc72e9d887dcdbb0fc6c688c5452020678",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:17095ecf740a119737310e4e32fce91a"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "conflicting",
+        "uncertainty": null,
+        "window": null
+      },
+      {
+        "claimId": "claim-2",
+        "claimText": "Wanli Ouyang was resolved to a researcher record with accepted identity outcome and 193 publications in 2015-2025.",
+        "evidenceIds": [
+          "evidence:v1:17095ecf740a119737310e4e32fce91a",
+          "evidence:v1:3c77c6d0f1d974ddd397ce7b7efe33de"
+        ],
+        "provenance": {
+          "contentHash": "sha256:678c381391e8d19a6240158231d57ad736f580486e048df09b01ac6e8fa1fec1",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:17095ecf740a119737310e4e32fce91a",
+            "evidence:v1:3c77c6d0f1d974ddd397ce7b7efe33de"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "partially_supported",
+        "uncertainty": "Partially supported: a number is bound to a field the cited item does not have.",
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "claimId": "claim-3",
+        "claimText": "Xiaogang Wang 0001 is the top coauthor with 31 joint publications from 2015 to 2022.",
+        "evidenceIds": [
+          "evidence:v1:a4607204a23e0fb6237c0007093826f9"
+        ],
+        "provenance": {
+          "contentHash": "sha256:eb5f5347fdc0db2aa880f4cddc11918e7370c946512917bcf6a3906f525cf936",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:a4607204a23e0fb6237c0007093826f9"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": null,
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "claimId": "claim-4",
+        "claimText": "Lei Bai 0001 is the second coauthor with 27 joint publications from 2021 to 2025.",
+        "evidenceIds": [
+          "evidence:v1:8c390ac6be3a2a34297bbe8a5bb4f7fa"
+        ],
+        "provenance": {
+          "contentHash": "sha256:ff45f0ced2e3458514268cc2852a2c36b1bee9d4c4aafd55e547ecec2ca4c3e5",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:8c390ac6be3a2a34297bbe8a5bb4f7fa"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": null,
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "claimId": "claim-5",
+        "claimText": "Shixiang Tang has 18 joint publications with Wanli Ouyang from 2021 to 2025.",
+        "evidenceIds": [
+          "evidence:v1:e457eaac3e5c6df5699d385022ed65a3"
+        ],
+        "provenance": {
+          "contentHash": "sha256:1a418a8e58c8cdeb55f274763ca260ddaafff6d6fd8b26baf680e9102e9065aa",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:e457eaac3e5c6df5699d385022ed65a3"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": null,
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "claimId": "claim-6",
+        "claimText": "Wanli Ouyang has 622 distinct coauthors and 1227 total coauthor occurrences, with weighted degree equal to that total, in 2015-2025.",
+        "evidenceIds": [
+          "evidence:v1:abb89c5b841dde6002604ece02886ef7",
+          "evidence:v1:7d06794b00d2c0f0c7814ba975adccd0",
+          "evidence:v1:f1f88e62083a58740a5563422ceef0ec"
+        ],
+        "provenance": {
+          "contentHash": "sha256:e60324258afcad7abe0032c116e05c38a734b302f49c27479a16b7ca49a2715f",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:abb89c5b841dde6002604ece02886ef7",
+            "evidence:v1:7d06794b00d2c0f0c7814ba975adccd0",
+            "evidence:v1:f1f88e62083a58740a5563422ceef0ec"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "partially_supported",
+        "uncertainty": "Partially supported: a number is bound to a field the cited item does not have.",
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "claimId": "claim-7",
+        "claimText": "Average team size is 6.3575 coauthors per paper, with a maximum of 19 coauthors on one paper.",
+        "evidenceIds": [
+          "evidence:v1:1458b8f2fc10909202f4e85796d206b9",
+          "evidence:v1:8bfd946f1bbcc5a8ccb1be4f48e22bb1"
+        ],
+        "provenance": {
+          "contentHash": "sha256:5377960abaac28e589692fb860e88003b9b76f58b21473ba7057bf29a3ec4363",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:1458b8f2fc10909202f4e85796d206b9",
+            "evidence:v1:8bfd946f1bbcc5a8ccb1be4f48e22bb1"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": null,
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "evidenceId": "evidence:v1:17095ecf740a119737310e4e32fce91a",
+        "evidenceType": "match_decision",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:cebab18f2ff6b89b32c44ca16c6703e7dae39c1630adfe00d756640653fbd6a6",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "EntityLinkCache:name#wanli ouyang/researcher#researcher:v1:fe1177235d9a724607da7e9700d133c4",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Wanli Ouyang\nresearcherId=researcher:v1:fe1177235d9a724607da7e9700d133c4\naskedName=Wanli Ouyang\nmatchedValue=Wanli Ouyang\nresolved=true\noutcome=accepted\nconfidence=0.9500\npublicationCount=193\ndistinctCoauthors=622\ntopCoauthorNames=Xiaogang Wang 0001 | Lei Bai 0001 | Shixiang Tang\ntopCoauthorIds=researcher:v1:b44a742bc8187107fe29b217cbf2b933,researcher:v1:8b72fc9b1121116540c919b993a54228,researcher:v1:83b570c251aea2cc747cbbcdfc1b8ed8\ncontextWindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:fe1177235d9a724607da7e9700d133c4",
+          "identity=wanli ouyang"
+        ],
+        "window": null
+      },
+      {
+        "evidenceId": "evidence:v1:3c77c6d0f1d974ddd397ce7b7efe33de",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "publication_count",
+          "value": 193
+        },
+        "provenance": {
+          "contentHash": "sha256:5dd56b95cb88d1dccc6595e1c592f1653ebc843b4db1c081c2535596af94ac34",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:fe1177235d9a724607da7e9700d133c4/window#full-2015-2025",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Wanli Ouyang\nresearcherId=researcher:v1:fe1177235d9a724607da7e9700d133c4\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:fe1177235d9a724607da7e9700d133c4",
+          "metric=publication_count",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:abb89c5b841dde6002604ece02886ef7",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "distinct_coauthors",
+          "value": 622
+        },
+        "provenance": {
+          "contentHash": "sha256:5dd56b95cb88d1dccc6595e1c592f1653ebc843b4db1c081c2535596af94ac34",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:fe1177235d9a724607da7e9700d133c4/window#full-2015-2025",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Wanli Ouyang\nresearcherId=researcher:v1:fe1177235d9a724607da7e9700d133c4\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:fe1177235d9a724607da7e9700d133c4",
+          "metric=distinct_coauthors",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:7d06794b00d2c0f0c7814ba975adccd0",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "total_coauthor_occurrences",
+          "value": 1227
+        },
+        "provenance": {
+          "contentHash": "sha256:5dd56b95cb88d1dccc6595e1c592f1653ebc843b4db1c081c2535596af94ac34",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:fe1177235d9a724607da7e9700d133c4/window#full-2015-2025",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Wanli Ouyang\nresearcherId=researcher:v1:fe1177235d9a724607da7e9700d133c4\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:fe1177235d9a724607da7e9700d133c4",
+          "metric=total_coauthor_occurrences",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:1458b8f2fc10909202f4e85796d206b9",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "average_coauthors_per_paper",
+          "value": 6.357512953367876
+        },
+        "provenance": {
+          "contentHash": "sha256:5dd56b95cb88d1dccc6595e1c592f1653ebc843b4db1c081c2535596af94ac34",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:fe1177235d9a724607da7e9700d133c4/window#full-2015-2025",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Wanli Ouyang\nresearcherId=researcher:v1:fe1177235d9a724607da7e9700d133c4\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:fe1177235d9a724607da7e9700d133c4",
+          "metric=average_coauthors_per_paper",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:8bfd946f1bbcc5a8ccb1be4f48e22bb1",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "max_coauthors_on_one_paper",
+          "value": 19
+        },
+        "provenance": {
+          "contentHash": "sha256:5dd56b95cb88d1dccc6595e1c592f1653ebc843b4db1c081c2535596af94ac34",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:fe1177235d9a724607da7e9700d133c4/window#full-2015-2025",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Wanli Ouyang\nresearcherId=researcher:v1:fe1177235d9a724607da7e9700d133c4\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:fe1177235d9a724607da7e9700d133c4",
+          "metric=max_coauthors_on_one_paper",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:f1f88e62083a58740a5563422ceef0ec",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "weighted_degree",
+          "value": 1227
+        },
+        "provenance": {
+          "contentHash": "sha256:5dd56b95cb88d1dccc6595e1c592f1653ebc843b4db1c081c2535596af94ac34",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:fe1177235d9a724607da7e9700d133c4/window#full-2015-2025",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Wanli Ouyang\nresearcherId=researcher:v1:fe1177235d9a724607da7e9700d133c4\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:fe1177235d9a724607da7e9700d133c4",
+          "metric=weighted_degree",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:a4607204a23e0fb6237c0007093826f9",
+        "evidenceType": "coauthor_edge",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:71959b87d526643ae46b7f2318fc79e599a7f9a19fab6b61cc91426bea037f17",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "graph:COAUTHORED_WITH/edge:v1:0a7b9fadd069a3ed8d1a7660ba702c73",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+            "edge:v1:0a7b9fadd069a3ed8d1a7660ba702c73"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "nameA=Xiaogang Wang 0001\nresearcherA=researcher:v1:b44a742bc8187107fe29b217cbf2b933\nnameB=Wanli Ouyang\nresearcherB=researcher:v1:fe1177235d9a724607da7e9700d133c4\nweight=31\njointPublicationCount=31\nfirstYear=2015\nlastYear=2022\nsupportingWorkIds=work:v1:0049e22ece2bcb3244dd92978e9f7d61,work:v1:00ee1ed8ece8cd088b6d78d525b292cf,work:v1:1d3e88b1e195b0676ff78e8acc22576b,work:v1:1d95a44ef6ea1db35e2e1c7778048fb3,work:v1:25eda68c57c2ed29b7c0b910d1a624e5\nedgeId=edge:v1:0a7b9fadd069a3ed8d1a7660ba702c73\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:b44a742bc8187107fe29b217cbf2b933",
+          "researcher:v1:fe1177235d9a724607da7e9700d133c4",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:8c390ac6be3a2a34297bbe8a5bb4f7fa",
+        "evidenceType": "coauthor_edge",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:3e51109df3d3cf50d16c942e527c3ebcc4a0a84e156272d2fc622fc3da9760db",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "graph:COAUTHORED_WITH/edge:v1:44923367f86d20c2cea98494e9b6aa34",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+            "edge:v1:44923367f86d20c2cea98494e9b6aa34"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "nameA=Lei Bai 0001\nresearcherA=researcher:v1:8b72fc9b1121116540c919b993a54228\nnameB=Wanli Ouyang\nresearcherB=researcher:v1:fe1177235d9a724607da7e9700d133c4\nweight=27\njointPublicationCount=27\nfirstYear=2021\nlastYear=2025\nsupportingWorkIds=work:v1:078c8e68324d7b552bc2205a32a1c809,work:v1:15a7dc3fd97cbe02431e325be7b1e4b1,work:v1:1ac5deae0c5b224a883ea5ca6cce7b8e,work:v1:25d2314e88164209247099519d745901,work:v1:33ed7e1d5df1d67f5dfd9083c72681c2\nedgeId=edge:v1:44923367f86d20c2cea98494e9b6aa34\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:8b72fc9b1121116540c919b993a54228",
+          "researcher:v1:fe1177235d9a724607da7e9700d133c4",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:e457eaac3e5c6df5699d385022ed65a3",
+        "evidenceType": "coauthor_edge",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:acbbb146d05ec9d9681642fab47fbc7ff4b5cbe3d004a2a2d527aa6a2ba13e02",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "graph:COAUTHORED_WITH/edge:v1:73ffd3b99fad75925ce793ac9efa93b6",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+            "edge:v1:73ffd3b99fad75925ce793ac9efa93b6"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "nameA=Shixiang Tang\nresearcherA=researcher:v1:83b570c251aea2cc747cbbcdfc1b8ed8\nnameB=Wanli Ouyang\nresearcherB=researcher:v1:fe1177235d9a724607da7e9700d133c4\nweight=18\njointPublicationCount=18\nfirstYear=2021\nlastYear=2025\nsupportingWorkIds=work:v1:0f9ed9077321c4a12e961e37037efebd,work:v1:25d2314e88164209247099519d745901,work:v1:33ed7e1d5df1d67f5dfd9083c72681c2,work:v1:36a83b2ea3fe445039e913b84daad378,work:v1:5097b3b7d5649a548816aff9563cc54f\nedgeId=edge:v1:73ffd3b99fad75925ce793ac9efa93b6\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:83b570c251aea2cc747cbbcdfc1b8ed8",
+          "researcher:v1:fe1177235d9a724607da7e9700d133c4",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:556443031f6478f26ddb6311ad0cc69b",
+        "evidenceType": "coauthor_edge",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:69be26971ddba3fcbe544ac5bab9bec8bcaac0b06a1c5f41b6dc465ce0f00433",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "graph:COAUTHORED_WITH/edge:v1:918d6da6d40dc42766c67c42e20830a7",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+            "edge:v1:918d6da6d40dc42766c67c42e20830a7"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "nameA=Tong He 0001\nresearcherA=researcher:v1:62d2a2dd8d44637a59a579e4d2155308\nnameB=Wanli Ouyang\nresearcherB=researcher:v1:fe1177235d9a724607da7e9700d133c4\nweight=16\njointPublicationCount=16\nfirstYear=2023\nlastYear=2025\nsupportingWorkIds=work:v1:18f406ab0cb640cc3a3317eac78b57b3,work:v1:3f346235ea9b38c233a9bf3513c55ddc,work:v1:4463a5ef3c00e8b9559371732da2ac61,work:v1:606425ec0d9819b94eb98e04bf5fa32b,work:v1:67548d54c060bfe1d39ef9e2bc8e66e0\nedgeId=edge:v1:918d6da6d40dc42766c67c42e20830a7\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:62d2a2dd8d44637a59a579e4d2155308",
+          "researcher:v1:fe1177235d9a724607da7e9700d133c4",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:680abbb851cf0d174c0e02c2fa4258b8",
+        "evidenceType": "coauthor_edge",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:24d2c5b61267dfd6f2622e966354587c4b63a97385dcbb53e010df0e0be401cf",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "graph:COAUTHORED_WITH/edge:v1:b79959d6435cec3e311ce1c974810358",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+            "edge:v1:b79959d6435cec3e311ce1c974810358"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "nameA=Hongsheng Li 0001\nresearcherA=researcher:v1:d72a0a8a222aa9fdd494d719fba80bab\nnameB=Wanli Ouyang\nresearcherB=researcher:v1:fe1177235d9a724607da7e9700d133c4\nweight=14\njointPublicationCount=14\nfirstYear=2015\nlastYear=2024\nsupportingWorkIds=work:v1:0049e22ece2bcb3244dd92978e9f7d61,work:v1:00ee1ed8ece8cd088b6d78d525b292cf,work:v1:32476de026466bc0981a61734d9d0a9b,work:v1:49f0880bbedd3246ef13a2d6a1cf36b6,work:v1:5371b2454db6043ad4ef49f4e68f2321\nedgeId=edge:v1:b79959d6435cec3e311ce1c974810358\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:d72a0a8a222aa9fdd494d719fba80bab",
+          "researcher:v1:fe1177235d9a724607da7e9700d133c4",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:f6105d9ba7de36a3c789480e5953266d",
+        "evidenceType": "coauthor_edge",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:7e4df9b6cb227f61ead967cf8c47ce37ae49ae07e723ead849394159067b86af",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "graph:COAUTHORED_WITH/edge:v1:ccf535fcfc000c303a104f85c37416cd",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+            "edge:v1:ccf535fcfc000c303a104f85c37416cd"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "nameA=Junjie Yan\nresearcherA=researcher:v1:9cb6e6c575e4a289a41807fa782034fc\nnameB=Wanli Ouyang\nresearcherB=researcher:v1:fe1177235d9a724607da7e9700d133c4\nweight=12\njointPublicationCount=12\nfirstYear=2017\nlastYear=2021\nsupportingWorkIds=work:v1:0da8c5763b982b649635919acf296b08,work:v1:1b6ba9e5be1256714ec8ce42fcf239f2,work:v1:32476de026466bc0981a61734d9d0a9b,work:v1:4f4e2656972ce233ca325dffe52a1646,work:v1:61f0bb2dde565a8054149cf6f3c82951\nedgeId=edge:v1:ccf535fcfc000c303a104f85c37416cd\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:9cb6e6c575e4a289a41807fa782034fc",
+          "researcher:v1:fe1177235d9a724607da7e9700d133c4",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:764ce89b4e4ed9c56d431eb2c400b10f",
+        "evidenceType": "coauthor_edge",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:b01ef9a37276b039481e6ddd726ea9ac7097122b33312e688b338b47a74984d5",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "graph:COAUTHORED_WITH/edge:v1:c10ebd2774aa3376cabb43ce95a84182",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+            "edge:v1:c10ebd2774aa3376cabb43ce95a84182"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "nameA=Chen Lin 0003\nresearcherA=researcher:v1:0abb3940a2ebfa2b0048fae79de0eefc\nnameB=Wanli Ouyang\nresearcherB=researcher:v1:fe1177235d9a724607da7e9700d133c4\nweight=11\njointPublicationCount=11\nfirstYear=2019\nlastYear=2024\nsupportingWorkIds=work:v1:0da8c5763b982b649635919acf296b08,work:v1:1b6ba9e5be1256714ec8ce42fcf239f2,work:v1:4f4e2656972ce233ca325dffe52a1646,work:v1:61f0bb2dde565a8054149cf6f3c82951,work:v1:7590b1dd32c63ca40a110bf03ff556b2\nedgeId=edge:v1:c10ebd2774aa3376cabb43ce95a84182\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:0abb3940a2ebfa2b0048fae79de0eefc",
+          "researcher:v1:fe1177235d9a724607da7e9700d133c4",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:a3cc0fb90a895e7645c6adbb1a25ba51",
+        "evidenceType": "coauthor_edge",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:2ceb734ae65e29ea50d4d5bef63420e5c9853f31c0276f192e154d9e525a02e3",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "graph:COAUTHORED_WITH/edge:v1:078aceee0fec8edae62d46fcd9aa1524",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+            "edge:v1:078aceee0fec8edae62d46fcd9aa1524"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "nameA=Dongzhan Zhou\nresearcherA=researcher:v1:2cbb872df178d6eadc5324427aa46597\nnameB=Wanli Ouyang\nresearcherB=researcher:v1:fe1177235d9a724607da7e9700d133c4\nweight=11\njointPublicationCount=11\nfirstYear=2020\nlastYear=2025\nsupportingWorkIds=work:v1:124e6a71f3398fcea7864b1299d2525a,work:v1:21a0d16a3f086e4be02297a157f854d5,work:v1:2c03b6968e1db1a8cfd5c7f9e6b953ab,work:v1:476cbd3162e420df3e0928d5533aa0f6,work:v1:58e54bc6660061a07debb942176c7289\nedgeId=edge:v1:078aceee0fec8edae62d46fcd9aa1524\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:2cbb872df178d6eadc5324427aa46597",
+          "researcher:v1:fe1177235d9a724607da7e9700d133c4",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:790d64d54ad1302286f27dcac65b8aeb",
+        "evidenceType": "coauthor_edge",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:61be2a68aee25c02415fb3e427a98f77f3d4b351abd3d4ca89d47e6d8f7f88e3",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "graph:COAUTHORED_WITH/edge:v1:f5ed67f6bd802534a5d6139d156847c0",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+            "edge:v1:f5ed67f6bd802534a5d6139d156847c0"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "nameA=Xinzhu Ma\nresearcherA=researcher:v1:4ce562c1ad2fc8366941977a04befb2e\nnameB=Wanli Ouyang\nresearcherB=researcher:v1:fe1177235d9a724607da7e9700d133c4\nweight=11\njointPublicationCount=11\nfirstYear=2019\nlastYear=2025\nsupportingWorkIds=work:v1:476cbd3162e420df3e0928d5533aa0f6,work:v1:598262a9e5c2a15eef64bd5e1bdc12b9,work:v1:6cddb61193c5f744d079942e301151f8,work:v1:90d7fc640573726deaed5118e2d08982,work:v1:9a11e98e9dc3cd81359c8e35455b50b8\nedgeId=edge:v1:f5ed67f6bd802534a5d6139d156847c0\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:4ce562c1ad2fc8366941977a04befb2e",
+          "researcher:v1:fe1177235d9a724607da7e9700d133c4",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:e1968348f14735f025ee14508aee6b32",
+        "evidenceType": "coauthor_edge",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:710e11317aa96d9d7208e814d5b27bc4208fb4e9975fda404a39ce4952de2584",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "graph:COAUTHORED_WITH/edge:v1:f2ab6c00c3ac6ca284e7342ebb1980b9",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+            "edge:v1:f2ab6c00c3ac6ca284e7342ebb1980b9"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "nameA=Peng Ye 0006\nresearcherA=researcher:v1:9a3d3af0792c0a46549c028833ccacdc\nnameB=Wanli Ouyang\nresearcherB=researcher:v1:fe1177235d9a724607da7e9700d133c4\nweight=11\njointPublicationCount=11\nfirstYear=2022\nlastYear=2025\nsupportingWorkIds=work:v1:54b3d69398a428fc61a8fb4147cf5d20,work:v1:598262a9e5c2a15eef64bd5e1bdc12b9,work:v1:6545387be98c67387fca9ecc284723a4,work:v1:829fd87f7479d9a7d443c1421e8454ab,work:v1:82a79e053b442662801aedd98e48d136\nedgeId=edge:v1:f2ab6c00c3ac6ca284e7342ebb1980b9\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:9a3d3af0792c0a46549c028833ccacdc",
+          "researcher:v1:fe1177235d9a724607da7e9700d133c4",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      }
+    ],
+    "identityNotes": [
+      "'Wanli Ouyang' was resolved to Wanli Ouyang (researcher:v1:fe1177235d9a724607da7e9700d133c4)."
+    ],
+    "modelId": "claude-haiku-5-5",
+    "plan": {
+      "graphRunId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+      "provenance": {
+        "contentHash": "sha256:21183cbc474f678b8a20140967840443f6e69d88be29ab8b255a0590d1c8c8d1",
+        "datasetId": "scholarchain-graph",
+        "jobName": "rag.query",
+        "policyVersion": "query-planner-v2@sha256:60b5260e9c2eeabff46150fb09cf41a89fe39fbd23701b7023cdf0663e5684a1",
+        "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+        "schemaVersion": 1,
+        "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+        "sourceRecordIds": [
+          "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+        ],
+        "sourceType": "runtime"
+      },
+      "question": "Which Nobel Prize did Wanli Ouyang win in 2019, and with which coauthors?",
+      "schemaVersion": 1,
+      "steps": [
+        {
+          "operation": "researcher_lookup",
+          "parameters": {
+            "windowLabel": "full-2015-2025"
+          },
+          "researcherIds": [
+            "researcher:v1:fe1177235d9a724607da7e9700d133c4"
+          ],
+          "window": {
+            "endYear": 2025,
+            "startYear": 2015
+          }
+        },
+        {
+          "operation": "coauthor_neighborhood",
+          "parameters": {
+            "limit": "10",
+            "windowLabel": "full-2015-2025"
+          },
+          "researcherIds": [
+            "researcher:v1:fe1177235d9a724607da7e9700d133c4"
+          ],
+          "window": {
+            "endYear": 2025,
+            "startYear": 2015
+          }
+        }
+      ]
+    },
+    "provenance": {
+      "contentHash": "sha256:ca5fb47f1074ac2e0b34749dc96a0d442e74398907760d0deff84c77aa71bf22",
+      "datasetId": "scholarchain-graph",
+      "jobName": "rag.answer",
+      "policyVersion": "answer-synthesis-v3",
+      "runId": "run:v1:1781c418f29c41ecf2993bfebf94b604",
+      "schemaVersion": 1,
+      "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+      "sourceRecordIds": [
+        "evidence:v1:0e371d36294da7dce9954c6a9d838225"
+      ],
+      "sourceType": "runtime"
+    },
+    "question": "Which Nobel Prize did Wanli Ouyang win in 2019, and with which coauthors?",
+    "schemaVersion": 2
+  },
+  "links": {
+    "evidence": [
+      "/v1/evidence/evidence:v1:17095ecf740a119737310e4e32fce91a",
+      "/v1/evidence/evidence:v1:3c77c6d0f1d974ddd397ce7b7efe33de?window=2015-2025",
+      "/v1/evidence/evidence:v1:a4607204a23e0fb6237c0007093826f9?window=2015-2025",
+      "/v1/evidence/evidence:v1:8c390ac6be3a2a34297bbe8a5bb4f7fa?window=2015-2025",
+      "/v1/evidence/evidence:v1:e457eaac3e5c6df5699d385022ed65a3?window=2015-2025",
+      "/v1/evidence/evidence:v1:abb89c5b841dde6002604ece02886ef7?window=2015-2025",
+      "/v1/evidence/evidence:v1:7d06794b00d2c0f0c7814ba975adccd0?window=2015-2025",
+      "/v1/evidence/evidence:v1:f1f88e62083a58740a5563422ceef0ec?window=2015-2025",
+      "/v1/evidence/evidence:v1:1458b8f2fc10909202f4e85796d206b9?window=2015-2025",
+      "/v1/evidence/evidence:v1:8bfd946f1bbcc5a8ccb1be4f48e22bb1?window=2015-2025"
+    ],
+    "explain": "/v1/explain/run:v1:1781c418f29c41ecf2993bfebf94b604"
+  },
+  "notes": [],
+  "queryId": "run:v1:1781c418f29c41ecf2993bfebf94b604"
+}

@@ -1,0 +1,6 @@
+source,check,expected,found,equal
+run-report,expectedAbstentionsHappened + missedAbstentions equals abstentionsExpected,3,3,yes
+run-report,abstentionsExpected equals the benchmark's abstain-labelled questions,3,3,yes
+run-report,questions equals the benchmark's question count,30,30,yes
+run-report,input.questionsSha256 equals the benchmark file's sha256,b58c5e1a6cb29e192035ce77308c20e2597d2d1dbaf8d136761ae5c3316ff3ac,b58c5e1a6cb29e192035ce77308c20e2597d2d1dbaf8d136761ae5c3316ff3ac,yes
+explain-csv,explain rows whose question is not in the benchmark,0,0,yes

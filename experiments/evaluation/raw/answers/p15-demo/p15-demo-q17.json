@@ -1,0 +1,923 @@
+{
+  "answer": {
+    "abstained": false,
+    "abstentionReason": null,
+    "answerText": "The answer below lists only claims checked against ScholarChain graph evidence.\n\nClaims:\n- [claim-1] Kele Xu's community in the 2021-2023 window has 116 members. (Uncertainty: Community membership is approximate because label propagation did not fully settle.)\n- [claim-2] Kele Xu has 82 distinct coauthors in 2021-2023, a measure of collaboration breadth.\n- [claim-3] Kele Xu's cross-community degree is 45 and the number of communities connected is 10 in 2021-2023. (Uncertainty: Bridge position uses approximate communities; no betweenness centrality is computed.)\n- [claim-4] Kele Xu's participation coefficient in 2021-2023 is 0.7071, indicating ties spread across several communities. (Uncertainty: Communities are approximate because label propagation did not fully settle.)\n- [claim-5] Kele Xu's connected component in 2021-2023 has a size of 83688.\n- [claim-6] Ming Feng is Kele Xu's strongest 2021-2023 tie, with 4 joint publications from 2022 to 2023.\n- [claim-7] Boqing Zhu shares 3 joint publications with Kele Xu, all in 2022.\n- [claim-8] Hengxing Cai shares 3 joint publications with Kele Xu, from 2022 to 2023.\n- [claim-9] Dawei Feng shares 2 joint publications with Kele Xu, all in 2022.\n- [claim-10] Huaimin Wang 0001 shares 2 joint publications with Kele Xu, from 2022 to 2023.\n- [claim-11] The identity match for Kele Xu is accepted with confidence 0.9500 and 51 publications in the full 2015-2025 window.\n\nMissing evidence (model-written, not verified):\n- Betweenness centrality, which is not computed\n- Settled community assignments, since label propagation did not fully converge\n\nNotes:\n- 'Kele Xu' was resolved to Kele Xu (researcher:v1:0b483e06c74206594317cf2cd77e891f).\n- Bridge position is measured by the number of other communities a researcher's coauthors belong to (communities connected) and the cross-community degree; no betweenness centrality is computed, and communities come from label propagation that did not fully settle, so they are approximate.\n- The model summary contained numbers, identifiers or names not in the graph evidence and was replaced; facts appear only in verified claims.\n- 2 missing-evidence note(s) contained numbers, identifiers or names not in the graph evidence and were left out.",
+    "bundleId": "evidence:v1:b38fe86376085349610db268f80e914a",
+    "claims": [
+      {
+        "claimId": "claim-1",
+        "claimText": "Kele Xu's community in the 2021-2023 window has 116 members.",
+        "evidenceIds": [
+          "evidence:v1:a531ad9dd264f7ba291c79ac37f5d058"
+        ],
+        "provenance": {
+          "contentHash": "sha256:a81a03bc590eff682e30c07f4c74f4288151ccf22a47331dbf09299a252e9838",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:a531ad9dd264f7ba291c79ac37f5d058"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": "Community membership is approximate because label propagation did not fully settle.",
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "claimId": "claim-2",
+        "claimText": "Kele Xu has 82 distinct coauthors in 2021-2023, a measure of collaboration breadth.",
+        "evidenceIds": [
+          "evidence:v1:483221cf1b678fcf042258d2228592db"
+        ],
+        "provenance": {
+          "contentHash": "sha256:5fabb5ecf0c0ec5f83775d096ed374d14a69968dea5f1b7c9fe698c8ed640159",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:483221cf1b678fcf042258d2228592db"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": null,
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "claimId": "claim-3",
+        "claimText": "Kele Xu's cross-community degree is 45 and the number of communities connected is 10 in 2021-2023.",
+        "evidenceIds": [
+          "evidence:v1:2955207c2f78ffce77e029db72be80d1",
+          "evidence:v1:014beb82adfde57195d01e6a80c9e425"
+        ],
+        "provenance": {
+          "contentHash": "sha256:3a954618b787d981ff9b73366761ab6d7ce63d47d6771dfb92f06fae3873a546",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:2955207c2f78ffce77e029db72be80d1",
+            "evidence:v1:014beb82adfde57195d01e6a80c9e425"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": "Bridge position uses approximate communities; no betweenness centrality is computed.",
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "claimId": "claim-4",
+        "claimText": "Kele Xu's participation coefficient in 2021-2023 is 0.7071, indicating ties spread across several communities.",
+        "evidenceIds": [
+          "evidence:v1:e7e02dd8b22f5d12f7119374a33e4f10"
+        ],
+        "provenance": {
+          "contentHash": "sha256:52df78f1d1e998f339ea115f1015a220e3455683d30338ad01f9b867a9706728",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:e7e02dd8b22f5d12f7119374a33e4f10"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": "Communities are approximate because label propagation did not fully settle.",
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "claimId": "claim-5",
+        "claimText": "Kele Xu's connected component in 2021-2023 has a size of 83688.",
+        "evidenceIds": [
+          "evidence:v1:84b819521632fbb2153d7ee0ea8394a4"
+        ],
+        "provenance": {
+          "contentHash": "sha256:f1640a5a19d804dbb83ef97b6e5d213b6b03508fa8ef52e68c120caad324fe70",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:84b819521632fbb2153d7ee0ea8394a4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": null,
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "claimId": "claim-6",
+        "claimText": "Ming Feng is Kele Xu's strongest 2021-2023 tie, with 4 joint publications from 2022 to 2023.",
+        "evidenceIds": [
+          "evidence:v1:1e2b88abde37aa68bd4469242b332763"
+        ],
+        "provenance": {
+          "contentHash": "sha256:e6a433e24a6fb7b8c148c45392d7cffe5d6fcd9e4cd3c1c38e6d16b14566dd24",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:1e2b88abde37aa68bd4469242b332763"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": null,
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "claimId": "claim-7",
+        "claimText": "Boqing Zhu shares 3 joint publications with Kele Xu, all in 2022.",
+        "evidenceIds": [
+          "evidence:v1:cd09b2b63283bf8618cdfc3d13568791"
+        ],
+        "provenance": {
+          "contentHash": "sha256:6c7c95835c6cb4bae5cbc52ee9dae48b2a0ec920e4436ba4a6423b1042dbd890",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:cd09b2b63283bf8618cdfc3d13568791"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": null,
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "claimId": "claim-8",
+        "claimText": "Hengxing Cai shares 3 joint publications with Kele Xu, from 2022 to 2023.",
+        "evidenceIds": [
+          "evidence:v1:e9b2f62d78faefc721cb6472d24d929e"
+        ],
+        "provenance": {
+          "contentHash": "sha256:7fb5be2fe31119485c28250821a389c29425ea311e14cbb3b9ed2db626312def",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:e9b2f62d78faefc721cb6472d24d929e"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": null,
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "claimId": "claim-9",
+        "claimText": "Dawei Feng shares 2 joint publications with Kele Xu, all in 2022.",
+        "evidenceIds": [
+          "evidence:v1:eb7864e13b5e1d81dcaf513ff576cd39"
+        ],
+        "provenance": {
+          "contentHash": "sha256:a3e07926ba9a4ff6def787b38a815522f25b30193ccc14f8d2513773849b5a60",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:eb7864e13b5e1d81dcaf513ff576cd39"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": null,
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "claimId": "claim-10",
+        "claimText": "Huaimin Wang 0001 shares 2 joint publications with Kele Xu, from 2022 to 2023.",
+        "evidenceIds": [
+          "evidence:v1:5509a21f0290695f521ae7fe5ad69f31"
+        ],
+        "provenance": {
+          "contentHash": "sha256:02653b9d2083a3b4b7e602be06508873a9edbad36ca7665d40020ec1724e8bdd",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:5509a21f0290695f521ae7fe5ad69f31"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": null,
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "claimId": "claim-11",
+        "claimText": "The identity match for Kele Xu is accepted with confidence 0.9500 and 51 publications in the full 2015-2025 window.",
+        "evidenceIds": [
+          "evidence:v1:54f89857dfaf4aa1b649cfd1e1fde7c4"
+        ],
+        "provenance": {
+          "contentHash": "sha256:3147644c35f4a2bf5997fc93a06a31ee4efd32d0d7da02a52b97c6bbf2134fc0",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:54f89857dfaf4aa1b649cfd1e1fde7c4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": null,
+        "window": null
+      }
+    ],
+    "evidence": [
+      {
+        "evidenceId": "evidence:v1:54f89857dfaf4aa1b649cfd1e1fde7c4",
+        "evidenceType": "match_decision",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:453e0b9eede3cd1a6f5eb9a3f2ccc02e6adfcaf790685289f6e76e0f2a4b3540",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "EntityLinkCache:name#kele xu/researcher#researcher:v1:0b483e06c74206594317cf2cd77e891f",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Kele Xu\nresearcherId=researcher:v1:0b483e06c74206594317cf2cd77e891f\naskedName=Kele Xu\nmatchedValue=Kele Xu\nresolved=true\noutcome=accepted\nconfidence=0.9500\npublicationCount=51\ndistinctCoauthors=891\ntopCoauthorNames=Huaimin Wang 0001 | Qisheng Xu | Radu Timofte\ntopCoauthorIds=researcher:v1:4cba358b87adf95c96b03fcf0bdd8a13,researcher:v1:54290b7dd6fd77d423ee0db3ec27f6e3,researcher:v1:32ad9abca8538109a54a81cef181dd6d\ncontextWindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:0b483e06c74206594317cf2cd77e891f",
+          "identity=kele xu"
+        ],
+        "window": null
+      },
+      {
+        "evidenceId": "evidence:v1:a531ad9dd264f7ba291c79ac37f5d058",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "community_size",
+          "value": 116
+        },
+        "provenance": {
+          "contentHash": "sha256:fa656ce59832cc6ead6041710ed2e49e161171d8b8cba8d9e943cbb1f8e93c96",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:0b483e06c74206594317cf2cd77e891f/window#w2021-2023",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Kele Xu\nresearcherId=researcher:v1:0b483e06c74206594317cf2cd77e891f\ngroupId=researcher:v1:07e7eff544cc5b0adca3ac92856a8e08\nwindowLabel=w2021-2023",
+        "subjectIds": [
+          "researcher:v1:0b483e06c74206594317cf2cd77e891f",
+          "metric=community_size",
+          "window=w2021-2023"
+        ],
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:483221cf1b678fcf042258d2228592db",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "distinct_coauthors",
+          "value": 82
+        },
+        "provenance": {
+          "contentHash": "sha256:7304142e9e447a17b9a9c187434910a4cd27b6b16355118197ee4b9447d45c1e",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:0b483e06c74206594317cf2cd77e891f/window#w2021-2023",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Kele Xu\nresearcherId=researcher:v1:0b483e06c74206594317cf2cd77e891f\nwindowLabel=w2021-2023",
+        "subjectIds": [
+          "researcher:v1:0b483e06c74206594317cf2cd77e891f",
+          "metric=distinct_coauthors",
+          "window=w2021-2023"
+        ],
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:2955207c2f78ffce77e029db72be80d1",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "cross_community_degree",
+          "value": 45
+        },
+        "provenance": {
+          "contentHash": "sha256:7304142e9e447a17b9a9c187434910a4cd27b6b16355118197ee4b9447d45c1e",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:0b483e06c74206594317cf2cd77e891f/window#w2021-2023",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Kele Xu\nresearcherId=researcher:v1:0b483e06c74206594317cf2cd77e891f\nwindowLabel=w2021-2023",
+        "subjectIds": [
+          "researcher:v1:0b483e06c74206594317cf2cd77e891f",
+          "metric=cross_community_degree",
+          "window=w2021-2023"
+        ],
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:014beb82adfde57195d01e6a80c9e425",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "communities_connected",
+          "value": 10
+        },
+        "provenance": {
+          "contentHash": "sha256:7304142e9e447a17b9a9c187434910a4cd27b6b16355118197ee4b9447d45c1e",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:0b483e06c74206594317cf2cd77e891f/window#w2021-2023",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Kele Xu\nresearcherId=researcher:v1:0b483e06c74206594317cf2cd77e891f\nwindowLabel=w2021-2023",
+        "subjectIds": [
+          "researcher:v1:0b483e06c74206594317cf2cd77e891f",
+          "metric=communities_connected",
+          "window=w2021-2023"
+        ],
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:e7e02dd8b22f5d12f7119374a33e4f10",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "participation_coefficient",
+          "value": 0.7071337726904845
+        },
+        "provenance": {
+          "contentHash": "sha256:7304142e9e447a17b9a9c187434910a4cd27b6b16355118197ee4b9447d45c1e",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:0b483e06c74206594317cf2cd77e891f/window#w2021-2023",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Kele Xu\nresearcherId=researcher:v1:0b483e06c74206594317cf2cd77e891f\nwindowLabel=w2021-2023",
+        "subjectIds": [
+          "researcher:v1:0b483e06c74206594317cf2cd77e891f",
+          "metric=participation_coefficient",
+          "window=w2021-2023"
+        ],
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:84b819521632fbb2153d7ee0ea8394a4",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "component_size",
+          "value": 83688
+        },
+        "provenance": {
+          "contentHash": "sha256:a91bbe7697c09c706f340683da75f99d02e7d643163bf2dfe5a4346d5d9e9bf8",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:0b483e06c74206594317cf2cd77e891f/window#w2021-2023",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Kele Xu\nresearcherId=researcher:v1:0b483e06c74206594317cf2cd77e891f\ngroupId=researcher:v1:000098cdc0d7aaa5f3aa05939c5d451e\nwindowLabel=w2021-2023",
+        "subjectIds": [
+          "researcher:v1:0b483e06c74206594317cf2cd77e891f",
+          "metric=component_size",
+          "window=w2021-2023"
+        ],
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:1e2b88abde37aa68bd4469242b332763",
+        "evidenceType": "coauthor_edge",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:b6cea8b540e7cefe4df6f627cc14a595d96bc4a394b801a802b704ebded8bd45",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "graph:COAUTHORED_WITH/edge:v1:214a964fedb996ad4bb9fd741250eddf",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+            "edge:v1:214a964fedb996ad4bb9fd741250eddf"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "nameA=Kele Xu\nresearcherA=researcher:v1:0b483e06c74206594317cf2cd77e891f\nnameB=Ming Feng\nresearcherB=researcher:v1:7792fa6de91b4502ed93f713bac2d3eb\nweight=4\njointPublicationCount=4\nfirstYear=2022\nlastYear=2023\nsupportingWorkIds=work:v1:cb1ee51a6caf4bcd7e43a85f15e3c7ea,work:v1:d8cfa17863ea4c4cd826dffcb1abc7eb,work:v1:da08eb39d9ec62758b16aa3567b12bb1,work:v1:e4cbd9b5c7147448eec77b1a12a2f65f\nedgeId=edge:v1:214a964fedb996ad4bb9fd741250eddf\nwindowLabel=w2021-2023",
+        "subjectIds": [
+          "researcher:v1:0b483e06c74206594317cf2cd77e891f",
+          "researcher:v1:7792fa6de91b4502ed93f713bac2d3eb",
+          "window=w2021-2023"
+        ],
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:ae412aeafe924c9a153d2a44e90e3c7f",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "community_size",
+          "value": 18
+        },
+        "provenance": {
+          "contentHash": "sha256:64273ea788350dbb45b45ea84eebdc6349f785a72262e75876ff59d831fd9135",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:7792fa6de91b4502ed93f713bac2d3eb/window#w2021-2023",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Ming Feng\nresearcherId=researcher:v1:7792fa6de91b4502ed93f713bac2d3eb\ngroupId=researcher:v1:0b483e06c74206594317cf2cd77e891f\nwindowLabel=w2021-2023",
+        "subjectIds": [
+          "researcher:v1:7792fa6de91b4502ed93f713bac2d3eb",
+          "metric=community_size",
+          "window=w2021-2023"
+        ],
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:cd09b2b63283bf8618cdfc3d13568791",
+        "evidenceType": "coauthor_edge",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:c7821558fc7767e4dbd9700030cff271deca3387fbc51ec4a706e3544855a90f",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "graph:COAUTHORED_WITH/edge:v1:88e27d273a2d33b6ae8e77e19a8589b0",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+            "edge:v1:88e27d273a2d33b6ae8e77e19a8589b0"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "nameA=Kele Xu\nresearcherA=researcher:v1:0b483e06c74206594317cf2cd77e891f\nnameB=Boqing Zhu\nresearcherB=researcher:v1:20a899b2e92900468cb651dbc1427663\nweight=3\njointPublicationCount=3\nfirstYear=2022\nlastYear=2022\nsupportingWorkIds=work:v1:0f9e60f8d07118ad528138a8e9a24840,work:v1:cb1ee51a6caf4bcd7e43a85f15e3c7ea,work:v1:e521f7e2e09c5b1b130bd48803062b7d\nedgeId=edge:v1:88e27d273a2d33b6ae8e77e19a8589b0\nwindowLabel=w2021-2023",
+        "subjectIds": [
+          "researcher:v1:0b483e06c74206594317cf2cd77e891f",
+          "researcher:v1:20a899b2e92900468cb651dbc1427663",
+          "window=w2021-2023"
+        ],
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:2796c6ff8a7422d9bca3a14d2a94e428",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "community_size",
+          "value": 18
+        },
+        "provenance": {
+          "contentHash": "sha256:b84380f8ec3de3f9b1ec7ef9bb338e6da9336b650207e6c92b7a6e8e95226abd",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:20a899b2e92900468cb651dbc1427663/window#w2021-2023",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Boqing Zhu\nresearcherId=researcher:v1:20a899b2e92900468cb651dbc1427663\ngroupId=researcher:v1:0b483e06c74206594317cf2cd77e891f\nwindowLabel=w2021-2023",
+        "subjectIds": [
+          "researcher:v1:20a899b2e92900468cb651dbc1427663",
+          "metric=community_size",
+          "window=w2021-2023"
+        ],
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:e9b2f62d78faefc721cb6472d24d929e",
+        "evidenceType": "coauthor_edge",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:6c4dce5dd1e8ef438cb28df263ba015e12ddc08fd9e47d25067bbf2d8c2f00f4",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "graph:COAUTHORED_WITH/edge:v1:4d66ec84d1bf2b8730ab870dc62c6235",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+            "edge:v1:4d66ec84d1bf2b8730ab870dc62c6235"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "nameA=Kele Xu\nresearcherA=researcher:v1:0b483e06c74206594317cf2cd77e891f\nnameB=Hengxing Cai\nresearcherB=researcher:v1:d478b4ccc094282d376bf60ff23dc3d9\nweight=3\njointPublicationCount=3\nfirstYear=2022\nlastYear=2023\nsupportingWorkIds=work:v1:da08eb39d9ec62758b16aa3567b12bb1,work:v1:e521f7e2e09c5b1b130bd48803062b7d,work:v1:eb20c9395e27876db5ab724743d592ed\nedgeId=edge:v1:4d66ec84d1bf2b8730ab870dc62c6235\nwindowLabel=w2021-2023",
+        "subjectIds": [
+          "researcher:v1:0b483e06c74206594317cf2cd77e891f",
+          "researcher:v1:d478b4ccc094282d376bf60ff23dc3d9",
+          "window=w2021-2023"
+        ],
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:2fdd65163548c662f2a835efba00681c",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "community_size",
+          "value": 18
+        },
+        "provenance": {
+          "contentHash": "sha256:53783f23a8220c1c56d15b215bfc6839726912aa81e50d0fe45880f9ee9d1158",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:d478b4ccc094282d376bf60ff23dc3d9/window#w2021-2023",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Hengxing Cai\nresearcherId=researcher:v1:d478b4ccc094282d376bf60ff23dc3d9\ngroupId=researcher:v1:0b483e06c74206594317cf2cd77e891f\nwindowLabel=w2021-2023",
+        "subjectIds": [
+          "researcher:v1:d478b4ccc094282d376bf60ff23dc3d9",
+          "metric=community_size",
+          "window=w2021-2023"
+        ],
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:eb7864e13b5e1d81dcaf513ff576cd39",
+        "evidenceType": "coauthor_edge",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:9adf6a2ba1de3f8cd46c790c6b832a26864e01a70bc6a14925436415ddcd02b1",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "graph:COAUTHORED_WITH/edge:v1:2db8d900beddc1b9dfa45cbd74af7432",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+            "edge:v1:2db8d900beddc1b9dfa45cbd74af7432"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "nameA=Kele Xu\nresearcherA=researcher:v1:0b483e06c74206594317cf2cd77e891f\nnameB=Dawei Feng\nresearcherB=researcher:v1:1cea8f1c457bd1ae1d4c66c83ba741e3\nweight=2\njointPublicationCount=2\nfirstYear=2022\nlastYear=2022\nsupportingWorkIds=work:v1:cb1ee51a6caf4bcd7e43a85f15e3c7ea,work:v1:e521f7e2e09c5b1b130bd48803062b7d\nedgeId=edge:v1:2db8d900beddc1b9dfa45cbd74af7432\nwindowLabel=w2021-2023",
+        "subjectIds": [
+          "researcher:v1:0b483e06c74206594317cf2cd77e891f",
+          "researcher:v1:1cea8f1c457bd1ae1d4c66c83ba741e3",
+          "window=w2021-2023"
+        ],
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:8e4d0e5853a30b206cb8111513933159",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "community_size",
+          "value": 18
+        },
+        "provenance": {
+          "contentHash": "sha256:d61e9f709e62cbfbf35432335ea84416aa1e6834ff232f9851edbf04a9f38676",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:1cea8f1c457bd1ae1d4c66c83ba741e3/window#w2021-2023",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Dawei Feng\nresearcherId=researcher:v1:1cea8f1c457bd1ae1d4c66c83ba741e3\ngroupId=researcher:v1:0b483e06c74206594317cf2cd77e891f\nwindowLabel=w2021-2023",
+        "subjectIds": [
+          "researcher:v1:1cea8f1c457bd1ae1d4c66c83ba741e3",
+          "metric=community_size",
+          "window=w2021-2023"
+        ],
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:5509a21f0290695f521ae7fe5ad69f31",
+        "evidenceType": "coauthor_edge",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:d5a918b4df029f906a8fb9523bb33893f7ca7411722359fcddef19acd74ab796",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "graph:COAUTHORED_WITH/edge:v1:d90b71d73569d078bbf48b9d2f907004",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+            "edge:v1:d90b71d73569d078bbf48b9d2f907004"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "nameA=Kele Xu\nresearcherA=researcher:v1:0b483e06c74206594317cf2cd77e891f\nnameB=Huaimin Wang 0001\nresearcherB=researcher:v1:4cba358b87adf95c96b03fcf0bdd8a13\nweight=2\njointPublicationCount=2\nfirstYear=2022\nlastYear=2023\nsupportingWorkIds=work:v1:0f9e60f8d07118ad528138a8e9a24840,work:v1:e0a696a31480a61d9b0d7af0c2d8a97d\nedgeId=edge:v1:d90b71d73569d078bbf48b9d2f907004\nwindowLabel=w2021-2023",
+        "subjectIds": [
+          "researcher:v1:0b483e06c74206594317cf2cd77e891f",
+          "researcher:v1:4cba358b87adf95c96b03fcf0bdd8a13",
+          "window=w2021-2023"
+        ],
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:9086c5551366fa607d6532ff8ed3e280",
+        "evidenceType": "metric",
+        "metric": {
+          "metric": "community_size",
+          "value": 18
+        },
+        "provenance": {
+          "contentHash": "sha256:1d0849a37d00cf9073104c69b9e3e65f486c6540d6c4adbde7234b94e0e49d54",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "ResearcherMetricCache:researcher#researcher:v1:4cba358b87adf95c96b03fcf0bdd8a13/window#w2021-2023",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Huaimin Wang 0001\nresearcherId=researcher:v1:4cba358b87adf95c96b03fcf0bdd8a13\ngroupId=researcher:v1:0b483e06c74206594317cf2cd77e891f\nwindowLabel=w2021-2023",
+        "subjectIds": [
+          "researcher:v1:4cba358b87adf95c96b03fcf0bdd8a13",
+          "metric=community_size",
+          "window=w2021-2023"
+        ],
+        "window": {
+          "endYear": 2023,
+          "startYear": 2021
+        }
+      }
+    ],
+    "identityNotes": [
+      "'Kele Xu' was resolved to Kele Xu (researcher:v1:0b483e06c74206594317cf2cd77e891f)."
+    ],
+    "modelId": "claude-haiku-5-5",
+    "plan": {
+      "graphRunId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+      "provenance": {
+        "contentHash": "sha256:fb4cb391b2b1e54294c0f02a432a8b112aef270bf55651fe9f87359dca947cfa",
+        "datasetId": "scholarchain-graph",
+        "jobName": "rag.query",
+        "policyVersion": "query-planner-v2@sha256:60b5260e9c2eeabff46150fb09cf41a89fe39fbd23701b7023cdf0663e5684a1",
+        "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+        "schemaVersion": 1,
+        "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+        "sourceRecordIds": [
+          "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+        ],
+        "sourceType": "runtime"
+      },
+      "question": "Describe the community of Kele Xu in 2021-2023.",
+      "schemaVersion": 1,
+      "steps": [
+        {
+          "operation": "community_analysis",
+          "parameters": {
+            "windowLabel": "w2021-2023"
+          },
+          "researcherIds": [
+            "researcher:v1:0b483e06c74206594317cf2cd77e891f"
+          ],
+          "window": {
+            "endYear": 2023,
+            "startYear": 2021
+          }
+        }
+      ]
+    },
+    "provenance": {
+      "contentHash": "sha256:c02f570981ddebaa753fe9947963031570ee4a33613ffd93c1eac22a77eb24cf",
+      "datasetId": "scholarchain-graph",
+      "jobName": "rag.answer",
+      "policyVersion": "answer-synthesis-v3",
+      "runId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c",
+      "schemaVersion": 1,
+      "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+      "sourceRecordIds": [
+        "evidence:v1:b38fe86376085349610db268f80e914a"
+      ],
+      "sourceType": "runtime"
+    },
+    "question": "Describe the community of Kele Xu in 2021-2023.",
+    "schemaVersion": 2
+  },
+  "links": {
+    "evidence": [
+      "/v1/evidence/evidence:v1:a531ad9dd264f7ba291c79ac37f5d058?window=2021-2023",
+      "/v1/evidence/evidence:v1:483221cf1b678fcf042258d2228592db?window=2021-2023",
+      "/v1/evidence/evidence:v1:2955207c2f78ffce77e029db72be80d1?window=2021-2023",
+      "/v1/evidence/evidence:v1:014beb82adfde57195d01e6a80c9e425?window=2021-2023",
+      "/v1/evidence/evidence:v1:e7e02dd8b22f5d12f7119374a33e4f10?window=2021-2023",
+      "/v1/evidence/evidence:v1:84b819521632fbb2153d7ee0ea8394a4?window=2021-2023",
+      "/v1/evidence/evidence:v1:1e2b88abde37aa68bd4469242b332763?window=2021-2023",
+      "/v1/evidence/evidence:v1:cd09b2b63283bf8618cdfc3d13568791?window=2021-2023",
+      "/v1/evidence/evidence:v1:e9b2f62d78faefc721cb6472d24d929e?window=2021-2023",
+      "/v1/evidence/evidence:v1:eb7864e13b5e1d81dcaf513ff576cd39?window=2021-2023",
+      "/v1/evidence/evidence:v1:5509a21f0290695f521ae7fe5ad69f31?window=2021-2023",
+      "/v1/evidence/evidence:v1:54f89857dfaf4aa1b649cfd1e1fde7c4"
+    ],
+    "explain": "/v1/explain/run:v1:948e6cdacc470d1ad411a7480e5b0b9c"
+  },
+  "notes": [],
+  "queryId": "run:v1:948e6cdacc470d1ad411a7480e5b0b9c"
+}

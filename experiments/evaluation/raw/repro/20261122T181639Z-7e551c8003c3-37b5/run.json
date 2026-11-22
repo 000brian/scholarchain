@@ -1,0 +1,153 @@
+{
+  "argv": [
+    "--release-records",
+    "--releases-dir",
+    "releases/course",
+    "--approvals-root",
+    "docs/agent-runs",
+    "--suite",
+    "experiments/evaluation/suite-v1.json",
+    "--entry",
+    "E10-release-records"
+  ],
+  "endedUtc": "2026-11-22T18:16:39Z",
+  "entry": "E10-release-records",
+  "format": "scholarchain.evaluation-run",
+  "formatVersion": 1,
+  "inputs": [
+    {
+      "path": "experiments/evaluation/suite-v1.json",
+      "sha256": "0f7f7d336433e00363a94d522a2bbbfdc93274cd32605cb411d445b98a339970"
+    },
+    {
+      "path": "docs/agent-runs/amendment-01/human-gate.md",
+      "sha256": "f61b1643892f1ff6385da71c35395b005f9e1b77eb30fc30f0c53fc041504892"
+    },
+    {
+      "path": "docs/agent-runs/amendment-02/human-gate.md",
+      "sha256": "a76c5043488693fac28f56a75533e160254acd0180785a598a27e8a1d2d2ac11"
+    },
+    {
+      "path": "docs/agent-runs/phase-00/human-gate.md",
+      "sha256": "d6d5c6f92935c1bc826ba77a785f08a95520db2a1f0eaf02b5e3d2d5013dc820"
+    },
+    {
+      "path": "docs/agent-runs/phase-01/human-gate.md",
+      "sha256": "7660f0e55bc3c4c082b213b0c92efa2a10016b8daa5e37d3498caa49456a83aa"
+    },
+    {
+      "path": "docs/agent-runs/phase-02/human-gate.md",
+      "sha256": "a19c6a1422b2d927deb53edc278ab22fa7818ac7821bd437e3e32ca48786264e"
+    },
+    {
+      "path": "docs/agent-runs/phase-03/human-gate.md",
+      "sha256": "a1b59120d6cd0d9e65d5a3f91faa3390c80b16287831316ca2b340746592fda0"
+    },
+    {
+      "path": "docs/agent-runs/phase-04/human-gate.md",
+      "sha256": "1ee61b65c94e6e11ac7f521956811e32277eb80a7998d93eec90ebf09e29327f"
+    },
+    {
+      "path": "docs/agent-runs/phase-05/human-gate.md",
+      "sha256": "505ae5340342a9e6c013995b43c935e6bdc53d9f556e40e7eb25fa35dc85520c"
+    },
+    {
+      "path": "docs/agent-runs/phase-06/human-gate.md",
+      "sha256": "66eac2ec0b0ce7d144165c860d1b012ef5cd0aabe847c667e0d8472830f6b6f7"
+    },
+    {
+      "path": "docs/agent-runs/phase-07/human-gate.md",
+      "sha256": "0c1c2a0cdef012cdbb551d02f998e09f359d7c8127216934c08ff3209ba46a00"
+    },
+    {
+      "path": "docs/agent-runs/phase-09/human-gate.md",
+      "sha256": "546f4980915e794eaa1c56e37bfc8dee547a126a2bc3268399275ef35c48ed10"
+    },
+    {
+      "path": "docs/agent-runs/phase-10/human-gate.md",
+      "sha256": "95cdccbce98b2245abb4342f5bcda9177301958c731eb4ff780c12f74a8b895b"
+    },
+    {
+      "path": "docs/agent-runs/phase-11/human-gate.md",
+      "sha256": "90a8fa2e78baa79fc87fdb6ad0c1e056cb98281447ff8294011e36e742377621"
+    },
+    {
+      "path": "docs/agent-runs/phase-12/human-gate.md",
+      "sha256": "c663c006dfcb4ff4c6d0a3c10bb335e36a6b80fa7b451bc514c7e6e228dffc86"
+    },
+    {
+      "path": "docs/agent-runs/phase-13/human-gate.md",
+      "sha256": "1fd5a8ee73ba7a30050ff2350c2b2e458c77b8fd7565992f2804623f859bfb4a"
+    },
+    {
+      "path": "docs/agent-runs/phase-14/approvals.md",
+      "sha256": "92c8c750df0b75b1fdc0d467bedef54438ea8b8ad37d427d4d1d903fe2f93b4b"
+    },
+    {
+      "path": "docs/agent-runs/phase-14/human-gate.md",
+      "sha256": "a6ac1cd40c522ff591079043a77a4d69c8f5868f03e6e795bedce84b3e8f53f4"
+    },
+    {
+      "path": "docs/agent-runs/phase-15/approvals.md",
+      "sha256": "95dbe2262b90666bafc54162b83d866a052ddbf30632afcfaa83ec6204ad6b43"
+    },
+    {
+      "path": "docs/agent-runs/phase-15/human-gate.md",
+      "sha256": "634a914c52e8198986256051c847d6cf8f67f71175f6b83be952379521405d00"
+    },
+    {
+      "path": "docs/agent-runs/phase-16/approvals.md",
+      "sha256": "19844920512e11a48380c42cba718f02e6458231149350fc1c329c18c8508958"
+    },
+    {
+      "path": "releases/course/20261118T184244Z-39af6e4d0c51-9e3a.json",
+      "sha256": "c45882eb67524541d736d09f9003a88294ea8e62dda1b3ab6370d43047a5ecf0"
+    },
+    {
+      "path": "releases/course/20261118T212004Z-b925bc4ac306-8f27.json",
+      "sha256": "ab4bb9a9092078b918e3c280b897ab30ed66f155420977fe849cf5e47231d7cb"
+    },
+    {
+      "path": "releases/course/20261119T054925Z-cf28e28596c1-d63f.json",
+      "sha256": "f6ac615f4cc7fb2118ff34524f66142534b06395d6fe0469183e9ce2f7fdc686"
+    },
+    {
+      "path": "releases/course/20261119T193246Z-167196849087-d539.json",
+      "sha256": "b1b519b6ea21e0edc82a83dc674750169e333e58016d13df910bef8f7365fcbc"
+    },
+    {
+      "path": "releases/course/20261120T213452Z-94ec6b01a4ca-44da.json",
+      "sha256": "892c70c4fe4694e1ebf8e63e41c3fb3461899a6a69705f79b243032d4aefa7e9"
+    },
+    {
+      "path": "releases/course/20261120T225449Z-70876eb27b26-8ce8.json",
+      "sha256": "5a5682e8fa5dd15bb20f0ad0e87ae2f6ce3f1c7c985c867b3bbf5f443c0d955a"
+    },
+    {
+      "path": "releases/course/20261121T052512Z-ebcbc03a90bd-01a4.json",
+      "sha256": "92227c5b08f71a37c1901c4d9deb8f8ed636331c8e23602fb4e4e624dea05c4b"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "experiments/evaluation/raw/repro/20261122T181639Z-7e551c8003c3-37b5/release-records.csv",
+      "sha256": "77c26272d7dd19bf63d67f3b1de9256510a2b247a3a9ea3d505f4e3e45b957df"
+    },
+    {
+      "path": "experiments/evaluation/raw/repro/20261122T181639Z-7e551c8003c3-37b5/approvals.csv",
+      "sha256": "53b9fdf429d70c2221e98f84656cf819d98396c0dce00e38ebc6ce821e2026cd"
+    },
+    {
+      "path": "experiments/evaluation/raw/repro/20261122T181639Z-7e551c8003c3-37b5/summary.csv",
+      "sha256": "b2dcf2a84c0490611154037640619049b15a2287fd92aec845bb720c5440d8a3"
+    }
+  ],
+  "runId": "20261122T181639Z-7e551c8003c3-37b5",
+  "startedUtc": "2026-11-22T18:16:39Z",
+  "subcommand": "reproduce",
+  "suite": "experiments/evaluation/suite-v1.json",
+  "suiteSha256": "0f7f7d336433e00363a94d522a2bbbfdc93274cd32605cb411d445b98a339970",
+  "tool": "experiments/evaluation/evaluate.py",
+  "toolSha256": "8e7f3e7478266a3de43ece14e40c351aa44262a61fd46e0058e01f95e5df96b3",
+  "toolVersion": "evaluate-v1-r3"
+}

@@ -1,0 +1,466 @@
+[
+  {
+    "run": "real-samples",
+    "maximumObservedTeamSize": {
+      "value": 7,
+      "subject": "work:v1:946445e4da1b44a594ba6eca84fe5676"
+    },
+    "largestPairExpansion": {
+      "value": 21,
+      "subject": "work:v1:946445e4da1b44a594ba6eca84fe5676"
+    },
+    "largestBlockingGroup": {
+      "value": 1,
+      "subject": "dblp-base-name\tAlípio Mário Jorge"
+    },
+    "largestCandidateBlockSeen": null,
+    "largestCandidateGroup": null,
+    "matchCandidates": 0,
+    "candidateOversizeBlocks": 0,
+    "largestIdentifierGroup": {
+      "value": 9,
+      "subject": "10.1145/3477495.3531753"
+    },
+    "pairInstancesGenerated": 33,
+    "consolidatedPairs": 33,
+    "links": 67,
+    "jobs": [
+      {
+        "job": "hadoop.j01-dblp-extract",
+        "runId": "run:v1:eadc7b790eeb4b888b4d64de1f5298af",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/real/dblp/snapshot=2026-11-01/j01-dblp-extract/run=eadc7b790eeb4b888b4d64de1f5298af",
+        "reused": false,
+        "counters": {
+          "scholarchain.excluded-reason:element": 2,
+          "scholarchain.excluded-reason:key_prefix": 2,
+          "scholarchain.excluded-reason:year": 1,
+          "scholarchain.output-records:excluded/v1": 5,
+          "scholarchain.output-records:mentions": 17,
+          "scholarchain.output-records:venues": 1,
+          "scholarchain.output-records:works": 4,
+          "scholarchain:ACCEPTED_RECORDS": 4,
+          "scholarchain:EXCLUDED_RECORDS": 5,
+          "scholarchain:INPUT_RECORDS": 9
+        },
+        "stats": {}
+      },
+      {
+        "job": "hadoop.j07-publication-teams",
+        "runId": "run:v1:6a98076b3f00c3fa4007ec55128459d7",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/real/dblp/snapshot=2026-11-01/j07-publication-teams/run=6a98076b3f00c3fa4007ec55128459d7",
+        "reused": false,
+        "counters": {
+          "scholarchain.output-records:authorPapers": 17,
+          "scholarchain.output-records:mentionContexts": 17,
+          "scholarchain.output-records:stats": 6,
+          "scholarchain.output-records:teams": 4,
+          "scholarchain:ACCEPTED_RECORDS": 21,
+          "scholarchain:INPUT_RECORDS": 21
+        },
+        "stats": {
+          "maxTeamPairs": {
+            "value": 21,
+            "subject": "work:v1:946445e4da1b44a594ba6eca84fe5676"
+          },
+          "maxTeamSize": {
+            "value": 7,
+            "subject": "work:v1:946445e4da1b44a594ba6eca84fe5676"
+          }
+        }
+      },
+      {
+        "job": "hadoop.j08a-pair-expand",
+        "runId": "run:v1:9bf02d567cf17dffe8964c932cc7407a",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/real/dblp/snapshot=2026-11-01/j08a-pair-expand/run=9bf02d567cf17dffe8964c932cc7407a",
+        "reused": false,
+        "counters": {
+          "scholarchain.output-records:pairInstances": 33,
+          "scholarchain.output-records:stats": 3,
+          "scholarchain:ACCEPTED_RECORDS": 4,
+          "scholarchain:EMITTED_PAIRS": 33,
+          "scholarchain:INPUT_RECORDS": 4,
+          "scholarchain:PAIR_INSTANCES_GENERATED": 33,
+          "scholarchain:PAIR_SHARDS": 4
+        },
+        "stats": {
+          "largestPairExpansion": {
+            "value": 21,
+            "subject": "work:v1:946445e4da1b44a594ba6eca84fe5676"
+          }
+        }
+      },
+      {
+        "job": "hadoop.j08b-pair-consolidate",
+        "runId": "run:v1:ca0d36726d33ae81f940dcb0eb318050",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/real/dblp/snapshot=2026-11-01/j08b-pair-consolidate/run=ca0d36726d33ae81f940dcb0eb318050",
+        "reused": false,
+        "counters": {
+          "scholarchain.output-records:pairs": 33,
+          "scholarchain:ACCEPTED_RECORDS": 33,
+          "scholarchain:EMITTED_PAIRS": 33,
+          "scholarchain:INPUT_RECORDS": 33
+        },
+        "stats": {}
+      },
+      {
+        "job": "hadoop.j02-normalize-openalex-work",
+        "runId": "run:v1:88918437dc593c5f18f1728a2c00d0b5",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/real/openalex/snapshot=2026-11-12/j02-normalize-openalex-work/run=88918437dc593c5f18f1728a2c00d0b5",
+        "reused": false,
+        "counters": {
+          "scholarchain.output-records:institutions": 13,
+          "scholarchain.output-records:normalized": 4,
+          "scholarchain:ACCEPTED_RECORDS": 4,
+          "scholarchain:INPUT_RECORDS": 4
+        },
+        "stats": {}
+      },
+      {
+        "job": "hadoop.j02-normalize-openalex-author",
+        "runId": "run:v1:0e0e539ea6e3b8dd1f55c2948035d3f0",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/real/openalex/snapshot=2026-11-12/j02-normalize-openalex-author/run=0e0e539ea6e3b8dd1f55c2948035d3f0",
+        "reused": false,
+        "counters": {
+          "scholarchain.output-records:institutions": 5,
+          "scholarchain.output-records:normalized": 3,
+          "scholarchain:ACCEPTED_RECORDS": 3,
+          "scholarchain:INPUT_RECORDS": 3
+        },
+        "stats": {}
+      },
+      {
+        "job": "hadoop.j02-normalize-crossref-work",
+        "runId": "run:v1:90a43d675893e59a2c9fb9799e3bb27a",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/real/crossref/snapshot=2026-11-12/j02-normalize-crossref-work/run=90a43d675893e59a2c9fb9799e3bb27a",
+        "reused": false,
+        "counters": {
+          "scholarchain.output-records:normalized": 4,
+          "scholarchain:ACCEPTED_RECORDS": 4,
+          "scholarchain:INPUT_RECORDS": 4
+        },
+        "stats": {}
+      },
+      {
+        "job": "hadoop.j02-normalize-orcid-record",
+        "runId": "run:v1:49e0ef1f22632c4edcbd43e588bdf6bb",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/real/orcid/snapshot=2026-11-12/j02-normalize-orcid-record/run=49e0ef1f22632c4edcbd43e588bdf6bb",
+        "reused": false,
+        "counters": {
+          "scholarchain.output-records:normalized": 1,
+          "scholarchain:ACCEPTED_RECORDS": 1,
+          "scholarchain:INPUT_RECORDS": 1
+        },
+        "stats": {}
+      },
+      {
+        "job": "hadoop.j04-exact-id-join",
+        "runId": "run:v1:7b078853720986cd6f5784aa22de0bdb",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/real/linked/dblp-2026-11-01+crossref-2026-11-12+openalex-2026-11-12+orcid-2026-11-12/j04-exact-id-join/run=7b078853720986cd6f5784aa22de0bdb",
+        "reused": false,
+        "counters": {
+          "scholarchain.output-records:links": 67,
+          "scholarchain.output-records:stats": 3,
+          "scholarchain:ACCEPTED_RECORDS": 29,
+          "scholarchain:INPUT_RECORDS": 29,
+          "scholarchain:LINKS_EMITTED": 67,
+          "scholarchain:MISSING_KEY_RECORDS": 3,
+          "scholarchain:UNMATCHED_KEYS": 1
+        },
+        "stats": {
+          "largestIdentifierGroup": {
+            "value": 9,
+            "subject": "10.1145/3477495.3531753"
+          }
+        }
+      },
+      {
+        "job": "hadoop.j05-blocking",
+        "runId": "run:v1:804254c4c5e0023108232a0caa9e493e",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/real/dblp/snapshot=2026-11-01/j05-blocking/run=804254c4c5e0023108232a0caa9e493e",
+        "reused": false,
+        "counters": {
+          "scholarchain.output-records:stats": 4,
+          "scholarchain:ACCEPTED_RECORDS": 17,
+          "scholarchain:INPUT_RECORDS": 17,
+          "scholarchain:SINGLETON_BLOCKS": 34
+        },
+        "stats": {
+          "largestBlock": {
+            "value": 1,
+            "subject": "dblp-base-name\tAlípio Mário Jorge"
+          }
+        }
+      },
+      {
+        "job": "hadoop.j05b-fallback-blocking",
+        "runId": "run:v1:1a7d678c70bfa354c70a31e252a77652",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/real/dblp/snapshot=2026-11-01/j05b-fallback-blocking/run=1a7d678c70bfa354c70a31e252a77652",
+        "reused": false,
+        "counters": {},
+        "stats": {}
+      },
+      {
+        "job": "hadoop.j05c-fallback-coverage",
+        "runId": "run:v1:b731335350ed2adb9436b9a9a73afc43",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/real/dblp/snapshot=2026-11-01/j05c-fallback-coverage/run=b731335350ed2adb9436b9a9a73afc43",
+        "reused": false,
+        "counters": {},
+        "stats": {}
+      },
+      {
+        "job": "hadoop.j06-candidate-features",
+        "runId": "run:v1:77adb420bf0a76ef877ceb82db030136",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/real/dblp/snapshot=2026-11-01/j06-candidate-features/run=77adb420bf0a76ef877ceb82db030136",
+        "reused": false,
+        "counters": {},
+        "stats": {}
+      },
+      {
+        "job": "hadoop.j09-graph-export",
+        "runId": "run:v1:b3f9827f29c0b9c047b8a617acb17fc9",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/real/linked/dblp-2026-11-01+crossref-2026-11-12+openalex-2026-11-12+orcid-2026-11-12/j09-graph-export/run=b3f9827f29c0b9c047b8a617acb17fc9",
+        "reused": false,
+        "counters": {
+          "scholarchain.output-records:author_mention": 17,
+          "scholarchain.output-records:coauthor_pair_candidate/year=2022": 21,
+          "scholarchain.output-records:coauthor_pair_candidate/year=2023": 12,
+          "scholarchain.output-records:external_id_link": 64,
+          "scholarchain.output-records:institution": 15,
+          "scholarchain.output-records:publication_team/year=2022": 1,
+          "scholarchain.output-records:publication_team/year=2023": 3,
+          "scholarchain.output-records:venue": 1,
+          "scholarchain.output-records:work/year=2022": 1,
+          "scholarchain.output-records:work/year=2023": 3,
+          "scholarchain:ACCEPTED_RECORDS": 144,
+          "scholarchain:DUPLICATE_RECORDS": 6,
+          "scholarchain:INPUT_RECORDS": 144
+        },
+        "stats": {}
+      }
+    ]
+  },
+  {
+    "run": "synthetic-dblp",
+    "maximumObservedTeamSize": {
+      "value": 5,
+      "subject": "work:v1:91cf027cf2e9fa334fbf695a9583d27a"
+    },
+    "largestPairExpansion": {
+      "value": 10,
+      "subject": "work:v1:91cf027cf2e9fa334fbf695a9583d27a"
+    },
+    "largestBlockingGroup": {
+      "value": 4,
+      "subject": "dblp-base-name\tSynthetic Author"
+    },
+    "largestCandidateBlockSeen": {
+      "value": 4,
+      "subject": "dblp-base-name\tSynthetic Author"
+    },
+    "largestCandidateGroup": {
+      "value": 6,
+      "subject": "dblp-base-name\tSynthetic Author"
+    },
+    "matchCandidates": 8,
+    "candidateOversizeBlocks": 0,
+    "largestIdentifierGroup": {
+      "value": 5,
+      "subject": "10.5555/scholarchain-synthetic-0001"
+    },
+    "pairInstancesGenerated": 11,
+    "consolidatedPairs": 7,
+    "links": 0,
+    "jobs": [
+      {
+        "job": "hadoop.j01-dblp-extract",
+        "runId": "run:v1:d9f4390be498fd4253338d84a5935c81",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/synthetic/dblp/snapshot=synthetic-2026-11-12/j01-dblp-extract/run=d9f4390be498fd4253338d84a5935c81",
+        "reused": false,
+        "counters": {
+          "scholarchain.excluded-reason:publtype": 1,
+          "scholarchain.excluded-reason:year": 1,
+          "scholarchain.field-issue:invalid_orcid_attr": 1,
+          "scholarchain.output-records:excluded/v1": 2,
+          "scholarchain.output-records:issues/v1": 1,
+          "scholarchain.output-records:mentions": 8,
+          "scholarchain.output-records:venues": 2,
+          "scholarchain.output-records:works": 3,
+          "scholarchain:ACCEPTED_RECORDS": 3,
+          "scholarchain:EXCLUDED_RECORDS": 2,
+          "scholarchain:FIELD_ISSUES": 1,
+          "scholarchain:INPUT_RECORDS": 5
+        },
+        "stats": {}
+      },
+      {
+        "job": "hadoop.j07-publication-teams",
+        "runId": "run:v1:908d06e1cbf78d179bdb9196df3a1dcd",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/synthetic/dblp/snapshot=synthetic-2026-11-12/j07-publication-teams/run=908d06e1cbf78d179bdb9196df3a1dcd",
+        "reused": false,
+        "counters": {
+          "scholarchain.output-records:authorPapers": 8,
+          "scholarchain.output-records:mentionContexts": 8,
+          "scholarchain.output-records:stats": 6,
+          "scholarchain.output-records:teams": 3,
+          "scholarchain:ACCEPTED_RECORDS": 11,
+          "scholarchain:INPUT_RECORDS": 11
+        },
+        "stats": {
+          "maxTeamPairs": {
+            "value": 10,
+            "subject": "work:v1:91cf027cf2e9fa334fbf695a9583d27a"
+          },
+          "maxTeamSize": {
+            "value": 5,
+            "subject": "work:v1:91cf027cf2e9fa334fbf695a9583d27a"
+          }
+        }
+      },
+      {
+        "job": "hadoop.j08a-pair-expand",
+        "runId": "run:v1:e0d3c2e07a1633b70a28a2b668232808",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/synthetic/dblp/snapshot=synthetic-2026-11-12/j08a-pair-expand/run=e0d3c2e07a1633b70a28a2b668232808",
+        "reused": false,
+        "counters": {
+          "scholarchain.field-issue:self_pair": 1,
+          "scholarchain.output-records:issues/v1": 1,
+          "scholarchain.output-records:pairInstances": 10,
+          "scholarchain.output-records:stats": 2,
+          "scholarchain:ACCEPTED_RECORDS": 3,
+          "scholarchain:EMITTED_PAIRS": 10,
+          "scholarchain:FIELD_ISSUES": 1,
+          "scholarchain:INPUT_RECORDS": 3,
+          "scholarchain:PAIR_INSTANCES_GENERATED": 11,
+          "scholarchain:PAIR_SHARDS": 2,
+          "scholarchain:SELF_PAIRS_SKIPPED": 1,
+          "scholarchain:SINGLE_AUTHOR_TEAMS": 1
+        },
+        "stats": {
+          "largestPairExpansion": {
+            "value": 10,
+            "subject": "work:v1:91cf027cf2e9fa334fbf695a9583d27a"
+          }
+        }
+      },
+      {
+        "job": "hadoop.j08b-pair-consolidate",
+        "runId": "run:v1:2f7c3269223bea513367a32bd271ca49",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/synthetic/dblp/snapshot=synthetic-2026-11-12/j08b-pair-consolidate/run=2f7c3269223bea513367a32bd271ca49",
+        "reused": false,
+        "counters": {
+          "scholarchain.output-records:pairs": 7,
+          "scholarchain:ACCEPTED_RECORDS": 10,
+          "scholarchain:DUPLICATE_RECORDS": 3,
+          "scholarchain:EMITTED_PAIRS": 7,
+          "scholarchain:INPUT_RECORDS": 10
+        },
+        "stats": {}
+      },
+      {
+        "job": "hadoop.j04-exact-id-join",
+        "runId": "run:v1:326afb8ef00df131770b42a659fa344d",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/synthetic/linked/dblp-synthetic-2026-11-12/j04-exact-id-join/run=326afb8ef00df131770b42a659fa344d",
+        "reused": false,
+        "counters": {
+          "scholarchain.output-records:stats": 2,
+          "scholarchain:ACCEPTED_RECORDS": 8,
+          "scholarchain:INPUT_RECORDS": 8,
+          "scholarchain:MISSING_KEY_RECORDS": 1
+        },
+        "stats": {
+          "largestIdentifierGroup": {
+            "value": 5,
+            "subject": "10.5555/scholarchain-synthetic-0001"
+          }
+        }
+      },
+      {
+        "job": "hadoop.j05-blocking",
+        "runId": "run:v1:a7a0df75fb933330c7c3f0fd9690860f",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/synthetic/dblp/snapshot=synthetic-2026-11-12/j05-blocking/run=a7a0df75fb933330c7c3f0fd9690860f",
+        "reused": false,
+        "counters": {
+          "scholarchain.blocks-per-family:dblp-base-name": 1,
+          "scholarchain.blocks-per-family:initials-surname": 1,
+          "scholarchain.output-records:blocks": 2,
+          "scholarchain.output-records:stats": 4,
+          "scholarchain:ACCEPTED_RECORDS": 8,
+          "scholarchain:BLOCKS_EMITTED": 2,
+          "scholarchain:INPUT_RECORDS": 8,
+          "scholarchain:SINGLETON_BLOCKS": 8
+        },
+        "stats": {
+          "largestBlock": {
+            "value": 4,
+            "subject": "dblp-base-name\tSynthetic Author"
+          }
+        }
+      },
+      {
+        "job": "hadoop.j05b-fallback-blocking",
+        "runId": "run:v1:19a2775aa760f7cfa27ef6485aa17834",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/synthetic/dblp/snapshot=synthetic-2026-11-12/j05b-fallback-blocking/run=19a2775aa760f7cfa27ef6485aa17834",
+        "reused": false,
+        "counters": {},
+        "stats": {}
+      },
+      {
+        "job": "hadoop.j05c-fallback-coverage",
+        "runId": "run:v1:2168be4242f76b55c2ea1db2196c5392",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/synthetic/dblp/snapshot=synthetic-2026-11-12/j05c-fallback-coverage/run=2168be4242f76b55c2ea1db2196c5392",
+        "reused": false,
+        "counters": {},
+        "stats": {}
+      },
+      {
+        "job": "hadoop.j06-candidate-features",
+        "runId": "run:v1:3c57730443ffbee93435600158ba7106",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/synthetic/dblp/snapshot=synthetic-2026-11-12/j06-candidate-features/run=3c57730443ffbee93435600158ba7106",
+        "reused": false,
+        "counters": {
+          "scholarchain.feature-omitted:orcid_exact_match": 8,
+          "scholarchain.output-records:candidates/family=dblp-base-name": 4,
+          "scholarchain.output-records:candidates/family=initials-surname": 4,
+          "scholarchain.output-records:stats": 4,
+          "scholarchain:ACCEPTED_RECORDS": 2,
+          "scholarchain:CANDIDATE_SHARDS": 2,
+          "scholarchain:INPUT_RECORDS": 2,
+          "scholarchain:MATCH_CANDIDATES_EMITTED": 8,
+          "scholarchain:SAME_NUMBERED_NAME_PAIRS_SKIPPED": 4
+        },
+        "stats": {
+          "largestBlockSeen": {
+            "value": 4,
+            "subject": "dblp-base-name\tSynthetic Author"
+          },
+          "largestCandidateGroup": {
+            "value": 6,
+            "subject": "dblp-base-name\tSynthetic Author"
+          }
+        }
+      },
+      {
+        "job": "hadoop.j09-graph-export",
+        "runId": "run:v1:8563d4adc687ee1c17931cd21d173553",
+        "outputDir": "file:/tmp/p16-E5-hadoop-20261122T1715Z/synthetic/linked/dblp-synthetic-2026-11-12/j09-graph-export/run=8563d4adc687ee1c17931cd21d173553",
+        "reused": false,
+        "counters": {
+          "scholarchain.output-records:author_mention": 8,
+          "scholarchain.output-records:coauthor_pair_candidate/year=2015": 1,
+          "scholarchain.output-records:coauthor_pair_candidate/year=2024": 6,
+          "scholarchain.output-records:match_candidate": 8,
+          "scholarchain.output-records:publication_team/year=2015": 1,
+          "scholarchain.output-records:publication_team/year=2024": 1,
+          "scholarchain.output-records:publication_team/year=2025": 1,
+          "scholarchain.output-records:venue": 2,
+          "scholarchain.output-records:work/year=2015": 1,
+          "scholarchain.output-records:work/year=2024": 1,
+          "scholarchain.output-records:work/year=2025": 1,
+          "scholarchain:ACCEPTED_RECORDS": 31,
+          "scholarchain:INPUT_RECORDS": 31
+        },
+        "stats": {}
+      }
+    ]
+  }
+]

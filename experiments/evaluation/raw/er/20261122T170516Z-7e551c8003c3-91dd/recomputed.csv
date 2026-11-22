@@ -1,0 +1,6 @@
+metric,numerator,denominator,recomputed_value,report_pct,equal_at_report_precision,inclusion_rule
+precision,93,94,0.989362,98.9,yes,accepted pairs labelled MATCH or NON_MATCH; positive = accepted and MATCH
+recall,93,112,0.830357,83.0,yes,pairs labelled MATCH
+f1,186,206,0.902913,90.3,yes,"2 TP / (2 TP + FP + FN), FN = MATCH pairs not accepted"
+coverage,144,247,0.582996,58.3,yes,pairs labelled MATCH or NON_MATCH; covered = accepted or rejected
+unresolved_rate,109,300,0.363333,36.3,yes,"all labelled pairs, UNSURE included"

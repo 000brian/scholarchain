@@ -1,0 +1,57 @@
+{
+  "argv": [
+    "--report",
+    "experiments/raw/p15-e-retrieval-modes/20261120T221402Z-6a6c31a06d60-b6c7/retrieval-eval-report.json",
+    "--benchmark",
+    "modules/rag/src/test/resources/benchmark/benchmark-v1.json",
+    "--seed",
+    "20261122",
+    "--resamples",
+    "2000",
+    "--suite",
+    "experiments/evaluation/suite-v1.json",
+    "--entry",
+    "E6-retrieval"
+  ],
+  "endedUtc": "2026-11-22T17:05:16Z",
+  "entry": "E6-retrieval",
+  "format": "scholarchain.evaluation-run",
+  "formatVersion": 1,
+  "inputs": [
+    {
+      "path": "experiments/evaluation/suite-v1.json",
+      "sha256": "0f7f7d336433e00363a94d522a2bbbfdc93274cd32605cb411d445b98a339970"
+    },
+    {
+      "path": "experiments/raw/p15-e-retrieval-modes/20261120T221402Z-6a6c31a06d60-b6c7/retrieval-eval-report.json",
+      "sha256": "cadd90b82da7fa8c53ac9f2452897f31f04079c21b225805803a0061c8b15cff"
+    },
+    {
+      "path": "modules/rag/src/test/resources/benchmark/benchmark-v1.json",
+      "sha256": "b58c5e1a6cb29e192035ce77308c20e2597d2d1dbaf8d136761ae5c3316ff3ac"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "experiments/evaluation/raw/retrieval/20261122T170516Z-7e551c8003c3-1864/per-question.csv",
+      "sha256": "c907a10cedbdf8b512ee29f57b859c0b84e8a15ffc03b8088ffd42d2892ec443"
+    },
+    {
+      "path": "experiments/evaluation/raw/retrieval/20261122T170516Z-7e551c8003c3-1864/summary.csv",
+      "sha256": "9ee213da17afd9052c461a229764709b55591233cc6a53f503c0e5a4189f1a77"
+    },
+    {
+      "path": "experiments/evaluation/raw/retrieval/20261122T170516Z-7e551c8003c3-1864/checks.csv",
+      "sha256": "93b71b9585375f3fb6cb412c5a48669eb2270e1ccce3979d86f396ee8e65ce9c"
+    }
+  ],
+  "questions": 11,
+  "runId": "20261122T170516Z-7e551c8003c3-1864",
+  "startedUtc": "2026-11-22T17:05:16Z",
+  "subcommand": "retrieval",
+  "suite": "experiments/evaluation/suite-v1.json",
+  "suiteSha256": "0f7f7d336433e00363a94d522a2bbbfdc93274cd32605cb411d445b98a339970",
+  "tool": "experiments/evaluation/evaluate.py",
+  "toolSha256": "8e7f3e7478266a3de43ece14e40c351aa44262a61fd46e0058e01f95e5df96b3",
+  "toolVersion": "evaluate-v1-r3"
+}

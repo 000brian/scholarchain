@@ -1,0 +1,6 @@
+manifest,attempt,worker_running,periods,deleted_total,per_second_mean,sample_note,rule
+p15-c-embedding-backlog,20261120T225730Z-eb786c5275a3-ab26,0,3,0,0,few samples,periods in which every worker sample shows this running count
+p15-c-embedding-backlog,20261120T225730Z-eb786c5275a3-ab26,1,3,1620,9,few samples,periods in which every worker sample shows this running count
+p15-c-embedding-backlog,20261120T225730Z-eb786c5275a3-ab26,2,19,17580,15.421053,few samples,periods in which every worker sample shows this running count
+p15-f-poison-replay,20261120T223908Z-e94df52ca8fb-b4c0,0,2,0,0,few samples,periods in which every worker sample shows this running count
+p15-f-poison-replay,20261120T223908Z-e94df52ca8fb-b4c0,1,3,1,0.005556,few samples,periods in which every worker sample shows this running count

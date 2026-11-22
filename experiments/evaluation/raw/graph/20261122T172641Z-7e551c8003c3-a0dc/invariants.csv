@@ -1,0 +1,45 @@
+observation,check,left_table,left_value,right_table,right_value,result,integrity_property,kind
+observation 1,invalid_records total,all tables,0,tables,65,zero,"schema validity of every output row (core contract check); rejects and integrity_violations have no mirror, so their invalid_records are 0 by construction",a
+observation 1,records,integrity_violations,0,,,zero,"sum of the graph integrity checks (referential, orphan, duplicate assignment, consistency); per-check counts are not in this file",a
+observation 1,records,rejects,0,,,zero,invalid input records (decode or contract failure),a
+observation 1,records,unresolved_mention,0,,,zero,mentions without an identity assignment,a
+observation 1,equal counts,nodes:researcher,200484,canonical_researcher,200484,equal,every canonical researcher is a node,a
+observation 1,equal counts,nodes:work,155978,edges:published_in,155978,equal,every work has one venue edge,a
+observation 1,equal counts,coauthor_edge:full-2015-2025,1612421,edges:coauthored_with:full-2015-2025,1612421,equal,every coauthor edge has its graph edge (window full-2015-2025),a
+observation 1,equal counts,coauthor_edge:w2015-2017,104067,edges:coauthored_with:w2015-2017,104067,equal,every coauthor edge has its graph edge (window w2015-2017),a
+observation 1,equal counts,coauthor_edge:w2018-2020,248445,edges:coauthored_with:w2018-2020,248445,equal,every coauthor edge has its graph edge (window w2018-2020),a
+observation 1,equal counts,coauthor_edge:w2021-2023,569486,edges:coauthored_with:w2021-2023,569486,equal,every coauthor edge has its graph edge (window w2021-2023),a
+observation 1,equal counts,coauthor_edge:w2024-2025,826665,edges:coauthored_with:w2024-2025,826665,equal,every coauthor edge has its graph edge (window w2024-2025),a
+observation 1,equal counts,metrics:breadth:full-2015-2025,200484,metrics:group_size:full-2015-2025,200484,equal,one metric row per active researcher in every metric table (window full-2015-2025),a
+observation 1,equal counts,metrics:breadth:full-2015-2025,200484,bridges:full-2015-2025,200484,equal,one metric row per active researcher in every metric table (window full-2015-2025),a
+observation 1,equal counts,metrics:breadth:full-2015-2025,200484,kcore:full-2015-2025,200484,equal,one metric row per active researcher in every metric table (window full-2015-2025),a
+observation 1,equal counts,metrics:breadth:full-2015-2025,200484,components:full-2015-2025,200484,equal,one metric row per active researcher in every metric table (window full-2015-2025),a
+observation 1,equal counts,metrics:breadth:full-2015-2025,200484,communities:full-2015-2025,200484,equal,one metric row per active researcher in every metric table (window full-2015-2025),a
+observation 1,equal counts,metrics:breadth:full-2015-2025,200484,evidence:metric:full-2015-2025,200484,equal,one metric row per active researcher in every metric table (window full-2015-2025),a
+observation 1,equal counts,metrics:breadth:w2015-2017,33768,metrics:group_size:w2015-2017,33768,equal,one metric row per active researcher in every metric table (window w2015-2017),a
+observation 1,equal counts,metrics:breadth:w2015-2017,33768,bridges:w2015-2017,33768,equal,one metric row per active researcher in every metric table (window w2015-2017),a
+observation 1,equal counts,metrics:breadth:w2015-2017,33768,kcore:w2015-2017,33768,equal,one metric row per active researcher in every metric table (window w2015-2017),a
+observation 1,equal counts,metrics:breadth:w2015-2017,33768,components:w2015-2017,33768,equal,one metric row per active researcher in every metric table (window w2015-2017),a
+observation 1,equal counts,metrics:breadth:w2015-2017,33768,communities:w2015-2017,33768,equal,one metric row per active researcher in every metric table (window w2015-2017),a
+observation 1,equal counts,metrics:breadth:w2015-2017,33768,evidence:metric:w2015-2017,33768,equal,one metric row per active researcher in every metric table (window w2015-2017),a
+observation 1,equal counts,metrics:breadth:w2018-2020,58729,metrics:group_size:w2018-2020,58729,equal,one metric row per active researcher in every metric table (window w2018-2020),a
+observation 1,equal counts,metrics:breadth:w2018-2020,58729,bridges:w2018-2020,58729,equal,one metric row per active researcher in every metric table (window w2018-2020),a
+observation 1,equal counts,metrics:breadth:w2018-2020,58729,kcore:w2018-2020,58729,equal,one metric row per active researcher in every metric table (window w2018-2020),a
+observation 1,equal counts,metrics:breadth:w2018-2020,58729,components:w2018-2020,58729,equal,one metric row per active researcher in every metric table (window w2018-2020),a
+observation 1,equal counts,metrics:breadth:w2018-2020,58729,communities:w2018-2020,58729,equal,one metric row per active researcher in every metric table (window w2018-2020),a
+observation 1,equal counts,metrics:breadth:w2018-2020,58729,evidence:metric:w2018-2020,58729,equal,one metric row per active researcher in every metric table (window w2018-2020),a
+observation 1,equal counts,metrics:breadth:w2021-2023,94166,metrics:group_size:w2021-2023,94166,equal,one metric row per active researcher in every metric table (window w2021-2023),a
+observation 1,equal counts,metrics:breadth:w2021-2023,94166,bridges:w2021-2023,94166,equal,one metric row per active researcher in every metric table (window w2021-2023),a
+observation 1,equal counts,metrics:breadth:w2021-2023,94166,kcore:w2021-2023,94166,equal,one metric row per active researcher in every metric table (window w2021-2023),a
+observation 1,equal counts,metrics:breadth:w2021-2023,94166,components:w2021-2023,94166,equal,one metric row per active researcher in every metric table (window w2021-2023),a
+observation 1,equal counts,metrics:breadth:w2021-2023,94166,communities:w2021-2023,94166,equal,one metric row per active researcher in every metric table (window w2021-2023),a
+observation 1,equal counts,metrics:breadth:w2021-2023,94166,evidence:metric:w2021-2023,94166,equal,one metric row per active researcher in every metric table (window w2021-2023),a
+observation 1,equal counts,metrics:breadth:w2024-2025,116301,metrics:group_size:w2024-2025,116301,equal,one metric row per active researcher in every metric table (window w2024-2025),a
+observation 1,equal counts,metrics:breadth:w2024-2025,116301,bridges:w2024-2025,116301,equal,one metric row per active researcher in every metric table (window w2024-2025),a
+observation 1,equal counts,metrics:breadth:w2024-2025,116301,kcore:w2024-2025,116301,equal,one metric row per active researcher in every metric table (window w2024-2025),a
+observation 1,equal counts,metrics:breadth:w2024-2025,116301,components:w2024-2025,116301,equal,one metric row per active researcher in every metric table (window w2024-2025),a
+observation 1,equal counts,metrics:breadth:w2024-2025,116301,communities:w2024-2025,116301,equal,one metric row per active researcher in every metric table (window w2024-2025),a
+observation 1,equal counts,metrics:breadth:w2024-2025,116301,evidence:metric:w2024-2025,116301,equal,one metric row per active researcher in every metric table (window w2024-2025),a
+observation 1,equal counts,canonical_researcher,200484,metrics:breadth:full-2015-2025,200484,equal,every canonical researcher has a full-window metric row,a
+observation 1,equal counts,path_evidence:full-2015-2025,64,semantic_summary:path:full-2015-2025,64,equal,one path summary per path evidence row (window full-2015-2025),a
+observation 1,difference (not an invariant),authorship,758328,edges:authored,758314,difference 14,authored edges are one per researcher and work; authorship rows are one per mention: a difference is possible where a researcher has two mentions on one work (not checked further),a

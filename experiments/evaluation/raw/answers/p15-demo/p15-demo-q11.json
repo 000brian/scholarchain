@@ -1,0 +1,354 @@
+{
+  "answer": {
+    "abstained": false,
+    "abstentionReason": null,
+    "answerText": "The answer below lists only claims checked against ScholarChain graph evidence.\n\nClaims:\n- [claim-1] Luc Van Gool and Marcos V. Conde are connected by a two-hop path through Jinlong Wu in the full-2015-2025 window.\n- [claim-2] Jinlong Wu coauthored with Luc Van Gool on one joint publication in 2023.\n- [claim-3] Jinlong Wu coauthored with Marcos V. Conde on one joint publication in 2023.\n- [claim-4] Luc Van Gool has 267 publications and 1124 distinct coauthors in the window, a breadth measure separate from the path.\n- [claim-5] Marcos V. Conde has 33 publications and 950 distinct coauthors in the window.\n\nMissing evidence (model-written, not verified):\n- No direct coauthor edge between Luc Van Gool and Marcos V. Conde was found in the facts.\n\nNotes:\n- No window was given; the default window full-2015-2025 (2015-2025) was used.\n- 'Luc Van Gool' was resolved to Luc Van Gool (researcher:v1:df6166236603a3e56028f86b2f9c5c93).\n- 'Marcos V. Conde' was resolved to Marcos V. Conde (researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7).\n- The model summary contained numbers, identifiers or names not in the graph evidence and was replaced; facts appear only in verified claims.",
+    "bundleId": "evidence:v1:993f89a24ff4a2a6bd0ce751c0ff5e46",
+    "claims": [
+      {
+        "claimId": "claim-1",
+        "claimText": "Luc Van Gool and Marcos V. Conde are connected by a two-hop path through Jinlong Wu in the full-2015-2025 window.",
+        "evidenceIds": [
+          "evidence:v1:0278c415259256506e41a53d4a08d879"
+        ],
+        "provenance": {
+          "contentHash": "sha256:d0837cf6b1e34895d8ced3d54bcb09dc017e1c18a3bdd08737a21dbeea485205",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:94a22765fb83fc575016793a348aa728",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:0278c415259256506e41a53d4a08d879"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": null,
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "claimId": "claim-2",
+        "claimText": "Jinlong Wu coauthored with Luc Van Gool on one joint publication in 2023.",
+        "evidenceIds": [
+          "evidence:v1:096091822aa3ca5d27ff3ca7eb617cf3"
+        ],
+        "provenance": {
+          "contentHash": "sha256:e977cdf0f52f2c32095e68fff8a746bba8e2b29f57907022ff5f88600e1e4cc0",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:94a22765fb83fc575016793a348aa728",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:096091822aa3ca5d27ff3ca7eb617cf3"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": null,
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "claimId": "claim-3",
+        "claimText": "Jinlong Wu coauthored with Marcos V. Conde on one joint publication in 2023.",
+        "evidenceIds": [
+          "evidence:v1:d0b0dd93c41b7147e0d2fff5bda4ea8a"
+        ],
+        "provenance": {
+          "contentHash": "sha256:ee23a2a781aead60cac2c128c2b797c784d02ec0d13bea9ef4a6e292df4a5348",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:94a22765fb83fc575016793a348aa728",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:d0b0dd93c41b7147e0d2fff5bda4ea8a"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": null,
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "claimId": "claim-4",
+        "claimText": "Luc Van Gool has 267 publications and 1124 distinct coauthors in the window, a breadth measure separate from the path.",
+        "evidenceIds": [
+          "evidence:v1:b958112be446c1559eabd9863427e4d6"
+        ],
+        "provenance": {
+          "contentHash": "sha256:7d482eda0db4dd7d9111bfb1ef5b93c8af02e1ea189082468adfab363320634b",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:94a22765fb83fc575016793a348aa728",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:b958112be446c1559eabd9863427e4d6"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": null,
+        "window": null
+      },
+      {
+        "claimId": "claim-5",
+        "claimText": "Marcos V. Conde has 33 publications and 950 distinct coauthors in the window.",
+        "evidenceIds": [
+          "evidence:v1:dfe6a82aba348468ad41eceacfc1191b"
+        ],
+        "provenance": {
+          "contentHash": "sha256:0a2d1c19101f1f8ce00d14a3afa8e9a67275ba9cc25199e1e980a2d1e3a6e7b3",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.answer",
+          "policyVersion": "answer-synthesis-v3",
+          "runId": "run:v1:94a22765fb83fc575016793a348aa728",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "evidence:v1:dfe6a82aba348468ad41eceacfc1191b"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 2,
+        "status": "verified",
+        "uncertainty": null,
+        "window": null
+      }
+    ],
+    "evidence": [
+      {
+        "evidenceId": "evidence:v1:b958112be446c1559eabd9863427e4d6",
+        "evidenceType": "match_decision",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:8d22efafefb8244d3689177daa083913765c67b49a81b3aec6da53c497c8592c",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:94a22765fb83fc575016793a348aa728",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "EntityLinkCache:name#luc van gool/researcher#researcher:v1:df6166236603a3e56028f86b2f9c5c93",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Luc Van Gool\nresearcherId=researcher:v1:df6166236603a3e56028f86b2f9c5c93\naskedName=Luc Van Gool\nmatchedValue=Luc Van Gool\nresolved=true\noutcome=accepted\nconfidence=0.9500\npublicationCount=267\ndistinctCoauthors=1124\ntopCoauthorNames=Radu Timofte | Danda Pani Paudel | Dengxin Dai\ntopCoauthorIds=researcher:v1:32ad9abca8538109a54a81cef181dd6d,researcher:v1:51a72beb245b25d4d4cc9a4dcaa5681d,researcher:v1:89ee4473aedc28865faeb0511327b27c\ncontextWindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:df6166236603a3e56028f86b2f9c5c93",
+          "identity=luc van gool"
+        ],
+        "window": null
+      },
+      {
+        "evidenceId": "evidence:v1:dfe6a82aba348468ad41eceacfc1191b",
+        "evidenceType": "match_decision",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:3d38b8eee686b434aae2d9c2bffd43d8ba627a7772dee213a878db3c28f0690f",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:94a22765fb83fc575016793a348aa728",
+          "schemaVersion": 1,
+          "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+          "sourceRecordIds": [
+            "EntityLinkCache:name#marcos v conde/researcher#researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "name=Marcos V. Conde\nresearcherId=researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7\naskedName=Marcos V. Conde\nmatchedValue=Marcos V. Conde\nresolved=true\noutcome=accepted\nconfidence=0.9002\npublicationCount=33\ndistinctCoauthors=950\ntopCoauthorNames=Radu Timofte | Zongwei Wu | Álvaro García\ntopCoauthorIds=researcher:v1:32ad9abca8538109a54a81cef181dd6d,researcher:v1:37b139fcba2cb05240caf213d7c6ed85,researcher:v1:a3ee32d8e98fde17db7c21ad858c8b16\ncontextWindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7",
+          "identity=marcos v conde"
+        ],
+        "window": null
+      },
+      {
+        "evidenceId": "evidence:v1:0278c415259256506e41a53d4a08d879",
+        "evidenceType": "graph_path",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:9cffdc94798b5d06e7ebf7dac929a7eb5180015b041a1aa05ab935eeb82c7ad4",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:94a22765fb83fc575016793a348aa728",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "EvidenceBundle:evidence:v1:a39cca5919ff002d13007c806ac765a7",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+            "evidence:v1:a39cca5919ff002d13007c806ac765a7"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "hops=2\norigin=precomputed-spark-path\npathNames=Luc Van Gool | Jinlong Wu | Marcos V. Conde\npathIds=researcher:v1:df6166236603a3e56028f86b2f9c5c93,researcher:v1:010d1c9b5281921244e7a69efb242996,researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7\nmoreThanOneShortestPath=false\nwindowLabel=full-2015-2025\nsparkEvidenceId=evidence:v1:a39cca5919ff002d13007c806ac765a7",
+        "subjectIds": [
+          "researcher:v1:df6166236603a3e56028f86b2f9c5c93",
+          "researcher:v1:010d1c9b5281921244e7a69efb242996",
+          "researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:096091822aa3ca5d27ff3ca7eb617cf3",
+        "evidenceType": "coauthor_edge",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:cd83eefdbea7e19f8f73482bf4e051b94957be3d1bd07a0b245cb3923ffdb57d",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:94a22765fb83fc575016793a348aa728",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "graph:COAUTHORED_WITH/edge:v1:4acb1f72216b6d80680b215323403f90",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+            "edge:v1:4acb1f72216b6d80680b215323403f90"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "nameA=Jinlong Wu\nresearcherA=researcher:v1:010d1c9b5281921244e7a69efb242996\nnameB=Luc Van Gool\nresearcherB=researcher:v1:df6166236603a3e56028f86b2f9c5c93\nweight=1\njointPublicationCount=1\nfirstYear=2023\nlastYear=2023\nsupportingWorkIds=work:v1:d110f30d3bafae59e84d74ab099238c3\nedgeId=edge:v1:4acb1f72216b6d80680b215323403f90\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:010d1c9b5281921244e7a69efb242996",
+          "researcher:v1:df6166236603a3e56028f86b2f9c5c93",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      },
+      {
+        "evidenceId": "evidence:v1:d0b0dd93c41b7147e0d2fff5bda4ea8a",
+        "evidenceType": "coauthor_edge",
+        "metric": null,
+        "provenance": {
+          "contentHash": "sha256:3a04140da270834da652986d05b712149d5b4ebb9e0f01c4cb5f16897d1e4d71",
+          "datasetId": "scholarchain-graph",
+          "jobName": "rag.query",
+          "policyVersion": "graph-v1",
+          "runId": "run:v1:94a22765fb83fc575016793a348aa728",
+          "schemaVersion": 1,
+          "snapshotId": "dblp-dblp-2026-11-01",
+          "sourceRecordIds": [
+            "graph:COAUTHORED_WITH/edge:v1:9085a933bbe8025cf16ab607fcef7b4d",
+            "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+            "edge:v1:9085a933bbe8025cf16ab607fcef7b4d"
+          ],
+          "sourceType": "runtime"
+        },
+        "schemaVersion": 1,
+        "snippet": "nameA=Jinlong Wu\nresearcherA=researcher:v1:010d1c9b5281921244e7a69efb242996\nnameB=Marcos V. Conde\nresearcherB=researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7\nweight=1\njointPublicationCount=1\nfirstYear=2023\nlastYear=2023\nsupportingWorkIds=work:v1:6261d629ffb54b66aafa99918ec6af18\nedgeId=edge:v1:9085a933bbe8025cf16ab607fcef7b4d\nwindowLabel=full-2015-2025",
+        "subjectIds": [
+          "researcher:v1:010d1c9b5281921244e7a69efb242996",
+          "researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7",
+          "window=full-2015-2025"
+        ],
+        "window": {
+          "endYear": 2025,
+          "startYear": 2015
+        }
+      }
+    ],
+    "identityNotes": [
+      "'Luc Van Gool' was resolved to Luc Van Gool (researcher:v1:df6166236603a3e56028f86b2f9c5c93).",
+      "'Marcos V. Conde' was resolved to Marcos V. Conde (researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7)."
+    ],
+    "modelId": "claude-haiku-5-5",
+    "plan": {
+      "graphRunId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+      "provenance": {
+        "contentHash": "sha256:f3144476e4d9866119315a665ddd0f70d49cdf86505353caec5101ddf34a27c3",
+        "datasetId": "scholarchain-graph",
+        "jobName": "rag.query",
+        "policyVersion": "query-planner-v2@sha256:60b5260e9c2eeabff46150fb09cf41a89fe39fbd23701b7023cdf0663e5684a1",
+        "runId": "run:v1:94a22765fb83fc575016793a348aa728",
+        "schemaVersion": 1,
+        "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+        "sourceRecordIds": [
+          "run:v1:f2625d504b12749389cf4f5b1a26aed4"
+        ],
+        "sourceType": "runtime"
+      },
+      "question": "How are Luc Van Gool and Marcos V. Conde connected through coauthors?",
+      "schemaVersion": 1,
+      "steps": [
+        {
+          "operation": "shortest_path",
+          "parameters": {
+            "maxDepth": "6",
+            "windowLabel": "full-2015-2025"
+          },
+          "researcherIds": [
+            "researcher:v1:df6166236603a3e56028f86b2f9c5c93",
+            "researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7"
+          ],
+          "window": {
+            "endYear": 2025,
+            "startYear": 2015
+          }
+        }
+      ]
+    },
+    "provenance": {
+      "contentHash": "sha256:fd3fcf54e7e192dc4ad3b6e5e25632ad60aeb01c793264b92246e10ddf5458c3",
+      "datasetId": "scholarchain-graph",
+      "jobName": "rag.answer",
+      "policyVersion": "answer-synthesis-v3",
+      "runId": "run:v1:94a22765fb83fc575016793a348aa728",
+      "schemaVersion": 1,
+      "snapshotId": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+      "sourceRecordIds": [
+        "evidence:v1:993f89a24ff4a2a6bd0ce751c0ff5e46"
+      ],
+      "sourceType": "runtime"
+    },
+    "question": "How are Luc Van Gool and Marcos V. Conde connected through coauthors?",
+    "schemaVersion": 2
+  },
+  "links": {
+    "evidence": [
+      "/v1/evidence/evidence:v1:0278c415259256506e41a53d4a08d879?window=2015-2025",
+      "/v1/evidence/evidence:v1:096091822aa3ca5d27ff3ca7eb617cf3?window=2015-2025",
+      "/v1/evidence/evidence:v1:d0b0dd93c41b7147e0d2fff5bda4ea8a?window=2015-2025",
+      "/v1/evidence/evidence:v1:b958112be446c1559eabd9863427e4d6",
+      "/v1/evidence/evidence:v1:dfe6a82aba348468ad41eceacfc1191b"
+    ],
+    "explain": "/v1/explain/run:v1:94a22765fb83fc575016793a348aa728"
+  },
+  "notes": [],
+  "queryId": "run:v1:94a22765fb83fc575016793a348aa728"
+}

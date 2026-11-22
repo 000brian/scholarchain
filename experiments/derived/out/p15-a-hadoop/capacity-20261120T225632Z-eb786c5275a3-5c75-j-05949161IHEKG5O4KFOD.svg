@@ -2,7 +2,7 @@
 <rect x="0" y="0" width="1000" height="853" fill="white"/>
 <text x="70" y="20" font-size="14" font-weight="bold">p15-a-hadoop 20261120T225632Z-eb786c5275a3-5c75 cluster j-05949161IHEKG5O4KFOD: no scale-out observed</text>
 <text x="70" y="36">x axis: time (UTC), 2026-11-20T22:51:32Z to 2026-11-21T00:34:21Z</text>
-<text x="70" y="44" font-weight="bold">capacity units and nodes</text>
+<text x="70" y="44" font-weight="bold">capacity (nodes)</text>
 <rect x="70" y="50" width="700" height="200" fill="none" stroke="#333"/>
 <line x1="70" y1="250.0" x2="770" y2="250.0" stroke="#ddd"/>
 <text x="66" y="254.0" text-anchor="end">0</text>
@@ -16,7 +16,7 @@
 <text x="66" y="94.0" text-anchor="end">2</text>
 <line x1="70" y1="50.0" x2="770" y2="50.0" stroke="#ddd"/>
 <text x="66" y="54.0" text-anchor="end">2.5</text>
-<text x="14" y="150" transform="rotate(-90 14 150)" text-anchor="middle">units / nodes</text>
+<text x="14" y="150" transform="rotate(-90 14 150)" text-anchor="middle">nodes</text>
 <line x1="127.6" y1="50" x2="127.6" y2="250" stroke="#eee"/>
 <text x="127.6" y="264" text-anchor="middle">23:00</text>
 <line x1="229.8" y1="50" x2="229.8" y2="250" stroke="#eee"/>
@@ -39,27 +39,25 @@
 <text x="639.1" y="72" fill="#7f7f7f" font-size="9" transform="rotate(-30 639.1 72)">cluster termination requested</text>
 <line x1="654.5" y1="50" x2="654.5" y2="250" stroke="#7f7f7f" stroke-dasharray="4,3"/>
 <text x="656.5" y="72" fill="#7f7f7f" font-size="9" transform="rotate(-30 656.5 72)">cluster ended</text>
-<text x="780" y="68" fill="#999">TotalUnitsRequested: missing (no data)</text>
-<text x="780" y="82" fill="#999">TotalUnitsRunning: missing (no data)</text>
-<text x="780" y="96" fill="#999">CoreUnitsRequested: missing (no data)</text>
-<text x="780" y="110" fill="#999">CoreUnitsRunning: missing (no data)</text>
-<text x="780" y="124" fill="#999">CoreNodesRequested: missing (no data)</text>
-<line x1="780" y1="134" x2="798" y2="134" stroke="#8c564b" stroke-width="2"/>
-<text x="802" y="138">CoreNodesRunning</text>
-<circle cx="161.7" cy="90.0" r="2.5" fill="#8c564b"/>
-<circle cx="188.9" cy="90.0" r="2.5" fill="#8c564b"/>
-<circle cx="223.0" cy="90.0" r="2.5" fill="#8c564b"/>
-<circle cx="263.8" cy="90.0" r="2.5" fill="#8c564b"/>
-<circle cx="291.0" cy="90.0" r="2.5" fill="#8c564b"/>
-<circle cx="325.1" cy="90.0" r="2.5" fill="#8c564b"/>
-<circle cx="365.9" cy="90.0" r="2.5" fill="#8c564b"/>
-<circle cx="393.2" cy="90.0" r="2.5" fill="#8c564b"/>
-<circle cx="427.2" cy="90.0" r="2.5" fill="#8c564b"/>
-<circle cx="468.1" cy="90.0" r="2.5" fill="#8c564b"/>
-<circle cx="495.3" cy="90.0" r="2.5" fill="#8c564b"/>
-<circle cx="529.3" cy="90.0" r="2.5" fill="#8c564b"/>
-<circle cx="570.2" cy="90.0" r="2.5" fill="#8c564b"/>
-<circle cx="597.4" cy="90.0" r="2.5" fill="#8c564b"/>
+<text x="780" y="68" fill="#999">CoreNodesRequested: missing (no data)</text>
+<line x1="780" y1="78" x2="798" y2="78" stroke="#d62728" stroke-width="2"/>
+<text x="802" y="82">CoreNodesRunning</text>
+<circle cx="161.7" cy="90.0" r="2.5" fill="#d62728"/>
+<circle cx="188.9" cy="90.0" r="2.5" fill="#d62728"/>
+<circle cx="223.0" cy="90.0" r="2.5" fill="#d62728"/>
+<circle cx="263.8" cy="90.0" r="2.5" fill="#d62728"/>
+<circle cx="291.0" cy="90.0" r="2.5" fill="#d62728"/>
+<circle cx="325.1" cy="90.0" r="2.5" fill="#d62728"/>
+<circle cx="365.9" cy="90.0" r="2.5" fill="#d62728"/>
+<circle cx="393.2" cy="90.0" r="2.5" fill="#d62728"/>
+<circle cx="427.2" cy="90.0" r="2.5" fill="#d62728"/>
+<circle cx="468.1" cy="90.0" r="2.5" fill="#d62728"/>
+<circle cx="495.3" cy="90.0" r="2.5" fill="#d62728"/>
+<circle cx="529.3" cy="90.0" r="2.5" fill="#d62728"/>
+<circle cx="570.2" cy="90.0" r="2.5" fill="#d62728"/>
+<circle cx="597.4" cy="90.0" r="2.5" fill="#d62728"/>
+<text x="780" y="96" fill="#999">TotalNodesRequested: missing (no data)</text>
+<text x="780" y="110" fill="#999">TotalNodesRunning: missing (no data)</text>
 <text x="70" y="289" font-weight="bold">YARN pending</text>
 <rect x="70" y="295" width="700" height="200" fill="none" stroke="#333"/>
 <line x1="70" y1="495.0" x2="770" y2="495.0" stroke="#ddd"/>

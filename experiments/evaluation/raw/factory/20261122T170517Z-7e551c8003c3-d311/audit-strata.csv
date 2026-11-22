@@ -1,0 +1,8 @@
+type,events_counted,sampled
+blocked-row,3,1
+blocked-terminal,5,1
+execution,87,3
+finding,196,11
+hook-block,6,1
+manual-intervention,3,1
+repair,62,2

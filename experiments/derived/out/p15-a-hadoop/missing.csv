@@ -27,11 +27,7 @@ p15-a-hadoop,20261120T215912Z-b0c92f533c70-5a01,AWS/ElasticMapReduce YARNMemoryA
 p15-a-hadoop,20261120T215912Z-b0c92f533c70-5a01,AWS/ElasticMapReduce YARNMemoryAvailablePercentage Minimum JobFlowId={emr-cluster-id},query not returned
 p15-a-hadoop,20261120T215912Z-b0c92f533c70-5a01,AWS/ElasticMapReduce series,no cluster series
 p15-a-hadoop,20261120T225632Z-eb786c5275a3-5c75,AWS/ElasticMapReduce CoreNodesRequested Maximum JobFlowId=j-05949161IHEKG5O4KFOD,empty series (no datapoints)
-p15-a-hadoop,20261120T225632Z-eb786c5275a3-5c75,AWS/ElasticMapReduce CoreUnitsRequested JobFlowId=j-05949161IHEKG5O4KFOD,series not exported
-p15-a-hadoop,20261120T225632Z-eb786c5275a3-5c75,AWS/ElasticMapReduce CoreUnitsRunning JobFlowId=j-05949161IHEKG5O4KFOD,series not exported
 p15-a-hadoop,20261120T225632Z-eb786c5275a3-5c75,AWS/ElasticMapReduce TaskNodesRequested Maximum JobFlowId=j-05949161IHEKG5O4KFOD,empty series (no datapoints)
 p15-a-hadoop,20261120T225632Z-eb786c5275a3-5c75,AWS/ElasticMapReduce TaskNodesRunning Maximum JobFlowId=j-05949161IHEKG5O4KFOD,empty series (no datapoints)
 p15-a-hadoop,20261120T225632Z-eb786c5275a3-5c75,AWS/ElasticMapReduce TotalNodesRequested Maximum JobFlowId=j-05949161IHEKG5O4KFOD,empty series (no datapoints)
 p15-a-hadoop,20261120T225632Z-eb786c5275a3-5c75,AWS/ElasticMapReduce TotalNodesRunning Maximum JobFlowId=j-05949161IHEKG5O4KFOD,empty series (no datapoints)
-p15-a-hadoop,20261120T225632Z-eb786c5275a3-5c75,AWS/ElasticMapReduce TotalUnitsRequested JobFlowId=j-05949161IHEKG5O4KFOD,series not exported
-p15-a-hadoop,20261120T225632Z-eb786c5275a3-5c75,AWS/ElasticMapReduce TotalUnitsRunning JobFlowId=j-05949161IHEKG5O4KFOD,series not exported

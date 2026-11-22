@@ -1,0 +1,6 @@
+item,reason
+referential integrity rate over the full graph,not measurable from the frozen evidence (no graph export exists; the run CSV carries table row counts and the integrity total only)
+duplicate coauthor-edge rate,"not measurable from the frozen evidence (no graph export exists; uniqueness is a construction rule tested by the Spark suites, not counted in the CSV)"
+orphan rate,not measurable from the frozen evidence (no graph export exists; only the integrity total (0 means every orphan check is 0) is in the CSV)
+coauthor-edge support rate (supporting works per edge),not measurable from the frozen evidence (no graph export exists)
+per-check integrity breakdown,not measurable from the frozen evidence (the CSV holds the integrity total only)

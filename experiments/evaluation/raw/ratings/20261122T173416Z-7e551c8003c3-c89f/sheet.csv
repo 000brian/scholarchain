@@ -1,0 +1,103 @@
+answer_key,question,answer_text,usefulness_1_to_5,clarity_1_to_5,not_rateable,dblp_names_exist,rater_note
+R01,"Among researchers whose profiles mention SIGIR, who has the highest weighted degree in 2015-2025?","The answer below lists only claims checked against ScholarChain graph evidence.
+
+Claims:
+- [claim-1] Horacio Saggion ranks first with weighted degree 54 for 2015-2025 among researchers matched to the SIGIR-profile topic by profile similarity. (Uncertainty: Identity outcome for this researcher is not reported, and the topic match is by profile similarity, not topic labels.)
+
+Missing evidence (model-written, not verified):
+- Identity outcome for the top-ranked researcher
+- Weighted-degree values and ranks for other topic-matched candidates
+- Breadth and team-size metrics for the top-ranked researcher
+
+Notes:
+- Topic filter: researchers were matched to the topic by researcher-profile similarity within full-2015-2025 (top 30 profiles), not by topic labels; ranks are positions among those candidates.
+- The model summary contained numbers, identifiers or names not in the graph evidence and was replaced; facts appear only in verified claims.",4,4,,yes,
+R02,Who are the top 5 researchers by number of distinct coauthors between 2018 and 2020?,"Overview (not verified; only the claims below are checked against evidence): Ranking of researchers by distinct coauthors in the requested window, taken from the metric rows. Distinct coauthors count breadth only; intensity and team size are not part of this answer.
+
+Claims:
+- [claim-1] Radu Timofte ranks 1 by distinct coauthors in 2018-2020, with 594 distinct coauthors. (Uncertainty: Identity outcome is not provided in the facts, so the researcher match is unverified.)
+- [claim-2] Thomas S. Huang ranks 2 by distinct coauthors in 2018-2020, with 389 distinct coauthors. (Uncertainty: Identity outcome is not provided in the facts, so the researcher match is unverified.)
+- [claim-3] Ling Shao 0001 ranks 3 by distinct coauthors in 2018-2020, with 357 distinct coauthors. (Uncertainty: Identity outcome is not provided in the facts, so the researcher match is unverified.)
+- [claim-4] Wangmeng Zuo ranks 4 by distinct coauthors in 2018-2020, with 315 distinct coauthors. (Uncertainty: Identity outcome is not provided in the facts, so the researcher match is unverified.)
+- [claim-5] Se Young Chun ranks 5 by distinct coauthors in 2018-2020, with 307 distinct coauthors. (Uncertainty: Identity outcome is not provided in the facts, so the researcher match is unverified.)
+
+Missing evidence (model-written, not verified):
+- Identity outcome for each researcher is not provided.
+- Collaboration intensity and team size measures are not provided for these researchers.",5,4,,yes,
+R03,Describe the community of Kele Xu in 2021-2023.,"The answer below lists only claims checked against ScholarChain graph evidence.
+
+Claims:
+- [claim-1] Kele Xu's community in the 2021-2023 window has 116 members. (Uncertainty: Community membership is approximate because label propagation did not fully settle.)
+- [claim-2] Kele Xu has 82 distinct coauthors in 2021-2023, a measure of collaboration breadth.
+- [claim-3] Kele Xu's cross-community degree is 45 and the number of communities connected is 10 in 2021-2023. (Uncertainty: Bridge position uses approximate communities; no betweenness centrality is computed.)
+- [claim-4] Kele Xu's participation coefficient in 2021-2023 is 0.7071, indicating ties spread across several communities. (Uncertainty: Communities are approximate because label propagation did not fully settle.)
+- [claim-5] Kele Xu's connected component in 2021-2023 has a size of 83688.
+- [claim-6] Ming Feng is Kele Xu's strongest 2021-2023 tie, with 4 joint publications from 2022 to 2023.
+- [claim-7] Boqing Zhu shares 3 joint publications with Kele Xu, all in 2022.
+- [claim-8] Hengxing Cai shares 3 joint publications with Kele Xu, from 2022 to 2023.
+- [claim-9] Dawei Feng shares 2 joint publications with Kele Xu, all in 2022.
+- [claim-10] Huaimin Wang 0001 shares 2 joint publications with Kele Xu, from 2022 to 2023.
+- [claim-11] The identity match for Kele Xu is accepted with confidence 0.9500 and 51 publications in the full 2015-2025 window.
+
+Missing evidence (model-written, not verified):
+- Betweenness centrality, which is not computed
+- Settled community assignments, since label propagation did not fully converge
+
+Notes:
+- 'Kele Xu' was resolved to Kele Xu (researcher:v1:0b483e06c74206594317cf2cd77e891f).
+- Bridge position is measured by the number of other communities a researcher's coauthors belong to (communities connected) and the cross-community degree; no betweenness centrality is computed, and communities come from label propagation that did not fully settle, so they are approximate.
+- The model summary contained numbers, identifiers or names not in the graph evidence and was replaced; facts appear only in verified claims.
+- 2 missing-evidence note(s) contained numbers, identifiers or names not in the graph evidence and were left out.",4,3,,yes,
+R04,Which paper of Wanli Ouyang had the most coauthors on one paper between 2015 and 2025?,"The answer below lists only claims checked against ScholarChain graph evidence.
+
+Claims:
+- [claim-1] Wanli Ouyang's maximum number of coauthors on one paper from 2015-2025 is 19.
+- [claim-2] The Lumina-Next paper (2024, conf/nips) is listed with a team size of 20 coauthors in the work facts.
+
+Missing evidence (model-written, not verified):
+- Explicit link between the maximum-team paper and the Lumina-Next work row
+
+Notes:
+- 'Wanli Ouyang' was resolved to Wanli Ouyang (researcher:v1:fe1177235d9a724607da7e9700d133c4).
+- The model summary contained numbers, identifiers or names not in the graph evidence and was replaced; facts appear only in verified claims.
+- 1 missing-evidence note(s) contained numbers, identifiers or names not in the graph evidence and were left out.
+- 2 model uncertainty note(s) contained numbers, identifiers or names not in the claim's cited evidence and were left out.",2,2,,yes,Doesn't name the paper. The max of 19 vs Lumina-Next at 20 left unexplained; we don't know if Ouyang is included in that 20 or not.
+R05,"Which Nobel Prize did Wanli Ouyang win in 2019, and with which coauthors?","The answer below lists only claims checked against ScholarChain graph evidence.
+
+Claims:
+- [claim-2] Wanli Ouyang was resolved to a researcher record with accepted identity outcome and 193 publications in 2015-2025. (Uncertainty: Partially supported: a number is bound to a field the cited item does not have.)
+- [claim-3] Xiaogang Wang 0001 is the top coauthor with 31 joint publications from 2015 to 2022.
+- [claim-4] Lei Bai 0001 is the second coauthor with 27 joint publications from 2021 to 2025.
+- [claim-5] Shixiang Tang has 18 joint publications with Wanli Ouyang from 2021 to 2025.
+- [claim-6] Wanli Ouyang has 622 distinct coauthors and 1227 total coauthor occurrences, with weighted degree equal to that total, in 2015-2025. (Uncertainty: Partially supported: a number is bound to a field the cited item does not have.)
+- [claim-7] Average team size is 6.3575 coauthors per paper, with a maximum of 19 coauthors on one paper.
+
+Removed claims:
+- claim-1: conflicting: a year is not a first or last year of a cited edge or a cited work's year
+
+Missing evidence (model-written, not verified):
+- Coauthor lists beyond the top ten direct collaborators are not shown.
+
+Notes:
+- Not supported: Nobel Prize won by Wanli Ouyang in 2019 is not in the coauthorship graph
+- 'Wanli Ouyang' was resolved to Wanli Ouyang (researcher:v1:fe1177235d9a724607da7e9700d133c4).
+- Wanli Ouyang has more direct collaborators in full-2015-2025 than the 10 listed (by edge weight).
+- The model summary contained numbers, identifiers or names not in the graph evidence and was replaced; facts appear only in verified claims.
+- 1 missing-evidence note(s) contained numbers, identifiers or names not in the graph evidence and were left out.",4,2,,yes,Correct abstention but it's buried in the notes. It leads with unrelated stats.
+R06,How are Luc Van Gool and Marcos V. Conde connected through coauthors?,"The answer below lists only claims checked against ScholarChain graph evidence.
+
+Claims:
+- [claim-1] Luc Van Gool and Marcos V. Conde are connected by a two-hop path through Jinlong Wu in the full-2015-2025 window.
+- [claim-2] Jinlong Wu coauthored with Luc Van Gool on one joint publication in 2023.
+- [claim-3] Jinlong Wu coauthored with Marcos V. Conde on one joint publication in 2023.
+- [claim-4] Luc Van Gool has 267 publications and 1124 distinct coauthors in the window, a breadth measure separate from the path.
+- [claim-5] Marcos V. Conde has 33 publications and 950 distinct coauthors in the window.
+
+Missing evidence (model-written, not verified):
+- No direct coauthor edge between Luc Van Gool and Marcos V. Conde was found in the facts.
+
+Notes:
+- No window was given; the default window full-2015-2025 (2015-2025) was used.
+- 'Luc Van Gool' was resolved to Luc Van Gool (researcher:v1:df6166236603a3e56028f86b2f9c5c93).
+- 'Marcos V. Conde' was resolved to Marcos V. Conde (researcher:v1:0a0f6a80acdbffd83a2a8fa2686486d7).
+- The model summary contained numbers, identifiers or names not in the graph evidence and was replaced; facts appear only in verified claims.",5,4,,yes,

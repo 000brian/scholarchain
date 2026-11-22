@@ -1,0 +1,104 @@
+{
+  "argv": [
+    "--suite-table",
+    "experiments/evaluation/spark-suite-table-v1.csv",
+    "--spark-outputs",
+    "experiments/raw/p15-a-spark/20261120T225850Z-eb786c5275a3-4f7e/spark-outputs.csv",
+    "--spark-outputs",
+    "experiments/raw/p15-b-spark-burst/20261120T225913Z-eb786c5275a3-fac6/spark-outputs.csv",
+    "--sample",
+    "ResearcherMetricCache=docs/agent-runs/phase-15/dynamodb-sample/researcher-metric-cache-sample25.json",
+    "--sample",
+    "EvidenceBundle=docs/agent-runs/phase-15/dynamodb-sample/evidence-bundle-sample25.json",
+    "--sample",
+    "EntityLinkCache=docs/agent-runs/phase-15/dynamodb-sample/entity-link-cache-sample25.json",
+    "--sample",
+    "RunLedger=docs/agent-runs/phase-15/dynamodb-sample/run-ledger-clip01-query.json",
+    "--test-log",
+    "experiments/evaluation/raw/graph/e5-sbt-20261122T1715Z-7e551c8/spark-suites.log",
+    "--suite",
+    "experiments/evaluation/suite-v1.json",
+    "--entry",
+    "E5-graph"
+  ],
+  "endedUtc": "2026-11-22T17:26:41Z",
+  "entry": "E5-graph",
+  "format": "scholarchain.evaluation-run",
+  "formatVersion": 1,
+  "inputs": [
+    {
+      "path": "experiments/evaluation/suite-v1.json",
+      "sha256": "0f7f7d336433e00363a94d522a2bbbfdc93274cd32605cb411d445b98a339970"
+    },
+    {
+      "path": "experiments/evaluation/spark-suite-table-v1.csv",
+      "sha256": "91184acfce712f2265b608c99ceb096e2f460c342cce0db921e6000df64378e7"
+    },
+    {
+      "path": "experiments/raw/p15-a-spark/20261120T225850Z-eb786c5275a3-4f7e/spark-outputs.csv",
+      "sha256": "ad70f64017cd4a071d1ab1a8dd8b7b121149e342059e8e1a856da3a695dedc6d"
+    },
+    {
+      "path": "experiments/raw/p15-b-spark-burst/20261120T225913Z-eb786c5275a3-fac6/spark-outputs.csv",
+      "sha256": "ad70f64017cd4a071d1ab1a8dd8b7b121149e342059e8e1a856da3a695dedc6d"
+    },
+    {
+      "path": "docs/agent-runs/phase-15/dynamodb-sample/researcher-metric-cache-sample25.json",
+      "sha256": "569d01879c59f10b4cc74358af95912d20a4c58be6a2303005e9a1d95041ae8b"
+    },
+    {
+      "path": "docs/agent-runs/phase-15/dynamodb-sample/evidence-bundle-sample25.json",
+      "sha256": "a8b6e4ee5c07b954d939d11d1370f7a3d8e733b7299bf945ee940d37854a6bfe"
+    },
+    {
+      "path": "docs/agent-runs/phase-15/dynamodb-sample/entity-link-cache-sample25.json",
+      "sha256": "50ef38efc35fc16c503a400b5cccc372daa34d96e027a7a8690c3aa63e068c80"
+    },
+    {
+      "path": "docs/agent-runs/phase-15/dynamodb-sample/run-ledger-clip01-query.json",
+      "sha256": "f818418e8c75e0e2c76e3fe698e34701db9f3d0566e1d6339ebd4408edf4bb97"
+    },
+    {
+      "path": "experiments/evaluation/raw/graph/e5-sbt-20261122T1715Z-7e551c8/spark-suites.log",
+      "sha256": "0c96bb05a0dd6fb2fe90b517997c55f749c5d8210261f8911ad2ffd735c6a9f3"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "experiments/evaluation/raw/graph/20261122T172641Z-7e551c8003c3-a0dc/suite-coverage.csv",
+      "sha256": "b5fdc96bf9c8243a258a77c05bf02c22aba52e2a3ea820ed42818e3296c41029"
+    },
+    {
+      "path": "experiments/evaluation/raw/graph/20261122T172641Z-7e551c8003c3-a0dc/suite-summary.csv",
+      "sha256": "8c92304322e657cd4ac0ebc7b4cd9fadce1d146380d3b917fc71b0720a359130"
+    },
+    {
+      "path": "experiments/evaluation/raw/graph/20261122T172641Z-7e551c8003c3-a0dc/spark-files.csv",
+      "sha256": "0eb47f73bb3871cbc24834e63ef7d95705ef2a00278f350b3078f62dc4b87008"
+    },
+    {
+      "path": "experiments/evaluation/raw/graph/20261122T172641Z-7e551c8003c3-a0dc/invariants.csv",
+      "sha256": "d7a1484904f7fcce20e0cff9e9272ede3c073bb0b3dc1cc574a4a1142459c3ee"
+    },
+    {
+      "path": "experiments/evaluation/raw/graph/20261122T172641Z-7e551c8003c3-a0dc/not-measurable.csv",
+      "sha256": "d644416da417a1f523161639625a5e0ebe72b535274992b31e51b73060461bf1"
+    },
+    {
+      "path": "experiments/evaluation/raw/graph/20261122T172641Z-7e551c8003c3-a0dc/provenance.csv",
+      "sha256": "63b1cf985b4d502777cda4c515a0e8f142aaa960ab73b8293fbe7eb14d0c312f"
+    },
+    {
+      "path": "experiments/evaluation/raw/graph/20261122T172641Z-7e551c8003c3-a0dc/test-log.csv",
+      "sha256": "9db33d838487ae4b6500a0111f19a46cd25d9083f67844a34cd04d8cab7fd819"
+    }
+  ],
+  "runId": "20261122T172641Z-7e551c8003c3-a0dc",
+  "startedUtc": "2026-11-22T17:26:41Z",
+  "subcommand": "graph",
+  "suite": "experiments/evaluation/suite-v1.json",
+  "suiteSha256": "0f7f7d336433e00363a94d522a2bbbfdc93274cd32605cb411d445b98a339970",
+  "tool": "experiments/evaluation/evaluate.py",
+  "toolSha256": "8e7f3e7478266a3de43ece14e40c351aa44262a61fd46e0058e01f95e5df96b3",
+  "toolVersion": "evaluate-v1-r3"
+}

@@ -1,0 +1,18 @@
+label,check,mode,k,report_value,recomputed_value,equal
+EXPLORATORY (n = 11),benchmark sha256 equals report evalSet.benchmarkSha256,,,b58c5e1a6cb29e192035ce77308c20e2597d2d1dbaf8d136761ae5c3316ff3ac,b58c5e1a6cb29e192035ce77308c20e2597d2d1dbaf8d136761ae5c3316ff3ac,yes
+EXPLORATORY (n = 11),universe size equals report evalSet.questions,,,11,11,yes
+EXPLORATORY (n = 11),mean recall equals report modes summary,graph-only,1,0.1,0.1,yes
+EXPLORATORY (n = 11),mean recall equals report modes summary,graph-only,5,0.5,0.5,yes
+EXPLORATORY (n = 11),mean recall equals report modes summary,graph-only,10,0.818182,0.818182,yes
+EXPLORATORY (n = 11),mean recall equals report modes summary,graph-only,30,0.818182,0.818182,yes
+EXPLORATORY (n = 11),MRR equals report modes summary,graph-only,,0.818182,0.818182,yes
+EXPLORATORY (n = 11),mean recall equals report modes summary,vector-only,1,0,0,yes
+EXPLORATORY (n = 11),mean recall equals report modes summary,vector-only,5,0,0,yes
+EXPLORATORY (n = 11),mean recall equals report modes summary,vector-only,10,0,0,yes
+EXPLORATORY (n = 11),mean recall equals report modes summary,vector-only,30,0.009091,0.009091,yes
+EXPLORATORY (n = 11),MRR equals report modes summary,vector-only,,0.003247,0.003247,yes
+EXPLORATORY (n = 11),mean recall equals report modes summary,fused,1,0.090909,0.090909,yes
+EXPLORATORY (n = 11),mean recall equals report modes summary,fused,5,0.409091,0.409091,yes
+EXPLORATORY (n = 11),mean recall equals report modes summary,fused,10,0.636364,0.636364,yes
+EXPLORATORY (n = 11),mean recall equals report modes summary,fused,30,0.827273,0.827273,yes
+EXPLORATORY (n = 11),MRR equals report modes summary,fused,,0.775974,0.775974,yes

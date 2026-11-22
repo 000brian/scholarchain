@@ -1,5 +1,1 @@
 manifest,attempt,item,reason
-p15-b-spark-burst,20261120T225913Z-eb786c5275a3-fac6,AWS/ElasticMapReduce CoreUnitsRequested JobFlowId=j-01156902UW7NYAFY518T,series not exported
-p15-b-spark-burst,20261120T225913Z-eb786c5275a3-fac6,AWS/ElasticMapReduce CoreUnitsRunning JobFlowId=j-01156902UW7NYAFY518T,series not exported
-p15-b-spark-burst,20261120T225913Z-eb786c5275a3-fac6,AWS/ElasticMapReduce TotalUnitsRequested JobFlowId=j-01156902UW7NYAFY518T,series not exported
-p15-b-spark-burst,20261120T225913Z-eb786c5275a3-fac6,AWS/ElasticMapReduce TotalUnitsRunning JobFlowId=j-01156902UW7NYAFY518T,series not exported

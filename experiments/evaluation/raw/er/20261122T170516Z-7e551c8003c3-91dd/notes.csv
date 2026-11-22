@@ -1,0 +1,12 @@
+item,value
+source,"phase-05 committed report (policy er-v1, run run:v1:9f96c70b5115294dcc9d3b2d1d4438b9)"
+source_file,docs/agent-runs/phase-05/agent-report-er-eval.md
+source_sha256,e20023ce6152a65cdd1b89f30489844e0532f9ff0098ead8f09fb75b6b5baf9b
+policy_version,er-v1
+er_run,run:v1:9f96c70b5115294dcc9d3b2d1d4438b9
+code_version,phase05-1279c37-02-dirty
+gold_sha256_in_report,fc39c15fba1ab7b8cb2ed8337a439683dce4e457ed52d08b294cfb2feba71fa9
+numerators_and_denominators,"given for the all-rows (unweighted) row only, recomputed from the unweighted confusion matrix; the other rows are printed percentages without counts"
+er_v2_accuracy,not measurable from the frozen evidence (no gold-pair decision comparison input was given; this tool version has no --compare-decisions)
+note,"M3 and M4 are fixed in code in Phase 16 (entity-resolution-engineer step 2) but not re-rendered: the table shows the Phase 5 wording, and the zero-event bounds are copied from the reliability paragraph of the same summary"
+note,er-v2 accuracy is not measurable from the frozen evidence: the er-v1 decision set and the Phase 5 review queue and key are gone (agent-report-er.md group 1 plan); equal counts are not equal decisions

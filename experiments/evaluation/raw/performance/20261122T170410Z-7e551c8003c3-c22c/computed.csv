@@ -1,0 +1,33 @@
+manifest,attempt,measure,value,unit,source,rule
+p15-a-hadoop,20261120T225632Z-eb786c5275a3-5c75,step_seconds:scholarchain-hadoop-pipeline,4122,s,emr-steps.csv,end_epoch minus start_epoch
+p15-a-hadoop,20261120T225632Z-eb786c5275a3-5c75,hadoop_map_input_splits_total,348,map tasks (planned),hadoop-step-counters.csv,sum of map_input_splits over 10 jobs
+p15-a-hadoop,20261120T225632Z-eb786c5275a3-5c75,hadoop.j09-graph-export output-records coauthor_pair_candidate,2231914,records,hadoop-job-counters.csv,sum over 11 year counters
+p15-a-hadoop,20261120T225632Z-eb786c5275a3-5c75,hadoop.j09-graph-export output-records publication_team,155978,records,hadoop-job-counters.csv,sum over 11 year counters
+p15-a-hadoop,20261120T225632Z-eb786c5275a3-5c75,hadoop.j09-graph-export output-records work,155978,records,hadoop-job-counters.csv,sum over 11 year counters
+p15-a-hadoop,20261120T225632Z-eb786c5275a3-5c75,instance_count,3,instances,emr-instances.csv,rows with created_epoch and ended_epoch
+p15-a-hadoop,20261120T225632Z-eb786c5275a3-5c75,instance_seconds,14319,s,emr-instances.csv,sum of ended_epoch minus created_epoch
+p15-a-hadoop,20261120T225632Z-eb786c5275a3-5c75,cost_estimate_usd,0.9546,USD,emr-instances.csv,estimate: instance_seconds / 3600 x 0.24 USD per instance-hour (infra/terraform/COSTS.md EMR row (EC2 0.192 + EMR 0.048 USD per instance-hour; estimate; unverified)); EBS excluded
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,spark_tasks_total,33112,tasks,spark-stage-metrics.csv,sum of tasks over 13 stage groups
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,spark_stages_total,3866,stages,spark-stage-metrics.csv,sum of stages over 13 stage groups
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,spark_shuffle_read_bytes_total,28879414972,bytes,spark-stage-metrics.csv,sum of shuffleReadBytes over 13 stage groups
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,spark_shuffle_write_bytes_total,26418246425,bytes,spark-stage-metrics.csv,sum of shuffleWriteBytes over 13 stage groups
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,spark_disk_spill_bytes_total,0,bytes,spark-stage-metrics.csv,sum of diskSpillBytes over 13 stage groups
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,spark_memory_spill_bytes_total,0,bytes,spark-stage-metrics.csv,sum of memorySpillBytes over 13 stage groups
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,spark_stage_timings_seconds_total,1391.608,s,spark-stage-timings.csv,sum of millis / 1000 over 13 stages
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,step_seconds:scholarchain-spark-graph-analytics,1488,s,emr-steps.csv,end_epoch minus start_epoch
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,step_seconds:scholarchain-spark-job-config,2,s,emr-steps.csv,end_epoch minus start_epoch
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,instance_count,3,instances,emr-instances.csv,rows with created_epoch and ended_epoch
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,instance_seconds,6576,s,emr-instances.csv,sum of ended_epoch minus created_epoch
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,cost_estimate_usd,0.4384,USD,emr-instances.csv,estimate: instance_seconds / 3600 x 0.24 USD per instance-hour (infra/terraform/COSTS.md EMR row (EC2 0.192 + EMR 0.048 USD per instance-hour; estimate; unverified)); EBS excluded
+p15-b-spark-burst,20261120T225913Z-eb786c5275a3-fac6,spark_tasks_total,55573,tasks,spark-stage-metrics.csv,sum of tasks over 13 stage groups
+p15-b-spark-burst,20261120T225913Z-eb786c5275a3-fac6,spark_stages_total,3877,stages,spark-stage-metrics.csv,sum of stages over 13 stage groups
+p15-b-spark-burst,20261120T225913Z-eb786c5275a3-fac6,spark_shuffle_read_bytes_total,29752447007,bytes,spark-stage-metrics.csv,sum of shuffleReadBytes over 13 stage groups
+p15-b-spark-burst,20261120T225913Z-eb786c5275a3-fac6,spark_shuffle_write_bytes_total,27303870371,bytes,spark-stage-metrics.csv,sum of shuffleWriteBytes over 13 stage groups
+p15-b-spark-burst,20261120T225913Z-eb786c5275a3-fac6,spark_disk_spill_bytes_total,0,bytes,spark-stage-metrics.csv,sum of diskSpillBytes over 13 stage groups
+p15-b-spark-burst,20261120T225913Z-eb786c5275a3-fac6,spark_memory_spill_bytes_total,0,bytes,spark-stage-metrics.csv,sum of memorySpillBytes over 13 stage groups
+p15-b-spark-burst,20261120T225913Z-eb786c5275a3-fac6,spark_stage_timings_seconds_total,1341.303,s,spark-stage-timings.csv,sum of millis / 1000 over 13 stages
+p15-b-spark-burst,20261120T225913Z-eb786c5275a3-fac6,step_seconds:scholarchain-spark-graph-analytics,1416,s,emr-steps.csv,end_epoch minus start_epoch
+p15-b-spark-burst,20261120T225913Z-eb786c5275a3-fac6,step_seconds:scholarchain-spark-job-config,4,s,emr-steps.csv,end_epoch minus start_epoch
+p15-b-spark-burst,20261120T225913Z-eb786c5275a3-fac6,instance_count,5,instances,emr-instances.csv,rows with created_epoch and ended_epoch
+p15-b-spark-burst,20261120T225913Z-eb786c5275a3-fac6,instance_seconds,8380,s,emr-instances.csv,sum of ended_epoch minus created_epoch
+p15-b-spark-burst,20261120T225913Z-eb786c5275a3-fac6,cost_estimate_usd,0.558667,USD,emr-instances.csv,estimate: instance_seconds / 3600 x 0.24 USD per instance-hour (infra/terraform/COSTS.md EMR row (EC2 0.192 + EMR 0.048 USD per instance-hour; estimate; unverified)); EBS excluded

@@ -1,0 +1,7 @@
+Provenance: six saved Phase 15 demo answers (p15-demo-*.json), saved by the human from the live Phase 15 API before the Nov 21 teardown, kept in ~/Desktop/p15-backup/ outside Git, copied unchanged by the human on Nov 22 (Phase 16 E7) after a per-pattern identifier scan with zero matches. sha256 at copy:
+b0785c4f521a75282f1c4d897489a5000a9201d7f163b5328c3691dfb8015b11  experiments/evaluation/raw/answers/p15-demo/p15-demo-n.json
+22bc9074b9ef522599214eacb94db822339a6fe6ab70c678d4829c3221f4d0ad  experiments/evaluation/raw/answers/p15-demo/p15-demo-q.json
+b6b2aef0b8a0be8783c6fc1232bd8f634e3109295579b2a22946d78205f5bae1  experiments/evaluation/raw/answers/p15-demo/p15-demo-q02.json
+4bd427e7434129a6ccfbb1bc04999f35e0638abf0c0afd173e685f2e36e675f7  experiments/evaluation/raw/answers/p15-demo/p15-demo-q11.json
+6832cdf152a4b6417437918a4070d57a849f96ae64ed6bf7c44feba6f26f7f2f  experiments/evaluation/raw/answers/p15-demo/p15-demo-q17.json
+3b230f80004f854d595549b456299913d4cd03243969ea11278c9bd14a1d1ad4  experiments/evaluation/raw/answers/p15-demo/p15-demo-v.json

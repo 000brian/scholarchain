@@ -1,0 +1,52 @@
+manifest,attempt,metric_id,namespace,metric,stat,dimensions,datapoints,sum,first_period_utc,last_period_utc,note
+p15-a-hadoop,20261120T215912Z-b0c92f533c70-5a01,m13_0,AWS/States,ExecutionsStarted,Sum,StateMachineArn={state-machine-arn},1,1,2026-11-20T21:59:00Z,2026-11-20T21:59:00Z,
+p15-a-hadoop,20261120T215912Z-b0c92f533c70-5a01,m14_0,AWS/States,ExecutionsSucceeded,Sum,StateMachineArn={state-machine-arn},1,0,2026-11-20T21:59:00Z,2026-11-20T21:59:00Z,
+p15-a-hadoop,20261120T215912Z-b0c92f533c70-5a01,m15_0,AWS/States,ExecutionsFailed,Sum,StateMachineArn={state-machine-arn},1,1,2026-11-20T21:59:00Z,2026-11-20T21:59:00Z,
+p15-a-hadoop,20261120T215912Z-b0c92f533c70-5a01,m16_0,AWS/States,ExecutionsTimedOut,Sum,StateMachineArn={state-machine-arn},1,0,2026-11-20T21:59:00Z,2026-11-20T21:59:00Z,
+p15-a-hadoop,20261120T225632Z-eb786c5275a3-5c75,m13_0,AWS/States,ExecutionsStarted,Sum,StateMachineArn={state-machine-arn},6,3,2026-11-20T22:56:00Z,2026-11-21T00:17:00Z,
+p15-a-hadoop,20261120T225632Z-eb786c5275a3-5c75,m14_0,AWS/States,ExecutionsSucceeded,Sum,StateMachineArn={state-machine-arn},6,3,2026-11-20T22:56:00Z,2026-11-21T00:17:00Z,
+p15-a-hadoop,20261120T225632Z-eb786c5275a3-5c75,m15_0,AWS/States,ExecutionsFailed,Sum,StateMachineArn={state-machine-arn},6,0,2026-11-20T22:56:00Z,2026-11-21T00:17:00Z,
+p15-a-hadoop,20261120T225632Z-eb786c5275a3-5c75,m16_0,AWS/States,ExecutionsTimedOut,Sum,StateMachineArn={state-machine-arn},6,0,2026-11-20T22:56:00Z,2026-11-21T00:17:00Z,
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,m13_0,AWS/States,ExecutionsStarted,Sum,StateMachineArn={state-machine-arn},5,3,2026-11-20T22:56:00Z,2026-11-20T23:36:00Z,
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,m14_0,AWS/States,ExecutionsSucceeded,Sum,StateMachineArn={state-machine-arn},5,2,2026-11-20T22:56:00Z,2026-11-20T23:36:00Z,
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,m15_0,AWS/States,ExecutionsFailed,Sum,StateMachineArn={state-machine-arn},5,0,2026-11-20T22:56:00Z,2026-11-20T23:36:00Z,
+p15-a-spark,20261120T225850Z-eb786c5275a3-4f7e,m16_0,AWS/States,ExecutionsTimedOut,Sum,StateMachineArn={state-machine-arn},5,0,2026-11-20T22:56:00Z,2026-11-20T23:36:00Z,
+p15-b-spark-burst,20261120T225913Z-eb786c5275a3-fac6,m13_0,AWS/States,ExecutionsStarted,Sum,StateMachineArn={state-machine-arn},5,3,2026-11-20T22:56:00Z,2026-11-20T23:36:00Z,
+p15-b-spark-burst,20261120T225913Z-eb786c5275a3-fac6,m14_0,AWS/States,ExecutionsSucceeded,Sum,StateMachineArn={state-machine-arn},5,2,2026-11-20T22:56:00Z,2026-11-20T23:36:00Z,
+p15-b-spark-burst,20261120T225913Z-eb786c5275a3-fac6,m15_0,AWS/States,ExecutionsFailed,Sum,StateMachineArn={state-machine-arn},5,0,2026-11-20T22:56:00Z,2026-11-20T23:36:00Z,
+p15-b-spark-burst,20261120T225913Z-eb786c5275a3-fac6,m16_0,AWS/States,ExecutionsTimedOut,Sum,StateMachineArn={state-machine-arn},5,0,2026-11-20T22:56:00Z,2026-11-20T23:36:00Z,
+p15-c-embedding-backlog,20261120T225730Z-eb786c5275a3-ab26,m3_0,AWS/SQS,NumberOfMessagesSent,Sum,QueueName=scholarchain-course-embedding,37,19200,2026-11-20T22:52:00Z,2026-11-20T23:28:00Z,
+p15-c-embedding-backlog,20261120T225730Z-eb786c5275a3-ab26,m4_0,AWS/SQS,NumberOfMessagesReceived,Sum,QueueName=scholarchain-course-embedding,37,19200,2026-11-20T22:52:00Z,2026-11-20T23:28:00Z,
+p15-c-embedding-backlog,20261120T225730Z-eb786c5275a3-ab26,m5_0,AWS/SQS,NumberOfMessagesDeleted,Sum,QueueName=scholarchain-course-embedding,37,19200,2026-11-20T22:52:00Z,2026-11-20T23:28:00Z,
+p15-c-embedding-backlog,20261120T225730Z-eb786c5275a3-ab26,m6_0,AWS/SQS,NumberOfEmptyReceives,Sum,QueueName=scholarchain-course-embedding,37,1423,2026-11-20T22:52:00Z,2026-11-20T23:28:00Z,
+p15-c-embedding-backlog,20261120T225730Z-eb786c5275a3-ab26,m13_0,AWS/DynamoDB,ConsumedWriteCapacityUnits,Sum,TableName=scholarchain-course-query-session,31,19200,2026-11-20T22:52:00Z,2026-11-20T23:22:00Z,
+p15-c-embedding-backlog,20261120T225730Z-eb786c5275a3-ab26,m14_0,AWS/DynamoDB,ConsumedReadCapacityUnits,Sum,TableName=scholarchain-course-query-session,31,19200,2026-11-20T22:52:00Z,2026-11-20T23:22:00Z,
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,m3_0,AWS/ApplicationELB,RequestCount,Sum,LoadBalancer={alb-dimension};TargetGroup={alb-target-group-query},19,159,2026-11-20T23:50:00Z,2026-11-21T00:08:00Z,
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,m4_0,AWS/ApplicationELB,RequestCount,Sum,LoadBalancer={alb-dimension};TargetGroup={alb-target-group-evidence},19,42,2026-11-20T23:50:00Z,2026-11-21T00:08:00Z,
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,m5_0,AWS/ApplicationELB,RequestCount,Sum,LoadBalancer={alb-dimension};TargetGroup={alb-target-group-graph},19,0,2026-11-20T23:50:00Z,2026-11-21T00:08:00Z,
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,m6_0,AWS/ApplicationELB,HTTPCode_Target_5XX_Count,Sum,LoadBalancer={alb-dimension};TargetGroup={alb-target-group-query},4,106,2026-11-20T23:59:00Z,2026-11-21T00:04:00Z,
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,m7_0,AWS/ApplicationELB,HTTPCode_Target_4XX_Count,Sum,LoadBalancer={alb-dimension};TargetGroup={alb-target-group-query},2,2,2026-11-20T23:50:00Z,2026-11-20T23:51:00Z,
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,m8_0,AWS/ApplicationELB,HTTPCode_ELB_5XX_Count,Sum,LoadBalancer={alb-dimension},0,,,,no datapoints (not a measured 0)
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,m18_0,AWS/DynamoDB,ConsumedReadCapacityUnits,Sum,TableName=scholarchain-course-query-session,15,154,2026-11-20T23:50:00Z,2026-11-21T00:04:00Z,
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,m19_0,AWS/DynamoDB,ConsumedWriteCapacityUnits,Sum,TableName=scholarchain-course-query-session,15,1141,2026-11-20T23:50:00Z,2026-11-21T00:04:00Z,
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,m20_0,AWS/DynamoDB,ConsumedReadCapacityUnits,Sum,TableName=scholarchain-course-evidence-bundle,15,344,2026-11-20T23:50:00Z,2026-11-21T00:04:00Z,
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,m21_0,AWS/DynamoDB,ConsumedReadCapacityUnits,Sum,TableName=scholarchain-course-researcher-metric-cache,15,362,2026-11-20T23:50:00Z,2026-11-21T00:04:00Z,
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,m26_0,AWS/DynamoDB,ThrottledRequests,Sum,Operation=PutItem;TableName=scholarchain-course-query-session,0,,,,no datapoints (not a measured 0)
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,m27_0,AWS/DynamoDB,ThrottledRequests,Sum,Operation=GetItem;TableName=scholarchain-course-evidence-bundle,0,,,,no datapoints (not a measured 0)
+p15-d-query-load,20261120T235521Z-ff00cfa278c8-ca0c,m28_0,AWS/DynamoDB,ReadThrottleEvents,Sum,TableName=scholarchain-course-researcher-metric-cache,0,,,,no datapoints (not a measured 0)
+p15-d-read-load,20261121T001529Z-abe4764a8293-b3f0,m6_0,AWS/ApplicationELB,RequestCount,Sum,LoadBalancer={alb-dimension};TargetGroup={alb-target-group-graph},16,1055,2026-11-21T00:10:00Z,2026-11-21T00:25:00Z,
+p15-d-read-load,20261121T001529Z-abe4764a8293-b3f0,m7_0,AWS/ApplicationELB,RequestCount,Sum,LoadBalancer={alb-dimension};TargetGroup={alb-target-group-evidence},16,126,2026-11-21T00:10:00Z,2026-11-21T00:25:00Z,
+p15-d-read-load,20261121T001529Z-abe4764a8293-b3f0,m8_0,AWS/ApplicationELB,HTTPCode_Target_5XX_Count,Sum,LoadBalancer={alb-dimension};TargetGroup={alb-target-group-graph},4,554,2026-11-21T00:18:00Z,2026-11-21T00:21:00Z,
+p15-d-read-load,20261121T001529Z-abe4764a8293-b3f0,m9_0,AWS/ApplicationELB,HTTPCode_Target_5XX_Count,Sum,LoadBalancer={alb-dimension};TargetGroup={alb-target-group-evidence},0,,,,no datapoints (not a measured 0)
+p15-d-read-load,20261121T001529Z-abe4764a8293-b3f0,m10_0,AWS/ApplicationELB,HTTPCode_ELB_5XX_Count,Sum,LoadBalancer={alb-dimension},0,,,,no datapoints (not a measured 0)
+p15-d-read-load,20261121T001529Z-abe4764a8293-b3f0,m17_0,AWS/DynamoDB,ConsumedReadCapacityUnits,Sum,TableName=scholarchain-course-evidence-bundle,16,126,2026-11-21T00:10:00Z,2026-11-21T00:25:00Z,
+p15-d-read-load,20261121T001529Z-abe4764a8293-b3f0,m20_0,AWS/DynamoDB,ThrottledRequests,Sum,Operation=GetItem;TableName=scholarchain-course-evidence-bundle,0,,,,no datapoints (not a measured 0)
+p15-d-read-load,20261121T001529Z-abe4764a8293-b3f0,m21_0,AWS/DynamoDB,ReadThrottleEvents,Sum,TableName=scholarchain-course-evidence-bundle,0,,,,no datapoints (not a measured 0)
+p15-e-retrieval-modes,20261120T221402Z-6a6c31a06d60-b6c7,m5_0,AWS/DynamoDB,ConsumedReadCapacityUnits,Sum,TableName=scholarchain-course-researcher-metric-cache,10,34,2026-11-20T22:10:00Z,2026-11-20T22:19:00Z,
+p15-e-retrieval-modes,20261120T221402Z-6a6c31a06d60-b6c7,m6_0,AWS/DynamoDB,ConsumedReadCapacityUnits,Sum,TableName=scholarchain-course-entity-link-cache,10,2,2026-11-20T22:10:00Z,2026-11-20T22:19:00Z,
+p15-e-retrieval-modes,20261120T221402Z-6a6c31a06d60-b6c7,m7_0,AWS/DynamoDB,ConsumedReadCapacityUnits,Sum,TableName=scholarchain-course-evidence-bundle,10,0,2026-11-20T22:10:00Z,2026-11-20T22:19:00Z,
+p15-f-poison-replay,20261120T223908Z-e94df52ca8fb-b4c0,m3_0,AWS/SQS,NumberOfMessagesSent,Sum,QueueName=scholarchain-course-embedding,15,3,2026-11-20T22:34:00Z,2026-11-20T22:48:00Z,
+p15-f-poison-replay,20261120T223908Z-e94df52ca8fb-b4c0,m4_0,AWS/SQS,NumberOfMessagesReceived,Sum,QueueName=scholarchain-course-embedding,15,7,2026-11-20T22:34:00Z,2026-11-20T22:48:00Z,
+p15-f-poison-replay,20261120T223908Z-e94df52ca8fb-b4c0,m5_0,AWS/SQS,NumberOfMessagesDeleted,Sum,QueueName=scholarchain-course-embedding,15,2,2026-11-20T22:34:00Z,2026-11-20T22:48:00Z,
+p15-f-poison-replay,20261120T223908Z-e94df52ca8fb-b4c0,m8_0,AWS/SQS,NumberOfMessagesReceived,Sum,QueueName=scholarchain-course-embedding-dlq,15,10,2026-11-20T22:34:00Z,2026-11-20T22:48:00Z,
+p15-f-poison-replay,20261120T223908Z-e94df52ca8fb-b4c0,m15_0,AWS/DynamoDB,ConsumedWriteCapacityUnits,Sum,TableName=scholarchain-course-query-session,9,22,2026-11-20T22:34:00Z,2026-11-20T22:42:00Z,

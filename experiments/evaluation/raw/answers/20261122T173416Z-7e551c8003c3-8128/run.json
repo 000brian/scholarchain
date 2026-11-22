@@ -1,0 +1,118 @@
+{
+  "argv": [
+    "--run-report",
+    "docs/agent-runs/phase-10/run-report-attempt-06-anthropic.json",
+    "--benchmark",
+    "modules/rag/src/test/resources/benchmark/benchmark-v1.json",
+    "--explain-csv",
+    "experiments/raw/p15-d-query-load/20261120T235521Z-ff00cfa278c8-ca0c/load-explain.csv",
+    "--audit",
+    "docs/agent-runs/phase-15/dynamodb-sample/run-ledger-clip01-query.json",
+    "--label",
+    "explain-csv.code_version=build commit 684636ef997ee041912e2b57d1c597ded8e9778d (D-query run-record.json build_commit)",
+    "--label",
+    "explain-csv.graph_run=run:v1:f2625d504b12749389cf4f5b1a26aed4 (D-query run-record.json dataset_snapshot)",
+    "--seed",
+    "20261122",
+    "--resamples",
+    "2000",
+    "--demo-answer",
+    "experiments/evaluation/raw/answers/p15-demo/p15-demo-n.json",
+    "--demo-answer",
+    "experiments/evaluation/raw/answers/p15-demo/p15-demo-q.json",
+    "--demo-answer",
+    "experiments/evaluation/raw/answers/p15-demo/p15-demo-q02.json",
+    "--demo-answer",
+    "experiments/evaluation/raw/answers/p15-demo/p15-demo-q11.json",
+    "--demo-answer",
+    "experiments/evaluation/raw/answers/p15-demo/p15-demo-q17.json",
+    "--demo-answer",
+    "experiments/evaluation/raw/answers/p15-demo/p15-demo-v.json",
+    "--demo-provenance",
+    "six saved Phase 15 demo answers from the live API before the Nov 21 teardown; copied unchanged at Phase 16 E7; sha256 in experiments/evaluation/raw/answers/p15-demo/PROVENANCE.txt",
+    "--label",
+    "demo.code_version=not recorded in the answer files",
+    "--label",
+    "demo.prompt_set=answer-synthesis-v3 (policyVersion in each file)",
+    "--suite",
+    "experiments/evaluation/suite-v1.json",
+    "--entry",
+    "E8-answers"
+  ],
+  "endedUtc": "2026-11-22T17:34:16Z",
+  "entry": "E8-answers",
+  "format": "scholarchain.evaluation-run",
+  "formatVersion": 1,
+  "inputs": [
+    {
+      "path": "experiments/evaluation/suite-v1.json",
+      "sha256": "0f7f7d336433e00363a94d522a2bbbfdc93274cd32605cb411d445b98a339970"
+    },
+    {
+      "path": "modules/rag/src/test/resources/benchmark/benchmark-v1.json",
+      "sha256": "b58c5e1a6cb29e192035ce77308c20e2597d2d1dbaf8d136761ae5c3316ff3ac"
+    },
+    {
+      "path": "docs/agent-runs/phase-10/run-report-attempt-06-anthropic.json",
+      "sha256": "41cf57e6af1f4266e2faad77401b9f4a9228e844537073ea8a179bd25708f5b2"
+    },
+    {
+      "path": "experiments/raw/p15-d-query-load/20261120T235521Z-ff00cfa278c8-ca0c/load-explain.csv",
+      "sha256": "53273fe7d01893e1b138d3712d69b15bccd7c0d98ec87cb442e1ce0759cf1e6c"
+    },
+    {
+      "path": "docs/agent-runs/phase-15/dynamodb-sample/run-ledger-clip01-query.json",
+      "sha256": "f818418e8c75e0e2c76e3fe698e34701db9f3d0566e1d6339ebd4408edf4bb97"
+    },
+    {
+      "path": "experiments/evaluation/raw/answers/p15-demo/p15-demo-n.json",
+      "sha256": "b0785c4f521a75282f1c4d897489a5000a9201d7f163b5328c3691dfb8015b11"
+    },
+    {
+      "path": "experiments/evaluation/raw/answers/p15-demo/p15-demo-q.json",
+      "sha256": "22bc9074b9ef522599214eacb94db822339a6fe6ab70c678d4829c3221f4d0ad"
+    },
+    {
+      "path": "experiments/evaluation/raw/answers/p15-demo/p15-demo-q02.json",
+      "sha256": "b6b2aef0b8a0be8783c6fc1232bd8f634e3109295579b2a22946d78205f5bae1"
+    },
+    {
+      "path": "experiments/evaluation/raw/answers/p15-demo/p15-demo-q11.json",
+      "sha256": "4bd427e7434129a6ccfbb1bc04999f35e0638abf0c0afd173e685f2e36e675f7"
+    },
+    {
+      "path": "experiments/evaluation/raw/answers/p15-demo/p15-demo-q17.json",
+      "sha256": "6832cdf152a4b6417437918a4070d57a849f96ae64ed6bf7c44feba6f26f7f2f"
+    },
+    {
+      "path": "experiments/evaluation/raw/answers/p15-demo/p15-demo-v.json",
+      "sha256": "3b230f80004f854d595549b456299913d4cd03243969ea11278c9bd14a1d1ad4"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "experiments/evaluation/raw/answers/20261122T173416Z-7e551c8003c3-8128/sources.csv",
+      "sha256": "afb2976006838b3be0a2908a28ad0405531e89e92e5285cfe445c2aa29c53fb4"
+    },
+    {
+      "path": "experiments/evaluation/raw/answers/20261122T173416Z-7e551c8003c3-8128/rates.csv",
+      "sha256": "4fa1bf541aacca2039fa1c47e9f3f1313cb8a7d7513daa6b18157c468693233a"
+    },
+    {
+      "path": "experiments/evaluation/raw/answers/20261122T173416Z-7e551c8003c3-8128/per-answer.csv",
+      "sha256": "8add1be65b097a523ba0931302e597f34eafff78b3b08c320dd7202fa16395e1"
+    },
+    {
+      "path": "experiments/evaluation/raw/answers/20261122T173416Z-7e551c8003c3-8128/checks.csv",
+      "sha256": "d0c02154bc4dc022f3d7cce4af3ac810285d7baf6ee1e35b913520be0890c040"
+    }
+  ],
+  "runId": "20261122T173416Z-7e551c8003c3-8128",
+  "startedUtc": "2026-11-22T17:34:16Z",
+  "subcommand": "answers",
+  "suite": "experiments/evaluation/suite-v1.json",
+  "suiteSha256": "0f7f7d336433e00363a94d522a2bbbfdc93274cd32605cb411d445b98a339970",
+  "tool": "experiments/evaluation/evaluate.py",
+  "toolSha256": "8e7f3e7478266a3de43ece14e40c351aa44262a61fd46e0058e01f95e5df96b3",
+  "toolVersion": "evaluate-v1-r3"
+}
