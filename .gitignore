@@ -79,7 +79,10 @@ infra/terraform/environments/course/plans/
 # target/, and every other rule above). The only exception is secret material: the secret
 # rules below repeat the secrets section above (plus Terraform state) after the negation,
 # so a secret-looking file under experiments/ or releases/ stays ignored. Keep both lists
-# identical, and add any new rule above this block.
+# identical, and add any new rule above this block. The second exception is OS and IDE noise
+# (Phase 14 finding D-01): the noise rules at the end repeat the "IDEs and OS" section above
+# (plus other OS metadata files) so that Finder, Explorer or an IDE cannot add files to raw
+# experiment results or release records.
 !experiments/**
 !releases/**
 .env
@@ -106,3 +109,12 @@ secrets
 .gnupg
 **/.config/gh
 **/.docker/config.json
+# OS and IDE noise (D-01), repeated after the negation so it stays ignored everywhere.
+.DS_Store
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.iml

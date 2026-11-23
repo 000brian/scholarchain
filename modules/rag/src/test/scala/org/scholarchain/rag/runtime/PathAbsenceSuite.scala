@@ -59,7 +59,7 @@ class PathAbsenceSuite extends munit.FunSuite {
 
   private def verify(text: String, f: Fact): VerifiedClaim = {
     val (items, id) = itemsOf(f)
-    ClaimVerification.verifyClaim(DraftClaim("claim-1", text, List(id), Nil, None), items)
+    VerifierOracle.verifyClaim(DraftClaim("claim-1", text, List(id), Nil, None), items)
   }
 
   test("L2: a correct absence claim in hops citing a complete path=none item is verified") {
@@ -165,7 +165,7 @@ class PathAbsenceSuite extends munit.FunSuite {
     val built = new EvidenceBuilder(ctx).build(queryRun, facts).fold(e => fail(e), identity)
     val items = built.items.map(i => i.evidenceId -> i).toMap
     val ids = facts.map(f => built.idOf(f).value)
-    ClaimVerification.verifyClaim(DraftClaim("claim-1", text, ids, Nil, None), items)
+    VerifierOracle.verifyClaim(DraftClaim("claim-1", text, ids, Nil, None), items)
   }
 
   test(

@@ -501,6 +501,96 @@ class RagIngestJobSuite extends munit.FunSuite {
     assert(!r.render().contains("example-other-bucket"))
   }
 
+  test(
+    "P17-F-12: a store or SDK failure is recorded by its exception class only, never its message"
+  ) {
+    import org.scholarchain.storage.ports.{ObjectInfo, ObjectRef, ObjectStore, PutOutcome}
+    import org.scholarchain.storage.local.LocalStorageEnvironment
+    final class ProbeStoreFailure(msg: String) extends RuntimeException(msg)
+    val leak = "probe-host-leak.invalid"
+    val failing = new ObjectStore {
+      private def boom: Nothing = throw new ProbeStoreFailure(s"unable to reach $leak")
+      def putIfAbsent(
+          ref: ObjectRef,
+          bytes: Array[Byte],
+          contentType: String,
+          metadata: Map[String, String]
+      ): PutOutcome = boom
+      def get(ref: ObjectRef): Option[Array[Byte]] = boom
+      def openStream(ref: ObjectRef): Option[java.io.InputStream] = boom
+      def head(ref: ObjectRef): Option[ObjectInfo] = boom
+      def list(bucket: String, prefix: String, maxKeys: Int): List[ObjectInfo] = boom
+    }
+    val factory: (
+        org.scholarchain.storage.StorageConfig,
+        String,
+        Path
+    ) => Either[String, RagIngestJob.IngestStores] =
+      (cfg, _, _) => {
+        val base = new RagIngestJob.LocalIngestStores(LocalStorageEnvironment.create(cfg, None))
+        Right(new RagIngestJob.IngestStores {
+          def kind = "aws"
+          def description = base.description
+          def pipeline(
+              e: org.scholarchain.storage.ports.EmbeddingPort,
+              s: String,
+              x: org.scholarchain.core.SemanticDocument => org.scholarchain.storage.ingest.DocumentExtras
+          ) = base.pipeline(e, s, x)
+          def vectors = base.vectors
+          def textStore = base.textStore
+          def objects: ObjectStore = failing
+          def rejectsTotal: Long = base.rejectsTotal
+          def report(c: org.scholarchain.storage.StorageConfig): ujson.Obj = base.report(c)
+          def close(): Unit = base.close()
+        })
+      }
+    val root = Files.createTempDirectory("rag-job-f12")
+    val graph = storageConfigOf("rag-voyage-example-v1.json").zones("graph")
+    val printed = scala.collection.mutable.ListBuffer.empty[String]
+    val out = root.resolve("attempt-01")
+    val opts = parseOk(
+      Array(
+        "--config",
+        configPath("rag-voyage-example-v1.json").toString,
+        "--export",
+        s"s3://${graph.bucket}/${graph.prefix}/exports/run=${"0" * 32}",
+        "--out",
+        out.toString,
+        "--code-version",
+        TestCodeVersion,
+        "--stores",
+        "aws"
+      )
+    )
+    val result = RagIngestJob.execute(
+      opts,
+      factory,
+      voyageWiring,
+      RagIngestJob.Hooks(print = s => printed += s, configEnv = NoConfigEnv)
+    )
+    // the run fails on the export read (status), and the report copy fails too (copy outcome)
+    assertEquals(result.report("status").str, "failed: ProbeStoreFailure")
+    val copy = result.reportCopy.getOrElse(fail("no copy outcome"))
+    assertEquals(copy("outcome").str, "failed: ProbeStoreFailure")
+    val texts = List(
+      new String(Files.readAllBytes(out.resolve("run-report.json")), "UTF-8"),
+      new String(Files.readAllBytes(out.resolve("run-report-copy.json")), "UTF-8")
+    ) ++ printed
+    texts.foreach(t => assert(!t.contains(leak), s"the SDK message leaked: ${t.take(300)}"))
+    // the job's own refusals and the export source's validation errors keep their text
+    assertEquals(
+      RagIngestJob.failureText(new RuntimeException("own refusal")),
+      "RuntimeException: own refusal"
+    )
+    assertEquals(
+      RagIngestJob.failureText(
+        new org.scholarchain.storage.source.ExportSourceException("missing export file x")
+      ),
+      "ExportSourceException: missing export file x"
+    )
+    assertEquals(RagIngestJob.failureText(new ProbeStoreFailure(leak)), "ProbeStoreFailure")
+  }
+
   test("7b: the free-disk bound is 15 GiB and fits the ops task's 30 GiB ephemeral storage") {
     assertEquals(RagIngestJob.MinFreeBytes, 15L * 1024 * 1024 * 1024)
     assert(RagIngestJob.MinFreeBytes < 30L * 1024 * 1024 * 1024)

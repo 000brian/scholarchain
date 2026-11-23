@@ -37,7 +37,12 @@ import org.scholarchain.storage.ports.{
   VectorIndexPort
 }
 import org.scholarchain.storage.s3.S3KeyLayout
-import org.scholarchain.storage.source.{ExportSources, RejectLog, S3ExportSource}
+import org.scholarchain.storage.source.{
+  ExportSourceException,
+  ExportSources,
+  RejectLog,
+  S3ExportSource
+}
 
 /** The rag ingest job: renders every registered template from a Spark JSON Lines export, embeds
   * through the configured provider and ingests through storage's
@@ -302,6 +307,16 @@ object RagIngestJob {
     def report(cfg: StorageConfig): ujson.Obj = ujson.Obj("retries" -> env.retryReport)
     def close(): Unit = env.close()
   }
+
+  /** The text of a failed run's status (P17-F-12, as RetrievalEvalJob): only this job's own
+    * refusals (`sys.error`, an exact `RuntimeException`) and the export source's own validation
+    * errors ([[ExportSourceException]]) carry their message; any other exception is named by its
+    * class only, because store and SDK messages can hold hosts or ARNs.
+    */
+  private[rag] def failureText(e: Throwable): String =
+    if (e.getClass == classOf[RuntimeException] || e.isInstanceOf[ExportSourceException])
+      s"${e.getClass.getSimpleName}: ${e.getMessage}"
+    else e.getClass.getSimpleName
 
   /** Builds the stores of `--stores` (`local` or `aws`). Building the AWS stores makes no network
     * call (SDK clients connect on first use).
@@ -639,8 +654,7 @@ object RagIngestJob {
       report("status") = "completed"
     } catch {
       case e: StopRun   => report("status") = s"stopped: ${e.getMessage}"
-      case e: Throwable =>
-        report("status") = s"failed: ${e.getClass.getSimpleName}: ${e.getMessage}"
+      case e: Throwable => report("status") = s"failed: ${failureText(e)}"
     } finally {
       renderRejects.close()
       report("totalMillis") = ((System.nanoTime() - t0) / 1000000L).toDouble
@@ -704,11 +718,8 @@ object RagIngestJob {
               outcome(logical, "conflict: an object with other bytes exists; nothing written")
           }
         catch {
-          case NonFatal(e) =>
-            outcome(
-              logical,
-              masking(s"failed: ${e.getClass.getSimpleName}: ${Option(e.getMessage).getOrElse("")}")
-            )
+          // P17-F-12: the class only (store and SDK messages can hold hosts or ARNs)
+          case NonFatal(e) => outcome(logical, masking(s"failed: ${e.getClass.getSimpleName}"))
         }
     }
   }

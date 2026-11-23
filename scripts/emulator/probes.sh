@@ -4,8 +4,11 @@
 # policy story). Owner: infra-engineer (Phase 16, decision 12 item 4). Run by
 # the human in the [EMULATOR] terminal after setup.sh; never by an agent.
 #
-# Status (Phase 16): static: shellcheck clean; runtime: untested; human
-# execution required.
+# Status (Phase 17): static: shellcheck clean; runtime: untested; human
+# execution required. History: the human ran the Phase 16 version once
+# (E14 part 4, success path, exit line not pasted;
+# docs/agent-runs/phase-16/runbook-log.md:61); the Phase 17 change (P16-B-03,
+# the refusal path of safety()) has never run.
 
 set -Eeuo pipefail
 umask 077
@@ -192,8 +195,11 @@ safety() {
   local rc=0
   emu_safety_check required || rc=$?
   if [ "${rc}" -ne 0 ]; then
-    if [ "${EMU_FAILED_RULE}" != "results-dir-path" ] && [ -d "${SCHOLARCHAIN_EMULATOR_RESULTS_DIR}" ] &&
-      [ ! -e "${SCHOLARCHAIN_EMULATOR_RESULTS_DIR}/probes.jsonl" ]; then
+    # P16-B-03 (Phase 17): the results folder may be unset when an earlier
+    # rule failed; `:-` keeps set -u from aborting before the exit-4 line
+    # (the same guard as setup.sh).
+    if [ "${EMU_FAILED_RULE}" != "results-dir-path" ] && [ -n "${SCHOLARCHAIN_EMULATOR_RESULTS_DIR:-}" ] &&
+      [ -d "${SCHOLARCHAIN_EMULATOR_RESULTS_DIR}" ] && [ ! -e "${SCHOLARCHAIN_EMULATOR_RESULTS_DIR}/probes.jsonl" ]; then
       EMU_RESULTS_FILE="${SCHOLARCHAIN_EMULATOR_RESULTS_DIR}/probes.jsonl"
       emu_preflight_line "${EMU_FAILED_RULE}"
     fi

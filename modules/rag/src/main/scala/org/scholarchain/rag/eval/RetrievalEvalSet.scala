@@ -87,7 +87,7 @@ object RetrievalEvalSet {
   /** The derivation rule, stated in the set and the report. */
   val Rule: List[String] = List(
     "unit: canonical researcher ID",
-    "answer targets: the researchers of the expected values of kind 'ranking' (by rank), 'edge' (both endpoints, in order) and 'topicRanked' (the top expected.limit of the labelled pool, value descending then researcher ID by code point: the benchmark's own ranking rule), minus the researchers the question names (expected.researcherIds); distinct, in that order",
+    "answer targets: the researchers of the expected values of kind 'ranking' (by rank), 'edge' (both endpoints, in order) and 'topicRanked' (the top expected.limit, default 10 when the question states none, of the labelled pool, value descending then researcher ID by code point: a derivation of this evaluation set from the pool, not a benchmark label, since the benchmark scorer defines no top-limit target set), minus the researchers the question names (expected.researcherIds); distinct, in that order",
     "a question is in the universe when it has at least one answer target; every other question is not-comparable (labelled only with works, paths, numbers or groups, or an expected abstention), listed with its reason, never scored",
     "by design weak: vector-only on 'ranking' and 'edge' targets (a similarity search cannot rank by a stored metric or read an edge); graph-only on 'topicRanked' targets (its topic filter needs semantic candidates, which graph-only does not use)"
   )

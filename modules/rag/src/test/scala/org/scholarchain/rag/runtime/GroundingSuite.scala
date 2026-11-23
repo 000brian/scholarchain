@@ -68,7 +68,7 @@ class GroundingSuite extends munit.FunSuite {
   private def claim(text: String, cites: List[Fact], nums: List[DraftNumber] = Nil) =
     DraftClaim("claim-1", text, cites.map(id), nums, None)
   private def verify(c: DraftClaim): VerifiedClaim =
-    ClaimVerification.verifyClaim(c, items, windowsByLabel)
+    VerifierOracle.verifyClaim(c, items, windowsByLabel)
 
   // ---- L-1 / L-4: one table, both places --------------------------------------------------------
 
@@ -395,9 +395,9 @@ class GroundingSuite extends munit.FunSuite {
       "Loubna Ben Allal is a coauthor with edge weight 2 and 2 joint publications, active from 2024 to 2025."
     val planted =
       "Loubna Ben Allal is a coauthor with edge weight 2 and 2 joint publications, active from 2015 to 2025."
-    val ok = ClaimVerification.verifyClaim(q08Claim(original, q08Edge), q08Items, windowsByLabel)
+    val ok = VerifierOracle.verifyClaim(q08Claim(original, q08Edge), q08Items, windowsByLabel)
     assertEquals(ok.status, Verified, ok.reasons.toString)
-    val bad = ClaimVerification.verifyClaim(q08Claim(planted, q08Edge), q08Items, windowsByLabel)
+    val bad = VerifierOracle.verifyClaim(q08Claim(planted, q08Edge), q08Items, windowsByLabel)
     assertNotEquals(bad.status, Verified)
     assertEquals(bad.reasons, List(Reasons.YearConflict))
     // the template claims (a window range plus edge years) stay verified
@@ -406,7 +406,7 @@ class GroundingSuite extends munit.FunSuite {
       "In 2015-2025, Elie Bakouch and Guilherme Penedo share 1 joint publications from 2022 to 2025, with edge weight 1." -> earlierEdge,
       "In 2015–2025, Elie Bakouch and Loubna Ben Allal share 2 joint publications since 2024." -> q08Edge
     ).foreach { case (t, e) =>
-      val v = ClaimVerification.verifyClaim(q08Claim(t, e), q08Items, windowsByLabel)
+      val v = VerifierOracle.verifyClaim(q08Claim(t, e), q08Items, windowsByLabel)
       assertEquals(v.status, Verified, s"$t: ${v.reasons}")
     }
     // a window year alone never supports a single year of an edge claim
@@ -440,17 +440,17 @@ class GroundingSuite extends munit.FunSuite {
 
   test("L-3: a window range is accepted for an identity-only claim through its context window") {
     val t = "Elie Bakouch has 30 distinct coauthors between 2015 and 2025."
-    val v = ClaimVerification.verifyClaim(q08Claim(t, q08Identity), q08Items, windowsByLabel)
+    val v = VerifierOracle.verifyClaim(q08Claim(t, q08Identity), q08Items, windowsByLabel)
     assertEquals(v.status, Verified, v.reasons.toString)
     val dash = "Elie Bakouch has 30 distinct coauthors in 2015-2025."
     assertEquals(
-      ClaimVerification.verifyClaim(q08Claim(dash, q08Identity), q08Items, windowsByLabel).status,
+      VerifierOracle.verifyClaim(q08Claim(dash, q08Identity), q08Items, windowsByLabel).status,
       Verified
     )
     // another range is still a conflict
     val other = "Elie Bakouch has 30 distinct coauthors between 2016 and 2025."
     assertEquals(
-      ClaimVerification.verifyClaim(q08Claim(other, q08Identity), q08Items, windowsByLabel).status,
+      VerifierOracle.verifyClaim(q08Claim(other, q08Identity), q08Items, windowsByLabel).status,
       Conflicting
     )
   }

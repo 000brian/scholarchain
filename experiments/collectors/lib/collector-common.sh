@@ -689,14 +689,16 @@ cc_api_url() {
 # scan order are taken. Scan order is the table's partition order: the same
 # for unchanged table contents, not guaranteed after repartitioning, so the
 # selected keys are also recorded (selected-keys.txt and its sha256 in C).
-# Bounds: CC_REGISTRY_SCAN_MAX_CALLS calls and CC_REGISTRY_SCAN_LIMIT_SECONDS
-# between calls (one call can add up to CC_CALL_TIMEOUT x CC_MAX_TRIES), and
+# Bounds: CC_REGISTRY_SCAN_MAX_CALLS calls; CC_REGISTRY_SCAN_LIMIT_SECONDS, a
+# total window measured from the start of the selection (not a gap between
+# calls), after which no new call starts, so a call started inside the window
+# can run past it by up to CC_CALL_TIMEOUT x CC_MAX_TRIES plus backoff; and
 # the table's end. Read cost: a scan is charged on the size of every item
 # evaluated, filtered or not (estimate in the C manifest notes).
 readonly CC_REGISTRY_SCAN_PAGE_SIZE=1000
 readonly CC_REGISTRY_SCAN_ITEMS_PER_CALL=1000
 readonly CC_REGISTRY_SCAN_MAX_CALLS=80
-readonly CC_REGISTRY_SCAN_LIMIT_SECONDS=420
+readonly CC_REGISTRY_SCAN_LIMIT_SECONDS=420 # total selection window, not a per-call gap
 CC_REGISTRY_CALLS=0
 CC_REGISTRY_SCANNED=0
 CC_REGISTRY_MATCHED=0

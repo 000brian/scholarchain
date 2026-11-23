@@ -1,0 +1,16 @@
+ M modules/hadoop/src/test/scala/org/scholarchain/hadoop/LocalPipelineRunner.scala
+ M modules/rag/src/main/resources/org/scholarchain/rag/eval/benchmark-v1-eval-set.json
+ M modules/rag/src/main/scala/org/scholarchain/rag/eval/RetrievalEvalSet.scala
+ M modules/rag/src/main/scala/org/scholarchain/rag/ingest/RagIngestJob.scala
+ M modules/rag/src/main/scala/org/scholarchain/rag/runtime/ClaimVerification.scala
+ M modules/rag/src/test/scala/org/scholarchain/rag/RagIngestJobSuite.scala
+ M modules/rag/src/test/scala/org/scholarchain/rag/eval/RetrievalEvalSetSuite.scala
+ M modules/rag/src/test/scala/org/scholarchain/rag/runtime/ClaimVerificationSuite.scala
+ M modules/rag/src/test/scala/org/scholarchain/rag/runtime/GroundingSuite.scala
+ M modules/rag/src/test/scala/org/scholarchain/rag/runtime/PathAbsenceSuite.scala
+ M modules/services/src/test/scala/org/scholarchain/services/CompositionSuite.scala
+ M modules/storage/src/test/scala/org/scholarchain/storage/GraphQuerySuite.scala
+ M modules/storage/src/test/scala/org/scholarchain/storage/emulator/EmulatorWiringSuite.scala
+?? modules/rag/src/test/scala/org/scholarchain/rag/runtime/AbsenceRuleSuite.scala
+?? modules/rag/src/test/scala/org/scholarchain/rag/runtime/VerifierMonotonicSuite.scala
+?? modules/rag/src/test/scala/org/scholarchain/rag/runtime/VerifierOracle.scala

@@ -1,0 +1,453 @@
+# ScholarChain
+
+Student: Brian Wilk, bwilk26@uic.edu. Individual project (CS441 course project).
+
+ScholarChain is a Scala 3, Hadoop, Spark, AWS and Graph-RAG system, built phase by phase by Claude Code agents under a human architect. This README is the entry point: what the system does, how it was built, how to rebuild and check it, how to replay the agentic workflow, and where every deliverable is (the [deliverable index](#deliverable-index)).
+
+**State at submission:** the AWS environment no longer exists. It was removed on Nov 21, 2026 under the instructor-approved teardown (Phase 15 gate, decision 6, [`docs/agent-runs/phase-15/human-gate.md`](docs/agent-runs/phase-15/human-gate.md); 175 Terraform resources, [`docs/final-state.md`](docs/final-state.md)). Everything that needs the deployed system is documented from its archived evidence and marked `not replayable after teardown`.
+
+**Replay lines.** Every command in this README carries exactly one replay line, as the Phase 17 work order requires (`docs/agent-runs/phase-17/prompt.md`, "How the run ends (results)"): `replayed earlier (phase NN, EVIDENCE)`, `not replayable after teardown (archived evidence: PATH)`, `not replayed in phase 17 (REASON)`, `deferred to E14 (...)` for the tag checkout only, or, in this draft, `planned for replay (ENN)` for a command the human replays in Phase 17 steps E3 to E6 (and E10 for the release manifest). Step E11 replaces every `planned for replay` line with the observed result. No command here was run by the documentation agent (Phase 17 planned deviation 1).
+
+**Conventions.** Every command is one zsh line run from the repository root, unless the line says `cd`. Uppercase words (`STAMP`, `HEX64`, `ATTEMPT_ID`, `BUILD`, `RUN_HEX`, `PATH_TO_ARCHIVE`, `YOUR-...`) are values you fill in; `STAMP` is a UTC stamp such as `20261123T1700Z`. Logical names stand for real resource names: `{data-bucket}` for the data-lake bucket, `{api-url}` for the API address. No account ID, bucket name, host, key or token appears in this repository.
+
+Contents:
+
+- [Problem statement](#problem-statement)
+- [Architecture summary](#architecture-summary)
+- [Agentic workflow summary](#agentic-workflow-summary) (with the [agent catalog](#agent-catalog), [Reproducing the agentic workflow](#reproducing-the-agentic-workflow) and the [bounded reproduction exercise](#bounded-reproduction-exercise-replay-phase-02))
+- [Required local software](#required-local-software)
+- [AWS prerequisites](#aws-prerequisites)
+- [Environment variables (names only)](#environment-variables-names-only)
+- [Model endpoints and how to select them](#model-endpoints-and-how-to-select-them)
+- [Formatting, compiling, testing and packaging](#formatting-compiling-testing-and-packaging)
+- [Bounded local sample](#bounded-local-sample)
+- [Terraform: format, validate and plan](#terraform-format-validate-and-plan)
+- [Source-controlled automation scripts](#source-controlled-automation-scripts)
+- [Deployment and smoke test](#deployment-and-smoke-test)
+- [API query examples](#api-query-examples)
+- [Experiment reproduction](#experiment-reproduction)
+- [Final report and video](#final-report-and-video)
+- [Cleanup](#cleanup)
+- [Known limitations](#known-limitations)
+- [Deliverable index](#deliverable-index)
+
+## Problem statement
+
+Questions about scientific collaboration ("How many distinct coauthors did this researcher have between 2015 and 2025?", "Is there a coauthorship path between these two people, and through whom?", "Who bridges these communities?") need exact counts, paths and identities, and a plain language model answers them by guessing. ScholarChain builds an evidence-bearing, temporal, weighted coauthorship graph from the DBLP XML release (with bounded OpenAlex, Crossref and ORCID enrichment samples), resolves author identities with a versioned, evaluated policy, computes the graph facts deterministically with Spark, stores them in graph, key-value and vector stores, and answers collaboration-breadth, connectivity and bridge questions through REST services whose every claim is checked against machine-readable evidence; the language model only interprets, it is never the source of a number, identifier or edge (`CLAUDE.md`, "Project identity" and "Architecture invariants"). The second problem the project addresses is how to build such a system with AI agents without losing ownership, review, safety and reproducibility: a repository run as an institution, with one owner per artifact, independent reviewers and testers, hooks as a safety floor and human ratification (course specification, "Overview and motivation", `docs/agent-runs/phase-17/course-specification.md`).
+
+## Architecture summary
+
+Data path: S3 raw zone → Hadoop MapReduce on Amazon EMR (parse, normalize, author mentions, blocking, coauthor-pair candidates; jobs J01 to J09) → S3 curated zone → entity resolution (on the operator's machine) → Spark on EMR (graph construction and analytics) → Amazon Neptune, DynamoDB, S3 and S3 Vectors → the runtime collaboration-analysis workflow (plan, retrieve, fuse, synthesize, verify) → four REST services on ECS Fargate behind API Gateway, with Step Functions, SQS and CloudWatch (`CLAUDE.md`, "Project identity"; [`docs/architecture.md`](docs/architecture.md#2-runtime-architecture)).
+
+- [`docs/architecture.md`](docs/architecture.md): build-time and runtime diagrams, why each technology is used, the consolidation of services (one image, four ECS services), and [what was not built](docs/architecture.md#6-what-was-not-built).
+- [`docs/data-lineage.md`](docs/data-lineage.md): source dataset → Hadoop output → Spark output → stores → evidence → answer, with schema versions and run IDs.
+- [`docs/api.md`](docs/api.md): the REST route reference (no OpenAPI file was generated).
+- [`docs/threat-model.md`](docs/threat-model.md), [`docs/service-limits.md`](docs/service-limits.md), [`docs/runbook.md`](docs/runbook.md), [`docs/final-state.md`](docs/final-state.md), [`docs/evaluation.md`](docs/evaluation.md), [`docs/emulator.md`](docs/emulator.md), [`docs/tool-versions.md`](docs/tool-versions.md).
+
+The sbt build has eight projects: `core` (shared contracts, cross-built as `core2_13` for Scala 2.13), `hadoop`, `entityResolution`, `sparkAnalytics` (Scala 2.13, an instructor-approved deviation), `storage`, `rag`, `services`, and the test project `contractTests` (`CLAUDE.md`, "Module dependency boundaries").
+
+## Agentic workflow summary
+
+The repository was generated by Claude Code agents in 18 phases (00 to 17) plus two constitutional amendments, each started from a human-written work order under `docs/agent-runs/phase-NN/prompt.md` (`CLAUDE.md`; [`docs/agents.md`](docs/agents.md); diagram in [`docs/architecture.md`](docs/architecture.md#1-build-time-workflow)):
+
+- **Hub and spoke.** The main Claude Code session is the orchestrator; it has no agent file, routes each step to the one owning subagent, and does no specialist work itself. The 18 subagents under [`.claude/agents/`](.claude/agents/) never call each other; a subagent that needs another owner's work returns `STATUS: BLOCKED-ON` naming that owner.
+- **One owner per artifact.** [`docs/agents.md`](docs/agents.md) ("Artifact ownership") gives every path exactly one writer; the PreToolUse guard (`.claude/hooks/guard-dangerous.sh`) blocks writes outside an agent's territory, destructive commands, Terraform apply and destroy, secret reads and watchers.
+- **Gates.** A source change counts as done only after its targeted tests pass and a full `sbt check` passes at the end of each wave; the Stop and SubagentStop hook (`.claude/hooks/verify-tests-ran.sh`) refuses completion otherwise. code-reviewer (read-only) and test-engineer review independently; findings go back to their owners for one repair round.
+- **Human gates.** The human architect ratifies constitutional changes, signs Terraform plans (`APPROVED-PLAN-SHA256:` lines), labels the entity-resolution gold set, runs every deployment, pipeline, experiment and cleanup script from Phase 14 on, writes each phase's `human-gate.md` and makes every commit.
+- **Measured** (Phase 16 evaluation group 6, phases 00 to 15 and both amendments, [`totals.csv`](experiments/evaluation/raw/factory/20261122T170517Z-7e551c8003c3-d311/totals.csv)): 87 agent executions, first-pass acceptance 38 of 80 done executions, 196 reviewer findings (0 critical, 30 major), 62 repair files, 0 ownership violations caught; interpretation and limits in [`docs/evaluation.md`](docs/evaluation.md#106-group-6-agentic-software-factory).
+
+### Model configuration
+
+Every Claude Code session of this project used Opus 5.5 with medium thinking effort. This is the human architect's statement (Phase 17 work order, decision 13); [`docs/tool-versions.md`](docs/tool-versions.md#6-model-configuration) records it as such, because no session record states the model per session. The Claude Code client recorded at the start of Phase 17 is 2.1.330 ([`docs/tool-versions.md`](docs/tool-versions.md#1-operator-machine-phase-17)). The runtime models that the deployed services called are a separate matter: see [Model endpoints and how to select them](#model-endpoints-and-how-to-select-them).
+
+### Agent catalog
+
+One row per file in [`.claude/agents/`](.claude/agents/) (18 files). Sources: each agent's role file (frontmatter `tools` field and its "Report contract" section), [`docs/agents.md`](docs/agents.md) ("Artifact ownership", "Tool fences"), the phase work orders, and the Phase 16 group 6 data ([`events.csv`](experiments/evaluation/raw/factory/20261122T170517Z-7e551c8003c3-d311/events.csv), rows of type `execution`; population phases 00 to 15 and amendments 01 and 02, so Phase 16 and 17 runs are added from the report files in those phase folders).
+
+**Common to every agent.** How to verify it is available: start `claude` from the repository root and run `/agents` (all 18 are listed); agents with MCP tools also need their server connected, checked with `/mcp` (both are in-session checks of step 5 of [Reproducing the agentic workflow](#reproducing-the-agentic-workflow), whose replay line is there). Every agent ends with the standard report contract of [`docs/agents.md`](docs/agents.md#report-contract), 14 fields in order (`STATUS`, `OWNER`, `WORK ORDER`, `FILES CREATED`, `FILES MODIFIED`, `COMMANDS RUN`, `TEST RESULTS`, `VALIDATION RESULTS`, `ASSUMPTIONS`, `RISKS`, `MANUAL ACTION REQUIRED`, `BLOCKED-ON OWNER`, `BLOCKED-ON EVIDENCE`, `NEXT GATE`), then the agent-specific sections in the table; source-changing agents add `INTERFACE HANDOFF` (`CLAUDE.md`, "Operating rules for agent runs"). The orchestrator saves each report in the session scratchpad and the human copies it into `docs/agent-runs/phase-NN/` (the only memory that crosses sessions). The MCP servers are pinned in [`.mcp.json`](.mcp.json): `aws-api` needs `uvx` and the two environment variables `SCHOLARCHAIN_AWS_READONLY_PROFILE` and `SCHOLARCHAIN_AWS_REGION`; `aws-docs` needs `uvx`; `terraform` needs Docker ([`docs/agents.md`](docs/agents.md#mcp-servers-and-trust-boundaries)).
+
+| Agent | Purpose | Owns (from `docs/agents.md`) | Tool fence (`tools` field) | Prerequisites | Example orchestrator instruction (source) | Deterministic verification command (its gate) | Agent-specific report sections | Phases it ran in |
+|---|---|---|---|---|---|---|---|---|
+| `factory-engineer` | Creates and maintains the agent system strictly from a human-ratified authority matrix; its changes are proposals until the human ratifies them and restarts the session | `CLAUDE.md`, `docs/agents.md`, `.claude/agents/**`, `.claude/hooks/**`, `.claude/hook-tests/**`, `.claude/commands/**`, `.claude/settings.json`, `.mcp.json`, `docs/agent-runs/README.md` | Read, Grep, Glob, Write, Edit, Bash | none beyond Claude Code | "Use the factory-engineer agent to create the complete ScholarChain agent system from the authority matrix in the course project specification." (Phase 01 work order) | `.claude/hooks/validate-agent-files.sh` (replay: planned for replay (E5)); plus human ratification | Matrix basis, Changes, Privilege delta, Floor invariants, Audits, Validation, Diff, Open items | group 6: 01, amendment-01, amendment-02; records also show `agent-report-factory.md` in phases 12, 13, 14 |
+| `build-engineer` | The sbt multi-project build, module wiring, formatter, packaging, `.gitignore`, and the `markTestRun` task behind `sbt check` | `build.sbt`, `project/**` (ledger structure), `.scalafmt.conf`, `.sbt/**`, `.gitignore`, `.jvmopts`, `.sbtopts`, compose files, `docker/**` | Read, Grep, Glob, Write, Edit, Bash | Java 17, sbt | "Use the build-engineer agent to create the ScholarChain sbt multi-project build and repository skeleton from scratch." (Phase 02 work order) | `sbt clean check` (replay: planned for replay (E3)) | version ledger, module dependency graph, environment variables read by the build, packaging choices | group 6: 02, 06, 07, 10, 12, 13, 14; records also: 04 (`repair-02.md`), 11, 16, 17 (`agent-report-build.md`) |
+| `domain-engineer` | Shared domain records, stable IDs, JSON serialization and configuration contracts in `core`, cross-built for Scala 3 and 2.13 | `modules/core/**` | Read, Grep, Glob, Write, Edit, Bash | Java 17, sbt | "Use the dataset-engineer and domain-engineer, in separate delegated work orders, to create the ScholarChain data contracts and dataset manifest." (Phase 03 work order) | `sbt -batch "core/test" "core2_13/test"` (replay: planned for replay (E5)) | contract changes and schema versions, stable ID formulas | group 6: 03, 04, 05, 06, 07, 09, 10, 15; records also: 11 (`repair-04-domain.md`) |
+| `dataset-engineer` | Dataset manifest, bounded download and sampling scripts, schemas, small samples, licenses and checksums | `datasets/**` | Read, Grep, Glob, Write, Edit, Bash, WebFetch | python3, bash; network for WebFetch (license and availability checks) | the Phase 03 instruction in the row above (Phase 03 work order) | `bash datasets/scripts/validate.sh` (replay: planned for replay (E5)) | dataset table (source, license, snapshot, checksum, size, subset), unresolved dataset questions | group 6: 03, 05 |
+| `hadoop-engineer` | Hadoop MapReduce jobs that parse DBLP and enrichment records, normalize them, build blocking input and coauthor-pair candidates, with counters and reject formats | `modules/hadoop/**` | Read, Grep, Glob, Write, Edit, Bash | Java 17, sbt | "Use the hadoop-engineer agent to implement the ScholarChain Hadoop MapReduce pipeline." (Phase 04 work order) | `sbt -batch "hadoop/test"` (replay: planned for replay (E5)); local sample run in [Bounded local sample](#bounded-local-sample) | job list, counters, reject reasons, sample-run evidence | group 6: 04, 05, 11, 14; records also: 16 (`agent-report-hadoop.md`), 17 |
+| `entity-resolution-engineer` | Blocking keys, match features, versioned scoring policy and thresholds, LLM adjudication schema, gold-set evaluation harness | `modules/entity-resolution/**` | Read, Grep, Glob, Write, Edit, Bash | Java 17, sbt; gold-set labels come from the human | "Use the entity-resolution-engineer agent to implement the ScholarChain entity-resolution subsystem against the Phase 3 contracts and Phase 4 MatchCandidate records." (Phase 05 work order) | `sbt -batch "entityResolution/test"` (replay: planned for replay (E5)) | policy version, thresholds, confusion matrices, error analysis | group 6: 05, 11; records also: 16 (`agent-report-er.md`) |
+| `spark-engineer` | Spark graph construction and analytics (coauthor counts, weighted degree, team sizes, components, communities, bridge measures, path evidence) | `modules/spark/**` (sbt project `sparkAnalytics`) | Read, Grep, Glob, Write, Edit, Bash | Java 17, sbt | "Use the spark-engineer agent to implement the ScholarChain Spark collaboration-analysis pipeline." (Phase 06 work order) | `sbt -batch "sparkAnalytics/testOnly org.scholarchain.spark.KnownGraphSuite org.scholarchain.spark.PipelineFixtureSuite"` (replay: planned for replay (E5)) | metric definitions, approximations and limits, output invariants checked | group 6: 06, 07, 13; records also: 11 (`repair-03-spark.md`), 16 (`agent-report-spark.md`) |
+| `storage-engineer` | Ports, adapters and loaders for S3, Neptune, DynamoDB and S3 Vectors (OpenSearch optional, not built) | `modules/storage/**` | Read, Grep, Glob, Write, Edit, Bash, mcp__aws-docs__search_documentation, mcp__aws-docs__read_documentation, mcp__aws-docs__recommend | Java 17, sbt; `aws-docs` server (`uvx`), check with `/mcp` | "Use the storage-engineer agent to implement ports, adapters, loaders, and contract tests for the ScholarChain storage layer." (Phase 07 work order) | `sbt -batch "storage/test"` (replay: planned for replay (E5)) | per-store role and key design, idempotency evidence, bounded load results | group 6: 07, 09, 10, 13, 14, 15; records also: 11 (`repair-05-storage.md`), 16 (`agent-report-storage.md`), 17 |
+| `rag-engineer` | The runtime Graph-RAG workflow: query plans, graph and vector retrieval, fusion, evidence bundles, prompts and output schemas, claim verification | `modules/rag/**`, `prompts/**` | Read, Grep, Glob, Write, Edit, Bash, mcp__aws-docs__search_documentation, mcp__aws-docs__read_documentation, mcp__aws-docs__recommend | Java 17, sbt; `aws-docs` server (`uvx`), check with `/mcp` | "Use the rag-engineer agent to implement the runtime ScholarChain collaboration-analysis workflow." (Phase 09 work order) | `sbt -batch "rag/test"` (replay: planned for replay (E5)) | prompt and model versions, evaluation metrics, known grounding gaps | group 6: 07, 09, 10, 11, 13, 14, 15; records also: 16 (`agent-report-rag.md`), 17 |
+| `service-engineer` | The REST services: routes, request and response models, error model, authentication, health checks, idempotency, runtime composition | `modules/services/**` | Read, Grep, Glob, Write, Edit, Bash | Java 17, sbt | "Use the service-engineer agent to implement ScholarChain RESTful microservices in Scala 3." (Phase 10 work order) | `sbt -batch "services/test"` (replay: planned for replay (E5)) | route table, error model coverage, limits | group 6: 10, 15; records also: 11 (`repair-07-services.md`), 16 (`agent-report-service.md`), 17 |
+| `test-engineer` | Independent cross-module, contract, end-to-end and adversarial tests; exact pass and fail reports; no production edits | `tests/**` | Read, Grep, Glob, Write, Edit, Bash | Java 17, sbt | "Use the test-engineer agent on the complete ScholarChain repository produced through Phase 10." (Phase 11 work order) | `sbt -batch "contractTests/test"` (replay: planned for replay (E5)) | requirement-to-test coverage table, failures by owning agent | group 6: 11; records also: 04 and 05 (`test-report.md`), 14 (`repair-D6-tests.md`), 16 (`agent-report-test.md`), 17 (step T1, `agent-report-test-inventory-2.md`) |
+| `code-reviewer` | Read-only adversarial reviewer: correctness, contracts, ownership, security, distribution mistakes, grounding, weak tests | no repository artifacts (reports go to the orchestrator) | Read, Grep, Glob | none beyond Claude Code | "Use the code-reviewer agent to perform an adversarial read-only review of the complete repository and the full current diff." (Phase 11 work order) | none: its gate is a verified verdict `VERDICT: APPROVE` or `REQUEST_CHANGES`; it has no Write, Edit or Bash, so the stop hook does not gate it | `VERDICT: APPROVE \| REQUEST_CHANGES`, then a findings table (severity, file:line, failure input, impact, owner) | group 6: 11, 12, 13, 14, 15; records also: `review-report*.md` in phases 02 to 07, 09, 10, 16 and both amendments, and Phase 17 |
+| `infra-engineer` | Terraform for the whole AWS environment and the source-controlled scripts (check, package, plan, deploy, rollback, smoke test, bounded pipeline, experiments, evidence archive, cleanup, release manifest); never applies | `infra/**`, `scripts/**`, `config/**`, optional `.github/workflows/**` (not built) | Read, Grep, Glob, Write, Edit, Bash, mcp__aws-api__call_aws, mcp__aws-api__suggest_aws_commands, mcp__terraform__search_provider_docs, mcp__terraform__get_provider_details, mcp__terraform__search_modules, mcp__terraform__get_module_details, mcp__aws-docs__search_documentation, mcp__aws-docs__read_documentation, mcp__aws-docs__read_sections, mcp__aws-docs__recommend | Terraform 1.17.1, shellcheck 0.11.0, jq; `aws-api` (`uvx`, `SCHOLARCHAIN_AWS_READONLY_PROFILE`, `SCHOLARCHAIN_AWS_REGION`), `terraform` (Docker) and `aws-docs` (`uvx`) servers, check with `/mcp` | "Use the infra-engineer agent to create the ScholarChain AWS infrastructure under infra/terraform and the approved operational scripts under scripts." (Phase 12 work order) | `terraform fmt -recursive -check infra/terraform` and the validate line in [Terraform](#terraform-format-validate-and-plan) (replay: planned for replay (E5)) | plan summary and checksum, IAM changes, stateful-resource actions, cost estimate, required environment variables by name | group 6: 12, 13, 14, 15; records also: 16 (`agent-report-infra.md`), 17 |
+| `deploy-engineer` | Executes approved scripts against an approved commit, plan checksum, account, Region and environment, then reports deployment reality (digests, revisions, health, smoke results, alarms) | no hand-authored files; release records under `releases/**` come only from the approved scripts | Read, Grep, Glob, Bash, mcp__aws-api__call_aws, mcp__aws-api__suggest_aws_commands | `aws-api` server (`uvx`, the two variables above), check with `/mcp`; a deployed environment | "Use the deploy-engineer agent to deploy the exact approved ScholarChain commit and Terraform plan to the approved course environment." (Phase 14 work order) | the smoke test line in [Deployment and smoke test](#deployment-and-smoke-test) (replay: not replayable after teardown (archived evidence: `docs/agent-runs/phase-14/runbook-log.md`, row D14)) | release record (commit SHA, plan checksum, account, Region, environment, image digests, task revisions), health and smoke results, active alarms, rollback actions | group 6: none (its runs were in attended sessions without a step table); records: 14 and 15 (`agent-report-deploy.md`; in both phases the human ran the scripts and deploy-engineer checked the records and the live state read-only, Phase 14 gate) |
+| `experiment-engineer` | Experiment manifests, load generators, raw result collectors, derived-plot scripts and the evaluation tool; never alters production algorithms or raw results | `experiments/**`, `load-tests/**` | Read, Grep, Glob, Write, Edit, Bash, mcp__aws-api__call_aws, mcp__aws-api__suggest_aws_commands | python3; `aws-api` server for live runs, check with `/mcp` | "Use the experiment-engineer agent to execute approved ScholarChain data and elasticity experiments without modifying production algorithms." (Phase 15 work order) | `python3 -I experiments/evaluation/evaluate.py reproduce --fixtures` (replay: planned for replay (E5)); the derive scripts in [Experiment reproduction](#experiment-reproduction) | manifest IDs, run IDs, raw-data locations, scale-out and scale-in evidence, failures, cost | group 6: 13, 15; records also: 16 (`agent-report-experiment-X1.md`, `-X2.md`), 17 |
+| `documentation-engineer` | README, documents, final report, diagrams and demo script, written from verified repository state and archived evidence | `README.md`, `docs/**` except `docs/agents.md`, `docs/agent-runs/**` and `docs/incidents/**`; `reports/**` | Read, Grep, Glob, Write, Edit, Bash | none beyond Claude Code | "Use the documentation-engineer agent to create the complete ScholarChain documentation from verified repository state and archived experiment evidence." (Phase 17 work order) | no single command: its gate is the link check (each repository link listed, tracked and not ignored) and the command replay, both recorded in its reports | replayed commands and outcomes, link-check results, unverified claims | group 6: none (0 executions; no README existed through Phase 15, Phase 11 finding D-10); records: 16 (`agent-report-docs-W1.md`, `-E13.md`, `-E14.md`), 17 (steps W1 to W5) |
+| `incident-responder` | Diagnoses runtime and pipeline incidents read-only, writes incident reports, and runs only approved rollback and bounded recovery | `docs/incidents/**` | Read, Grep, Glob, Write, Edit, Bash, mcp__aws-api__call_aws, mcp__aws-api__suggest_aws_commands, mcp__aws-docs__search_documentation, mcp__aws-docs__read_documentation, mcp__aws-docs__recommend | `aws-api` and `aws-docs` servers for a live incident, check with `/mcp` | Phase 17 work order, decision 10 (step N), in this form: "Use the incident-responder agent to write docs/incidents/INC-P15-F-poison-message.md from the committed experiment F record." | none: its gate is human escalation for data, security and destructive actions | incident ID and report path, root cause, actions taken with approvals, data-integrity assessment, follow-up owners | group 6: none; records: 17 (step N, the report of the planned experiment F exercise) |
+| `dependency-updater` | Patch and minor version updates of library and plugin version values in the one dependency ledger, with release-note and vulnerability checks | version values in `project/build.properties` (not `version.scalafmt` or `image.java-runtime`) | Read, Grep, Glob, Edit, Bash | Java 17, sbt | illustrative only, because no phase invoked it: "Use the dependency-updater agent to update one library's patch version value in project/build.properties and report the version change table." | `sbt clean check` (replay: planned for replay (E3)) | version change table (artifact, old, new, class, vulnerability notes) | defined, not invoked in this project: no `execution` row in the group 6 data and no report file under `docs/agent-runs/`; no work order assigned it a version update |
+
+Who owns any path, how it is invoked, what it may change, which gate checks it and how its report is kept: [`docs/agents.md`](docs/agents.md) ("Artifact ownership", "Tool fences", "Lifecycle routing", "Report contract") and [`docs/agent-runs/README.md`](docs/agent-runs/README.md). Project commands (`.claude/commands/`): `/deploy`, `/experiment`, `/incident`, `/rollback`, `/run-pipeline`.
+
+### Reproducing the agentic workflow
+
+The course specification's 11 steps ("Agent submission and reproducibility requirements"), in ScholarChain form. How this project actually ran: the Claude Code sessions ran in **auto mode** in most phases (a classifier approves most actions, while the guard hook and the stop hook still enforce the safety floor; Phase 16 and Phase 17 work orders, line 5, [`docs/agent-runs/phase-16/prompt.md`](docs/agent-runs/phase-16/prompt.md)). Phases 14 to 17 were split into an unattended session 2 (code, scripts, documents, reviews) and an attended session 3 in which **the human ran every script** and the orchestrator checked each result (for example [`docs/agent-runs/phase-14/prompt.md`](docs/agent-runs/phase-14/prompt.md), lines 7 and 8). Reports were written to the session scratchpad and copied into the phase folder by the human with `cp -n` (Phases 10 to 14) and `rsync -a --ignore-existing` (Phases 15 to 17; for example [`docs/agent-runs/phase-15/prompt.md`](docs/agent-runs/phase-15/prompt.md), line 18), so a copy never overwrites an earlier report.
+
+**1. Clone the repository and check out the submitted tag `v1.0-submission`.**
+
+| Command | Replay |
+|---|---|
+| `git clone https://github.com/000brian/scholarchain.git /tmp/p17-clone-STAMP` | planned for replay (E5) |
+| `git -C /tmp/p17-clone-STAMP switch --detach v1.0-submission` | deferred to E14 (tag checkout; the release-candidate SHA checkout planned for replay (E5)) |
+| `cd /tmp/p17-clone-STAMP` (every later line of this section runs from this clone's root unless it says otherwise; the release-manifest lines under [Source-controlled automation scripts](#source-controlled-automation-scripts) run from the main checkout instead) | planned for replay (E5) |
+
+The repository is private until the submission deadline and public after it ([Deliverable index](#deliverable-index), D01). E5 replays the first two lines with the release-candidate commit in place of the tag, because the tag is made only after the final check (Phase 17 work order, decision 18, E13); E14 runs the exact tag checkout after tagging.
+
+**2. Install Claude Code `2.1.330` and the local toolchain.** Claude Code `2.1.330` is the version recorded at the start of Phase 17 ([`docs/tool-versions.md`](docs/tool-versions.md#1-operator-machine-phase-17)); install it with Anthropic's installer (the records do not name the install method). The toolchain is listed in [Required local software](#required-local-software); `scripts/check.sh` checks each tool and refuses with exit 3 when one is missing.
+
+| Command | Replay |
+|---|---|
+| `claude --version` (must print `2.1.330`) | planned for replay (E5) |
+
+The version `2.1.330` itself comes from the orchestrator's Phase 17 start check, recorded in [`docs/tool-versions.md`](docs/tool-versions.md#1-operator-machine-phase-17); that check was not a README replay.
+
+**3. Configure only the needed environment variables; never put a secret in the repository.** Only the `aws-api` MCP server needs anything, and it is optional. If you want it, create your own AWS profile with only the AWS managed policy `job-function/ViewOnlyAccess`, and export its name and the Region (names and plain values only; no key):
+
+| Command | Replay |
+|---|---|
+| `export SCHOLARCHAIN_AWS_READONLY_PROFILE=YOUR-VIEWONLY-PROFILE` | planned for replay (E5) |
+| `export SCHOLARCHAIN_AWS_REGION=us-east-1` | planned for replay (E5) |
+
+Do not export any `SCHOLARCHAIN_CFG_*` variable in the shell that runs the tests: the configuration loader reads them as overrides (the Phase 16 fresh-clone run met this, P16-L-16; [`docs/evaluation.md`](docs/evaluation.md#107-group-7-reproducibility)). The `github` server is defined in `.mcp.json` but needs a read-only token that this project never set; leave it off. Nothing tracked turns it off: the project's human switched it off in the untracked `.claude/settings.local.json` ([`docs/agents.md`](docs/agents.md), "MCP servers and trust boundaries"), which a fresh clone does not have. In a fresh clone, leave it off by declining `github` when Claude Code asks you to approve the project's MCP servers (step 5).
+
+**4. Start Claude Code from the repository root.**
+
+| Command | Replay |
+|---|---|
+| `claude` | planned for replay (E5) (an optional recorded session in the clone) |
+
+**5. Confirm that the constitution and all agents are loaded.** `CLAUDE.md` is loaded automatically and imports `docs/agents.md`; `.claude/settings.json` holds the permission rules and registers the four hooks under `.claude/hooks/`. When Claude Code asks you to approve the project's MCP servers, approve `aws-docs`, `terraform` and, if you set up step 3, `aws-api`; decline `github` (step 3). If you approve `github` anyway, it cannot connect without its token; that is the only difference from the expected `/mcp` result below.
+
+| In-session check | Replay |
+|---|---|
+| `/agents`: lists the 18 agents of the [catalog](#agent-catalog) | planned for replay (E5) (same optional session) |
+| `/mcp`: shows `aws-api`, `aws-docs` and `terraform` connected (`aws-api` cannot connect without a read-only profile, step 3), and `github` not connected (declined in step 5) | planned for replay (E5) (same optional session) |
+
+**6. Run the safe agent-validation command, the hook self-tests and the dangerous-command probe.**
+
+| Command | Replay |
+|---|---|
+| `.claude/hooks/validate-agent-files.sh` | planned for replay (E5) |
+| `bash .claude/hook-tests/guard-selftest.sh` (one PASS or FAIL line per case, then a total) | planned for replay (E5) |
+| `bash .claude/hook-tests/stop-hook-selftest.sh` | planned for replay (E5) |
+| In the `claude` session, ask the orchestrator: "Run this shell command: `echo 'terraform destroy'`". The guard blocks it before it runs (`PreToolUse:Bash hook error: BLOCKED by .claude/hooks/guard-dangerous.sh ...`). | planned for replay (E5) (same optional session) |
+
+**7. Replay a phase in a fresh session.** Open a new `claude` session (or `/clear`), paste the exact work order from `docs/agent-runs/phase-NN/prompt.md`, and let the orchestrator invoke the owning subagent named in it (for example "Use the build-engineer agent to ..."). Replay: not replayed in phase 17 (an agent session; the Phase 02 exercise below is recorded for the video and is not required for the final gate).
+
+**8. Invoke test-engineer or code-reviewer exactly when the phase record requires it.** The phase's work order and `human-gate.md` name the review and test steps (for example Phase 02: code-reviewer, `review-report.md`; Phase 11: test-engineer and code-reviewer). The orchestrator invokes them; the reviewer is read-only and returns `VERDICT: APPROVE` or `REQUEST_CHANGES`.
+
+**9. Route every `BLOCKED-ON` through the orchestrator to the owner.** A subagent that needs another owner's file stops with `STATUS: BLOCKED-ON` and `BLOCKED-ON OWNER`; the orchestrator gives that owner a work order (one repair round per finding) and reruns the blocked agent in a fresh context. Never edit another owner's file by hand; the guard blocks it ([`docs/agents.md`](docs/agents.md#blocked-on-protocol)).
+
+**10. Compare the reproduced report, tests and diff with the archived evidence.** The archived evidence of phase NN is `docs/agent-runs/phase-NN/` (prompt, agent reports, review and test reports, repair records, `human-gate.md`, `commit.txt`; map in the [deliverable index](#deliverable-index), D03). Compare the files created, the report's status and contract fields, the tests and `sbt check` result, the review verdict, and `git diff --stat` against the accepted commit in `commit.txt`. Natural-language wording is not expected to match byte for byte; artifacts, contracts, tests, gates and observable results are.
+
+**11. Use a fresh session before the next phase**, so that the ratified repository state, not the old conversation, is the next phase's starting point (`CLAUDE.md`, "Layering of memory").
+
+### Bounded reproduction exercise: replay Phase 02
+
+Phase 02 is small and self-contained: one agent (build-engineer creates the sbt build and repository skeleton) plus code-reviewer, no cloud and no data. You replay it in a throwaway clone, on a branch at the Phase 01 accepted commit, and compare the result with the accepted Phase 02 commit. The historical checkout does not contain the Phase 02 reports; read them from your submitted checkout (the tag `v1.0-submission`, step 1 above), and read the accepted Phase 02 files with `git show` in the replay clone, which has the full history.
+
+Values from the records: Phase 01 accepted commit `684c610bbcb2d314e4177677a08fdf2be0302ba6` ([`docs/agent-runs/phase-01/commit.txt`](docs/agent-runs/phase-01/commit.txt)); Phase 02 accepted commit `41eaea2956f1608ba7f0631a5e9eba6b87f957e8` ([`docs/agent-runs/phase-02/commit.txt`](docs/agent-runs/phase-02/commit.txt)).
+
+| # | Command or action | Replay |
+|---|---|---|
+| 1 | `git clone https://github.com/000brian/scholarchain.git /tmp/p17-replay-STAMP` | planned for replay (E5) |
+| 2 | `cd /tmp/p17-replay-STAMP` | planned for replay (E5) |
+| 3 | `git switch -c replay-phase-02 684c610bbcb2d314e4177677a08fdf2be0302ba6` | planned for replay (E5) |
+| 4 | `git log -1 --format='%H %s'` (prints the Phase 01 commit, "phase-01 factory-engineer: create ScholarChain agent constitution") | planned for replay (E5) |
+| 5 | `.claude/hooks/validate-agent-files.sh` (the Phase 01 version of the validator; the hook self-tests did not exist yet, they came with Amendment 02) | planned for replay (E5) |
+| 6 | `claude` (a fresh session in the replay clone); paste the whole text of `docs/agent-runs/phase-02/prompt.md` from your submitted checkout, verbatim; let the orchestrator run build-engineer, then code-reviewer as the prompt and the Phase 02 gate require | not replayed in phase 17 (agent session; recorded for the video, not required for the final gate) |
+| 7 | `sbt Test/compile` | not replayed in phase 17 (it builds what the step 6 session produced) |
+| 8 | `sbt check` | not replayed in phase 17 (it checks what the step 6 session produced) |
+| 9 | `git diff --stat 41eaea2956f1608ba7f0631a5e9eba6b87f957e8 -- .gitignore .scalafmt.conf build.sbt docker project` (your working tree against the accepted Phase 02 files) | not replayed in phase 17 (it compares what the step 6 session produced) |
+| 10 | `git show 41eaea2956f1608ba7f0631a5e9eba6b87f957e8:build.sbt` | planned for replay (E5) |
+| 11 | `git show 41eaea2956f1608ba7f0631a5e9eba6b87f957e8:project/build.properties` | planned for replay (E5) |
+
+**What to compare** (accepted evidence: [`docs/agent-runs/phase-02/`](docs/agent-runs/phase-02/) in your submitted checkout; the Phase 02 commit itself added 8 files: `.gitignore`, `.scalafmt.conf`, `build.sbt`, `docker/services/Dockerfile`, `project/Ledger.scala`, `project/TestGate.scala`, `project/build.properties`, `project/plugins.sbt`):
+
+- The seven required projects and the cross-built `core`; `sparkAnalytics` on Scala 2.13 and everything else on Scala 3 (the prompt's decision 1); no dependency cycle; no application logic.
+- One version ledger whose path the report states (accepted: `project/build.properties`).
+- `sbt Test/compile` succeeds and `sbt check` has a stable definition (the Phase 02 gate, [`docs/agent-runs/phase-02/human-gate.md`](docs/agent-runs/phase-02/human-gate.md)).
+- The report follows the 14-field contract; the archived `agent-report.md` ended `STATUS: BLOCKED-ON` (owners domain-engineer, test-engineer and factory-engineer), so a replay that stops with a comparable `BLOCKED-ON` matches the record; the archived review is `review-report.md`, followed by two repair records and a final APPROVE (Phase 02 gate).
+
+**Not expected to match:** wording; the exact versions chosen, because the prompt tells the agent to read the current AWS release documentation before pinning Hadoop and Spark; the number of review findings and repair rounds; formatting details. The replay runs under the Phase 01 constitution (hooks, settings and agent files of commit `684c610`), not the final one, and with today's Claude Code client. Go back to your own checkout's root before running the other commands of this README.
+
+## Required local software
+
+Recorded versions are in [`docs/tool-versions.md`](docs/tool-versions.md); minimum versions per script are in [`scripts/README.md`](scripts/README.md), "Prerequisites".
+
+| Tool | Version | Needed for |
+|---|---|---|
+| Claude Code | 2.1.330 (Phase 17 record) | the agentic workflow |
+| Java (Temurin) | 17 (17.0.21 recorded) | sbt, all modules |
+| sbt runner | 1.13.1 (`project/build.properties:20`) | build and tests |
+| Terraform | exactly 1.17.1 | `check.sh`, `plan.sh`, `deploy.sh`, `cleanup.sh` |
+| shellcheck | 0.11.0 | `check.sh` |
+| jq | 1.6 or later | all scripts |
+| GNU coreutils `timeout` (or `gtimeout`), `shasum` or `sha256sum`, `tar`, `unzip` | any | scripts (`unzip` for `release-manifest.sh`) |
+| bash | 3.2 or later (macOS `/bin/bash` works) | all scripts |
+| python3 | 3.x (3.15.2 recorded) | dataset validation, the derive scripts, `evaluate.py` |
+| git | any recent (2.50.1 recorded) | all |
+| Docker with buildx | 29.x (29.9.3 recorded) | `package.sh`, the `terraform` MCP server, the AWS Emulator |
+| `uv` / `uvx` | not recorded | the `aws-api` and `aws-docs` MCP servers |
+| AWS CLI | v2 (2.40.0 recorded) | the cloud scripts only |
+| curl | 7.55 or later | `smoke-test.sh` only |
+
+The operator's machine was macOS on arm64 ([`docs/tool-versions.md`](docs/tool-versions.md#1-operator-machine-phase-17)). Network is needed for sbt's first dependency download and for `terraform init` (Terraform registry).
+
+## AWS prerequisites
+
+None of the local commands (build, tests, the bounded local sample, the evaluation fixtures, the emulator) needs AWS. A new cloud deployment would need:
+
+- **An AWS account** in us-east-1 (the only Region the Terraform allows, `infra/terraform/environments/course/course.tfvars:6`), with an **administrator profile** of your own for the first apply and for `cleanup.sh` ([`scripts/README.md`](scripts/README.md), "Prerequisites"); `AWS_PROFILE` names it for the scripts.
+- **A budget with alerts**, made by hand outside Terraform: the project used a $25 ceiling across all providers with alerts at $10, $15 and $20 ([`docs/agent-runs/instructor-approvals.md`](docs/agent-runs/instructor-approvals.md), "Earlier approvals").
+- **Model provider keys** (Anthropic and Voyage; Amazon Bedrock is the switch, see [Model endpoints](#model-endpoints-and-how-to-select-them)), entered in the Secrets Manager console after the first apply, never on a command line ([`scripts/README.md`](scripts/README.md), "Entering the four key values (after the first apply)").
+- **A read-only profile for the `aws-api` MCP server** (optional). The project's own read-only IAM user: PENDING E8. Either way, a grader who wants `aws-api` creates their own profile with only `job-function/ViewOnlyAccess` and names it in `SCHOLARCHAIN_AWS_READONLY_PROFILE` (step 3 above).
+
+A new account's first apply can stop on the first use of an AWS managed key; the fix is in [`docs/runbook.md`](docs/runbook.md#21-first-apply-on-a-new-account). Account limits that a new account may hit (the Fargate vCPU quota, an Availability Zone without Fargate ARM64) are findings I-1 and I-2 in [`docs/service-limits.md`](docs/service-limits.md#3-findings-from-the-limits-check).
+
+## Environment variables (names only)
+
+No value is stored in the repository; configuration holds only variable **names** (`config/course.json`, `CLAUDE.md` "Security invariants").
+
+| Name | Read by | Purpose |
+|---|---|---|
+| `SCHOLARCHAIN_CONFIG_FILE` | the services and jobs (`ConfigLoader`) | path of the configuration file, for example `config/course.json` |
+| `SCHOLARCHAIN_CFG_*` | `ConfigLoader` | per-key overrides (`SCHOLARCHAIN_CFG_` plus the key path in upper snake case, `modules/core/src/main/scala/org/scholarchain/core/config/ConfigLoader.scala:34-35`); unknown names are refused; leave them unset in a test shell |
+| `SCHOLARCHAIN_ANTHROPIC_API_KEY` | answer synthesis and planning (`llm.apiKeyEnvVar`, `config/course.json:73`) | Anthropic key (secret; Secrets Manager on AWS) |
+| `SCHOLARCHAIN_VOYAGE_API_KEY` | embeddings (`embedding.apiKeyEnvVar`, `config/course.json:62`) | Voyage key (secret) |
+| `SCHOLARCHAIN_SERVICE_API_KEY`, `SCHOLARCHAIN_SERVICE_READONLY_API_KEY` | the services (`config/course.json:94-95`); `smoke-test.sh` reads the first | full and read-only API keys (secret) |
+| `AWS_PROFILE` | every cloud script | the operator's AWS profile |
+| `TMPDIR` | `run-bounded-pipeline.sh --stage er`, `release-manifest.sh` | temporary folders |
+| `SCHOLARCHAIN_AWS_READONLY_PROFILE`, `SCHOLARCHAIN_AWS_REGION` | the `aws-api` MCP server (`.mcp.json`) | read-only profile name and Region (not secrets) |
+| `SCHOLARCHAIN_GITHUB_READONLY_TOKEN` | the `github` MCP server (switched off) | never set in this project |
+
+The emulator and experiment scripts set or read a few more names; each script's `--help` text lists them ([`scripts/README.md`](scripts/README.md), "The ten scripts").
+
+## Model endpoints and how to select them
+
+Instructor-approved deviation: every Amazon Bedrock quota of the account was 0, so the runtime uses the Anthropic API for synthesis and query planning and Voyage AI for embeddings, keeps everything else on AWS, and keeps a Bedrock switch in code. The instructor asked that the README name the providers, the exact model identifiers, the embedding dimensions and how to select each configuration ([`docs/agent-runs/instructor-approvals.md`](docs/agent-runs/instructor-approvals.md), entry of 2026-11-09, "Instructor's answer" and "How it is applied").
+
+| Configuration | Synthesis and planning | Embeddings | Status |
+|---|---|---|---|
+| Default (embeddings from Phase 7, synthesis from Phase 9, through Phase 15) | `llm.provider` `anthropic`, `models.answerModelId` `claude-haiku-5-5` | `embedding.provider` `voyage`, `models.embeddingModelId` `voyage-4`, `embedding.dimensions` 1024 | as in `config/course.json:15-17`, `:60-63`, `:71-73` |
+| Bedrock switch | `llm.provider` `bedrock`, model `anthropic.claude-haiku-5-5` | `embedding.provider` `bedrock`, model `amazon.titan-embed-text-v2:0`, 1024 dimensions | values from `instructor-approvals.md`; not run live (quota 0; both live Bedrock tests fail on the quota, Phase 15 gate, [`docs/architecture.md`](docs/architecture.md#6-what-was-not-built)) |
+| Local and tests | `llm.provider` `fake` | `embedding.provider` `fake` | deterministic local models, used by the test suites |
+
+**How to select:** set the keys above in the configuration file named by `SCHOLARCHAIN_CONFIG_FILE`, or override one key with its `SCHOLARCHAIN_CFG_*` variable (for example `SCHOLARCHAIN_CFG_LLM_PROVIDER`); the provider wire names are `anthropic`, `bedrock`, `fake` and `voyage`, `bedrock`, `fake` (`modules/core/src/main/scala/org/scholarchain/core/config/ScholarChainConfig.scala:190-261`). `llm.apiKeyEnvVar` is required for `anthropic` and `embedding.apiKeyEnvVar` for `voyage`. On AWS the configuration reaches the containers through Terraform (`config/**` and `infra/terraform/**`), so a provider change there is a reviewed, signed plan. **Changing the embedding model means re-embedding**: stored vectors and query vectors must come from the same model and dimension, so regenerate the embeddings and rebuild the vector indexes (the instructor's condition). The prompt versions are the files under [`prompts/runtime/`](prompts/runtime/) and their JSON schemas under [`prompts/schemas/`](prompts/schemas/).
+
+## Formatting, compiling, testing and packaging
+
+`sbt check` is the repository's full gate: format check, compilation, every module test, the contract tests that need no AWS, and the test marker `.claude/.last-test-run` (`CLAUDE.md`, "Commands"). Tests tagged `RequiresAws` (live AWS or model providers) and `RequiresEmulator` are excluded from it and never run by default (`build.sbt:93-105`). The last Phase 16 run passed 2306 module tests and 399 contract tests ([`docs/agent-runs/phase-16/human-gate.md`](docs/agent-runs/phase-16/human-gate.md), line 75). The last full check of Phase 17 session 2, in the working tree after the code repair round, passed 2343 module tests and 399 contract tests (marker `2026-11-23T01:13:43Z`; rag-engineer's repair report `repair-01-rag.md` and test-engineer's step T1 report `agent-report-test-inventory-2.md`, Phase 17 session 2 reports copied into `docs/agent-runs/phase-17/`). The final-gate counts come from the fresh-clone run at step E3. Which suite covers each category of the specification's "Required test inventory": [final report, section 15](reports/final-report.md#15-build-deployment-experiment-and-reproduction-automation).
+
+| What | Command | Replay |
+|---|---|---|
+| Format all sources | `sbt fmt` | planned for replay (E5) |
+| Compile everything, tests included | `sbt Test/compile` | planned for replay (E5) |
+| Full gate from a clean build (the final gate's form) | `sbt clean check` | planned for replay (E3) |
+| Targeted tests of one project (form `sbt -batch "PROJECT/testOnly SUITES"`), for example the Spark fixture suites | `sbt -batch "sparkAnalytics/testOnly org.scholarchain.spark.KnownGraphSuite org.scholarchain.spark.PipelineFixtureSuite"` | planned for replay (E5) |
+| Build the three job jars (hadoop, entity resolution, spark) | `sbt -batch packageJobs` | planned for replay (E5) |
+| Build the services jar (not built by `packageJobs`, `build.sbt:712-715`) | `sbt -batch services/assembly` | planned for replay (E5) |
+| Build all four jars and check their contents (class lists in `project/PackageCheck.scala`) | `sbt -batch packageCheck` | planned for replay (E5) |
+| Package: the four jars plus the local service image, no upload (needs Docker running; runs `sbt clean` first) | `bash scripts/package.sh` | planned for replay (E5) |
+| Everything above in one checked run, in a fresh clone (9 gates: agent files, JSON, hook syntax and self-tests, shellcheck, datasets, Terraform, `sbt check` and `packageCheck`, script contracts, offline probes); `REPO` is your main checkout's absolute path | `bash scripts/check.sh --record-dir "$REPO/evidence/checks"` | planned for replay (E4) |
+
+Never run `sbt clean` in a working tree where a hook or a running agent reads the test reports; the final gate's `sbt clean check` runs in a fresh clone.
+
+## Bounded local sample
+
+The bounded run that needs no AWS (Phase 16 step E5 ran the first two rows; Phase 17 step E5 runs every row in a fresh clone, the Hadoop pipeline into a new output folder; the suites are the ones test-engineer named at Phase 17 step T1; [`docs/runbook.md`](docs/runbook.md#41-local-bounded-pipeline-no-aws)):
+
+| What | Command | Replay |
+|---|---|---|
+| Local Hadoop pipeline (LocalJobRunner over the committed samples: the real DBLP sample, the OpenAlex, Crossref and ORCID projections, then synthetic DBLP edge cases; writes `local-run-report.json` into a folder that must not exist yet) | `sbt "hadoop/Test/runMain org.scholarchain.hadoop.LocalBoundedPipeline /tmp/p17-hadoop-STAMP"` | planned for replay (E5) |
+| Spark known-graph and pipeline fixture suites | `sbt -batch "sparkAnalytics/testOnly org.scholarchain.spark.KnownGraphSuite org.scholarchain.spark.PipelineFixtureSuite"` | planned for replay (E5) |
+| Query to evidence with bounded fixtures: the services end-to-end fixture suite named by test-engineer's step T1 (its test "full query-to-evidence lifecycle with fakes", `QueryApiSuite.scala:87`, posts a query through the HTTP server, follows the evidence link and the explain link, with local fixtures and no network) | `sbt -batch "services/testOnly org.scholarchain.services.QueryApiSuite"` | planned for replay (E5) |
+| The frozen API examples (the golden-example suite runs every frozen request through the running server and compares the response byte for byte) | `sbt -batch "services/testOnly org.scholarchain.services.GoldenExamplesSuite"` | planned for replay (E5) |
+| Spark algorithms on small fixtures (components, k-core), named by T1 | `sbt -batch "sparkAnalytics/testOnly org.scholarchain.spark.AlgorithmsSuite"` | planned for replay (E5) |
+| Spark JSONL export and load-manifest checks, named by T1 | `sbt -batch "sparkAnalytics/testOnly org.scholarchain.spark.JsonlExportSuite"` | planned for replay (E5) |
+| Spark job-configuration checks, named by T1 | `sbt -batch "sparkAnalytics/testOnly org.scholarchain.spark.JobConfigSuite"` | planned for replay (E5) |
+
+For comparison, Phase 16's run: the Hadoop runner exited 0 ([`run.txt`](experiments/evaluation/raw/repro/e5-pipeline-20261122T1715Z-79b5583/run.txt)) in 127 s ([`hadoop-pipeline.log`](experiments/evaluation/raw/repro/e5-pipeline-20261122T1715Z-79b5583/hadoop-pipeline.log), line 476, "Total time: 127 s") with maximum team size 7, 33 pair instances, 33 consolidated pairs and 67 links ([`local-run-report.json`](experiments/evaluation/raw/repro/e5-pipeline-20261122T1715Z-79b5583/local-run-report.json)); the two Spark suites passed 43 of 43 tests ([`spark-suites.log`](experiments/evaluation/raw/graph/e5-sbt-20261122T1715Z-7e551c8/spark-suites.log)). The cloud run of the same pipeline on the full DBLP release (Phases 14 and 15) is documented in [`docs/runbook.md`](docs/runbook.md#42-cloud-pipeline-emr-ecs-ops-task) and [`docs/data-lineage.md`](docs/data-lineage.md#9-run-ids-of-the-recorded-runs); it is not replayable after teardown.
+
+## Terraform: format, validate and plan
+
+All AWS infrastructure is in [`infra/terraform/`](infra/terraform/) (environment `infra/terraform/environments/course/`, local backend, [`infra/terraform/STATE.md`](infra/terraform/STATE.md)). Terraform is frozen since the removal plan (no change after commit `4297e46c`; [`docs/final-state.md`](docs/final-state.md#7-terraform-freeze-since-the-removal-plan)). Agents never apply; the only apply path is a human-signed plan through `scripts/deploy.sh`.
+
+| What | Command | Replay |
+|---|---|---|
+| Format check | `terraform fmt -recursive -check infra/terraform` | planned for replay (E5) |
+| Initialize without a backend (needs the Terraform registry; writes only the gitignored `.terraform/` folder) | `terraform -chdir=infra/terraform/environments/course init -backend=false -input=false -lockfile=readonly` | planned for replay (E5) |
+| Validate | `terraform -chdir=infra/terraform/environments/course validate` | planned for replay (E5) |
+| Plan (runtime off, the default; read-only; writes masked plan files under the gitignored `plans/` folder and prints the plan sha256 to sign) | `bash scripts/plan.sh` | planned for replay (E6) (optional; infra-engineer's Phase 17 analysis found it read-only and useful against the emptied account; the human decides at E6; the resulting plan is never signed) |
+| Plan (runtime on; the graph run ID is the Spark graph run) | `bash scripts/plan.sh --runtime-enabled true --image-tag BUILD --graph-run-id run:v1:RUN_HEX` | not replayable after teardown (archived evidence: `docs/agent-runs/phase-15/approvals.md`, runtime-on plan D3) |
+
+The security scan of the Terraform package is shellcheck plus the reviewer's checklist; no Terraform scanner was run (Phase 12 gate, [`docs/agent-runs/phase-12/human-gate.md`](docs/agent-runs/phase-12/human-gate.md), line 25). Every signed plan checksum and what it deployed: [`docs/final-state.md`](docs/final-state.md#2-signed-plans).
+
+## Source-controlled automation scripts
+
+The scripts under [`scripts/`](scripts/) are the only operational interface; there are no GitHub Actions. Each script's `--help` text is its full contract, summarized in [`scripts/README.md`](scripts/README.md) (options, exit codes, records, environment-variable names). The human runs every script; no agent does. Exit codes: 0 ok, 2 usage, 3 missing prerequisite, 4 refused by a safety check, 5 command failed, 6 check failed, 7 timed out, 8 identifier found (`run-experiment.sh`, `release-manifest.sh`).
+
+| Script | Purpose | Environment variables (names) | Its command in this README |
+|---|---|---|---|
+| `check.sh` | the 9-gate repository check | none required (it unsets AWS and key variables for its probes) | [Formatting, compiling, testing and packaging](#formatting-compiling-testing-and-packaging) |
+| `package.sh` | jars and service image; `--publish` uploads them | `AWS_PROFILE` (with `--publish`) | same section; `--publish` in [Deployment](#deployment-and-smoke-test) |
+| `plan.sh` | Terraform plan with masking and a sha256 to sign | `AWS_PROFILE` | [Terraform](#terraform-format-validate-and-plan) |
+| `deploy.sh` | applies a signed plan; writes `releases/course/ATTEMPT_ID.json` | `AWS_PROFILE` | [Deployment](#deployment-and-smoke-test) |
+| `smoke-test.sh` | one bounded query through the public API | `SCHOLARCHAIN_SERVICE_API_KEY` | [Deployment](#deployment-and-smoke-test) |
+| `run-bounded-pipeline.sh` | the cloud pipeline stages (upload, Hadoop, ER, Spark, loads) | `AWS_PROFILE`, `TMPDIR` | [`docs/runbook.md`](docs/runbook.md#42-cloud-pipeline-emr-ecs-ops-task) |
+| `run-experiment.sh` | runs a signed experiment manifest | `AWS_PROFILE` | [Experiment reproduction](#experiment-reproduction) |
+| `archive-evidence.sh` | evidence archive, local or with the S3 `reports/` prefix | `AWS_PROFILE` (S3 mode) | below |
+| `cleanup.sh` | the read-only list and the signed removal | `AWS_PROFILE` (the operator's administrator profile) | [Cleanup](#cleanup) |
+| `rollback.sh` | points services back to the previous revision in a release record | `AWS_PROFILE` | below |
+| `release-manifest.sh` | the Phase 17 release manifest (read-only, no network) | `TMPDIR` | below |
+| `emulator/env.sh`, `emulator/setup.sh`, `emulator/probes.sh` | the AWS Emulator track (local, no account) | see `scripts/README.md`, "AWS Emulator" | [`docs/runbook.md`](docs/runbook.md#11-the-aws-emulator-local-no-account) |
+
+| What | Command | Replay |
+|---|---|---|
+| Local evidence archive (no AWS) | `bash scripts/archive-evidence.sh --local-only` | planned for replay (E5) |
+| Full archive with the S3 `reports/` prefix | `bash scripts/archive-evidence.sh` | not replayable after teardown (archived evidence: `docs/agent-runs/phase-15/runbook-log.md`, row "D25 step 3"; archive sha256 at `docs/agent-runs/phase-15/approvals.md:78`) |
+| Roll the services back to the revisions recorded in a release record | `bash scripts/rollback.sh --release releases/course/RECORD.json --role ROLE` | not replayable after teardown (archived evidence: [`releases/course/`](releases/course/)). `rollback.sh` was never needed in Phases 14 and 15: that folder holds the release records of every deploy and no `-rollback.json` record. |
+| Release manifest, dry run into a temporary folder (needs the fresh clone of E3 with its four jars and the saved copy of its test marker; run it from the main checkout's root, never from inside the clone: the script refuses a `--clone` that is the current tree with exit 4, [`scripts/README.md`](scripts/README.md), "Release manifest (Phase 17, decision 7 item 1)") | `bash scripts/release-manifest.sh --clone /tmp/p17-clone-STAMP --marker /tmp/p17-E3-marker.txt --out-dir /tmp/p17-manifest-dryrun-STAMP` | planned for replay (E5) |
+| Release manifest, real run (writes `releases/manifest/RC_SHA/release-manifest.json` and `.md`, RC_SHA = the full HEAD SHA; from the main checkout's root, as for the dry run) | `bash scripts/release-manifest.sh --clone /tmp/p17-clone-STAMP --marker /tmp/p17-E3-marker.txt --out-dir releases/manifest` | planned for replay (E10) |
+
+Script facts as of Phase 17 (each change is `runtime: untested` until the human runs it; [`scripts/README.md`](scripts/README.md), status line): `release-manifest.sh` is new; it refuses a dirty tree, a clone whose HEAD differs from this tree's HEAD, a missing mandatory jar (hadoop, entity-resolution, spark-analytics, services; build them in the clone with `packageCheck`, or `packageJobs` plus `services/assembly`), an existing output folder, and any identifier in its output (exit 8). `emulator/env.sh` now unsets every exported `SCHOLARCHAIN_CFG_*` variable when sourced and prints only how many it cleared. `deploy.sh --help` points to `scripts/README.md`, "Full reproduction, in order", for the order of a full reproduction. `archive-evidence.sh --local-only` now writes the field `byte_copies_hold_identifiers` as a string ("account only: no account ID found; bucket names not checked (--local-only)") instead of `false` when the account is known and nothing is found (E-03; `scripts/archive-evidence.sh:580-586`, `runtime: untested`); the mode last ran in Phase 13 ([`docs/agent-runs/phase-13/human-gate.md`](docs/agent-runs/phase-13/human-gate.md), "Archive (`--local-only`)"), before this change, so that run is not evidence for the current code. `emulator/probes.sh` now refuses with exit 4 instead of aborting on an unbound variable when `SCHOLARCHAIN_EMULATOR_RESULTS_DIR` is unset and an earlier safety rule fails (P16-B-03; `scripts/emulator/probes.sh:198-202`, `runtime: untested`). Source for both: `agent-report-infra-I1b.md` (copied by the human to `docs/agent-runs/phase-17/`). `rollback.sh` has never run.
+
+## Deployment and smoke test
+
+The deployment path (the complete order with every value: [`scripts/README.md`](scripts/README.md), "Full reproduction, in order"; operator guide: [`docs/runbook.md`](docs/runbook.md#2-deployment-plan-sign-deploy)). None of these can be replayed, because the environment was removed; each line names the archived evidence of its last real run.
+
+| Step | Command or action | Replay |
+|---|---|---|
+| Publish the image and jars | `bash scripts/package.sh --publish` | not replayable after teardown (archived evidence: `docs/agent-runs/phase-14/runbook-log.md`, rows D4) |
+| Make a plan (runtime on) | `bash scripts/plan.sh --runtime-enabled true --image-tag BUILD --graph-run-id run:v1:RUN_HEX` | not replayable after teardown (archived evidence: `docs/agent-runs/phase-14/approvals.md`, runtime-on plan D10) |
+| Sign (human only) | add the whole line `APPROVED-PLAN-SHA256: HEX64` to `docs/agent-runs/phase-NN/approvals.md` and commit only `docs/agent-runs/**` | not replayable after teardown (archived evidence: [`docs/final-state.md`](docs/final-state.md#2-signed-plans)) |
+| Deploy the signed plan | `bash scripts/deploy.sh --plan-sha256 HEX64` | not replayable after teardown (archived evidence: [`releases/course/`](releases/course/), seven release records) |
+| Export the full API key without echoing it (zsh) | `read -rs "SCHOLARCHAIN_SERVICE_API_KEY?Service API key: "; export SCHOLARCHAIN_SERVICE_API_KEY` | not replayable after teardown (archived evidence: `docs/agent-runs/phase-14/runbook-log.md`, row D14) |
+| Smoke test, question A (spec gate) | `bash scripts/smoke-test.sh --question 'Which paper of Wanli Ouyang had the most coauthors on one paper between 2015 and 2025?'` | not replayable after teardown (archived evidence: `docs/agent-runs/phase-14/runbook-log.md`, row D14; `docs/agent-runs/phase-15/runbook-log.md`, row D5) |
+| Smoke test, question B (Neptune path check) | `bash scripts/smoke-test.sh --question 'Find the shortest path between Tommaso Green and Yiannis Demiris in the coauthorship graph for 2015-2025.'` | not replayable after teardown (archived evidence: `docs/agent-runs/phase-14/runbook-log.md`, row D15; `docs/agent-runs/phase-15/runbook-log.md`, row "D6 G-28 q13 re-run") |
+
+In Phase 14, question A passed 7 of 7 checks with evidence and question B passed 7 of 7 but abstained (finding G-28; [`docs/runbook.md`](docs/runbook.md#3-smoke-tests)). The deployed application is not available: removed Nov 21 under the instructor-approved teardown.
+
+## API query examples
+
+Archived and labelled; none can be sent again ([`docs/api.md`](docs/api.md#10-examples-and-their-sources)). The API takes `POST {api-url}v1/query` with the header `X-Api-Key` (note that `{api-url}` already ends in `/`, G-22; [`docs/api.md`](docs/api.md#1-base-address-and-the-trailing-slash-g-22)).
+
+**Fixture example** (committed contract fixture, local fake model, synthetic test graph, not the DBLP corpus): the request body [`modules/services/src/test/resources/api/v1/sync-query-request.json`](modules/services/src/test/resources/api/v1/sync-query-request.json) is
+
+```json
+{
+  "constraints": {
+    "yearFrom": 2015,
+    "yearTo": 2025
+  },
+  "mode": "sync",
+  "output": {
+    "includeEvidence": true
+  },
+  "question": "How many distinct coauthors does Carol King have in 2015-2025?"
+}
+```
+
+and its sync answer is [`completed-result.json`](modules/services/src/test/resources/api/v1/completed-result.json) (three claims, each `verified`, with evidence items and links). The same folder holds the async acknowledgment, the job status, an evidence item, the explain record, a neighbour page and the error bodies (400, 401, 404, 409, 422, 504); `GoldenExamplesSuite` checks each against the running server ([Bounded local sample](#bounded-local-sample)).
+
+**Recorded live answers** (Phase 15, archived bodies from the live API before the teardown): six `POST /v1/query` result bodies under [`experiments/evaluation/raw/answers/p15-demo/`](experiments/evaluation/raw/answers/p15-demo/), with provenance and sha256 in `PROVENANCE.txt` there; for example `p15-demo-q.json` answers "Which paper of Wanli Ouyang had the most coauthors on one paper between 2015 and 2025?" and `p15-demo-n.json` is the false-premise question "Which Nobel Prize did Wanli Ouyang win in 2019, and with which coauthors?". Their evaluation is in [`docs/evaluation.md`](docs/evaluation.md#104-group-4-answer-quality).
+
+## Experiment reproduction
+
+Eight Phase 15 experiments ran from signed manifests under [`experiments/manifests/`](experiments/manifests/) (load generator in [`load-tests/`](load-tests/)); every raw result is under [`experiments/raw/`](experiments/raw/), immutable, failed attempts kept; the derived tables and plots are regenerated from `raw/` by committed scripts under [`experiments/derived/`](experiments/derived/). Results: [`experiments/results-summary.md`](experiments/results-summary.md) and [`docs/evaluation.md`](docs/evaluation.md); how manifests are signed and run: [`experiments/README.md`](experiments/README.md).
+
+| What | Command | Replay |
+|---|---|---|
+| Dry check of a signed manifest (no run folder) | `bash scripts/run-experiment.sh --manifest experiments/manifests/ID.json --manifest-sha256 HEX64 --check` | not replayable after teardown (archived evidence: `docs/agent-runs/phase-15/runbook-log.md`, rows D9a) |
+| Run one signed experiment | `caffeinate -i bash scripts/run-experiment.sh --manifest experiments/manifests/ID.json --manifest-sha256 HEX64` | not replayable after teardown (archived evidence: [`experiments/raw/`](experiments/raw/), the attempt folders of the eight manifests) |
+| Regenerate EMR capacity over time (experiments A and B) | `python3 -I experiments/derived/emr_capacity.py` | planned for replay (E5) |
+| Regenerate the failure timeline (experiment F) | `python3 -I experiments/derived/failure_timeline.py` | planned for replay (E5) |
+| Regenerate latency percentiles per load level (experiment D) | `python3 -I experiments/derived/load_levels.py` | planned for replay (E5) |
+| Regenerate queue depth with worker tasks over time (experiments C and F) | `python3 -I experiments/derived/queue_worker.py` | planned for replay (E5) |
+| Regenerate retrieval metrics per mode (experiment E) | `python3 -I experiments/derived/retrieval_modes.py` | planned for replay (E5) |
+| Check that the regenerated outputs equal the committed ones (must print nothing) | `git status --short` | planned for replay (E5) |
+
+The Phase 16 evaluation tool ([`experiments/evaluation/evaluate.py`](experiments/evaluation/evaluate.py), Python standard library only) has eight subcommands; each `--fixtures` run reads only its committed fixtures, writes into a new temporary folder outside the repository, and compares its results byte for byte with the expected files (exit 0 success, 2 usage, 3 missing input, 5 failure; docstring of `evaluate.py`). The real evaluation runs need the signed suite (`experiments/evaluation/suite-v1.json`) and are recorded in [`docs/evaluation.md`](docs/evaluation.md).
+
+| Subcommand (evaluation group) | Command | Replay |
+|---|---|---|
+| `er` (group 1) | `python3 -I experiments/evaluation/evaluate.py er --fixtures` | planned for replay (E5) |
+| `graph` (group 2) | `python3 -I experiments/evaluation/evaluate.py graph --fixtures` | planned for replay (E5) |
+| `retrieval` (group 3) | `python3 -I experiments/evaluation/evaluate.py retrieval --fixtures` | planned for replay (E5) |
+| `answers` (group 4 a) | `python3 -I experiments/evaluation/evaluate.py answers --fixtures` | planned for replay (E5) |
+| `ratings-sheet` (group 4 c) | `python3 -I experiments/evaluation/evaluate.py ratings-sheet --fixtures` | planned for replay (E5) |
+| `performance` (group 5) | `python3 -I experiments/evaluation/evaluate.py performance --fixtures` | planned for replay (E5) |
+| `factory` (group 6) | `python3 -I experiments/evaluation/evaluate.py factory --fixtures` | planned for replay (E5) |
+| `reproduce` (group 7) | `python3 -I experiments/evaluation/evaluate.py reproduce --fixtures` | planned for replay (E5) |
+
+## Final report and video
+
+- **Final report:** [`reports/final-report.md`](reports/final-report.md) (the specification's 25 sections; written in Phase 17 steps W4a and W4b, reconciled in step W5).
+- **Demonstration video:** PENDING E11.
+- **Demonstration script:** [`docs/demo-script.md`](docs/demo-script.md) (the 22 demonstration items, each with its clip, command or screen, what to blur and its replay line).
+
+## Cleanup
+
+Cleanup ran on Nov 21, 2026 (Phase 15, steps D24 to D28): the evidence was archived first, then a removal plan was listed, signed and applied by `cleanup.sh`, and read-only checks confirmed what was left ([`docs/runbook.md`](docs/runbook.md#10-cleanup); [`docs/final-state.md`](docs/final-state.md), with every cleanup category of the specification).
+
+| Step | Command or action | Replay |
+|---|---|---|
+| List the removal targets and make the removal plan | `bash scripts/cleanup.sh --evidence-archive PATH_TO_ARCHIVE --list` | not replayable after teardown (archived evidence: `docs/agent-runs/phase-15/runbook-log.md`, row "D25 step 5 cleanup.sh --list"; against today's emptied account it stops with exit 3 at `terraform-outputs` before any listing, because the local state has no outputs, Phase 17 step I1b analysis) |
+| Sign the removal plan (human only) | `APPROVED-PLAN-SHA256: HEX64` in `approvals.md`, committed | not replayable after teardown (archived evidence: `docs/agent-runs/phase-15/approvals.md:75-76`) |
+| Runtime off and cleanup mode first (deletion protection off, runtime at zero), signed and deployed like any plan | `bash scripts/plan.sh --runtime-enabled false --cleanup-mode true` | not replayable after teardown (archived evidence: `docs/agent-runs/phase-15/approvals.md:67-73`; release record R7 in [`docs/final-state.md`](docs/final-state.md#3-release-records-and-what-each-deployed)) |
+| Remove (the operator types the confirmation `REMOVE course FIRST12HEX` at the terminal) | `bash scripts/cleanup.sh --evidence-archive PATH_TO_ARCHIVE --remove --plan-sha256 HEX64` | not replayable after teardown (archived evidence: [`docs/agent-runs/phase-15/cleanup/`](docs/agent-runs/phase-15/cleanup/); `docs/agent-runs/phase-15/runbook-log.md`, rows "D27 attempt 1" and "D27 attempt 2") |
+| Count what the local Terraform state still holds (addresses only; the count is evidence only with `exit=0`) | `terraform -chdir=infra/terraform/environments/course state list > /tmp/p17-E6-state.txt 2> /tmp/p17-E6-state.err; echo "exit=$?" \| tee /tmp/p17-E6-state.exit; wc -l < /tmp/p17-E6-state.txt` | planned for replay (E6) |
+
+Retained after the Phase 15 removal, on purpose: 20 ACTIVE ECS task-definition revisions (no cost), the hand-made read-only IAM user, the budget and the local Terraform state ([`docs/final-state.md`](docs/final-state.md#5-retained-items-before-phase-17)). Their removal in Phase 17 and the inventory after it are recorded in [`docs/final-state.md`, section 9 "After Phase 17"](docs/final-state.md#9-after-phase-17).
+
+## Known limitations
+
+The complete list (every status-line item, the not-measurable items of the evaluation, and anything still open after Phase 17) is [section 23 of the final report](reports/final-report.md#23-limitations), with the status of every Phase 17 review finding in its subsection 23.4. The main ones, each with its record:
+
+- **No live system.** The environment was removed on Nov 21; the pipeline and query examples rest on local runs, the archived Phase 14 and 15 evidence and the emulator runs (Phase 17 planned deviation 2; [`docs/final-state.md`](docs/final-state.md)).
+- **Fixes after Phase 15 are fixed in code, tested offline, not validated live**, including Phase 16's repairs and Phase 17's absence-claim (L2) rule and its repair round ([`docs/api.md`](docs/api.md#9-claim-verification-statuses-and-reasons): the rule as built and six new, additive reason codes).
+- **The absence-claim rule (L2) is not closed.** Phase 16 accepted L2 as a deviation and sent P16-L-10 to P16-L-15 to Phase 17 ([`docs/agent-runs/phase-16/human-gate.md`](docs/agent-runs/phase-16/human-gate.md), decision 1). After Phase 17's rule and one repair round, the code re-check (`review-report-02.md`) found P17-A-01 PARTIAL and still major: an absence claim worded with unlisted words after an affirmative predicate ("A and B have a path that is missing in W") can still be `verified` against a cited path that contradicts it, so **P16-L-10 is not closed**; P16-L-11 is closed for absence claims the rule recognises, with a minor residual (P17-K-02). Disclosed side effects: the deterministic "no direct coauthor edge" answer and affirmative claims with a negated side clause are now `partially_supported` (P17-A-02, P17-A-03). The human decides at Phase 17 session 3, step E1 ([final report, section 12.2](reports/final-report.md#122-claim-verification)).
+- **The final review is REQUEST_CHANGES** after the code re-check, with two majors open: P17-F-01 (the guard does not resolve symbolic links; constitutional, not repaired in Phase 17 session 2) and P17-A-01 above. A human-accepted limitation does not change that verdict ([final report, section 23.4](reports/final-report.md#234-phase-17-review-findings-status-after-the-code-re-check)).
+- **Service limits:** 60 rows, 54 verified and 6 unverified against AWS documentation, so the "verified limits" requirement is an unplanned deviation for the human's gate decision; findings I-1, I-2 and S-1 to S-7 ([`docs/service-limits.md`](docs/service-limits.md)).
+- **Optional components not built:** OpenSearch, GitHub Actions, an OpenAPI file; the GitHub MCP server is defined but switched off; Bedrock is not used (quota 0) ([`docs/architecture.md`](docs/architecture.md#6-what-was-not-built)).
+- **Constitutional known limitations** (no constitutional change in Phase 17): F-02 (the guard's message for `evidence/` says "no owner") and the hook shellcheck findings, which keep the hooks out of `check.sh`'s shellcheck gate ([`docs/threat-model.md`](docs/threat-model.md#5-constitutional-known-limitations)).
+- **`rollback.sh` never ran** (no rollback was needed; [`docs/runbook.md`](docs/runbook.md#7-rollback)).
+- **Evaluation limits:** small samples (for example the retrieval comparison is exploratory, n = 11) and the threats to validity in [`docs/evaluation.md`](docs/evaluation.md#7-threats-to-validity).
+- **Terraform is frozen** in Phase 17, so infrastructure findings (K-01, I-1, I-2) are recorded, not fixed ([`docs/final-state.md`](docs/final-state.md#7-terraform-freeze-since-the-removal-plan)).
+
+## Deliverable index
+
+The course specification's "Required deliverables" table (D01 to D20): the ID, Deliverable and Minimum contents columns are copied word for word from the specification (`docs/agent-runs/phase-17/course-specification.md`, "Required deliverables"); the Where column says where each item is in this repository (for D01, the repository is private only until the submission deadline, as stated there).
+
+| ID | Deliverable | Minimum contents (spec) | Where |
+|---|---|---|---|
+| D01 | Private Git repository | Complete source, history, tags, and instructor access | `https://github.com/000brian/scholarchain`; tag `v1.0-submission` (made at Phase 17 step E13, after the final check). The repository stays private until the submission deadline and is then made public, as the instructor asked (Phase 17 work order, decision 18, E12), which gives the instructor and TA access. Instructor-approved deviations are recorded in [`docs/agent-runs/instructor-approvals.md`](docs/agent-runs/instructor-approvals.md) and the phase gates (the teardown: Phase 15 gate, decision 6). The deployed application is not available: removed Nov 21 under the instructor-approved teardown. |
+| D02 | Agentic constitution | `CLAUDE.md`, `docs/agents.md`, every `.claude/agents/*.md` file used in the project, settings, hooks, commands, MCP configuration, tool-version record, and instructions for invoking every agent | [`CLAUDE.md`](CLAUDE.md), [`docs/agents.md`](docs/agents.md), [`.claude/agents/`](.claude/agents/) (18 files), [`.claude/settings.json`](.claude/settings.json), [`.claude/hooks/`](.claude/hooks/), [`.claude/hook-tests/`](.claude/hook-tests/), [`.claude/commands/`](.claude/commands/), [`.mcp.json`](.mcp.json) (names only, no secret), [`docs/tool-versions.md`](docs/tool-versions.md); invoking every agent: the [agent catalog](#agent-catalog) and [Reproducing the agentic workflow](#reproducing-the-agentic-workflow) |
+| D03 | Agent run evidence | Phase prompts, final reports, human gates, repair records, and commit hashes | [`docs/agent-runs/`](docs/agent-runs/) (rules: [`docs/agent-runs/README.md`](docs/agent-runs/README.md)): `phase-00/` to `phase-16/`, `amendment-01/`, `amendment-02/`, and `phase-17/` (copied by the human with its commits). Each folder from `phase-00/` to `phase-16/` and both amendment folders holds `prompt.md`, `human-gate.md` and `commit.txt`, except `phase-08/`, whose [`README.md`](docs/agent-runs/phase-08/README.md) says "Merged into phase-07; see docs/agent-runs/phase-07/." Spec name → project name: `agent-report.md` → `agent-report.md` or `agent-report-OWNER.md` (several agents per phase), plus `orchestrator-summary*.md` from Phase 11 on; `review-report.md` → `review-report*.md` (`-02`, `-a`, `-G-NN` and similar for rounds and slices); `test-report.md` → `test-report*.md` (phases 04, 05, 11) and `agent-report-test.md` (Phase 16); `repair-01.md` → `repair-NN.md`, `repair-NN-OWNER.md`, `repair-DNN-OWNER.md`, `repair-ENN-OWNER.md`; `human-gate.md` and `commit.txt` unchanged; Phase 11's second review round uses the prefix `round2-`: `round2-review-report.md` (review), `round2-test-report.md` (test report), `round2-repair-rag.md`, `round2-repair-er.md` and `round2-repair-hadoop.md` (repairs), `round2-summary.md` (orchestrator summary), with `repair-round-2.md` as the round's work order (the human's prompt for it) and `round2-*.log` as its test logs; extra records: `approvals.md` (plan signatures), `runbook-log.md` (the human's runs, Phases 14 to 16) |
+| D04 | Deterministic build | Multi-project sbt build, format rules, pinned versions, and `sbt check` | [`build.sbt`](build.sbt), [`project/`](project/), the one ledger [`project/build.properties`](project/build.properties), [`.scalafmt.conf`](.scalafmt.conf); `sbt check` in [Formatting, compiling, testing and packaging](#formatting-compiling-testing-and-packaging) |
+| D05 | Dataset package | Manifest, schemas, samples, license notes, checksums, and bounded retrieval scripts | [`datasets/dataset-manifest.yaml`](datasets/dataset-manifest.yaml) (snapshots and checksums), [`datasets/schemas/`](datasets/schemas/), [`datasets/samples/`](datasets/samples/), [`datasets/LICENSES.md`](datasets/LICENSES.md), [`datasets/scripts/`](datasets/scripts/) |
+| D06 | Hadoop package | MapReduce jobs, tests, job contracts, counters, reject handling, and run scripts | [`modules/hadoop/`](modules/hadoop/); jobs J01 to J09, counters and rejects in [`docs/data-lineage.md`](docs/data-lineage.md#3-hadoop-jobs-j01-to-j09); run scripts: the local runner in [Bounded local sample](#bounded-local-sample) and `scripts/run-bounded-pipeline.sh`; EMR runs under [`experiments/raw/p15-a-hadoop/`](experiments/raw/p15-a-hadoop/) |
+| D07 | Entity-resolution package | Features, policy, thresholds, LLM adjudication schema, gold set, and evaluation | [`modules/entity-resolution/`](modules/entity-resolution/) (policy [`er-v2.json`](modules/entity-resolution/src/main/resources/er/policy/er-v2.json), adjudication schema [`adjudication-output-schema-v1.json`](modules/entity-resolution/src/main/resources/er/llm/adjudication-output-schema-v1.json)); human gold labels [`docs/agent-runs/phase-05/gold/gold-labels.csv`](docs/agent-runs/phase-05/gold/gold-labels.csv); evaluation [`docs/evaluation.md`](docs/evaluation.md#101-group-1-entity-resolution) |
+| D08 | Spark package | Graph builder, analytics, tests, output schemas, and bounded run results | [`modules/spark/`](modules/spark/); bounded runs under [`experiments/raw/p15-a-spark/`](experiments/raw/p15-a-spark/); graph correctness in [`docs/evaluation.md`](docs/evaluation.md#102-group-2-graph-correctness) |
+| D09 | Storage package | S3, Neptune, DynamoDB, S3 Vectors, and optional OpenSearch adapters and loaders | [`modules/storage/`](modules/storage/); OpenSearch: not implemented (optional tier; [`docs/architecture.md`](docs/architecture.md#6-what-was-not-built)); DynamoDB samples from the live tables under [`docs/agent-runs/phase-15/dynamodb-sample/`](docs/agent-runs/phase-15/dynamodb-sample/) |
+| D10 | Runtime collaboration-analysis package | Query planning, graph and vector retrieval, fusion, synthesis, verification, prompts, and tests | [`modules/rag/`](modules/rag/), [`prompts/`](prompts/) |
+| D11 | Microservices package | REST services, API contract, health checks, authentication, and tests | [`modules/services/`](modules/services/); route reference [`docs/api.md`](docs/api.md); frozen contract examples [`modules/services/src/test/resources/api/v1/`](modules/services/src/test/resources/api/v1/) |
+| D12 | Terraform package | Complete IaC, environment configuration, validation, plan, and security scan results | [`infra/terraform/`](infra/terraform/), [`config/course.json`](config/course.json); validation in [Terraform](#terraform-format-validate-and-plan) and `check.sh` gate 6; signed plan checksums in [`docs/final-state.md`](docs/final-state.md#2-signed-plans); security scan: shellcheck plus the reviewer's checklist, no Terraform scanner (Phase 12 gate); threat model [`docs/threat-model.md`](docs/threat-model.md) |
+| D13 | Reproducibility automation package | Source-controlled check, package, plan, deploy, smoke-test, bounded-pipeline, experiment, evidence-archive, and cleanup scripts plus optional CI workflow evidence | [`scripts/`](scripts/) and [`scripts/README.md`](scripts/README.md); the operator guide [`docs/runbook.md`](docs/runbook.md); CI workflows: not built (optional) |
+| D14 | Deployment package | Release manifest, image digests, deployed revisions, smoke tests, and rollback evidence | release records with image digests and task-definition revisions: [`releases/course/`](releases/course/) (seven records) and [`docs/final-state.md`](docs/final-state.md#3-release-records-and-what-each-deployed); release manifest: PENDING E10; smoke tests: `docs/agent-runs/phase-14/runbook-log.md` (rows D14, D15) and `docs/agent-runs/phase-15/runbook-log.md` (row D5); rollback evidence: `rollback.sh` never ran (no rollback was needed and no rollback record exists); the ECS circuit-breaker behaviour is in [`docs/runbook.md`](docs/runbook.md#7-rollback); the one incident exercise (planned, experiment F, recovered by the dead-letter queue, no rollback) is [`docs/incidents/INC-P15-F-poison-message.md`](docs/incidents/INC-P15-F-poison-message.md) |
+| D15 | Experiment package | Manifests, load generators, raw metrics, derived plots, elasticity evidence, and failure run | [`experiments/manifests/`](experiments/manifests/), [`load-tests/`](load-tests/), [`experiments/raw/`](experiments/raw/), [`experiments/derived/`](experiments/derived/), [`experiments/results-summary.md`](experiments/results-summary.md) (per experiment: sections 2.1 to 2.8); failure run [`experiments/raw/p15-f-poison-replay/`](experiments/raw/p15-f-poison-replay/) and its incident report [`docs/incidents/INC-P15-F-poison-message.md`](docs/incidents/INC-P15-F-poison-message.md) |
+| D16 | Evaluation package | Entity, graph, retrieval, answer, performance, factory, and reproducibility evaluations | [`docs/evaluation.md`](docs/evaluation.md) (groups 1 to 7), raw outputs under [`experiments/evaluation/`](experiments/evaluation/); the AWS Emulator results [`docs/emulator.md`](docs/emulator.md) |
+| D17 | Documentation package | README, architecture, data lineage, threat model, limits, runbook, evaluation, and API reference | this README, [`docs/architecture.md`](docs/architecture.md), [`docs/data-lineage.md`](docs/data-lineage.md), [`docs/threat-model.md`](docs/threat-model.md), [`docs/service-limits.md`](docs/service-limits.md), [`docs/runbook.md`](docs/runbook.md), [`docs/evaluation.md`](docs/evaluation.md), [`docs/api.md`](docs/api.md); demo script [`docs/demo-script.md`](docs/demo-script.md); incident report [`docs/incidents/INC-P15-F-poison-message.md`](docs/incidents/INC-P15-F-poison-message.md); tool versions [`docs/tool-versions.md`](docs/tool-versions.md); final state [`docs/final-state.md`](docs/final-state.md); the AWS Emulator results [`docs/emulator.md`](docs/emulator.md) |
+| D18 | Final report | Complete technical and experimental report in Markdown or instructor-approved format | [`reports/final-report.md`](reports/final-report.md) (the specification's 25 sections; known limitations and open review findings in [section 23](reports/final-report.md#23-limitations)) |
+| D19 | Demonstration video | Narrated system demonstration with required evidence | PENDING E11 (the script of the narration, the 22 demonstration items and which clips exist: [`docs/demo-script.md`](docs/demo-script.md)) |
+| D20 | Cleanup evidence | Resource inventory before and after cleanup, with retained-state explanation | [`docs/final-state.md`](docs/final-state.md) (cleanup categories, retained items, Terraform freeze); Phase 15 cleanup records: [`docs/agent-runs/phase-15/cleanup/`](docs/agent-runs/phase-15/cleanup/) and `docs/agent-runs/phase-15/runbook-log.md` (rows D24 to D28); the state after Phase 17: [`docs/final-state.md`, section 9](docs/final-state.md#9-after-phase-17) |

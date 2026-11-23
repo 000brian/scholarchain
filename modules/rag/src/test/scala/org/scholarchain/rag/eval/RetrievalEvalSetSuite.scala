@@ -50,7 +50,7 @@ class RetrievalEvalSetSuite extends munit.FunSuite {
     assertEquals(weak("q26"), List(RetrievalEvalSet.GraphOnly))
   }
 
-  test("q25 and q26 targets are the top 10 of the labelled pool by the benchmark's own rule") {
+  test("q25 and q26 targets are the top 10 of the labelled pool (this set's derivation, H-03)") {
     val q26 = derived.questions.find(_.id == "q26").get
     // pool values 1754, 1362, 1212, 1154, 1144, 1084, 1062, 1062 (tie: code-point order), 968, 939
     assertEquals(q26.targets.head, "researcher:v1:c7883d2daae7743663d011b5212b90b6")
@@ -64,6 +64,10 @@ class RetrievalEvalSetSuite extends munit.FunSuite {
     assertEquals(q26.targets.last, "researcher:v1:d97b5c7fa0b28c53d2188a9bd53bf8fc")
     val q25 = derived.questions.find(_.id == "q25").get
     assertEquals(q25.targets.last, "researcher:v1:fd836e0f7348e1a2ff3d0ad3953b966a")
+    // H-03: the rule text names the top-limit cut as this set's derivation, not a benchmark rule
+    val topic = RetrievalEvalSet.Rule.find(_.contains("topicRanked")).get
+    assert(!topic.contains("the benchmark's own ranking rule"), topic)
+    assert(topic.contains("not a benchmark label") && topic.contains("default 10"), topic)
   }
 
   test("the packaged resource equals the derivation from benchmark-v1 and pins its sha256") {

@@ -1,0 +1,1736 @@
+diff --git a/.gitignore b/.gitignore
+index 0803d1c..1d10292 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -79,7 +79,10 @@ infra/terraform/environments/course/plans/
+ # target/, and every other rule above). The only exception is secret material: the secret
+ # rules below repeat the secrets section above (plus Terraform state) after the negation,
+ # so a secret-looking file under experiments/ or releases/ stays ignored. Keep both lists
+-# identical, and add any new rule above this block.
++# identical, and add any new rule above this block. The second exception is OS and IDE noise
++# (Phase 14 finding D-01): the noise rules at the end repeat the "IDEs and OS" section above
++# (plus other OS metadata files) so that Finder, Explorer or an IDE cannot add files to raw
++# experiment results or release records.
+ !experiments/**
+ !releases/**
+ .env
+@@ -106,3 +109,12 @@ secrets
+ .gnupg
+ **/.config/gh
+ **/.docker/config.json
++# OS and IDE noise (D-01), repeated after the negation so it stays ignored everywhere.
++.DS_Store
++._*
++Thumbs.db
++ehthumbs.db
++Desktop.ini
++.idea/
++.vscode/
++*.iml
+diff --git a/experiments/README.md b/experiments/README.md
+index ac692db..42ff803 100644
+--- a/experiments/README.md
++++ b/experiments/README.md
+@@ -139,7 +139,7 @@ Notes (5a): a collector's own exit 7 (its wait limit) becomes runner exit 5 (the
+ - Exit codes: 0 ran (whatever the system answered), 2 usage, 3 prerequisite not met after a bounded settle (nothing sent), 5 tool or AWS failure, 7 the collector's own wait limit or TERM. `ab-pipeline.sh` and `d-load.sh` pass their child's exit code through.
+ - `ab-pipeline.sh` runs `bash scripts/run-bounded-pipeline.sh` with the arguments unchanged and does not wrap its output, so the nested `RUN-RECORD:` and `EXECUTION:` lines reach the runner (`{emr-cluster-id}` resolution); it finds the nested record by its output root.
+ - `--preflight` makes read calls only, prints counts and states, sends nothing and writes nothing outside a temporary folder outside the repository.
+-- Vector keys for C and F (repair-01, finding M-01): no collector calls the S3 Vectors data plane. The vector bucket policy (`infra/terraform/modules/vectors/main.tf`, `DataPlaneOnlyForRuntimeAndOps`) explicitly denies `ListVectors`, `GetVectors`, `PutVectors` and `QueryVectors` to every principal except the query, worker and ops task roles, so the laptop profile would be refused. Keys come from the DynamoDB `ArtifactRegistry` table (Terraform output `dynamodb_table_names.ArtifactRegistry`; items `pk = artifact#vector#INDEX/VECTOR_KEY`, `sk = v#NNNNNNNN`, one per registered version) through `lib/collector-common.sh` `cc_registry_select`: a bounded, read-only, eventually consistent Scan with `begins_with(pk, :p)`, projection `pk`, 1,000 items evaluated per request, at most 80 CLI calls and 420 s between calls; duplicate versions of one key are dropped keeping the first, and the first N unique keys in scan order are taken (fewer: exit 3, nothing sent). `cc_registry_latest` reads a key's latest version (Query, `ScanIndexForward=false`, Limit 1) and checks `textHash`, `embeddingModel` and `embeddingDimensions` against `config/course.json`: C checks 20 evenly spaced keys (`sample-check.csv`, same columns as before), F checks its one key and uses that `textHash` for the completion-record check. The vector metadata itself is checked by the handler: a missing field is a permanent failure of that task, counted as a workload failure. Both preflights run the same selection and checks. A scan is charged on every item it evaluates (cost estimate in the C manifest notes).
++- Vector keys for C and F (repair-01, finding M-01): no collector calls the S3 Vectors data plane. The vector bucket policy (`infra/terraform/modules/vectors/main.tf`, `DataPlaneOnlyForRuntimeAndOps`) explicitly denies `ListVectors`, `GetVectors`, `PutVectors` and `QueryVectors` to every principal except the query, worker and ops task roles, so the laptop profile would be refused. Keys come from the DynamoDB `ArtifactRegistry` table (Terraform output `dynamodb_table_names.ArtifactRegistry`; items `pk = artifact#vector#INDEX/VECTOR_KEY`, `sk = v#NNNNNNNN`, one per registered version) through `lib/collector-common.sh` `cc_registry_select`: a bounded, read-only, eventually consistent Scan with `begins_with(pk, :p)`, projection `pk`, 1,000 items evaluated per request, at most 80 CLI calls and a total window of 420 s from the start of the selection (not a gap between calls: no new call starts after it, and a call already started can run past it by up to 3 x 120 s plus backoff, so the worst case is about 790 s); duplicate versions of one key are dropped keeping the first, and the first N unique keys in scan order are taken (fewer: exit 3, nothing sent). `cc_registry_latest` reads a key's latest version (Query, `ScanIndexForward=false`, Limit 1) and checks that `textHash`, `embeddingModel` and `embeddingDimensions` are present and that `embeddingModel` and `embeddingDimensions` equal the expected values; the expected `embeddingDimensions` comes from `config/course.json`, and the expected `embeddingModel` is built from `config/course.json` (provider, model, dimensions) plus two rag code constants copied into both collectors, `EMB_INPUT_TYPE="document"` and `EMB_SPEC_VERSION="emb-v1"` (`c-embedding-backlog.sh:46-47`, `f-poison-replay.sh:51-52`), and the copied `EMB_SPEC_VERSION` must change when rag bumps `EmbeddingModelSpec.SpecVersion`: C checks 20 evenly spaced keys (`sample-check.csv`, same columns as before), F checks its one key and uses that `textHash` for the completion-record check. The vector metadata itself is checked by the handler: a missing field is a permanent failure of that task, counted as a workload failure. Both preflights run the same selection and checks. A scan is charged on every item it evaluates (cost estimate in the C manifest notes).
+ - F's part 2 waits (repair-01, finding J-01): each wait's limit counts from the start of that wait, and the worker log is read at least once per wait (from 60 s before the replay send), so a part 1 that ends more than 720 s after the replay send no longer skips the replay check; `events.csv` records each wait's start and deadline (`wait-start-processed`, `wait-start-replayed`).
+ - The executable bit of every collector and of `load-tests/query-load.sh` is set by the human before the commit (decision 16); `lib/collector-common.sh` is sourced and needs none.
+ 
+diff --git a/experiments/collectors/lib/collector-common.sh b/experiments/collectors/lib/collector-common.sh
+index 0a0bee5..ceb8880 100644
+--- a/experiments/collectors/lib/collector-common.sh
++++ b/experiments/collectors/lib/collector-common.sh
+@@ -689,14 +689,16 @@ cc_api_url() {
+ # scan order are taken. Scan order is the table's partition order: the same
+ # for unchanged table contents, not guaranteed after repartitioning, so the
+ # selected keys are also recorded (selected-keys.txt and its sha256 in C).
+-# Bounds: CC_REGISTRY_SCAN_MAX_CALLS calls and CC_REGISTRY_SCAN_LIMIT_SECONDS
+-# between calls (one call can add up to CC_CALL_TIMEOUT x CC_MAX_TRIES), and
++# Bounds: CC_REGISTRY_SCAN_MAX_CALLS calls; CC_REGISTRY_SCAN_LIMIT_SECONDS, a
++# total window measured from the start of the selection (not a gap between
++# calls), after which no new call starts, so a call started inside the window
++# can run past it by up to CC_CALL_TIMEOUT x CC_MAX_TRIES plus backoff; and
+ # the table's end. Read cost: a scan is charged on the size of every item
+ # evaluated, filtered or not (estimate in the C manifest notes).
+ readonly CC_REGISTRY_SCAN_PAGE_SIZE=1000
+ readonly CC_REGISTRY_SCAN_ITEMS_PER_CALL=1000
+ readonly CC_REGISTRY_SCAN_MAX_CALLS=80
+-readonly CC_REGISTRY_SCAN_LIMIT_SECONDS=420
++readonly CC_REGISTRY_SCAN_LIMIT_SECONDS=420 # total selection window, not a per-call gap
+ CC_REGISTRY_CALLS=0
+ CC_REGISTRY_SCANNED=0
+ CC_REGISTRY_MATCHED=0
+diff --git a/experiments/results-summary-template.md b/experiments/results-summary-template.md
+index dde7244..a279f2a 100644
+--- a/experiments/results-summary-template.md
++++ b/experiments/results-summary-template.md
+@@ -82,7 +82,7 @@ Experiment-specific required content:
+ 
+ | Component | Required rule or policy | This project's rule (file:line) | Required evidence | Evidence found (file) | Status |
+ |---|---|---|---|---|---|
+-| EMR | Managed scaling or justified fleet policy with bounded minimum and maximum | managed scaling, min FILL, max 2 (A) / 4 (B) through `cluster.managedScalingMaxUnits` (FILL) | Node or capacity units over time, pending work, duration | A, B: `capacity.csv`, `attempts.csv`, `capacity-*.svg` | FILL |
++| EMR | Managed scaling or justified fleet policy with bounded minimum and maximum | A: no managed-scaling policy (`cluster.managedScalingMaxUnits` 2 = the minimum 2, so the request carries no `ManagedScalingPolicy`, repair L-01; a fixed 1 primary + 2 core cluster, flat capacity, `managedScalingComputeLimits: null` in the ab-pipeline record; FILL); B: managed scaling, min 2, max 4 core units through `cluster.managedScalingMaxUnits` (FILL) | Node or capacity units over time, pending work, duration | A, B: `capacity.csv`, `attempts.csv`, `capacity-*.svg` | FILL |
+ | Embedding workers | ECS target tracking or step scaling on SQS backlog per task | step scaling from 0 on the embedding and job queues, maximum 2 (FILL) | Queue depth, desired and running tasks, drain time | C: `observed.csv`, `samples.csv`, `queue-*.svg` | FILL |
+ | Graph retriever | ECS target tracking on CPU or request count with latency alarm | CPU target tracking 60 %, 1 to 2 tasks (FILL) | Task count, CPU, p95 latency | D: `tasks.csv`, `cloudwatch-periods.csv`, `levels.csv` | FILL |
+ | Vector retriever | ECS target tracking on CPU or request count | served inside the query service (semantic stage); CPU target tracking (FILL) | Task count, query latency, errors | D: `explain-stages.csv` (semantic), `tasks.csv`; E: `modes.csv` | FILL |
+diff --git a/modules/hadoop/src/test/scala/org/scholarchain/hadoop/LocalPipelineRunner.scala b/modules/hadoop/src/test/scala/org/scholarchain/hadoop/LocalPipelineRunner.scala
+index b36baee..6891ec1 100644
+--- a/modules/hadoop/src/test/scala/org/scholarchain/hadoop/LocalPipelineRunner.scala
++++ b/modules/hadoop/src/test/scala/org/scholarchain/hadoop/LocalPipelineRunner.scala
+@@ -237,7 +237,6 @@ object LocalPipelineRunner {
+     )
+   }
+ 
+-  /** Runs the pipeline; returns the final report (also written to `<output>/run-report.json`). */
+   /** The settings the jobs of this run read (Phase 14 G-19): `conf` with ScholarChain's defaults
+     * resource added exactly as [[JobRunner.run]] adds it, restricted to the `scholarchain.*` keys
+     * outside the per-run prefixes (`scholarchain.run.*`, `scholarchain.path.*`, set by each
+@@ -264,6 +263,7 @@ object LocalPipelineRunner {
+   private def settingsObj(kvs: List[(String, String)]): ujson.Obj =
+     ujson.Obj.from(kvs.sortBy(_._1).map { case (k, v) => k -> ujson.Str(v) })
+ 
++  /** Runs the pipeline; returns the final report (also written to `<output>/run-report.json`). */
+   def run(o: Options): ujson.Obj = {
+     if (Files.exists(o.output)) {
+       val s = Files.list(o.output)
+diff --git a/modules/rag/src/main/resources/org/scholarchain/rag/eval/benchmark-v1-eval-set.json b/modules/rag/src/main/resources/org/scholarchain/rag/eval/benchmark-v1-eval-set.json
+index 6cfff51..8ecd107 100644
+--- a/modules/rag/src/main/resources/org/scholarchain/rag/eval/benchmark-v1-eval-set.json
++++ b/modules/rag/src/main/resources/org/scholarchain/rag/eval/benchmark-v1-eval-set.json
+@@ -5,7 +5,7 @@
+   "benchmarkSha256": "b58c5e1a6cb29e192035ce77308c20e2597d2d1dbaf8d136761ae5c3316ff3ac",
+   "rule": [
+     "unit: canonical researcher ID",
+-    "answer targets: the researchers of the expected values of kind 'ranking' (by rank), 'edge' (both endpoints, in order) and 'topicRanked' (the top expected.limit of the labelled pool, value descending then researcher ID by code point: the benchmark's own ranking rule), minus the researchers the question names (expected.researcherIds); distinct, in that order",
++    "answer targets: the researchers of the expected values of kind 'ranking' (by rank), 'edge' (both endpoints, in order) and 'topicRanked' (the top expected.limit, default 10 when the question states none, of the labelled pool, value descending then researcher ID by code point: a derivation of this evaluation set from the pool, not a benchmark label, since the benchmark scorer defines no top-limit target set), minus the researchers the question names (expected.researcherIds); distinct, in that order",
+     "a question is in the universe when it has at least one answer target; every other question is not-comparable (labelled only with works, paths, numbers or groups, or an expected abstention), listed with its reason, never scored",
+     "by design weak: vector-only on 'ranking' and 'edge' targets (a similarity search cannot rank by a stored metric or read an edge); graph-only on 'topicRanked' targets (its topic filter needs semantic candidates, which graph-only does not use)"
+   ],
+diff --git a/modules/rag/src/main/scala/org/scholarchain/rag/eval/RetrievalEvalSet.scala b/modules/rag/src/main/scala/org/scholarchain/rag/eval/RetrievalEvalSet.scala
+index e7cd2a3..9a86c5a 100644
+--- a/modules/rag/src/main/scala/org/scholarchain/rag/eval/RetrievalEvalSet.scala
++++ b/modules/rag/src/main/scala/org/scholarchain/rag/eval/RetrievalEvalSet.scala
+@@ -87,7 +87,7 @@ object RetrievalEvalSet {
+   /** The derivation rule, stated in the set and the report. */
+   val Rule: List[String] = List(
+     "unit: canonical researcher ID",
+-    "answer targets: the researchers of the expected values of kind 'ranking' (by rank), 'edge' (both endpoints, in order) and 'topicRanked' (the top expected.limit of the labelled pool, value descending then researcher ID by code point: the benchmark's own ranking rule), minus the researchers the question names (expected.researcherIds); distinct, in that order",
++    "answer targets: the researchers of the expected values of kind 'ranking' (by rank), 'edge' (both endpoints, in order) and 'topicRanked' (the top expected.limit, default 10 when the question states none, of the labelled pool, value descending then researcher ID by code point: a derivation of this evaluation set from the pool, not a benchmark label, since the benchmark scorer defines no top-limit target set), minus the researchers the question names (expected.researcherIds); distinct, in that order",
+     "a question is in the universe when it has at least one answer target; every other question is not-comparable (labelled only with works, paths, numbers or groups, or an expected abstention), listed with its reason, never scored",
+     "by design weak: vector-only on 'ranking' and 'edge' targets (a similarity search cannot rank by a stored metric or read an edge); graph-only on 'topicRanked' targets (its topic filter needs semantic candidates, which graph-only does not use)"
+   )
+diff --git a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/ClaimVerification.scala b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/ClaimVerification.scala
+index 145e5a1..a9d3252 100644
+--- a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/ClaimVerification.scala
++++ b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/ClaimVerification.scala
+@@ -50,7 +50,12 @@ final case class VerifiedClaim(
+   *     researchers that resolve (homonym numbers included) to two distinct researcher IDs, a cited
+   *     complete `path=none` item is for exactly that ID pair with `maxDepth` at least the stated
+   *     depth and a window equal to the claim's window (or neither has one), no year-like phrase is
+-  *     left unparsed, and no cited found path or edge connects the pair;
++  *     left unparsed, and no cited found path or edge connects the pair. Phase 17 (decision 6,
++  *     P16-L-10..L-15) adds one fail-closed rule that only adds reasons ([[AbsenceRule]]): absence
++  *     is recognised by predicate and negation scope (synonyms such as "disconnected" included); an
++  *     unclear scope or a word outside a closed vocabulary is ambiguous (at most partially
++  *     supported); a possible third name, unnamed researchers, a time qualifier, a missing depth or
++  *     a found path in the bundle with both researchers anywhere on it blocks `verified`;
+   *   - every quoted title equals the title of a cited work item;
+   *   - every identifier and every capitalized name in the text belongs to a cited graph item;
+   *   - a `semantic_context` item never supports a number, edge, path, component, community or
+@@ -106,6 +111,11 @@ object ClaimVerification {
+     // P16-K-01: the named pair and the stated window must be the ones a cited search covered
+     val AbsenceNotSearched =
+       "an absence claim states a researcher pair or window that no cited path search covered"
++    // Phase 17 decision 6 (P16-L-10): wording that may state an absence, but whose negation
++    // scope, predicate or words are not ones the absence rule can check (at most partially
++    // supported, never verified)
++    val AbsenceAmbiguous =
++      "the claim may state that researchers are not connected, in wording the verifier cannot check"
+     val all: List[String] = List(
+       CitedNotInBundle,
+       EvidenceIdNotCited,
+@@ -131,6 +141,7 @@ object ClaimVerification {
+       AbsenceBeyondDepth,
+       AbsenceNoDepth,
+       AbsenceNotSearched,
++      AbsenceAmbiguous,
+       NothingCheckable
+     )
+   }
+@@ -177,11 +188,12 @@ object ClaimVerification {
+   private val BoundHopRe: Regex =
+     "(?i)\\b(?:within|up\\s+to|at\\s+most)\\s+(?:even\\s+)?([0-9]+)\\s+(?:hops?|steps?)\\b".r
+ 
+-  /** The clauses (start, end) of `text` that state that no path exists: each clause holds a
+-    * negation that governs a path phrase (Phase 16 L2, P16-A-09). Uncertainty phrases are blanked
+-    * first. Positions refer to `text`.
++  /** The clauses (start, end) of `text` that the Phase 16 phrase list ([[AbsencePhraseRe]]) finds:
++    * each holds a negation that governs a path phrase (Phase 16 L2, P16-A-09). Uncertainty phrases
++    * are blanked first. Positions refer to `text`. Kept unchanged so that nothing it recognised
++    * stops being recognised (decision 6.2, monotonic); [[AbsenceRule]] adds to it.
+     */
+-  private[runtime] def absenceSpans(text: String): List[(Int, Int)] = {
++  private def phraseSpans(text: String): List[(Int, Int)] = {
+     val t = UncertainRe.replaceAllIn(text, m => " " * m.matched.length)
+     val seps = AbsenceClauseSep.findAllMatchIn(t).toList
+     AbsencePhraseRe
+@@ -195,7 +207,31 @@ object ClaimVerification {
+       .distinct
+   }
+ 
+-  /** The text states that no path exists (Phase 16 L2). */
++  /** The clauses (start, end) of `text`, split as absence clauses are (uncertainty phrases blanked
++    * first, curly apostrophes read as straight ones). Positions refer to `text`.
++    */
++  private[runtime] def absenceClauses(text: String): (String, List[(Int, Int)]) = {
++    val t = AbsenceRule.normalize(UncertainRe.replaceAllIn(text, m => " " * m.matched.length))
++    val seps = AbsenceClauseSep.findAllMatchIn(t).toList
++    val bounds = 0 :: seps.map(_.end)
++    val ends = seps.map(_.start) :+ t.length
++    (t, bounds.zip(ends).filter { case (s, e) => e > s })
++  }
++
++  /** The clauses (start, end) of `text` that state that researchers are not connected: the Phase 16
++    * phrase list, plus every clause that [[AbsenceRule.classify]] reads as an absence statement
++    * (P16-L-10). Positions refer to `text`.
++    */
++  private[runtime] def absenceSpans(text: String): List[(Int, Int)] = {
++    val (t, clauses) = absenceClauses(text)
++    val byRule = clauses.filter { case (s, e) =>
++      val c = t.substring(s, e)
++      AbsenceRule.classify(c, AbsenceRule.namesSomeone(c, Set.empty)) == AbsenceRule.Absence
++    }
++    (phraseSpans(text) ++ byRule).distinct
++  }
++
++  /** The text states that researchers are not connected (Phase 16 L2, P16-L-10). */
+   private[runtime] def statesAbsence(text: String): Boolean = absenceSpans(text).nonEmpty
+   private val Year = "((?:19|20)[0-9]{2})"
+   private val RangeRe: Regex = s"(?<![\\p{N}])$Year\\s*[-–—]\\s*$Year(?![\\p{N}])".r
+@@ -291,6 +327,23 @@ object ClaimVerification {
+       c: DraftClaim,
+       items: Map[EvidenceId, EvidenceItem],
+       windows: Map[String, YearWindow] = Map.empty
++  ): VerifiedClaim = evaluate(c, items, windows, absenceRule = true)
++
++  /** The Phase 16 verdict: the same checks with the Phase 17 absence rule switched off. Used only
++    * as the baseline of the monotonic tests (decision 6.2): the rule only adds reasons, so a
++    * claim's status under [[verifyClaim]] is never higher than here.
++    */
++  private[runtime] def verifyClaimPhase16(
++      c: DraftClaim,
++      items: Map[EvidenceId, EvidenceItem],
++      windows: Map[String, YearWindow] = Map.empty
++  ): VerifiedClaim = evaluate(c, items, windows, absenceRule = false)
++
++  private def evaluate(
++      c: DraftClaim,
++      items: Map[EvidenceId, EvidenceItem],
++      windows: Map[String, YearWindow],
++      absenceRule: Boolean
+   ): VerifiedClaim = {
+     val cited = c.evidenceIds.map(EvidenceId(_)).distinct
+     val valid = cited.filter(items.contains)
+@@ -373,7 +426,8 @@ object ClaimVerification {
+     // P16-K-01: inside them, only a bounded hop count ("within 6 hops") or a depth ("depth 6") is
+     // an absence depth; every other hop count is a positive hop count and is checked below.
+     // P16-L-03: absence wording is checked whether or not a `path=none` item is cited
+-    val spans = absenceSpans(stripped)
++    // (Phase 17: these are the Phase 16 phrase spans; the absence rule below adds its own)
++    val spans = phraseSpans(stripped)
+     val depthMatches: List[((Int, Int), Regex.Match)] = spans.flatMap { case sp @ (s, e) =>
+       (BoundHopRe.findAllMatchIn(stripped) ++ DepthRe.findAllMatchIn(stripped))
+         .filter(m => m.start >= s && m.end <= e)
+@@ -448,22 +502,24 @@ object ClaimVerification {
+       .map { case (n, ids) => n -> ids.toSet }
+     // the researchers the claim names: capitalized name runs (homonym numbers attached) plus any
+     // cited full name that no run already holds
+-    lazy val claimPair: Option[Set[String]] = {
++    lazy val claimNamed: List[String] = {
+       val src = List(StableIdRe, ClaimIdRe).foldLeft(noQuotes)((t, re) =>
+         re.replaceAllIn(t, m => " " * m.matched.length)
+       )
+-      def wordIn(t: String, n: String): Boolean =
+-        n.nonEmpty && s"(?<![\\p{L}\\p{N}])${java.util.regex.Pattern.quote(n)}(?![\\p{L}\\p{N}])".r
+-          .findFirstIn(t)
+-          .isDefined
+       val runs = RulePlanner.nameRuns(src).map(normName).distinct
+       val extra = idsByName.keySet.toList.sorted.filter(n =>
+-        wordIn(normName(src), n) && !runs.exists(r => wordIn(r, n))
++        AbsenceRule.wordIn(normName(src), n) && !runs.exists(r => AbsenceRule.wordIn(r, n))
+       )
+-      val named = (runs ++ extra).distinct
++      (runs ++ extra).distinct
++    }
++    // the pair's researcher IDs and the two names that resolved to them
++    lazy val claimPairNamed: Option[(Set[String], List[String])] = {
++      val named = claimNamed
+       val ids = named.flatMap(n => idsByName.get(n).filter(_.size == 1).toList.flatten)
+-      if (named.size == 2 && ids.size == 2 && ids.distinct.size == 2) Some(ids.toSet) else None
++      if (named.size == 2 && ids.size == 2 && ids.distinct.size == 2) Some((ids.toSet, named))
++      else None
+     }
++    lazy val claimPair: Option[Set[String]] = claimPairNamed.map(_._1)
+     // year-like tokens outside the parsed ranges make the claim's window unknown (P16-L-06)
+     lazy val unparsedYear: Boolean = {
+       val noRanges = List(RangeRe, BetweenRe).foldLeft(stripped)((t, re) =>
+@@ -472,18 +528,20 @@ object ClaimVerification {
+       YearLikeRe.findFirstIn(noRanges).isDefined
+     }
+     lazy val claimRanges = rangesIn(stripped)
++    // Right(window) when the claim's window is known (None: the claim states none)
++    def windowOf(clause: String): Either[Unit, Option[(Int, Int)]] = {
++      val clauseRanges = rangesIn(clause)
++      if (unparsedYear) Left(())
++      else if (clauseRanges.size == 1) Right(clauseRanges.headOption)
++      else if (clauseRanges.size > 1) Left(())
++      else if (claimRanges.size == 1) Right(claimRanges.headOption)
++      else if (claimRanges.isEmpty) Right(None)
++      else Left(())
++    }
+     spans.foreach { case sp @ (s, e) =>
+       val clause = stripped.substring(s, e)
+       val depths = depthMatches.collect { case (`sp`, m) => m.group(1).toDouble }
+-      val clauseRanges = rangesIn(clause)
+-      // Right(window) when the claim's window is known (None: the claim states none)
+-      val window: Either[Unit, Option[(Int, Int)]] =
+-        if (unparsedYear) Left(())
+-        else if (clauseRanges.size == 1) Right(clauseRanges.headOption)
+-        else if (clauseRanges.size > 1) Left(())
+-        else if (claimRanges.size == 1) Right(claimRanges.headOption)
+-        else if (claimRanges.isEmpty) Right(None)
+-        else Left(())
++      val window = windowOf(clause)
+       claimPair match {
+         case None      => unbacked += Reasons.AbsenceNotSearched
+         case Some(ids) =>
+@@ -521,6 +579,138 @@ object ClaimVerification {
+       }
+     }
+ 
++    // ---- Phase 17 absence rule (decision 6; P16-L-10..L-15): it only ADDS reasons ----
++    // Nothing above is changed by it and `checked` is never raised, so no status can rise
++    // (decision 6.2). An absence claim is verified only when every condition of item 1f holds;
++    // each condition that fails adds its reason (the lists and the scope rule: [[AbsenceRule]]).
++    if (absenceRule) {
++      val (t, clauses) = absenceClauses(stripped)
++      val bundleNames: Set[String] =
++        items.values.flatMap(EvidenceValues.names).map(normName).filter(_.nonEmpty).toSet
++      val kinds = clauses.map { case sp @ (s, e) =>
++        val c = t.substring(s, e)
++        sp -> AbsenceRule.classify(c, AbsenceRule.namesSomeone(c, bundleNames))
++      }
++      def overlapsPhrase(sp: (Int, Int)): Boolean =
++        spans.exists { case (ps, pe) => ps < sp._2 && sp._1 < pe }
++      // (a) the absence spans: the Phase 16 phrase spans plus every clause read as an absence
++      val ruleSpans = kinds.collect { case (sp, AbsenceRule.Absence) => sp }
++      val allSpans = (spans ++ ruleSpans).distinct
++      val namesTwo = claimNamed.size >= 2
++      val words = AbsenceRule.tokens(t)
++      val pairNames = claimPairNamed.map(_._2).getOrElse(Nil)
++      val pairParts = pairNames.flatMap(AbsenceRule.parts).toSet
++      val labels = windows.keySet.map(_.toLowerCase(Locale.ROOT))
++      // (a) unclear scope, both kinds of predicate, a negation beside the pair with no listed
++      // predicate; (g) a word outside the closed vocabulary of absence claims
++      val unclear = (namesTwo || allSpans.nonEmpty) && kinds.exists(_._2 == AbsenceRule.Unclear)
++      val mixed = allSpans.nonEmpty && kinds.exists(_._2 == AbsenceRule.Connection)
++      val negationOnly = namesTwo && kinds.exists { case (sp, k) =>
++        k == AbsenceRule.NegationOnly && !overlapsPhrase(sp)
++      }
++      val unknownWord = allSpans.nonEmpty &&
++        words.exists(w => !AbsenceRule.inVocabulary(w, pairParts, labels))
++      val ambiguous = unclear || mixed || negationOnly || unknownWord
++      if (ambiguous) uncovered += Reasons.AbsenceAmbiguous
++      // (e, P16-L-15) an absence about researchers the claim does not name
++      if ((allSpans.nonEmpty || ambiguous) && words.exists(w => AbsenceRule.UnnamedWords(w.word)))
++        unbacked += Reasons.AbsenceNotSearched
++      // (c) found paths and coauthor edges of the whole bundle (cited or not)
++      val bundleGraph = items.values.toList.filter(_.evidenceType != EvidenceType.SemanticContext)
++      val bundleFound = bundleGraph.filter { i =>
++        val p = EvidenceValues.pairs(i)
++        (i.evidenceType == EvidenceType.GraphPath && EvidenceValues.numbers(i).contains("hops")) ||
++        (i.evidenceType == EvidenceType.CoauthorEdge && !p.get("found").contains("false"))
++      }
++      val foundSet = (foundPaths ++ foundEdges ++ bundleFound).distinct
++      // the hops between the pair on a found path (anywhere on it) or edge (one hop)
++      def hopsBetween(f: EvidenceItem, ids: Set[String]): Option[Double] = {
++        val p = EvidenceValues.pairs(f)
++        if (f.evidenceType == EvidenceType.CoauthorEdge)
++          (p.get("researcherA"), p.get("researcherB")) match {
++            case (Some(a), Some(b)) if Set(a, b) == ids => Some(1.0)
++            case _                                      => None
++          }
++        else
++          p.get("pathIds").map(_.split(",").toList).flatMap { path =>
++            val at = ids.toList.map(path.indexOf)
++            if (ids.size == 2 && at.forall(_ >= 0)) Some(math.abs(at.head - at.last).toDouble)
++            else None
++          }
++      }
++      allSpans.foreach { case (s, e) =>
++        val depths = (BoundHopRe.findAllMatchIn(stripped) ++ DepthRe.findAllMatchIn(stripped))
++          .filter(m => m.start >= s && m.end <= e)
++          .map(_.group(1).toDouble)
++          .toList
++        val window = windowOf(stripped.substring(s, e))
++        val win = window.toOption.flatten
++        // (f) positive eligibility: each condition is established from the evidence, and the
++        // claim can be verified only when all of them are (never because no blocker matched)
++        val established: List[(Boolean, String, Boolean)] = claimPairNamed match {
++          case None             => List((false, Reasons.AbsenceNotSearched, false))
++          case Some((ids, nms)) =>
++            val otherParts = bundleNames.filterNot(nms.contains).flatMap(AbsenceRule.parts)
++            val pairNone = absentItems.filter(i => idPair(i).contains(ids))
++            val windowed = window.toOption.toList.flatMap(w => pairNone.filter(i => yw(i) == w))
++            val support = windowed.filter(isComplete)
++            val maxDepths = support.flatMap(i => EvidenceValues.numbers(i).get("maxDepth"))
++            val through = foundSet.flatMap(f => hopsBetween(f, ids).map(f -> _))
++            val contradicted = through.exists { case (f, h) =>
++              val hopsOk = depths.isEmpty || depths.exists(h <= _)
++              val windowOk = win match {
++                case Some((ws, we)) => yw(f).exists { case (fs, fe) => fs >= ws && fe <= we }
++                case None           => true
++              }
++              hopsOk && windowOk
++            }
++            List(
++              // (a) recognised without ambiguity (its reason was added above)
++              (!ambiguous, Reasons.AbsenceAmbiguous, false),
++              // (b) no possible third name: capitalised and not the pair's, or a name part of
++              // another researcher in the bundle
++              (
++                !words.exists(w => AbsenceRule.isThirdName(w, pairParts, otherParts)),
++                Reasons.AbsenceNotSearched,
++                false
++              ),
++              // (e, P16-L-14) a stated depth (a search is always depth-limited)
++              (depths.nonEmpty, Reasons.AbsenceNoDepth, false),
++              // (d) the claim's window is known, every range in it is that window, and no year
++              // carries a time qualifier
++              (window.isRight, Reasons.AbsenceNotSearched, false),
++              (win.forall(w => claimRanges.forall(_ == w)), Reasons.AbsenceNotSearched, false),
++              (
++                AbsenceRule.TimeQualifierRe.findFirstIn(stripped).isEmpty,
++                Reasons.AbsenceNotSearched,
++                false
++              ),
++              // a cited `path=none` search for exactly the pair in that window, complete, and at
++              // least as deep as every stated depth
++              (windowed.nonEmpty, Reasons.AbsenceNotSearched, false),
++              (windowed.isEmpty || support.nonEmpty, Reasons.AbsenceBoundedSearch, false),
++              (
++                support.isEmpty || depths.forall(d => maxDepths.exists(_ >= d)),
++                Reasons.AbsenceBeyondDepth,
++                false
++              ),
++              // (c) no found path with both researchers anywhere on it, and no edge between them
++              (!contradicted, Reasons.HopsConflict, true),
++              (contradicted || through.isEmpty, Reasons.AbsenceNotSearched, false)
++            )
++        }
++        // every condition not established adds its reason, so a span that is not eligible
++        // (`established.forall(_._1)` false) can never leave the claim verified
++        established.foreach { case (ok, reason, conflict) =>
++          if (!ok) {
++            if (conflict) conflicts += reason
++            else if (reason == Reasons.AbsenceAmbiguous) uncovered += reason
++            else unbacked += reason
++          }
++        }
++      }
++    }
++
+     // ---- hop counts (of found paths; an absence statement's depth was checked above) ----
+     // P16-A-09: a positive hop count N against a complete search that found no path within a
+     // depth of at least N contradicts that search
+@@ -675,3 +865,404 @@ object ClaimVerification {
+     VerifiedClaim(c, status, valid, reasons.distinct, checked)
+   }
+ }
++
++/** Phase 17 decision 6 (P16-L-10..L-15): how a claim about the absence of a connection is
++  * recognised, in one place. A small, tested rule over word tokens and the absence clauses of
++  * [[ClaimVerification]], not a language parser.
++  *
++  * Recognition (item a), per clause:
++  *   - a connection predicate ([[ConnectionWords]], [[ConnectionPhrases]]) governed by a negation
++  *     ([[Negations]], or any word ending in `n't`) is an absence statement;
++  *   - an absence predicate ([[AbsenceWords]], [[AbsencePhrases]]) that is not negated is an
++  *     absence statement; a negated one ("not disconnected") states a connection;
++  *   - a negation governs a predicate when it comes before it in the clause and every word between
++  *     them is a scope word ([[ScopeWords]]) or, for a connection predicate, another connection
++  *     predicate ("no path connects"). `not only`, `not just`, `not merely`, `not simply` are not
++  *     negations;
++  *   - the scope is unclear ([[Unclear]]) when a negation comes before a predicate with other words
++  *     between ("no evidence that A and B are disconnected"), when a negation follows every
++  *     predicate of its clause, when the clause holds absence and connection predicates, or when an
++  *     absence statement names no researcher ("although they never coauthored").
++  *
++  * Eligibility (items b, d, e, g) uses [[isThirdName]], [[Allowlist]], [[TimeQualifierRe]],
++  * [[UnnamedWords]] and [[inVocabulary]] ([[FunctionWords]] is the closed list of function and
++  * scope words, built from the correct absence claims of the fixtures and the deterministic
++  * synthesis wording).
++  */
++private[runtime] object AbsenceRule {
++
++  /** A clause's reading. */
++  sealed trait Kind
++  case object Absence extends Kind
++  case object Connection extends Kind
++  case object Unclear extends Kind
++
++  /** A negation with no predicate in its clause ("A is not a direct coauthor of B"). */
++  case object NegationOnly extends Kind
++  case object Neutral extends Kind
++
++  /** Negation words (item a); every word ending in `n't` is a negation too. */
++  val Negations: Set[String] =
++    Set("no", "not", "never", "none", "without", "cannot", "neither", "nor", "nothing", "nobody")
++
++  /** Words after `not` that make it emphatic, not a negation ("not only connected but ..."). */
++  val NotEmphatic: Set[String] = Set("only", "just", "merely", "simply")
++
++  /** Connection predicates (item a i). */
++  val ConnectionWords: Set[String] = Set(
++    "connected",
++    "connects",
++    "connect",
++    "connection",
++    "connections",
++    "path",
++    "paths",
++    "linked",
++    "link",
++    "links",
++    "reachable",
++    "reach",
++    "reached",
++    "collaborated",
++    "collaborate",
++    "collaborates",
++    "coauthored",
++    "co-authored",
++    "coauthors",
++    "co-authors",
++    "route",
++    "routes",
++    "chain",
++    "chains",
++    "joined"
++  )
++
++  /** Connection predicates of more than one word (matched before single words). */
++  val ConnectionPhrases: List[List[String]] =
++    List("same connected component", "same component").map(_.split(' ').toList)
++
++  /** Absence predicates (item a ii). */
++  val AbsenceWords: Set[String] = Set(
++    "disconnected",
++    "unconnected",
++    "unreachable",
++    "unlinked",
++    "isolated",
++    "separate",
++    "separated",
++    "apart"
++  )
++
++  /** Absence predicates of more than one word (matched before single words). */
++  val AbsencePhrases: List[List[String]] = List(
++    "different connected components",
++    "different connected component",
++    "different components",
++    "different component",
++    "another connected component",
++    "another component"
++  ).map(_.split(' ').toList)
++
++  /** Words that may stand between a negation and the predicate it governs. */
++  val ScopeWords: Set[String] = Set(
++    "a",
++    "an",
++    "the",
++    "any",
++    "be",
++    "been",
++    "is",
++    "are",
++    "was",
++    "were",
++    "have",
++    "has",
++    "had",
++    "do",
++    "does",
++    "did",
++    "even",
++    "ever",
++    "yet",
++    "directly",
++    "indirectly",
++    "mutually",
++    "in",
++    "such",
++    "known",
++    "direct",
++    "indirect",
++    "coauthorship",
++    "co-authorship",
++    "collaboration",
++    "collaborative",
++    "connecting",
++    "shortest",
++    "other"
++  )
++
++  /** Function and scope words an absence claim may use (item g), from the correct absence claims of
++    * the fixtures ("No coauthorship path between A and B exists within 6 hops in 2015-2025.", "A
++    * and B are not connected within 4 hops in 2015-2025.", "No path between A and B exists within
++    * depth 6 in w2021-2023.", "A is not connected to B ...") and the deterministic synthesis
++    * wording ("In 2015-2025, no coauthorship path between A and B exists within depth 6 (the
++    * bounded search completed).").
++    */
++  val FunctionWords: Set[String] = Set(
++    "of",
++    "in",
++    "within",
++    "between",
++    "up",
++    "to",
++    "at",
++    "most",
++    "hops",
++    "hop",
++    "steps",
++    "step",
++    "depth",
++    "limit",
++    "path",
++    "the",
++    "and",
++    "any",
++    "coauthorship",
++    "window",
++    "exists",
++    "exist",
++    "existed",
++    "is",
++    "are",
++    "was",
++    "were",
++    "be",
++    "been",
++    "have",
++    "has",
++    "had",
++    "there",
++    "bounded",
++    "search",
++    "completed"
++  )
++
++  /** Words that are never a third name (item b i): sentence starters, month names, and the metric
++    * and status words the verifier knows. Lower case.
++    */
++  val Allowlist: Set[String] = Set(
++    "the",
++    "there",
++    "no",
++    "not",
++    "none",
++    "neither",
++    "nor",
++    "never",
++    "in",
++    "within",
++    "between",
++    "both",
++    "a",
++    "an",
++    "and",
++    "of",
++    "to",
++    "up",
++    "at",
++    "from",
++    "during",
++    "although",
++    "though",
++    "however",
++    "while",
++    "but",
++    "yet",
++    "they",
++    "it",
++    "this",
++    "these",
++    "is",
++    "are",
++    "was",
++    "were",
++    "since",
++    "before",
++    "after",
++    "until",
++    "for",
++    "with",
++    "by",
++    "as",
++    "january",
++    "february",
++    "march",
++    "april",
++    "may",
++    "june",
++    "july",
++    "august",
++    "september",
++    "october",
++    "november",
++    "december",
++    "path",
++    "coauthorship",
++    "search",
++    "depth",
++    "hops",
++    "window",
++    "complete",
++    "completed",
++    "bounded",
++    "verified"
++  )
++
++  /** Words that make an absence claim about researchers it does not name (P16-L-15). */
++  val UnnamedWords: Set[String] = Set(
++    "anyone",
++    "anybody",
++    "someone",
++    "somebody",
++    "everyone",
++    "everybody",
++    "nobody",
++    "others",
++    "people",
++    "researchers",
++    "colleagues",
++    "collaborators",
++    "common",
++    "shared",
++    "share",
++    "shares",
++    "mutual",
++    "his",
++    "her",
++    "hers",
++    "him",
++    "their",
++    "theirs",
++    "them",
++    "who",
++    "whom",
++    "whose"
++  )
++
++  /** A year used with a time qualifier (item d, P16-L-13). */
++  val TimeQualifierRe: scala.util.matching.Regex =
++    ("(?i)\\b(?:before|after|since|until|till|prior(?:\\s+to)?|between)\\s+" +
++      "(?:the\\s+)?(?:year\\s+)?(?:19|20)[0-9]{2}").r
++
++  // numbers, years, year ranges and window labels (`full-2015-2025`, `w2021-2023`)
++  private val NumberTok =
++    "(?:[0-9]+(?:[.,][0-9]+)*|(?:full-|w)?(?:19|20)[0-9]{2}(?:-(?:19|20)[0-9]{2})?s?)".r
++  private val TokRe = "[\\p{L}\\p{N}]+(?:['-][\\p{L}\\p{N}]+)*".r
++
++  /** A word token: lower case (a trailing `'s` removed), its raw text and position. */
++  final case class Tok(word: String, raw: String, start: Int, end: Int)
++
++  /** Curly apostrophes read as straight ones (same length, so positions are kept). */
++  def normalize(t: String): String = t.replace('’', '\'').replace('‘', '\'')
++
++  def tokens(text: String): Vector[Tok] =
++    TokRe
++      .findAllMatchIn(normalize(text))
++      .map { m =>
++        val w = m.matched.toLowerCase(Locale.ROOT).stripSuffix("'s")
++        Tok(w, m.matched, m.start, m.end)
++      }
++      .toVector
++
++  /** The lower-case word parts of a name. */
++  def parts(name: String): Set[String] = tokens(name).map(_.word).toSet
++
++  /** `n` occurs in `t` as whole words. */
++  def wordIn(t: String, n: String): Boolean =
++    n.nonEmpty && s"(?<![\\p{L}\\p{N}])${java.util.regex.Pattern.quote(n)}(?![\\p{L}\\p{N}])".r
++      .findFirstIn(t)
++      .isDefined
++
++  def isNegation(w: String): Boolean = Negations.contains(w) || w.endsWith("n't")
++
++  private def capitalised(t: Tok): Boolean = t.raw.headOption.exists(Character.isUpperCase)
++
++  /** The clause names a researcher: a capitalised word outside [[Allowlist]] (one-word names
++    * count), a name run, or a name of the bundle.
++    */
++  def namesSomeone(clause: String, bundleNames: Set[String]): Boolean = {
++    val lower = clause.toLowerCase(Locale.ROOT)
++    tokens(clause).exists(t => capitalised(t) && !Allowlist(t.word) && !isNegation(t.word)) ||
++    RulePlanner.nameRuns(clause).nonEmpty || bundleNames.exists(n => wordIn(lower, n))
++  }
++
++  /** The reading of one clause (see the object comment). */
++  def classify(clause: String, namesSomeone: Boolean): Kind = {
++    val w = tokens(clause).map(_.word)
++    val n = w.size
++    // predicates: (start, end exclusive, isConnection); phrases first, their words consumed
++    val preds = List.newBuilder[(Int, Int, Boolean)]
++    var i = 0
++    while (i < n) {
++      def phraseAt(ps: List[List[String]]) =
++        ps.find(p => i + p.size <= n && w.slice(i, i + p.size).toList == p)
++      phraseAt(ConnectionPhrases)
++        .map(p => (p.size, true))
++        .orElse(
++          phraseAt(AbsencePhrases).map(p => (p.size, false))
++        ) match {
++        case Some((len, conn)) => preds += ((i, i + len, conn)); i += len
++        case None              =>
++          if (ConnectionWords(w(i))) preds += ((i, i + 1, true))
++          else if (AbsenceWords(w(i))) preds += ((i, i + 1, false))
++          i += 1
++      }
++    }
++    val ps = preds.result()
++    val negs = w.indices.filter { j =>
++      isNegation(w(j)) && !(w(j) == "not" && j + 1 < n && NotEmphatic(w(j + 1)))
++    }.toList
++    val connAt = ps.filter(_._3).flatMap(p => p._1 until p._2).toSet
++    if (ps.isEmpty) { if (negs.nonEmpty) NegationOnly else Neutral }
++    else {
++      // per predicate: Some(true) governed tightly, Some(false) negation before it with other
++      // words between (unclear), None no negation before it
++      val readings = ps.map { case (s, _, conn) =>
++        val before = negs.filter(_ < s)
++        val tight =
++          before.exists(j => (j + 1 until s).forall(k => ScopeWords(w(k)) || (conn && connAt(k))))
++        val gov = if (tight) Some(true) else if (before.nonEmpty) Some(false) else None
++        (conn, gov)
++      }
++      val dangling = negs.exists(j => !ps.exists(_._1 > j))
++      val loose = readings.exists(_._2.contains(false))
++      val absence = readings.exists {
++        case (true, Some(true)) => true
++        case (false, None)      => true
++        case _                  => false
++      }
++      val connection = readings.exists {
++        case (true, None)        => true
++        case (false, Some(true)) => true
++        case _                   => false
++      }
++      if (loose || dangling || (absence && connection)) Unclear
++      else if (absence) { if (namesSomeone) Absence else Unclear }
++      else Connection
++    }
++  }
++
++  /** Item b: a possible third name. */
++  def isThirdName(t: Tok, pairParts: Set[String], otherParts: Set[String]): Boolean =
++    !pairParts(t.word) && !NumberTok.matches(t.word) && (
++      (capitalised(t) && !Allowlist(t.word) && !isNegation(t.word)) || otherParts(t.word)
++    )
++
++  /** Item g: the word belongs to the closed vocabulary of absence claims. */
++  def inVocabulary(t: Tok, pairParts: Set[String], windowLabels: Set[String]): Boolean = {
++    val x = t.word
++    pairParts(x) || isNegation(x) || ConnectionWords(x) || AbsenceWords(x) ||
++    (ConnectionPhrases ++ AbsencePhrases).exists(_.contains(x)) || ScopeWords(x) ||
++    FunctionWords(x) || Allowlist(x) || NumberTok.matches(x) || windowLabels(x)
++  }
++}
+diff --git a/modules/rag/src/test/scala/org/scholarchain/rag/eval/RetrievalEvalSetSuite.scala b/modules/rag/src/test/scala/org/scholarchain/rag/eval/RetrievalEvalSetSuite.scala
+index 2693754..5058a1d 100644
+--- a/modules/rag/src/test/scala/org/scholarchain/rag/eval/RetrievalEvalSetSuite.scala
++++ b/modules/rag/src/test/scala/org/scholarchain/rag/eval/RetrievalEvalSetSuite.scala
+@@ -50,7 +50,7 @@ class RetrievalEvalSetSuite extends munit.FunSuite {
+     assertEquals(weak("q26"), List(RetrievalEvalSet.GraphOnly))
+   }
+ 
+-  test("q25 and q26 targets are the top 10 of the labelled pool by the benchmark's own rule") {
++  test("q25 and q26 targets are the top 10 of the labelled pool (this set's derivation, H-03)") {
+     val q26 = derived.questions.find(_.id == "q26").get
+     // pool values 1754, 1362, 1212, 1154, 1144, 1084, 1062, 1062 (tie: code-point order), 968, 939
+     assertEquals(q26.targets.head, "researcher:v1:c7883d2daae7743663d011b5212b90b6")
+@@ -64,6 +64,10 @@ class RetrievalEvalSetSuite extends munit.FunSuite {
+     assertEquals(q26.targets.last, "researcher:v1:d97b5c7fa0b28c53d2188a9bd53bf8fc")
+     val q25 = derived.questions.find(_.id == "q25").get
+     assertEquals(q25.targets.last, "researcher:v1:fd836e0f7348e1a2ff3d0ad3953b966a")
++    // H-03: the rule text names the top-limit cut as this set's derivation, not a benchmark rule
++    val topic = RetrievalEvalSet.Rule.find(_.contains("topicRanked")).get
++    assert(!topic.contains("the benchmark's own ranking rule"), topic)
++    assert(topic.contains("not a benchmark label") && topic.contains("default 10"), topic)
+   }
+ 
+   test("the packaged resource equals the derivation from benchmark-v1 and pins its sha256") {
+diff --git a/modules/rag/src/test/scala/org/scholarchain/rag/runtime/ClaimVerificationSuite.scala b/modules/rag/src/test/scala/org/scholarchain/rag/runtime/ClaimVerificationSuite.scala
+index f866ed5..23be398 100644
+--- a/modules/rag/src/test/scala/org/scholarchain/rag/runtime/ClaimVerificationSuite.scala
++++ b/modules/rag/src/test/scala/org/scholarchain/rag/runtime/ClaimVerificationSuite.scala
+@@ -97,7 +97,7 @@ class ClaimVerificationSuite extends munit.FunSuite {
+       None
+     )
+   private def status(c: DraftClaim): VerifiedClaim =
+-    ClaimVerification.verify(AnswerDraft("s", List(c), Nil), built.bundle).head
++    VerifierOracle.verify(AnswerDraft("s", List(c), Nil), built.bundle).head
+ 
+   test("m-1: verified needs a passed check; nothing checkable is partially supported") {
+     val qualitative =
+@@ -380,7 +380,7 @@ class ClaimVerificationSuite extends munit.FunSuite {
+     .fold(e => fail(e), identity)
+   private val r301Items = r301.items.map(i => i.evidenceId -> i).toMap
+   private def r301Verify(text: String, f: Fact*) =
+-    ClaimVerification.verifyClaim(
++    VerifierOracle.verifyClaim(
+       DraftClaim("claim-1", text, f.toList.map(x => r301.idOf(x).value), Nil, None),
+       r301Items
+     )
+diff --git a/modules/rag/src/test/scala/org/scholarchain/rag/runtime/GroundingSuite.scala b/modules/rag/src/test/scala/org/scholarchain/rag/runtime/GroundingSuite.scala
+index 8b64e7a..a355abe 100644
+--- a/modules/rag/src/test/scala/org/scholarchain/rag/runtime/GroundingSuite.scala
++++ b/modules/rag/src/test/scala/org/scholarchain/rag/runtime/GroundingSuite.scala
+@@ -68,7 +68,7 @@ class GroundingSuite extends munit.FunSuite {
+   private def claim(text: String, cites: List[Fact], nums: List[DraftNumber] = Nil) =
+     DraftClaim("claim-1", text, cites.map(id), nums, None)
+   private def verify(c: DraftClaim): VerifiedClaim =
+-    ClaimVerification.verifyClaim(c, items, windowsByLabel)
++    VerifierOracle.verifyClaim(c, items, windowsByLabel)
+ 
+   // ---- L-1 / L-4: one table, both places --------------------------------------------------------
+ 
+@@ -395,9 +395,9 @@ class GroundingSuite extends munit.FunSuite {
+       "Loubna Ben Allal is a coauthor with edge weight 2 and 2 joint publications, active from 2024 to 2025."
+     val planted =
+       "Loubna Ben Allal is a coauthor with edge weight 2 and 2 joint publications, active from 2015 to 2025."
+-    val ok = ClaimVerification.verifyClaim(q08Claim(original, q08Edge), q08Items, windowsByLabel)
++    val ok = VerifierOracle.verifyClaim(q08Claim(original, q08Edge), q08Items, windowsByLabel)
+     assertEquals(ok.status, Verified, ok.reasons.toString)
+-    val bad = ClaimVerification.verifyClaim(q08Claim(planted, q08Edge), q08Items, windowsByLabel)
++    val bad = VerifierOracle.verifyClaim(q08Claim(planted, q08Edge), q08Items, windowsByLabel)
+     assertNotEquals(bad.status, Verified)
+     assertEquals(bad.reasons, List(Reasons.YearConflict))
+     // the template claims (a window range plus edge years) stay verified
+@@ -406,7 +406,7 @@ class GroundingSuite extends munit.FunSuite {
+       "In 2015-2025, Elie Bakouch and Guilherme Penedo share 1 joint publications from 2022 to 2025, with edge weight 1." -> earlierEdge,
+       "In 2015–2025, Elie Bakouch and Loubna Ben Allal share 2 joint publications since 2024." -> q08Edge
+     ).foreach { case (t, e) =>
+-      val v = ClaimVerification.verifyClaim(q08Claim(t, e), q08Items, windowsByLabel)
++      val v = VerifierOracle.verifyClaim(q08Claim(t, e), q08Items, windowsByLabel)
+       assertEquals(v.status, Verified, s"$t: ${v.reasons}")
+     }
+     // a window year alone never supports a single year of an edge claim
+@@ -440,17 +440,17 @@ class GroundingSuite extends munit.FunSuite {
+ 
+   test("L-3: a window range is accepted for an identity-only claim through its context window") {
+     val t = "Elie Bakouch has 30 distinct coauthors between 2015 and 2025."
+-    val v = ClaimVerification.verifyClaim(q08Claim(t, q08Identity), q08Items, windowsByLabel)
++    val v = VerifierOracle.verifyClaim(q08Claim(t, q08Identity), q08Items, windowsByLabel)
+     assertEquals(v.status, Verified, v.reasons.toString)
+     val dash = "Elie Bakouch has 30 distinct coauthors in 2015-2025."
+     assertEquals(
+-      ClaimVerification.verifyClaim(q08Claim(dash, q08Identity), q08Items, windowsByLabel).status,
++      VerifierOracle.verifyClaim(q08Claim(dash, q08Identity), q08Items, windowsByLabel).status,
+       Verified
+     )
+     // another range is still a conflict
+     val other = "Elie Bakouch has 30 distinct coauthors between 2016 and 2025."
+     assertEquals(
+-      ClaimVerification.verifyClaim(q08Claim(other, q08Identity), q08Items, windowsByLabel).status,
++      VerifierOracle.verifyClaim(q08Claim(other, q08Identity), q08Items, windowsByLabel).status,
+       Conflicting
+     )
+   }
+diff --git a/modules/rag/src/test/scala/org/scholarchain/rag/runtime/PathAbsenceSuite.scala b/modules/rag/src/test/scala/org/scholarchain/rag/runtime/PathAbsenceSuite.scala
+index 1ebb2bb..86eebd7 100644
+--- a/modules/rag/src/test/scala/org/scholarchain/rag/runtime/PathAbsenceSuite.scala
++++ b/modules/rag/src/test/scala/org/scholarchain/rag/runtime/PathAbsenceSuite.scala
+@@ -59,7 +59,7 @@ class PathAbsenceSuite extends munit.FunSuite {
+ 
+   private def verify(text: String, f: Fact): VerifiedClaim = {
+     val (items, id) = itemsOf(f)
+-    ClaimVerification.verifyClaim(DraftClaim("claim-1", text, List(id), Nil, None), items)
++    VerifierOracle.verifyClaim(DraftClaim("claim-1", text, List(id), Nil, None), items)
+   }
+ 
+   test("L2: a correct absence claim in hops citing a complete path=none item is verified") {
+@@ -165,7 +165,7 @@ class PathAbsenceSuite extends munit.FunSuite {
+     val built = new EvidenceBuilder(ctx).build(queryRun, facts).fold(e => fail(e), identity)
+     val items = built.items.map(i => i.evidenceId -> i).toMap
+     val ids = facts.map(f => built.idOf(f).value)
+-    ClaimVerification.verifyClaim(DraftClaim("claim-1", text, ids, Nil, None), items)
++    VerifierOracle.verifyClaim(DraftClaim("claim-1", text, ids, Nil, None), items)
+   }
+ 
+   test(
+diff --git a/modules/services/src/test/scala/org/scholarchain/services/CompositionSuite.scala b/modules/services/src/test/scala/org/scholarchain/services/CompositionSuite.scala
+index 9e6f78e..5d8012b 100644
+--- a/modules/services/src/test/scala/org/scholarchain/services/CompositionSuite.scala
++++ b/modules/services/src/test/scala/org/scholarchain/services/CompositionSuite.scala
+@@ -5,6 +5,8 @@ import java.nio.charset.StandardCharsets
+ import java.nio.file.Paths
+ import java.util.concurrent.atomic.AtomicInteger
+ 
++import scala.jdk.CollectionConverters._
++
+ import org.scholarchain.core.config.ScholarChainConfig
+ import org.scholarchain.rag.embedding.{EmbeddingProviders, HttpResult, HttpTransport}
+ import org.scholarchain.rag.runtime.{LlmFactory, RuntimeFixtures, RuntimeService}
+@@ -406,6 +408,73 @@ class CompositionSuite extends munit.FunSuite {
+     } finally rt.close()
+   }
+ 
++  test(
++    "P16-A-12 (H-04): Composition.embeddingWork passes the configured vector index names into " +
++      "EmbeddingWork.indexes, so the composed worker releases an unknown index before re-embedding"
++  ) {
++    import EmbeddingWorkerSuite.{Index, Key, StubQueue, processed}
++    val url = "https://queue.example.invalid/example-embedding-tasks"
++    val withQueue =
++      awsConfig.copy(service = awsConfig.service.map(_.copy(embeddingQueueUrl = Some(url))))
++    val configured = withQueue.vectors.toList.flatMap(_.indexNames).toSet
++    // the anthropic v2 config names all five indexes, the re-embed index among them
++    assertEquals(configured.size, 5, configured.toString)
++    assert(configured.contains(Index), configured.toString)
++    val http = new CountingHttp
++    val opts = awsOptions(http, new CountingTransport, new CountingTransport)
++    val (rt, stores) = Composition
++      .aws(withQueue, RuntimeFixtures.sparkRun, opts)
++      .fold(e => fail(e), identity)
++    try {
++      val built = Composition
++        .embeddingWork(withQueue, rt, opts.embeddingWiring)
++        .fold(e => fail(e), identity)
++        .getOrElse(fail("no embedding work"))
++      // the wiring under test: Main.scala's `config.vectors...indexNames` argument
++      assertEquals(built.indexes, configured)
++      // and its effect: the composed indexes drive the worker's pre-check (queue and re-embed
++      // call are stubbed; the indexes are the composed ones, unchanged)
++      val q = new StubQueue
++      val releasedBeforeReembed = new java.util.concurrent.ConcurrentLinkedQueue[List[String]]()
++      val reembed: Seq[org.scholarchain.storage.ingest.ReembedTask] => Vector[
++        org.scholarchain.storage.ingest.ReembedOutcome
++      ] = ts => { releasedBeforeReembed.add(q.released); ts.map(processed).toVector }
++      val composed = built.copy(
++        queue = q,
++        handlerOf = log =>
++          Right(new org.scholarchain.rag.reembed.ReembedHandler(reembed, configured, 10, log))
++      )
++      val server = ServiceServer
++        .start(
++          rt,
++          stores,
++          ServerOptions(
++            role = Role.Worker,
++            port = Some(0),
++            env = env.get,
++            logSink = new MemoryLogSink,
++            startWorker = false,
++            closeRuntime = false,
++            name = "p16-a-12",
++            embedding = Some(composed)
++          )
++        )
++        .fold(e => fail(e), identity)
++      try {
++        val w = server.embeddingWorker.getOrElse(fail("no embedding worker"))
++        val ok = q.put(org.scholarchain.rag.reembed.EmbeddingTask.render("task-a12-ok", Index, Key))
++        val unknown = q.put(
++          org.scholarchain.rag.reembed.EmbeddingTask.render("task-a12-idx", "unknown-index-v1", Key)
++        )
++        assertEquals(w.processOne(), EmbeddingOutcome(2, 1, 1, 0, 0))
++        // released up front (before the batch's re-embed call), not after it
++        assertEquals(releasedBeforeReembed.asScala.toList, List(List(unknown)))
++        assertEquals(q.acked, List(ok))
++      } finally server.close()
++    } finally rt.close()
++    assertEquals(http.calls.get, 0)
++  }
++
+   test("decision 8.1: service.embeddingQueueUrl with a local runtime is refused by embeddingWork") {
+     val (exportDir, csv) = RuntimeFixtures.inputs()
+     val cfg = withService(config)(
+diff --git a/modules/storage/src/test/scala/org/scholarchain/storage/GraphQuerySuite.scala b/modules/storage/src/test/scala/org/scholarchain/storage/GraphQuerySuite.scala
+index 4cfd778..c14e880 100644
+--- a/modules/storage/src/test/scala/org/scholarchain/storage/GraphQuerySuite.scala
++++ b/modules/storage/src/test/scala/org/scholarchain/storage/GraphQuerySuite.scala
+@@ -5,7 +5,7 @@ import scala.collection.immutable.ListMap
+ import org.scholarchain.core.{MentionId, ResearcherId, WorkId}
+ import org.scholarchain.storage.local.InMemoryGraph
+ import org.scholarchain.storage.neptune.CypherTemplates
+-import org.scholarchain.storage.ports.{GraphQuery, GraphReadSettings, NodeUpsert}
++import org.scholarchain.storage.ports.{GraphQuery, GraphReadSettings, GraphStop, NodeUpsert}
+ 
+ class GraphQuerySuite extends munit.FunSuite {
+   import TestFixtures._
+@@ -176,6 +176,24 @@ class GraphQuerySuite extends munit.FunSuite {
+     assert(stopped.depthSearched.exists(_ < 3), stopped.toString)
+   }
+ 
++  test(
++    "P16-A-03: a timed-out path search says stoppedBy = TimeLimit; found and no-path say None"
++  ) {
++    val g = chain()
++    assertEquals(g.run(GraphQuery.PathBetween(rA, rD, Full, 4)).map(_.stoppedBy), Right(None))
++    assertEquals(g.run(GraphQuery.PathBetween(rA, rD, Full, 2)).map(_.stoppedBy), Right(None))
++
++    // the clock passes the 1000 ms budget at the first check inside the search
++    var t = 0L
++    val slow = chain(() => { val now = t; t += 1000; now })
++    val stopped = slow.run(GraphQuery.PathBetween(rA, rD, Full, 4)).toOption.get
++    assertEquals(stopped.stoppedBy, Some(GraphStop.TimeLimit))
++    assertEquals(
++      (stopped.rows, stopped.complete, stopped.truncated, stopped.depthSearched),
++      (Nil, false, false, Some(0))
++    )
++  }
++
+   test("path search reports more than one shortest path as truncated") {
+     val g = chain()
+     // a second 2-hop route A-E-C beside A-B-C
+diff --git a/modules/storage/src/test/scala/org/scholarchain/storage/emulator/EmulatorWiringSuite.scala b/modules/storage/src/test/scala/org/scholarchain/storage/emulator/EmulatorWiringSuite.scala
+index 5c61ae4..87d1392 100644
+--- a/modules/storage/src/test/scala/org/scholarchain/storage/emulator/EmulatorWiringSuite.scala
++++ b/modules/storage/src/test/scala/org/scholarchain/storage/emulator/EmulatorWiringSuite.scala
+@@ -296,6 +296,148 @@ class EmulatorWiringSuite extends munit.FunSuite {
+       EmulatorSafety.Rules.All.filterNot(_.startsWith("unset:")),
+       scriptRules
+     )
++    assertEquals(libSafetyMismatches(lib), Nil)
++  }
++
++  // P16-A-05: the parts the first comparison did not cover. Each lib.sh rule is read from the
++  // script text and compared with what EmulatorSafety.check does on the same inputs.
++
++  private lazy val libText: String = new String(
++    Files.readAllBytes(repoRoot.resolve("scripts/emulator/lib.sh")),
++    StandardCharsets.UTF_8
++  )
++
++  /** A shell `case` pattern (`*`, `?`, literal characters) as a whole-string regex. */
++  private def globMatches(glob: String, v: String): Boolean =
++    v.matches(glob.map {
++      case '*' => ".*"
++      case '?' => "."
++      case c   => java.util.regex.Pattern.quote(c.toString)
++    }.mkString)
++
++  /** The pattern of lib.sh's `case "${VAR:-}" in PATTERN) ;; *) EMU_FAILED_RULE="RULE"` block. */
++  private def libCasePattern(lib: String, variable: String, rule: String): Option[String] =
++    ("""case "\$\{""" + java.util.regex.Pattern.quote(variable) +
++      """:-\}" in\s+(\S+)\) ;;\s+\*\)\s+EMU_FAILED_RULE="""" +
++      java.util.regex.Pattern.quote(rule) + "\"").r.findFirstMatchIn(lib).map(_.group(1))
++
++  /** Every difference between lib.sh's results-dir set test, absolute-path (slash-star) rules and
++    * credentials/config path suffixes and EmulatorSafety.check; Nil when they are identical.
++    */
++  private def libSafetyMismatches(lib: String): List[String] = {
++    val out = mutable.ListBuffer.empty[String]
++    val samples = List("/", "/a/b", "a", "", "./a", "a/", " /a")
++    def refusedWith(env: Map[String, String], rule: String): Boolean =
++      EmulatorSafety.check(env, _ => true, false, () => "r").left.toOption.contains(rule)
++
++    // 1. lib.sh:140, the results-dir set test: `+x` (set, even empty) or `:+x` (non-empty only)
++    val SetTest = """\[ -n "\$\{SCHOLARCHAIN_EMULATOR_RESULTS_DIR(:?\+)x\}" \]""".r
++    val setOp = SetTest.findAllMatchIn(lib).map(_.group(1)).toList match {
++      case List(op) => Some(op)
++      case other    => out += s"results-dir set test: found $other"; None
++    }
++    setOp.foreach { op =>
++      val libEmptyIsSet = op == "+"
++      val scalaEmptyIsSet =
++        refusedWith(good + (EmulatorSafety.ResultsDirVar -> ""), "results-dir-path")
++      if (libEmptyIsSet != scalaEmptyIsSet)
++        out += s"results-dir set test: lib.sh empty-is-set=$libEmptyIsSet, Scala=$scalaEmptyIsSet"
++    }
++
++    // 2. lib.sh:107-113, :133-139, :141-147, the absolute-path `case` rules
++    def homeEnv(h: String) = good ++ Map(
++      "HOME" -> h,
++      EmulatorSafety.CredentialsFileVar -> s"$h/.aws/emulator/9297/emulator_credentials",
++      EmulatorSafety.ConfigFileVar -> s"$h/.aws/emulator/9297/config"
++    )
++    List[(String, String, String => Map[String, String])](
++      ("HOME", "credentials-file", homeEnv),
++      (
++        "SCHOLARCHAIN_CONFIG_FILE",
++        "config-file-path",
++        v => good + ("SCHOLARCHAIN_CONFIG_FILE" -> v)
++      ),
++      (
++        EmulatorSafety.ResultsDirVar,
++        "results-dir-path",
++        v => good + (EmulatorSafety.ResultsDirVar -> v)
++      )
++    ).foreach { case (variable, rule, envOf) =>
++      libCasePattern(lib, variable, rule) match {
++        case None          => out += s"$rule: no case block for $variable"
++        case Some(pattern) =>
++          samples.foreach { v =>
++            // the results-dir block runs only when the set test triggers (optional mode)
++            val checked =
++              variable != EmulatorSafety.ResultsDirVar || setOp.forall(_ == "+") || v.nonEmpty
++            val libAccepts = !checked || globMatches(pattern, v)
++            val scalaAccepts = !refusedWith(envOf(v), rule)
++            if (libAccepts != scalaAccepts)
++              out += s"$rule: pattern '$pattern' on '$v': lib.sh=$libAccepts, Scala=$scalaAccepts"
++          }
++      }
++    }
++
++    // 3. lib.sh:91, :115, :123, the credentials and config file paths under $HOME
++    val EmuDir = """emu_dir\(\) \{ printf '%s([^']*)/%s' "\$\{HOME:-\}" "\$\{EMU_PORT\}"; \}""".r
++    val Port = """(?m)^EMU_PORT="([0-9]+)"""".r
++    def pathRule(variable: String, rule: String) =
++      ("""if \[ "\$\{""" + variable + """:-\}" != "\$\{dir\}([^"]*)" \]; then\s+EMU_FAILED_RULE="""" +
++        rule + "\"").r.findFirstMatchIn(lib).map(_.group(1))
++    (
++      EmuDir.findFirstMatchIn(lib).map(_.group(1)),
++      Port.findFirstMatchIn(lib).map(_.group(1)),
++      pathRule("AWS_SHARED_CREDENTIALS_FILE", "credentials-file"),
++      pathRule("AWS_CONFIG_FILE", "config-file")
++    ) match {
++      case (Some(base), Some(port), Some(cred), Some(conf)) =>
++        if (!lib.contains("""dir="$(emu_dir)""""))
++          out += "credentials/config paths: dir is not $(emu_dir)"
++        val dirPath = s"$home$base/$port"
++        val credPath = s"$dirPath$cred"
++        val libEnv = good ++ Map(
++          EmulatorSafety.CredentialsFileVar -> credPath,
++          EmulatorSafety.ConfigFileVar -> s"$dirPath$conf"
++        )
++        EmulatorSafety.check(libEnv, _.toString == credPath, false, () => "r") match {
++          case Left(r)  => out += s"credentials/config paths: lib.sh's paths refused by Scala ($r)"
++          case Right(_) => ()
++        }
++      case parts => out += s"credentials/config paths: not found in lib.sh $parts"
++    }
++    out.toList
++  }
++
++  test("P16-A-05: the lib.sh comparison fails when lib.sh's set test, path rules or paths change") {
++    def mutate(from: String, to: String): String = {
++      val m = libText.replaceFirst(from, to)
++      assertNotEquals(m, libText, s"mutation $from did not apply")
++      m
++    }
++    val Q = java.util.regex.Matcher.quoteReplacement _
++    List(
++      // empty counts as unset (the finding's own example)
++      mutate(
++        """\$\{SCHOLARCHAIN_EMULATOR_RESULTS_DIR\+x\}""",
++        Q("${SCHOLARCHAIN_EMULATOR_RESULTS_DIR:+x}")
++      ) ->
++        "results-dir set test",
++      mutate("""(case "\$\{HOME:-\}" in\s+)/\*""", "$1*") -> "credentials-file:",
++      mutate(
++        """(case "\$\{SCHOLARCHAIN_CONFIG_FILE:-\}" in\s+)/\*""",
++        "$1?*"
++      ) -> "config-file-path:",
++      mutate("""(case "\$\{SCHOLARCHAIN_EMULATOR_RESULTS_DIR:-\}" in\s+)/\*""", "$1*") ->
++        "results-dir-path:",
++      mutate("""printf '%s/\.aws/emulator/%s'""", Q("printf '%s/.aws/emu/%s'")) ->
++        "credentials/config paths",
++      mutate("""\$\{dir\}/emulator_credentials" \]""", Q("${dir}/credentials\" ]")) ->
++        "credentials/config paths",
++      mutate("""\$\{dir\}/config" \]""", Q("${dir}/config.ini\" ]")) -> "credentials/config paths"
++    ).foreach { case (mutated, label) =>
++      val found = libSafetyMismatches(mutated)
++      assert(found.exists(_.startsWith(label)), s"expected a '$label' mismatch, got $found")
++    }
+   }
+ 
+   // ---- credentials ----------------------------------------------------------------------
+diff --git a/scripts/README.md b/scripts/README.md
+index 2431707..608a5a0 100644
+--- a/scripts/README.md
++++ b/scripts/README.md
+@@ -2,7 +2,7 @@
+ 
+ Owner: infra-engineer. This file is the reproduction guide until the root `README.md` links to it (documentation-engineer, Phase 17; planned deviation 12.5). The scripts are the only interface: there are no GitHub Actions (planned deviation 12.4). Each script's `--help` text is its full contract; this page summarizes them and gives the order of a full reproduction.
+ 
+-Status of every script: `static: shellcheck clean`, `runtime: untested`, `human execution required`. No agent runs any script.
++Status of every script: `static: shellcheck clean`, `human execution required`. No agent runs any script. Runtime (Phase 15 L-06: the earlier blanket "runtime: untested" was stale): the human ran check.sh, package.sh, plan.sh and `archive-evidence.sh --local-only` in Phase 13; check.sh, package.sh (also `--publish`), plan.sh, deploy.sh, smoke-test.sh, run-bounded-pipeline.sh and archive-evidence.sh (S3 mode) in Phase 14; plan.sh, deploy.sh, smoke-test.sh, run-bounded-pipeline.sh, run-experiment.sh, archive-evidence.sh and cleanup.sh in Phase 15; check.sh and the emulator scripts (env.sh, setup.sh, probes.sh) in Phase 16. Each run, its exit code and its record are in that phase's `docs/agent-runs/phase-NN/runbook-log.md` (Phase 13: its human gate); a failed attempt there stays a failed attempt. rollback.sh has never run (`runtime: untested`). Each script's own header holds its current runtime line: a part changed after its last run is `runtime: untested` until the human runs it again; Phase 17 changes (release-manifest.sh, the env.sh `SCHOLARCHAIN_CFG_*` sweep, probes.sh P16-B-03, deploy.sh help text E-01, archive-evidence.sh E-03) are `runtime: untested`.
+ 
+ ## Prerequisites
+ 
+@@ -37,7 +37,7 @@ Gate 4 runs `shellcheck -x -P SCRIPTDIR` on `scripts/*.sh`, `scripts/lib/*.sh`,
+ 
+ ## The ten scripts
+ 
+-Exit codes everywhere: 0 ok, 2 usage, 3 missing prerequisite, 4 refused by a safety check, 5 a command failed, 6 a check failed, 7 timed out; run-experiment.sh adds 8 (an identifier found in its run record or folder; Phase 15). Records under `evidence/**` are gitignored and never overwritten (a `NAME.started.json` first, then `NAME.json`).
++Exit codes everywhere: 0 ok, 2 usage, 3 missing prerequisite, 4 refused by a safety check, 5 a command failed, 6 a check failed, 7 timed out; run-experiment.sh adds 8 (an identifier found in its run record or folder; Phase 15), and so does release-manifest.sh (an identifier would be written; Phase 17, see "Release manifest" below). Records under `evidence/**` are gitignored and never overwritten (a `NAME.started.json` first, then `NAME.json`).
+ 
+ | Script | Command line | Reads | Environment variables (names) | Human approval points | Writes | Cloud | Rollback behavior |
+ |---|---|---|---|---|---|---|---|
+@@ -54,6 +54,23 @@ Exit codes everywhere: 0 ok, 2 usage, 3 missing prerequisite, 4 refused by a saf
+ 
+ `{data-bucket}` is the logical name of the data-lake bucket: records and printed lines never hold the real bucket name or the account ID, and the scripts resolve `s3://{data-bucket}/KEY` from `terraform output data_bucket_name`. The Terraform plan and apply output that plan.sh, deploy.sh and cleanup.sh show and save (`.plan.txt`, `.apply.txt`) is masked line by line (`<account>`, `<data-bucket>`, `<vector-bucket>`, including buckets an apply is creating); plan and removal-plan records keep the account only as `account_sha256` (sha256 of `scholarchain-account-v1:ACCOUNT_ID`) and `account_masked`, and deploy.sh and `cleanup.sh --remove` compare that fingerprint with the caller's. The unmasked plan exists only inside the binary `.tfplan` file.
+ 
++## Release manifest (Phase 17, decision 7 item 1)
++
++`scripts/release-manifest.sh` is an eleventh script, outside the table above. Status: `static: shellcheck clean`, `runtime: untested` (until the human's E10 run, Phase 17 decision 18), `human execution required`.
++
++| Command line | Reads | Environment variables (names) | Human approval points | Writes | Cloud | Rollback behavior |
++|---|---|---|---|---|---|---|
++| `bash scripts/release-manifest.sh --clone PATH --marker PATH --out-dir PATH` | this working tree at HEAD (`git ls-tree`, `git cat-file`, `git grep` of the committed `APPROVED-PLAN-SHA256:`, `APPROVED-MANIFEST-SHA256:` and `EVIDENCE-ARCHIVE-SHA256:` lines in `docs/agent-runs/**/approvals.md` and `human-gate.md`), `releases/course/*.json`, `datasets/dataset-manifest.yaml`, `config/course.json`, `prompts/**`, `experiments/raw/`, `experiments/evaluation/raw/`, `experiments/emulator/raw/`; the four jars in the clone; the `--marker` file | `TMPDIR` (private temporary folder) | the human runs it at E10 (dry run at E5 with an `--out-dir` under `/tmp`) and commits `releases/manifest/RC_SHA/` | `OUT_DIR/RC_SHA/release-manifest.json` and `release-manifest.md` (RC_SHA = full HEAD SHA), through `OUT_DIR/.incomplete-RC_SHA-XXXXXX/`; inside this repository only `--out-dir releases/manifest` is accepted | none (no network, no AWS, no Terraform, no sbt) | nothing to undo: a folder is never overwritten; a repeated E10 at a new HEAD writes a new folder |
++
++- **Options:** `--clone` is the top folder of the fresh clone of E3 (not this tree), whose HEAD must equal this tree's HEAD; it is used only to hash the jars. `--marker` is the saved copy of the clone's `.claude/.last-test-run` taken right after E3 (`timestamp=`, `module_tests=`, `contract_tests=` lines). `--out-dir` receives `RC_SHA/` and is created if missing (its parent must exist).
++- **Order of checks, each refusal writes nothing:** options (2); repository root (4); tools `git jq unzip` and `shasum` or `sha256sum` (3); `--marker` exists (3); `--clone` is the top folder of a Git working tree (3) and not this tree (4); clone HEAD equals this HEAD (3); exactly one of each mandatory jar in the clone (3 when missing, 6 when more than one); this tree is clean (4); `--out-dir` accepted and `RC_SHA/` absent (4). The jar checks come before the clean-tree check, so `check.sh`'s probes give their stated codes on a dirty tree too.
++- **Mandatory jars:** the four jars `project/PackageCheck.scala` opens, at the paths `scripts/package.sh` (`check_jars`) uses: `modules/hadoop/target/scala-*/scholarchain-hadoop-assembly-*.jar`, `modules/entity-resolution/target/scala-*/scholarchain-entity-resolution-assembly-*.jar`, `modules/spark/target/scala-*/scholarchain-spark-analytics-assembly-*.jar`, `modules/services/target/scala-*/scholarchain-services-assembly-*.jar`. None is optional. `check.sh` gate 7 builds all four (`sbt -batch packageCheck` depends on the four assemblies). If one is missing in the clone, build it there with `sbt -batch packageCheck` (all four), or `sbt -batch packageJobs` (hadoop, entity-resolution, spark) plus `sbt -batch services/assembly`. A jar whose `scholarchain-build-info.properties` has a `buildCommit` other than the build commit, a `module` other than expected, or `buildDirty` other than `false` is refused (6). `package.sh` runs `sbt clean` and rebuilds the jars, so run it (E5) before E10, never between E10 and E11's checksum recomputation.
++- **Contents, each with its source path:** release candidate and build commit; planned tag `v1.0-submission`; per release record its commit, plan commit, plan sha256, environment, Region, image repository, tag and digest, per service the task definition, previous task definition, image tag and digest check, and whether a committed `APPROVED-PLAN-SHA256:` line carries the same sha256 (file and line); every signed plan checksum with its file and line; every signed experiment manifest; the dataset snapshots and checksums (with their line in `datasets/dataset-manifest.yaml`); run IDs (the Spark graph runs named in `experiments/raw/*/*/run-record.json`, every experiment attempt folder, every evaluation run folder, every emulator run folder, all from `git ls-tree HEAD`; local-only evidence archives as `local only` with their committed checksum line); every file under `prompts/` with its sha256; the model identifiers from `config/course.json` with their field paths; the test counts from `--marker`, labelled E3 with the tested SHA; sha256, size and build info of the four jars; the sha256 of key committed artifacts at HEAD (the dataset manifest, `config/course.json`, `project/PackageCheck.scala`, the signed experiment manifests, `experiments/evaluation/suite-v1.json`, `evaluate.py`, every `frozen-files-sha256-E12.txt`, every tracked `*.sha256` under `docs/agent-runs/` and `experiments/`, the release records, the approval files that hold an `EVIDENCE-ARCHIVE-SHA256:` line); and the rule line for commits after the release candidate (Phase 17 decision 7 item 1, applied at E12). Repository files are hashed as committed at HEAD (`git cat-file`), equal to `shasum -a 256` of the file on a clean checkout.
++- **Identifier check (exit 8), before anything is written to `OUT_DIR`, and again on the written files:** a twelve-digit number (an alphanumeric token of exactly 12 digits) other than the placeholders `123456789012` and `210987654321` and a 12-character prefix of a commit of this repository (for example the release record name `20261119T193246Z-167196849087-d539.json`); an ARN with an account; an `amazonaws.com`, `execute-api` or `.elb.` host; an `s3://` URI that is not a `{placeholder}`; a bucket name of this environment (the `scholarchain-course` patterns of `register_bucket_patterns`); an access-key, Anthropic-key or Voyage-key shape. It prints the document, the line and the kind, never the value. It is pattern based because the script makes no AWS call (the value-based `check_no_identifiers` of `run-experiment.sh` and `archive-evidence.sh` needs the account and bucket names from AWS).
++- **Write path:** both files are built in the private temporary folder, checked, copied into `OUT_DIR/.incomplete-RC_SHA-XXXXXX/` (`mktemp -d`), validated (`jq empty`, every mandatory field, the Markdown holds the SHA, the tag, every jar checksum and the rule line), checked again, and HEAD must not have moved; only then is the folder renamed to `OUT_DIR/RC_SHA/`. On a failure after the temporary folder exists, no `RC_SHA/` is left and the script prints `INCOMPLETE-FOLDER: PATH`: never commit it; remove it, then run again.
++- **Output lines:** `STEP: release-manifest.sh NAME`, `INFO:`, four `SUMMARY: release-manifest ...` lines (counts, `jars_not_present=0`, test counts), `MANIFEST-FOLDER: PATH`, `RESULT: release-manifest.sh ok|failed`.
++- **check.sh probes (gate 9):** `--help` (0); no options and an unknown option (2); a missing `--marker` file, a `--clone` folder that is not a Git working tree, a `--clone` repository whose HEAD differs, and a `--clone` working tree at this HEAD without jars (3 each); the fixtures live in check.sh's private temporary folder, and `release-manifest-wrote-nothing` checks that no refusal created the `--out-dir` folder. They run at E4 in the fresh clone, before E10.
++
+ ## Full reproduction, in order (zsh, one line each, from the repository root)
+ 
+ This is the order Phase 14 session 3 runs (Phase 14 work order, decision 12; step IDs D0a to D20). Pipeline before the runtime-on plan: the plan needs the Spark graph run ID. A full reproduction from nothing starts with check.sh in a fresh clone and the first runtime-off apply (see "First apply" below); experiments (Phase 15) and cleanup come after D20.
+@@ -103,37 +120,40 @@ Uppercase words (`LOCAL_DIR`, `SCOPE`, `HEX`, `HEX32`, `HEX64`, `ATTEMPT_ID`, `B
+ 
+ ## Phase 15 runbook (Phase 15 work order, decision 13)
+ 
+-Phase 15 session 3 runs these steps in this order, one at a time, each by the human (no agent runs a script). The work order (`docs/agent-runs/phase-15/prompt.md`, decision 13) is authoritative for each step's checks; this table is the order and the commands. Every script refuses an untracked file, so every report copy and every finished raw folder is committed before the next script runs. Long runs: `caffeinate -i bash scripts/NAME.sh ARGS 2>&1 | tee /tmp/p15-DNN.log; echo "exit=${pipestatus[1]}"`.
++Phase 15 session 3 ran these steps, each by the human (no agent runs a script). They do not all run one at a time: the D-numbers are fixed names, not the order. The table lists the steps in the order decision 13 of the Phase 15 work order (`docs/agent-runs/phase-15/prompt.md`, "Order and overlap") starts them, and its "When" column states every overlap (Phase 15 M-06). The work order is authoritative for each step's checks; this table is the order and the commands. Every script refuses an untracked file, so every report copy and every finished raw folder is committed before the next script runs. Long runs: `caffeinate -i bash scripts/NAME.sh ARGS 2>&1 | tee /tmp/p15-DNN.log; echo "exit=${pipestatus[1]}"`.
+ 
+-| Step | What | Command or action |
+-|---|---|---|
+-| D0 | Billing numbers; cost bound line in `approvals.md`; commit `docs/agent-runs/**` | human |
+-| D0a | local checks, no AWS: derive scripts with `--fixtures`, syntax of collectors and load generators, `jq empty` on the manifests, executable bits, `git status --short` prints nothing | human (lines from the orchestrator) |
+-| D1 | package | `bash scripts/package.sh` (the build commit is the session 2 commit) |
+-| D2 | publish | `bash scripts/package.sh --publish` |
+-| D3 | runtime-on plan | `bash scripts/plan.sh --runtime-enabled true --image-tag BUILD --graph-run-id run:v1:f2625d504b12749389cf4f5b1a26aed4`; compare `plans/*.summary.txt` with the expected list (infra-engineer 5a and 5b reports); any stateful delete or replace is a stop |
+-| D4a | state-machine checks on the saved plan, before signing | the read-only `validate-state-machine-definition` and `test-state` lines of decision 9.3 (agent-report-infra-5a.md) |
+-| D4 | deploy | `bash scripts/deploy.sh --plan-sha256 HEX64`; commit the release record. Rollback: `rollback.sh` to the Phase 14 revisions (`f159535e`) with the human's go |
+-| D5 | smoke A (q05), G-29 check | `bash scripts/smoke-test.sh --question '...'` (key exported with `read -rs`); the record holds `api_url: "{api-url}"`, no host |
+-| D6 | G-28 re-run (q13) | `bash scripts/smoke-test.sh --question '...'`, then one explain read (the orchestrator writes it) |
+-| D7 | G-27 ingest probe, then the skip-only pass | probe: `bash scripts/run-bounded-pipeline.sh --stage load --snapshot dblp-2026-11-01 --loader rag-ingest --export 's3://{data-bucket}/graph/exports/20261119T062721Z-ba345f8d576c-cebe/run=f2625d504b12749389cf4f5b1a26aed4' --max-documents 5000 --wait-timeout 1800`; the full pass only if the probe wrote 0 vectors and 0 text objects with skip ratio 1.0: the same line without `--max-documents` (wait sized from the probe; rag's estimate `--wait-timeout 1800`) |
+-| D7a | `p15-a-hadoop` (evening, attended, second terminal, right after D7 started) | `caffeinate -i bash scripts/run-experiment.sh --manifest experiments/manifests/p15-a-hadoop.json --manifest-sha256 HEX64` |
+-| D8 | two cheap live suites | the sbt commands of the Phase 14 rag report |
+-| D9 | sign the manifests | one `APPROVED-MANIFEST-SHA256: HEX64` line per manifest in `approvals.md`, one commit (before D7a) |
+-| D9a | dry checks | `bash scripts/run-experiment.sh --manifest ... --manifest-sha256 HEX64 --check` for every signed manifest (the `p15-a-hadoop` one before D7a); then `git status --short` prints nothing |
+-| D10 | F | `run-experiment.sh` with `p15-f-poison-replay` (terminal with `SCHOLARCHAIN_SERVICE_API_KEY` exported); commit the raw folder |
+-| D11 | E | `run-experiment.sh` with `p15-e-retrieval-modes` (its collector runs the `rag-retrieval-eval` loader); commit the raw folder |
+-| D11a | `p15-a-spark` (second terminal, after D11's folder is committed) | `run-experiment.sh` with `p15-a-spark` |
+-| D11b | `p15-b-spark-burst` (third terminal, right after D11a) | `run-experiment.sh` with `p15-b-spark-burst` |
+-| D12, D12b | C, then C's derived plot | `run-experiment.sh` with `p15-c-embedding-backlog`; commit; `python3 -I experiments/derived/NAME.py --manifest p15-c-embedding-backlog`; commit its output |
+-| D13, D14 | D-query, D-read | `run-experiment.sh` with `p15-d-query-load`, then `p15-d-read-load`; commit after each |
+-| D15 | gate check before the demo | orchestrator (records only) |
+-| D16 to D18 | demo recording; `AwsAdaptersAwsSuite` (last); deploy-engineer's read-only report | human and agents |
+-| D19, D20 | runtime-off and cleanup-mode plan, deploy | `bash scripts/plan.sh --runtime-enabled false --cleanup-mode true`; sign; `bash scripts/deploy.sh --plan-sha256 HEX64`; commit the release record (every service desired 0, running 0) |
+-| D21 | overnight fallback only (see "Evening EMR runs and the D21 fallback") | one `caffeinate -i zsh -c '...'` line from the orchestrator |
+-| D22, D23 | results check; derived tables and plots | `python3 -I experiments/derived/NAME.py` per script; commit `experiments/derived/out/**` |
+-| D24 to D28 | instructor note, archive, cleanup | see "Cleanup order (D24 to D28)" |
+-| D29, D30 | final summary; copy and commit `runbook-log.md` | orchestrator and human |
++Order in short: D0, D0a, D1, D2, D3 with D4a, D4; then D7 starts; D9 and D9a's `--check` of `p15-a-hadoop` (the runner refuses an unsigned manifest); then D7a starts while D7 runs; D5, D6, D8 and the rest of D9a run while D7 and D7a run; after D7 ends: D10 (F), then D11 (E), then D11a and D11b start in that order and run beside D12 (then D12b), D13 and D14; D15 after D11a's folder is committed; then D16 to D18; the join; D19, D20; D21 only as the overnight fallback; D22 to D30.
++
++| Step | When (start rule; overlaps) | What | Command or action |
++|---|---|---|---|
++| D0 | first | Billing numbers; cost bound line in `approvals.md`; commit `docs/agent-runs/**` | human |
++| D0a | after D0 | local checks, no AWS: derive scripts with `--fixtures`, syntax of collectors and load generators, `jq empty` on the manifests, executable bits, `git status --short` prints nothing | human (lines from the orchestrator) |
++| D1 | after D0a | package | `bash scripts/package.sh` (the build commit is the session 2 commit) |
++| D2 | after D1 | publish | `bash scripts/package.sh --publish` |
++| D3 | after D2 | runtime-on plan | `bash scripts/plan.sh --runtime-enabled true --image-tag BUILD --graph-run-id run:v1:f2625d504b12749389cf4f5b1a26aed4`; compare `plans/*.summary.txt` with the expected list (infra-engineer 5a and 5b reports); any stateful delete or replace is a stop |
++| D4a | part of D3, before signing | state-machine checks on the saved plan | the read-only `validate-state-machine-definition` and `test-state` lines of decision 9.3 (agent-report-infra-5a.md) |
++| D4 | after D3 is signed | deploy | `bash scripts/deploy.sh --plan-sha256 HEX64`; commit the release record. Rollback: `rollback.sh` to the Phase 14 revisions (`f159535e`) with the human's go |
++| D7 | right after D4; runs beside D9, D9a, D7a, D5, D6, D8 | G-27 ingest probe, then the skip-only pass | probe: `bash scripts/run-bounded-pipeline.sh --stage load --snapshot dblp-2026-11-01 --loader rag-ingest --export 's3://{data-bucket}/graph/exports/20261119T062721Z-ba345f8d576c-cebe/run=f2625d504b12749389cf4f5b1a26aed4' --max-documents 5000 --wait-timeout 1800`; the full pass only if the probe wrote 0 vectors and 0 text objects with skip ratio 1.0: the same line without `--max-documents` (wait sized from the probe; rag's estimate `--wait-timeout 1800`) |
++| D9 | after D7 started; before D7a | sign the manifests | one `APPROVED-MANIFEST-SHA256: HEX64` line per manifest in `approvals.md`, one commit |
++| D9a (part 1) | after D9; before D7a | dry check of `p15-a-hadoop` | `bash scripts/run-experiment.sh --manifest experiments/manifests/p15-a-hadoop.json --manifest-sha256 HEX64 --check`; then `git status --short` prints nothing |
++| D7a | after D9a part 1, while D7 runs (evening, attended, second terminal) | `p15-a-hadoop` | `caffeinate -i bash scripts/run-experiment.sh --manifest experiments/manifests/p15-a-hadoop.json --manifest-sha256 HEX64` |
++| D5 | while D7 and D7a run | smoke A (q05), G-29 check | `bash scripts/smoke-test.sh --question '...'` (key exported with `read -rs`); the record holds `api_url: "{api-url}"`, no host |
++| D6 | while D7 and D7a run, after D5 | G-28 re-run (q13) | `bash scripts/smoke-test.sh --question '...'`, then one explain read (the orchestrator writes it) |
++| D8 | any time from D7 on (for example during D7) | two cheap live suites | the sbt commands of the Phase 14 rag report |
++| D9a (part 2) | while D7 and D7a run; before D10 | dry checks of the other signed manifests | `bash scripts/run-experiment.sh --manifest ... --manifest-sha256 HEX64 --check` for every other signed manifest; then `git status --short` prints nothing |
++| D10 | after D7 ended (F re-embeds vectors) | F | `run-experiment.sh` with `p15-f-poison-replay` (terminal with `SCHOLARCHAIN_SERVICE_API_KEY` exported); commit the raw folder |
++| D11 | after D10 (needs the `ops` task; its collector starts a nested pipeline) | E | `run-experiment.sh` with `p15-e-retrieval-modes` (its collector runs the `rag-retrieval-eval` loader); commit the raw folder |
++| D11a | after D11's folder is committed (second terminal); runs beside D11b, D12, D13, D14 | `p15-a-spark` | `run-experiment.sh` with `p15-a-spark` |
++| D11b | right after D11a started (third terminal); runs beside D11a, D12, D13, D14 | `p15-b-spark-burst` | `run-experiment.sh` with `p15-b-spark-burst` |
++| D12, D12b | after D7 and D11; beside D11a and D11b; D12b right after C's folder is committed | C, then C's derived plot | `run-experiment.sh` with `p15-c-embedding-backlog`; commit; `python3 -I experiments/derived/NAME.py --manifest p15-c-embedding-backlog`; commit its output |
++| D13, D14 | after D12b; beside D11a and D11b | D-query, D-read | `run-experiment.sh` with `p15-d-query-load`, then `p15-d-read-load`; commit after each |
++| D15 | after D11a ended and its folder is committed | gate check before the demo | orchestrator (records only) |
++| D16 to D18 | after D15 | demo recording; `AwsAdaptersAwsSuite` (last); deploy-engineer's read-only report | human and agents |
++| D19, D20 | after the join below | runtime-off and cleanup-mode plan, deploy | `bash scripts/plan.sh --runtime-enabled false --cleanup-mode true`; sign; `bash scripts/deploy.sh --plan-sha256 HEX64`; commit the release record (every service desired 0, running 0) |
++| D21 | overnight fallback only (see "Evening EMR runs and the D21 fallback") | EMR runs not finished in the evening | one `caffeinate -i zsh -c '...'` line from the orchestrator |
++| D22, D23 | after the join (or in the morning after D21) | results check; derived tables and plots | `python3 -I experiments/derived/NAME.py` per script; commit `experiments/derived/out/**` |
++| D24 to D28 | after D23 | instructor note, archive, cleanup | see "Cleanup order (D24 to D28)" |
++| D29, D30 | last | final summary; copy and commit `runbook-log.md` | orchestrator and human |
+ 
+ Join before D19: every EMR run has ended and its folder is committed; `aws emr list-clusters --active --query 'length(Clusters)' --output text` prints `0` and no pipeline execution is `RUNNING`.
+ 
+@@ -143,7 +163,8 @@ Join before D19: every EMR run has ended and its folder is committed; `aws emr l
+ - `--spark-shuffle-partitions N` (stage spark): `spark.sql.shuffle.partitions` of both Spark steps (field `spark.shufflePartitions`), 8..512, default 32. Recorded in `configuration.execution_settings.spark_shuffle_partitions`.
+ - `--max-documents N` (loader rag-ingest, optional): passed on as `RagIngestJob --max-documents N` (1..10000000): every run and the retrieval smoke use the first N rendered documents. Recorded in `inputs.loader_options.max_documents` (null = all) and in `inputs.ops_command`.
+ - `--loader rag-retrieval-eval` (experiment E; `org.scholarchain.rag.eval.RetrievalEvalJob`, no LLM call): `--graph-run-id run:v1:HEX32` (required; passed on as the job's `--graph-run`), `--modes LIST` (optional, comma list without spaces of `graph-only`, `vector-only`, `fused`; fused needs the other two), `--max-seconds N` (optional, 60..3600; job default 1200), `--question-timeout-seconds N` (optional, 5..300; job default 60). The job's `--attempt-id` is the script's own attempt ID, and its `--out` is a new folder inside the task. `--wait-timeout` must be at least the job's total limit plus 300 s (usage error 2 otherwise). Same refusals as every loader: the ops task definition's image tag must be the build commit, and no ops task of the family may be running (one ops task at a time). The report copy goes to `s3://{data-bucket}/rag/retrieval-eval/ATTEMPT_ID/report.json` (put-if-absent); the script prints `EVAL-REPORT: LOCATION` before the task starts and `EVAL-REPORT-COPY: OUTCOME LOCATION` after it, and records `outputs.retrieval_eval_report` (`location`, `copy_outcome`). Container exit 0 means completed with the copy `created` or `already present`; exit 1 (failed, the job's total time limit, or a failed copy) or 2 (refused arguments) makes the stage exit 6.
+-- Example (E, run by its collector through run-experiment.sh): `bash scripts/run-bounded-pipeline.sh --stage load --snapshot dblp-2026-11-01 --loader rag-retrieval-eval --graph-run-id run:v1:f2625d504b12749389cf4f5b1a26aed4 --wait-timeout 1800`.
++- Example (E, run by its collector through run-experiment.sh; the values of the signed manifest `experiments/manifests/p15-e-retrieval-modes.json`, `args`): `bash scripts/run-bounded-pipeline.sh --stage load --snapshot dblp-2026-11-01 --loader rag-retrieval-eval --graph-run-id run:v1:f2625d504b12749389cf4f5b1a26aed4 --modes graph-only,vector-only,fused --max-seconds 1200 --question-timeout-seconds 60 --wait-timeout 2400`.
++- Sizing `--wait-timeout` (Phase 15 M-03): the pipeline's own rule above (`limit + 300`, `run-bounded-pipeline.sh` around line 683) is a floor, not a safe value. The job checks its total limit only when a question starts, so it can end up to about 12 minutes (720 s) after `--max-seconds` (Phase 15 review finding H-02). The E collector (`experiments/collectors/e-retrieval-modes.sh`) therefore requires at least `limit + 300 + 720` (2220 s at the job default 1200 s) and refuses less with exit 2. Use at least that when you run the loader directly too; the signed manifest uses 2400 (its `notes`, "WAIT LIMITS"). A value between the two rules can end with pipeline exit 7 while the task still works.
+ 
+ ## The experiment runner (run-experiment.sh)
+ 
+@@ -217,7 +238,7 @@ Phase 13 (decision 13): only check.sh (fresh clone), package.sh (no `--publish`)
+ 
+ ## AWS Emulator (Phase 16, decision 12; run book step E14)
+ 
+-Local only: no AWS account, no cost, no network beyond Docker's image build. The emulator is AWS's local emulator of the AWS APIs (https://docs.aws.amazon.com/emulator/latest/userguide/what-is-service.html); on macOS it runs in Docker from an image you build (https://docs.aws.amazon.com/emulator/latest/userguide/getting-started-docker.html). Files: `docker/emulator/Dockerfile` (build-engineer), `config/emulator.json`, `scripts/emulator/env.sh`, `scripts/emulator/setup.sh`, `scripts/emulator/probes.sh`, `scripts/emulator/lib.sh` (shared safety contract), `scripts/emulator/OPERATIONS.md` (which operations are documented, and which stay probes). Status of every emulator script: `static: shellcheck clean`, `runtime: untested`, `human execution required`.
++Local only: no AWS account, no cost, no network beyond Docker's image build. The emulator is AWS's local emulator of the AWS APIs (https://docs.aws.amazon.com/emulator/latest/userguide/what-is-service.html); on macOS it runs in Docker from an image you build (https://docs.aws.amazon.com/emulator/latest/userguide/getting-started-docker.html). Files: `docker/emulator/Dockerfile` (build-engineer), `config/emulator.json`, `scripts/emulator/env.sh`, `scripts/emulator/setup.sh`, `scripts/emulator/probes.sh`, `scripts/emulator/lib.sh` (shared safety contract), `scripts/emulator/OPERATIONS.md` (which operations are documented, and which stay probes). Status of every emulator script: `static: shellcheck clean`, `human execution required`; the human ran the Phase 16 versions once (E14, `docs/agent-runs/phase-16/runbook-log.md`); the Phase 17 changes to env.sh (the `SCHOLARCHAIN_CFG_*` sweep, step 8 below) and probes.sh (P16-B-03) are `runtime: untested`.
+ 
+ Two terminals: the **emulator terminal** runs only `docker run` (step 5) and shows the emulator's log; the **[EMULATOR] terminal** is every other step after step 8, with the `[EMULATOR] ` prompt. Never use the [EMULATOR] terminal for anything else (its AWS variables point at the emulator), and never run the emulator steps while another sbt process, a source-changing repair or a commit runs. Every line is one zsh line from the repository root.
+ 
+@@ -232,7 +253,7 @@ Two terminals: the **emulator terminal** runs only `docker run` (step 5) and sho
+ | 6 | second terminal | `aws --version` | AWS CLI v2 |
+ | 7 | second terminal | `for i in $(seq 30); do curl -sf --cacert ~/.aws/emulator/9297/ca.pem https://127.0.0.1:9297/__admin/health && break; sleep 1; done; echo` | prints `ok` within 30 tries (the documentation's wait loop, https://docs.aws.amazon.com/emulator/latest/userguide/point-sdk-to-emulator.html) |
+ | 7b | second terminal | `ls ~/.aws/emulator/9297/` | lists `ca.pem`, `config`, `emulator_credentials`, `truststore.p12` |
+-| 8 | second terminal (becomes the [EMULATOR] terminal) | `source scripts/emulator/env.sh` | `INFO: env.sh: this terminal now targets the AWS Emulator ... Credentials file present: yes`; the prompt starts with `[EMULATOR] ` |
++| 8 | second terminal (becomes the [EMULATOR] terminal) | `source scripts/emulator/env.sh` | `INFO: env.sh: cleared N exported SCHOLARCHAIN_CFG_* variable(s) ...` (a count only; Phase 17: env.sh now clears every exported `SCHOLARCHAIN_CFG_*` variable itself, so the Phase 16 hand step `unset -m 'SCHOLARCHAIN_CFG_*'` is no longer needed), then `INFO: env.sh: this terminal now targets the AWS Emulator ... Credentials file present: yes`; the prompt starts with `[EMULATOR] ` |
+ | 9 | [EMULATOR] | `export SCHOLARCHAIN_EMULATOR_RUN_ID=...` and `export SCHOLARCHAIN_EMULATOR_RESULTS_DIR=...` (absolute, `experiments/emulator/raw/RUN_ID/`) | the orchestrator writes both lines with the values filled in; one run ID for the whole attempt |
+ | 10 | [EMULATOR] | `mkdir -p "$SCHOLARCHAIN_EMULATOR_RESULTS_DIR"` then `ls -d "$SCHOLARCHAIN_EMULATOR_RESULTS_DIR"` | the folder exists |
+ | 11 | [EMULATOR] | `bash scripts/emulator/setup.sh` | `INFO: setup.sh emulator account confirmed: yes`, then `SUMMARY: setup.sh created=... failed=0`; exit 0 (6 means a create failed: the RESULT lines say which) |
+@@ -245,6 +266,6 @@ Rules the scripts and suites enforce (the emulator safety contract, Phase 16 dec
+ 
+ A re-run, full or partial, starts with a restarted emulator (step 15, then step 5 with the same image), a new run ID and results folder, and `setup.sh` again; setup.sh and probes.sh refuse a results folder that already holds their file.
+ 
+-Environment variables (names): read by the scripts: `SCHOLARCHAIN_EMULATOR_ENDPOINT`, `AWS_ENDPOINT_URL`, `AWS_SHARED_CREDENTIALS_FILE`, `AWS_CONFIG_FILE`, the eight unset variables above, `SCHOLARCHAIN_CONFIG_FILE`, `SCHOLARCHAIN_EMULATOR_RESULTS_DIR`, `SCHOLARCHAIN_EMULATOR_RUN_ID` (probes.sh, vector key tag), `HOME`, `TMPDIR`; set by env.sh: `AWS_ENDPOINT_URL`, `AWS_SHARED_CREDENTIALS_FILE`, `AWS_CONFIG_FILE`, `AWS_CA_BUNDLE`, `AWS_EC2_METADATA_DISABLED`, `AWS_DISABLE_HOST_PREFIX_INJECTION`, `AWS_REGION`, `AWS_DEFAULT_REGION`, `SCHOLARCHAIN_EMULATOR_ENDPOINT`, `SCHOLARCHAIN_CONFIG_FILE`.
++Environment variables (names): read by the scripts: `SCHOLARCHAIN_EMULATOR_ENDPOINT`, `AWS_ENDPOINT_URL`, `AWS_SHARED_CREDENTIALS_FILE`, `AWS_CONFIG_FILE`, the eight unset variables above, `SCHOLARCHAIN_CONFIG_FILE`, `SCHOLARCHAIN_EMULATOR_RESULTS_DIR`, `SCHOLARCHAIN_EMULATOR_RUN_ID` (probes.sh, vector key tag), `HOME`, `TMPDIR`; set by env.sh: `AWS_ENDPOINT_URL`, `AWS_SHARED_CREDENTIALS_FILE`, `AWS_CONFIG_FILE`, `AWS_CA_BUNDLE`, `AWS_EC2_METADATA_DISABLED`, `AWS_DISABLE_HOST_PREFIX_INJECTION`, `AWS_REGION`, `AWS_DEFAULT_REGION`, `SCHOLARCHAIN_EMULATOR_ENDPOINT`, `SCHOLARCHAIN_CONFIG_FILE`; unset by env.sh: the eight variables above, the four ScholarChain API-key variables, every exported `SCHOLARCHAIN_CFG_*` variable (found by name at run time, counted) and every `SCHOLARCHAIN_CFG_*` name ConfigLoader knows.
+ 
+ Exit codes (setup.sh, probes.sh): 0 ok; 2 usage; 3 missing prerequisite (tool, file, results folder, emulator not healthy); 4 refused by a safety rule (one `preflight` line in the results file when the results folder is usable); 5 unexpected command failure; 6 a create or probe call failed (results complete); 7 interrupted.
+diff --git a/scripts/archive-evidence.sh b/scripts/archive-evidence.sh
+index f52f776..ad6a8f9 100644
+--- a/scripts/archive-evidence.sh
++++ b/scripts/archive-evidence.sh
+@@ -5,7 +5,11 @@
+ # (author). Run by the human.
+ #
+ # Status (Phase 14, I-25): static: shellcheck clean; runtime: untested; human
+-# execution required.
++# execution required. Phase 17 change (E-03: the --local-only value of
++# byte_copies_hold_identifiers names its account-only scope instead of
++# false): runtime: untested. History: the human ran earlier versions in
++# Phases 13 to 15 (Phase 13 --local-only; Phase 14 D18 and Phase 15 D25,
++# S3 mode; runbook-log.md of phases 14 and 15).
+ 
+ set -Eeuo pipefail
+ umask 077
+@@ -48,8 +52,10 @@ REPORTS_COUNT=0
+ REPORTS_BYTES=0
+ FILE_COUNT=0
+ # JSON text for byte_copies_hold_identifiers (I-25): true or false only after
+-# the check ran with the account ID registered; otherwise a "not checked: ..."
+-# string, never false.
++# the check ran in S3 mode (account ID and bucket names registered); true
++# also when --local-only found the account ID; a clean --local-only check
++# (account only, E-03 Phase 17) is the string "account only: ..."; without an
++# account a "not checked: ..." string. Never false unless the full check ran.
+ IDENTIFIER_WARNINGS='"not checked: the check did not run"'
+ 
+ usage() {
+@@ -123,8 +129,11 @@ reports/ are kept exactly; if one holds an identifier, the script warns and
+ records it (byte_copies_hold_identifiers: true or false). That check needs
+ the account ID: S3 mode learns it from the caller (sts get-caller-identity)
+ and keeps it in memory only; --local-only knows it only from a legacy plan
+-record, and without it records "not checked: account unknown" (I-25). The
+-archive is gitignored and never committed.
++record, and without it records "not checked: account unknown" (I-25). With
++it, --local-only checks the account ID only (bucket names are unknown
++without AWS): it records true when the account ID is found, else
++"account only: no account ID found; bucket names not checked (--local-only)",
++never false (E-03, Phase 17). The archive is gitignored and never committed.
+ 
+ Requirements: bash, git, jq, tar, find, shasum or sha256sum, timeout or
+ gtimeout (GNU coreutils); S3 mode also terraform (output only) and aws (CLI
+@@ -568,6 +577,12 @@ write_manifest() {
+     warn "byte copies were not checked for identifiers: account unknown (use S3 mode to check them)"
+   else
+     IDENTIFIER_WARNINGS="false"
++    # E-03 (Phase 17): --local-only registers only the account ID (bucket
++    # names are unknown without AWS), so a clean result is not "false" there:
++    # it names its scope. A found identifier is still true in both modes.
++    if [ "${LOCAL_ONLY}" = "true" ]; then
++      IDENTIFIER_WARNINGS='"account only: no account ID found; bucket names not checked (--local-only)"'
++    fi
+     if ! check_no_identifiers "${PARTIAL}/repo"; then
+       IDENTIFIER_WARNINGS="true"
+       warn "byte copies under repo/ hold an identifier (listed above); they are kept unchanged; never commit the archive"
+diff --git a/scripts/check.sh b/scripts/check.sh
+index 1830a4c..4901795 100644
+--- a/scripts/check.sh
++++ b/scripts/check.sh
+@@ -4,7 +4,8 @@
+ # infra-engineer (author). Run by the human, normally in a fresh clone.
+ #
+ # Status (Phase 13): static: shellcheck clean; runtime: untested; human
+-# execution required.
++# execution required. Phase 17 (decision 7 item 1): release-manifest refusal
++# probes added to gate 9; runtime: untested.
+ 
+ set -Eeuo pipefail
+ umask 077
+@@ -123,7 +124,18 @@ Gates, in order (each has its own "STEP: check.sh gate-NAME" marker and a
+                      identity_assignment data file in mode
+                      identity-assignments-only, every data file in mode full,
+                      never a _SUCCESS or _manifest.json file, and refuses an
+-                     unknown mode). A probe that reached a cloud call
++                     unknown mode). Release-manifest probes (Phase 17):
++                     scripts/release-manifest.sh --help (exit 0); no
++                     options and an unknown option (exit 2); a missing
++                     --marker file, a --clone folder that is not a Git
++                     working tree, a --clone repository whose HEAD
++                     differs, and a --clone working tree at this HEAD
++                     without the mandatory jars (exit 3 each); the fixtures
++                     (an empty folder, a new repository with one empty
++                     commit, a shared no-checkout clone of this checkout)
++                     live under the private temporary folder, and no
++                     refusal may create the --out-dir folder
++                     (release-manifest-wrote-nothing). A probe that reached a cloud call
+                      would fail for lack of credentials, so no probe can
+                      change AWS. These probes are the first execution of the
+                      scripts; they test refusal paths and the local archive.
+@@ -917,6 +929,68 @@ upload${tab}run=0123abcd/run-report.json"
+   return "${bad}"
+ }
+ 
++# Phase 17 (decision 7 item 1): offline refusal probes of
++# scripts/release-manifest.sh. Fixtures live only under PROBE_DIR: an empty
++# folder (not a Git working tree), a new repository with one empty commit (its
++# HEAD differs), and a shared, no-checkout clone of this checkout whose HEAD
++# is set to this HEAD (a Git working tree with no jar). Each refusal must exit
++# with its stated code, and no probe may create the --out-dir folder.
++probe_release_manifest() {
++  local rm_dir="${PROBE_DIR}/release-manifest" out marker head ok=0
++  out="${rm_dir}/out"
++  marker="${rm_dir}/marker.txt"
++  if [ ! -f scripts/release-manifest.sh ]; then
++    printf '  PROBE: release-manifest failed (scripts/release-manifest.sh missing)\n'
++    printf 'release-manifest\tfailed\t127\t0\n' >>"${TMP_DIR}/probes.tsv"
++    PROBES_BAD=1
++    return 0
++  fi
++  probe help-release-manifest 0 '^Usage: scripts/release-manifest\.sh' \
++    bash scripts/release-manifest.sh --help || true
++  probe release-manifest-no-options 2 'exit=2' bash scripts/release-manifest.sh || true
++  probe release-manifest-unknown-option 2 'unknown argument' bash scripts/release-manifest.sh --bogus || true
++  if mkdir -p -- "${rm_dir}/not-git" &&
++    printf 'timestamp=2026-01-01T00:00:00Z\nmodule_tests=1\ncontract_tests=1\n' >"${marker}"; then
++    ok=1
++  fi
++  head="$(head_commit)" || ok=0
++  if [ "${ok}" -eq 1 ]; then
++    if ! with_timeout "${PROBE_TIMEOUT}" git init -q -- "${rm_dir}/other" ||
++      ! with_timeout "${PROBE_TIMEOUT}" git -C "${rm_dir}/other" -c user.name=check \
++        -c user.email=check@example.invalid -c commit.gpgsign=false commit -q --allow-empty \
++        -m 'check.sh probe: a different HEAD'; then
++      ok=0
++    fi
++  fi
++  if [ "${ok}" -eq 1 ]; then
++    if ! with_timeout "${PROBE_TIMEOUT}" git clone -q --shared --no-checkout -- "${REPO_ROOT}" "${rm_dir}/same" ||
++      ! git -C "${rm_dir}/same" update-ref --no-deref HEAD "${head}"; then
++      ok=0
++    fi
++  fi
++  if [ "${ok}" -ne 1 ]; then
++    printf '  release-manifest: could not prepare the fixture folders under the private temporary folder\n'
++    probe_record release-manifest-fixtures 1
++    return 0
++  fi
++  probe release-manifest-missing-marker 3 'marker file not found' \
++    bash scripts/release-manifest.sh --clone "${rm_dir}/same" --marker "${rm_dir}/no-such-marker.txt" \
++    --out-dir "${out}" || true
++  probe release-manifest-clone-not-git 3 'Git working tree' \
++    bash scripts/release-manifest.sh --clone "${rm_dir}/not-git" --marker "${marker}" --out-dir "${out}" || true
++  probe release-manifest-clone-head-differs 3 'differs from this tree' \
++    bash scripts/release-manifest.sh --clone "${rm_dir}/other" --marker "${marker}" --out-dir "${out}" || true
++  probe release-manifest-jar-missing 3 'mandatory jar missing' \
++    bash scripts/release-manifest.sh --clone "${rm_dir}/same" --marker "${marker}" --out-dir "${out}" || true
++  if [ -e "${out}" ]; then
++    printf '  release-manifest: a refusal created %s\n' "${out}"
++    probe_record release-manifest-wrote-nothing 1
++  else
++    probe_record release-manifest-wrote-nothing 0
++  fi
++  return 0
++}
++
+ gate_probes() {
+   local s rc example_sha dirty
+   PROBE_DIR="${TMP_DIR}/probes"
+@@ -967,6 +1041,7 @@ gate_probes() {
+   rc=0
+   probe_er_upload_plan || rc=1
+   probe_record er-upload-plan "${rc}"
++  probe_release_manifest
+   return "${PROBES_BAD}"
+ }
+ 
+diff --git a/scripts/deploy.sh b/scripts/deploy.sh
+index 724feb0..f7537bd 100644
+--- a/scripts/deploy.sh
++++ b/scripts/deploy.sh
+@@ -7,7 +7,11 @@
+ # Status (Phase 14, I-28): static: shellcheck clean; runtime: untested; human
+ # execution required. Phase 16 L-07 change (endpoint values registered for
+ # masking before the apply; the saved apply copy masked again after it):
+-# runtime: untested.
++# runtime: untested. Phase 17 change (E-01: help text only, the stale
++# "Phase 14 order" paragraph replaced by a pointer to scripts/README.md):
++# runtime: untested. History: the human ran earlier versions in Phases 14
++# and 15 (for example Phase 15 D4 and D20, exit 0,
++# docs/agent-runs/phase-15/runbook-log.md:28 and :86).
+ 
+ set -Eeuo pipefail
+ umask 077
+@@ -106,16 +110,11 @@ changes no plan input (infra/terraform/ and the files listed in
+ SC_PLAN_INPUT_PATHS) and no build input, so signed plans
+ and packaged artifacts stay valid.
+ 
+-Phase 14 order (decided in the Phase 13 work order):
+-  1. deploy.sh with the plan signed at the Phase 13 gate (runtime off);
+-     commit its release record.
+-  2. bash scripts/package.sh --publish (image to ECR, jars to
+-     artifacts/BUILD_COMMIT/).
+-  3. bash scripts/plan.sh --runtime-enabled true --image-tag BUILD_COMMIT
+-     --graph-run-id ID; commit APPROVED-PLAN-SHA256 for it in
+-     docs/agent-runs/phase-14/approvals.md.
+-  4. deploy.sh with that second plan; commit the release record; then run
+-     scripts/smoke-test.sh.
++Order of a full reproduction (runtime-off plan and deploy, package and
++publish, the bounded pipeline, then the runtime-on plan, which needs the
++Spark graph run ID, and its deploy, then the smoke tests): see
++scripts/README.md, "Full reproduction, in order". That table is the
++authoritative order; this help text does not repeat it.
+ 
+ It never edits Terraform state by hand, never runs any other plan, and asks
+ no question. If the apply fails, no release record is written; run plan.sh
+diff --git a/scripts/emulator/env.sh b/scripts/emulator/env.sh
+index fe39c03..d698521 100644
+--- a/scripts/emulator/env.sh
++++ b/scripts/emulator/env.sh
+@@ -5,10 +5,12 @@
+ #
+ #   source scripts/emulator/env.sh
+ #
+-# It must parse and behave the same in zsh (the human's shell) and bash, so it
+-# uses only POSIX-style tests, case, unset, export and printf (no arrays, no
+-# bash-only expansions, no functions). It starts no program, makes no network
+-# call and writes no file. It changes no shell option.
++# It must parse and behave the same in zsh (the human's shell) and bash 3.2,
++# so it uses only POSIX-style tests, case, unset, export, printf, read, a
++# command substitution and a here-document (no arrays, no bash-only or
++# zsh-only expansions, no functions, no pipelines). The only program it starts
++# is one awk process that prints variable names (never values). It makes no
++# network call and writes no file. It changes no shell option.
+ #
+ # What it does, in order:
+ #   1. Refuses (return 4) unless the current folder is the repository root
+@@ -21,9 +23,13 @@
+ #      AWS_WEB_IDENTITY_TOKEN_FILE, AWS_CONTAINER_CREDENTIALS_RELATIVE_URI,
+ #      AWS_CONTAINER_CREDENTIALS_FULL_URI. It also unsets the four ScholarChain
+ #      API-key variables named in config/course.json (the emulator config uses
+-#      the fake embedding and LLM providers, so no key is needed) and every
+-#      SCHOLARCHAIN_CFG_* override ConfigLoader knows, so a value left from an
+-#      AWS session (for example a real queue URL) never overrides
++#      the fake embedding and LLM providers, so no key is needed). Then it
++#      unsets every exported variable whose name starts with SCHOLARCHAIN_CFG_
++#      (any name, found at run time; Phase 17 decision 7 item 2) and prints
++#      one line with how many it cleared (a count only, never a name or a
++#      value), and finally every SCHOLARCHAIN_CFG_* override ConfigLoader
++#      knows by name (also unexported ones; not counted), so a value left from
++#      an AWS session (for example a real queue URL) never overrides
+ #      config/emulator.json.
+ #   3. Exports the variables of the emulator documentation, "To point your SDK
+ #      at a local emulator"
+@@ -46,7 +52,10 @@
+ # Return codes: 0 done; 2 executed instead of sourced (bash only); 4 refused
+ # (not at the repository root).
+ #
+-# Status: static: shellcheck clean; runtime: untested; human execution required.
++# Status (Phase 17): static: shellcheck clean; runtime: untested; human
++# execution required. History: the human sourced the Phase 16 version once
++# (E14 part 2, docs/agent-runs/phase-16/runbook-log.md:58, then cleared the
++# SCHOLARCHAIN_CFG_* overrides by hand); the Phase 17 sweep has never run.
+ 
+ if [ -n "${BASH_VERSION:-}" ] && [ "${BASH_SOURCE[0]:-}" = "$0" ]; then
+   printf 'ERROR: env.sh: source this file (source scripts/emulator/env.sh); running it changes nothing\n' >&2
+@@ -68,8 +77,37 @@ unset AWS_PROFILE AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN \
+ unset SCHOLARCHAIN_VOYAGE_API_KEY SCHOLARCHAIN_ANTHROPIC_API_KEY \
+   SCHOLARCHAIN_SERVICE_API_KEY SCHOLARCHAIN_SERVICE_READONLY_API_KEY
+ 
++# Every exported SCHOLARCHAIN_CFG_* variable, whatever its name (Phase 17,
++# decision 7 item 2). Method, the same in bash 3.2 and zsh: one awk process
++# prints only the NAMES from its ENVIRON array (never a value; a value with a
++# newline cannot fake a name), filtered to ^SCHOLARCHAIN_CFG_[A-Za-z0-9_]+$;
++# the names come back through a command substitution and a here-document into
++# a while-read loop, which runs in the current shell in both shells (no
++# pipeline, no array, no word splitting, which zsh does not do by default).
++# Each successful unset is counted; only the count is printed.
++SC_EMU_CFG_COUNT=0
++if command -v awk >/dev/null 2>&1; then
++  SC_EMU_CFG_NAMES="$(awk 'BEGIN { for (k in ENVIRON) if (k ~ /^SCHOLARCHAIN_CFG_[A-Za-z0-9_]+$/) print k }' </dev/null)"
++  while IFS= read -r SC_EMU_CFG_NAME; do
++    case "${SC_EMU_CFG_NAME}" in
++      SCHOLARCHAIN_CFG_?*)
++        if unset "${SC_EMU_CFG_NAME}" 2>/dev/null; then
++          SC_EMU_CFG_COUNT=$((SC_EMU_CFG_COUNT + 1))
++        fi
++        ;;
++    esac
++  done <<SC_EMU_CFG_EOF
++${SC_EMU_CFG_NAMES}
++SC_EMU_CFG_EOF
++  printf 'INFO: env.sh: cleared %s exported SCHOLARCHAIN_CFG_* variable(s) (count only; no name or value is printed)\n' "${SC_EMU_CFG_COUNT}"
++else
++  printf 'WARN: env.sh: awk not found; only the known SCHOLARCHAIN_CFG_* names below are cleared (count not available)\n' >&2
++fi
++unset SC_EMU_CFG_COUNT SC_EMU_CFG_NAMES SC_EMU_CFG_NAME
++
+ # Every SCHOLARCHAIN_CFG_* variable ConfigLoader knows (ConfigLoader.allKeys
+-# through ConfigKey.envVarFor, modules/core/.../config/ConfigLoader.scala).
++# through ConfigKey.envVarFor, modules/core/.../config/ConfigLoader.scala),
++# also when it is set in this shell but not exported (not counted above).
+ unset SCHOLARCHAIN_CFG_ENVIRONMENT SCHOLARCHAIN_CFG_AWS_REGION \
+   SCHOLARCHAIN_CFG_AWS_ACCOUNT_ID SCHOLARCHAIN_CFG_STORAGE_RAW_BUCKET \
+   SCHOLARCHAIN_CFG_STORAGE_CURATED_BUCKET SCHOLARCHAIN_CFG_STORAGE_GRAPH_BUCKET \
+diff --git a/scripts/emulator/probes.sh b/scripts/emulator/probes.sh
+index 81e3e09..b446e75 100644
+--- a/scripts/emulator/probes.sh
++++ b/scripts/emulator/probes.sh
+@@ -4,8 +4,11 @@
+ # policy story). Owner: infra-engineer (Phase 16, decision 12 item 4). Run by
+ # the human in the [EMULATOR] terminal after setup.sh; never by an agent.
+ #
+-# Status (Phase 16): static: shellcheck clean; runtime: untested; human
+-# execution required.
++# Status (Phase 17): static: shellcheck clean; runtime: untested; human
++# execution required. History: the human ran the Phase 16 version once
++# (E14 part 4, success path, exit line not pasted;
++# docs/agent-runs/phase-16/runbook-log.md:61); the Phase 17 change (P16-B-03,
++# the refusal path of safety()) has never run.
+ 
+ set -Eeuo pipefail
+ umask 077
+@@ -192,8 +195,11 @@ safety() {
+   local rc=0
+   emu_safety_check required || rc=$?
+   if [ "${rc}" -ne 0 ]; then
+-    if [ "${EMU_FAILED_RULE}" != "results-dir-path" ] && [ -d "${SCHOLARCHAIN_EMULATOR_RESULTS_DIR}" ] &&
+-      [ ! -e "${SCHOLARCHAIN_EMULATOR_RESULTS_DIR}/probes.jsonl" ]; then
++    # P16-B-03 (Phase 17): the results folder may be unset when an earlier
++    # rule failed; `:-` keeps set -u from aborting before the exit-4 line
++    # (the same guard as setup.sh).
++    if [ "${EMU_FAILED_RULE}" != "results-dir-path" ] && [ -n "${SCHOLARCHAIN_EMULATOR_RESULTS_DIR:-}" ] &&
++      [ -d "${SCHOLARCHAIN_EMULATOR_RESULTS_DIR}" ] && [ ! -e "${SCHOLARCHAIN_EMULATOR_RESULTS_DIR}/probes.jsonl" ]; then
+       EMU_RESULTS_FILE="${SCHOLARCHAIN_EMULATOR_RESULTS_DIR}/probes.jsonl"
+       emu_preflight_line "${EMU_FAILED_RULE}"
+     fi

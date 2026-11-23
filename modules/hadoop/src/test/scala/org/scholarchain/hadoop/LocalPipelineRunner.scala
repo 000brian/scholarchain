@@ -237,7 +237,6 @@ object LocalPipelineRunner {
     )
   }
 
-  /** Runs the pipeline; returns the final report (also written to `<output>/run-report.json`). */
   /** The settings the jobs of this run read (Phase 14 G-19): `conf` with ScholarChain's defaults
     * resource added exactly as [[JobRunner.run]] adds it, restricted to the `scholarchain.*` keys
     * outside the per-run prefixes (`scholarchain.run.*`, `scholarchain.path.*`, set by each
@@ -264,6 +263,7 @@ object LocalPipelineRunner {
   private def settingsObj(kvs: List[(String, String)]): ujson.Obj =
     ujson.Obj.from(kvs.sortBy(_._1).map { case (k, v) => k -> ujson.Str(v) })
 
+  /** Runs the pipeline; returns the final report (also written to `<output>/run-report.json`). */
   def run(o: Options): ujson.Obj = {
     if (Files.exists(o.output)) {
       val s = Files.list(o.output)

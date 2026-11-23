@@ -7,7 +7,11 @@
 # Status (Phase 14, I-28): static: shellcheck clean; runtime: untested; human
 # execution required. Phase 16 L-07 change (endpoint values registered for
 # masking before the apply; the saved apply copy masked again after it):
-# runtime: untested.
+# runtime: untested. Phase 17 change (E-01: help text only, the stale
+# "Phase 14 order" paragraph replaced by a pointer to scripts/README.md):
+# runtime: untested. History: the human ran earlier versions in Phases 14
+# and 15 (for example Phase 15 D4 and D20, exit 0,
+# docs/agent-runs/phase-15/runbook-log.md:28 and :86).
 
 set -Eeuo pipefail
 umask 077
@@ -106,16 +110,11 @@ changes no plan input (infra/terraform/ and the files listed in
 SC_PLAN_INPUT_PATHS) and no build input, so signed plans
 and packaged artifacts stay valid.
 
-Phase 14 order (decided in the Phase 13 work order):
-  1. deploy.sh with the plan signed at the Phase 13 gate (runtime off);
-     commit its release record.
-  2. bash scripts/package.sh --publish (image to ECR, jars to
-     artifacts/BUILD_COMMIT/).
-  3. bash scripts/plan.sh --runtime-enabled true --image-tag BUILD_COMMIT
-     --graph-run-id ID; commit APPROVED-PLAN-SHA256 for it in
-     docs/agent-runs/phase-14/approvals.md.
-  4. deploy.sh with that second plan; commit the release record; then run
-     scripts/smoke-test.sh.
+Order of a full reproduction (runtime-off plan and deploy, package and
+publish, the bounded pipeline, then the runtime-on plan, which needs the
+Spark graph run ID, and its deploy, then the smoke tests): see
+scripts/README.md, "Full reproduction, in order". That table is the
+authoritative order; this help text does not repeat it.
 
 It never edits Terraform state by hand, never runs any other plan, and asks
 no question. If the apply fails, no release record is written; run plan.sh

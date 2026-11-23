@@ -1,0 +1,1222 @@
+diff --git a/modules/rag/src/main/resources/org/scholarchain/rag/eval/benchmark-v1-eval-set.json b/modules/rag/src/main/resources/org/scholarchain/rag/eval/benchmark-v1-eval-set.json
+index 6cfff51..8ecd107 100644
+--- a/modules/rag/src/main/resources/org/scholarchain/rag/eval/benchmark-v1-eval-set.json
++++ b/modules/rag/src/main/resources/org/scholarchain/rag/eval/benchmark-v1-eval-set.json
+@@ -5,7 +5,7 @@
+   "benchmarkSha256": "b58c5e1a6cb29e192035ce77308c20e2597d2d1dbaf8d136761ae5c3316ff3ac",
+   "rule": [
+     "unit: canonical researcher ID",
+-    "answer targets: the researchers of the expected values of kind 'ranking' (by rank), 'edge' (both endpoints, in order) and 'topicRanked' (the top expected.limit of the labelled pool, value descending then researcher ID by code point: the benchmark's own ranking rule), minus the researchers the question names (expected.researcherIds); distinct, in that order",
++    "answer targets: the researchers of the expected values of kind 'ranking' (by rank), 'edge' (both endpoints, in order) and 'topicRanked' (the top expected.limit, default 10 when the question states none, of the labelled pool, value descending then researcher ID by code point: a derivation of this evaluation set from the pool, not a benchmark label, since the benchmark scorer defines no top-limit target set), minus the researchers the question names (expected.researcherIds); distinct, in that order",
+     "a question is in the universe when it has at least one answer target; every other question is not-comparable (labelled only with works, paths, numbers or groups, or an expected abstention), listed with its reason, never scored",
+     "by design weak: vector-only on 'ranking' and 'edge' targets (a similarity search cannot rank by a stored metric or read an edge); graph-only on 'topicRanked' targets (its topic filter needs semantic candidates, which graph-only does not use)"
+   ],
+diff --git a/modules/rag/src/main/scala/org/scholarchain/rag/eval/RetrievalEvalSet.scala b/modules/rag/src/main/scala/org/scholarchain/rag/eval/RetrievalEvalSet.scala
+index e7cd2a3..9a86c5a 100644
+--- a/modules/rag/src/main/scala/org/scholarchain/rag/eval/RetrievalEvalSet.scala
++++ b/modules/rag/src/main/scala/org/scholarchain/rag/eval/RetrievalEvalSet.scala
+@@ -87,7 +87,7 @@ object RetrievalEvalSet {
+   /** The derivation rule, stated in the set and the report. */
+   val Rule: List[String] = List(
+     "unit: canonical researcher ID",
+-    "answer targets: the researchers of the expected values of kind 'ranking' (by rank), 'edge' (both endpoints, in order) and 'topicRanked' (the top expected.limit of the labelled pool, value descending then researcher ID by code point: the benchmark's own ranking rule), minus the researchers the question names (expected.researcherIds); distinct, in that order",
++    "answer targets: the researchers of the expected values of kind 'ranking' (by rank), 'edge' (both endpoints, in order) and 'topicRanked' (the top expected.limit, default 10 when the question states none, of the labelled pool, value descending then researcher ID by code point: a derivation of this evaluation set from the pool, not a benchmark label, since the benchmark scorer defines no top-limit target set), minus the researchers the question names (expected.researcherIds); distinct, in that order",
+     "a question is in the universe when it has at least one answer target; every other question is not-comparable (labelled only with works, paths, numbers or groups, or an expected abstention), listed with its reason, never scored",
+     "by design weak: vector-only on 'ranking' and 'edge' targets (a similarity search cannot rank by a stored metric or read an edge); graph-only on 'topicRanked' targets (its topic filter needs semantic candidates, which graph-only does not use)"
+   )
+diff --git a/modules/rag/src/main/scala/org/scholarchain/rag/ingest/RagIngestJob.scala b/modules/rag/src/main/scala/org/scholarchain/rag/ingest/RagIngestJob.scala
+index ff6a00b..cdaa8f9 100644
+--- a/modules/rag/src/main/scala/org/scholarchain/rag/ingest/RagIngestJob.scala
++++ b/modules/rag/src/main/scala/org/scholarchain/rag/ingest/RagIngestJob.scala
+@@ -37,7 +37,12 @@ import org.scholarchain.storage.ports.{
+   VectorIndexPort
+ }
+ import org.scholarchain.storage.s3.S3KeyLayout
+-import org.scholarchain.storage.source.{ExportSources, RejectLog, S3ExportSource}
++import org.scholarchain.storage.source.{
++  ExportSourceException,
++  ExportSources,
++  RejectLog,
++  S3ExportSource
++}
+ 
+ /** The rag ingest job: renders every registered template from a Spark JSON Lines export, embeds
+   * through the configured provider and ingests through storage's
+@@ -303,6 +308,16 @@ object RagIngestJob {
+     def close(): Unit = env.close()
+   }
+ 
++  /** The text of a failed run's status (P17-F-12, as RetrievalEvalJob): only this job's own
++    * refusals (`sys.error`, an exact `RuntimeException`) and the export source's own validation
++    * errors ([[ExportSourceException]]) carry their message; any other exception is named by its
++    * class only, because store and SDK messages can hold hosts or ARNs.
++    */
++  private[rag] def failureText(e: Throwable): String =
++    if (e.getClass == classOf[RuntimeException] || e.isInstanceOf[ExportSourceException])
++      s"${e.getClass.getSimpleName}: ${e.getMessage}"
++    else e.getClass.getSimpleName
++
+   /** Builds the stores of `--stores` (`local` or `aws`). Building the AWS stores makes no network
+     * call (SDK clients connect on first use).
+     */
+@@ -639,8 +654,7 @@ object RagIngestJob {
+       report("status") = "completed"
+     } catch {
+       case e: StopRun   => report("status") = s"stopped: ${e.getMessage}"
+-      case e: Throwable =>
+-        report("status") = s"failed: ${e.getClass.getSimpleName}: ${e.getMessage}"
++      case e: Throwable => report("status") = s"failed: ${failureText(e)}"
+     } finally {
+       renderRejects.close()
+       report("totalMillis") = ((System.nanoTime() - t0) / 1000000L).toDouble
+@@ -704,11 +718,8 @@ object RagIngestJob {
+               outcome(logical, "conflict: an object with other bytes exists; nothing written")
+           }
+         catch {
+-          case NonFatal(e) =>
+-            outcome(
+-              logical,
+-              masking(s"failed: ${e.getClass.getSimpleName}: ${Option(e.getMessage).getOrElse("")}")
+-            )
++          // P17-F-12: the class only (store and SDK messages can hold hosts or ARNs)
++          case NonFatal(e) => outcome(logical, masking(s"failed: ${e.getClass.getSimpleName}"))
+         }
+     }
+   }
+diff --git a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/ClaimVerification.scala b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/ClaimVerification.scala
+index 145e5a1..3ebdd9b 100644
+--- a/modules/rag/src/main/scala/org/scholarchain/rag/runtime/ClaimVerification.scala
++++ b/modules/rag/src/main/scala/org/scholarchain/rag/runtime/ClaimVerification.scala
+@@ -50,7 +50,12 @@ final case class VerifiedClaim(
+   *     researchers that resolve (homonym numbers included) to two distinct researcher IDs, a cited
+   *     complete `path=none` item is for exactly that ID pair with `maxDepth` at least the stated
+   *     depth and a window equal to the claim's window (or neither has one), no year-like phrase is
+-  *     left unparsed, and no cited found path or edge connects the pair;
++  *     left unparsed, and no cited found path or edge connects the pair. Phase 17 (decision 6,
++  *     P16-L-10..L-15) adds one fail-closed rule that only adds reasons ([[AbsenceRule]]): absence
++  *     is recognised by predicate and negation scope (synonyms such as "disconnected" included); an
++  *     unclear scope or a word outside a closed vocabulary is ambiguous (at most partially
++  *     supported); a possible third name, unnamed researchers, a time qualifier, a missing depth or
++  *     a found path in the bundle with both researchers anywhere on it blocks `verified`;
+   *   - every quoted title equals the title of a cited work item;
+   *   - every identifier and every capitalized name in the text belongs to a cited graph item;
+   *   - a `semantic_context` item never supports a number, edge, path, component, community or
+@@ -106,6 +111,25 @@ object ClaimVerification {
+     // P16-K-01: the named pair and the stated window must be the ones a cited search covered
+     val AbsenceNotSearched =
+       "an absence claim states a researcher pair or window that no cited path search covered"
++    // Phase 17 decision 6 (P16-L-10): wording that may state an absence, but whose negation
++    // scope, predicate or words are not ones the absence rule can check (at most partially
++    // supported, never verified)
++    val AbsenceAmbiguous =
++      "the claim may state that researchers are not connected, in wording the verifier cannot check"
++    // Phase 17 repair (P17-A-05): the Phase 17 rule names the actual cause of a blocked absence
++    // claim (each makes the claim unsupported, as AbsenceNotSearched did for these causes)
++    val AbsenceThirdName =
++      "an absence claim may name a researcher other than the researcher pair of the path search"
++    val AbsenceUnnamed = "an absence claim is about researchers it does not name"
++    val AbsenceTimeQualifier =
++      "an absence claim states a time qualifier, an unparsed year or a year range other than its window"
++    val AbsenceFoundPath =
++      "an absence claim is about a researcher pair that a found path or edge in the evidence bundle connects"
++    // Phase 17 repair (P17-A-01): a claim that names researchers whom a found path or edge in the
++    // bundle connects must state that connection in wording the verifier reads as affirmative (at
++    // most partially supported otherwise, never verified)
++    val ConnectionUnconfirmed =
++      "the claim names researchers that a found path connects, but its wording does not affirm the connection in a form the verifier can check"
+     val all: List[String] = List(
+       CitedNotInBundle,
+       EvidenceIdNotCited,
+@@ -131,6 +155,12 @@ object ClaimVerification {
+       AbsenceBeyondDepth,
+       AbsenceNoDepth,
+       AbsenceNotSearched,
++      AbsenceAmbiguous,
++      AbsenceThirdName,
++      AbsenceUnnamed,
++      AbsenceTimeQualifier,
++      AbsenceFoundPath,
++      ConnectionUnconfirmed,
+       NothingCheckable
+     )
+   }
+@@ -177,11 +207,12 @@ object ClaimVerification {
+   private val BoundHopRe: Regex =
+     "(?i)\\b(?:within|up\\s+to|at\\s+most)\\s+(?:even\\s+)?([0-9]+)\\s+(?:hops?|steps?)\\b".r
+ 
+-  /** The clauses (start, end) of `text` that state that no path exists: each clause holds a
+-    * negation that governs a path phrase (Phase 16 L2, P16-A-09). Uncertainty phrases are blanked
+-    * first. Positions refer to `text`.
++  /** The clauses (start, end) of `text` that the Phase 16 phrase list ([[AbsencePhraseRe]]) finds:
++    * each holds a negation that governs a path phrase (Phase 16 L2, P16-A-09). Uncertainty phrases
++    * are blanked first. Positions refer to `text`. Kept unchanged so that nothing it recognised
++    * stops being recognised (decision 6.2, monotonic); [[AbsenceRule]] adds to it.
+     */
+-  private[runtime] def absenceSpans(text: String): List[(Int, Int)] = {
++  private def phraseSpans(text: String): List[(Int, Int)] = {
+     val t = UncertainRe.replaceAllIn(text, m => " " * m.matched.length)
+     val seps = AbsenceClauseSep.findAllMatchIn(t).toList
+     AbsencePhraseRe
+@@ -195,7 +226,31 @@ object ClaimVerification {
+       .distinct
+   }
+ 
+-  /** The text states that no path exists (Phase 16 L2). */
++  /** The clauses (start, end) of `text`, split as absence clauses are (uncertainty phrases blanked
++    * first, curly apostrophes read as straight ones). Positions refer to `text`.
++    */
++  private[runtime] def absenceClauses(text: String): (String, List[(Int, Int)]) = {
++    val t = AbsenceRule.normalize(UncertainRe.replaceAllIn(text, m => " " * m.matched.length))
++    val seps = AbsenceClauseSep.findAllMatchIn(t).toList
++    val bounds = 0 :: seps.map(_.end)
++    val ends = seps.map(_.start) :+ t.length
++    (t, bounds.zip(ends).filter { case (s, e) => e > s })
++  }
++
++  /** The clauses (start, end) of `text` that state that researchers are not connected: the Phase 16
++    * phrase list, plus every clause that [[AbsenceRule.classify]] reads as an absence statement
++    * (P16-L-10). Positions refer to `text`.
++    */
++  private[runtime] def absenceSpans(text: String): List[(Int, Int)] = {
++    val (t, clauses) = absenceClauses(text)
++    val byRule = clauses.filter { case (s, e) =>
++      val c = t.substring(s, e)
++      AbsenceRule.classify(c, AbsenceRule.namesSomeone(c, Set.empty)) == AbsenceRule.Absence
++    }
++    (phraseSpans(text) ++ byRule).distinct
++  }
++
++  /** The text states that researchers are not connected (Phase 16 L2, P16-L-10). */
+   private[runtime] def statesAbsence(text: String): Boolean = absenceSpans(text).nonEmpty
+   private val Year = "((?:19|20)[0-9]{2})"
+   private val RangeRe: Regex = s"(?<![\\p{N}])$Year\\s*[-–—]\\s*$Year(?![\\p{N}])".r
+@@ -291,6 +346,23 @@ object ClaimVerification {
+       c: DraftClaim,
+       items: Map[EvidenceId, EvidenceItem],
+       windows: Map[String, YearWindow] = Map.empty
++  ): VerifiedClaim = evaluate(c, items, windows, absenceRule = true)
++
++  /** The Phase 16 verdict: the same checks with the Phase 17 absence rule switched off. Used only
++    * as the baseline of the monotonic tests (decision 6.2): the rule only adds reasons, so a
++    * claim's status under [[verifyClaim]] is never higher than here.
++    */
++  private[runtime] def verifyClaimPhase16(
++      c: DraftClaim,
++      items: Map[EvidenceId, EvidenceItem],
++      windows: Map[String, YearWindow] = Map.empty
++  ): VerifiedClaim = evaluate(c, items, windows, absenceRule = false)
++
++  private def evaluate(
++      c: DraftClaim,
++      items: Map[EvidenceId, EvidenceItem],
++      windows: Map[String, YearWindow],
++      absenceRule: Boolean
+   ): VerifiedClaim = {
+     val cited = c.evidenceIds.map(EvidenceId(_)).distinct
+     val valid = cited.filter(items.contains)
+@@ -373,7 +445,8 @@ object ClaimVerification {
+     // P16-K-01: inside them, only a bounded hop count ("within 6 hops") or a depth ("depth 6") is
+     // an absence depth; every other hop count is a positive hop count and is checked below.
+     // P16-L-03: absence wording is checked whether or not a `path=none` item is cited
+-    val spans = absenceSpans(stripped)
++    // (Phase 17: these are the Phase 16 phrase spans; the absence rule below adds its own)
++    val spans = phraseSpans(stripped)
+     val depthMatches: List[((Int, Int), Regex.Match)] = spans.flatMap { case sp @ (s, e) =>
+       (BoundHopRe.findAllMatchIn(stripped) ++ DepthRe.findAllMatchIn(stripped))
+         .filter(m => m.start >= s && m.end <= e)
+@@ -448,22 +521,24 @@ object ClaimVerification {
+       .map { case (n, ids) => n -> ids.toSet }
+     // the researchers the claim names: capitalized name runs (homonym numbers attached) plus any
+     // cited full name that no run already holds
+-    lazy val claimPair: Option[Set[String]] = {
++    lazy val claimNamed: List[String] = {
+       val src = List(StableIdRe, ClaimIdRe).foldLeft(noQuotes)((t, re) =>
+         re.replaceAllIn(t, m => " " * m.matched.length)
+       )
+-      def wordIn(t: String, n: String): Boolean =
+-        n.nonEmpty && s"(?<![\\p{L}\\p{N}])${java.util.regex.Pattern.quote(n)}(?![\\p{L}\\p{N}])".r
+-          .findFirstIn(t)
+-          .isDefined
+       val runs = RulePlanner.nameRuns(src).map(normName).distinct
+       val extra = idsByName.keySet.toList.sorted.filter(n =>
+-        wordIn(normName(src), n) && !runs.exists(r => wordIn(r, n))
++        AbsenceRule.wordIn(normName(src), n) && !runs.exists(r => AbsenceRule.wordIn(r, n))
+       )
+-      val named = (runs ++ extra).distinct
++      (runs ++ extra).distinct
++    }
++    // the pair's researcher IDs and the two names that resolved to them
++    lazy val claimPairNamed: Option[(Set[String], List[String])] = {
++      val named = claimNamed
+       val ids = named.flatMap(n => idsByName.get(n).filter(_.size == 1).toList.flatten)
+-      if (named.size == 2 && ids.size == 2 && ids.distinct.size == 2) Some(ids.toSet) else None
++      if (named.size == 2 && ids.size == 2 && ids.distinct.size == 2) Some((ids.toSet, named))
++      else None
+     }
++    lazy val claimPair: Option[Set[String]] = claimPairNamed.map(_._1)
+     // year-like tokens outside the parsed ranges make the claim's window unknown (P16-L-06)
+     lazy val unparsedYear: Boolean = {
+       val noRanges = List(RangeRe, BetweenRe).foldLeft(stripped)((t, re) =>
+@@ -472,18 +547,20 @@ object ClaimVerification {
+       YearLikeRe.findFirstIn(noRanges).isDefined
+     }
+     lazy val claimRanges = rangesIn(stripped)
++    // Right(window) when the claim's window is known (None: the claim states none)
++    def windowOf(clause: String): Either[Unit, Option[(Int, Int)]] = {
++      val clauseRanges = rangesIn(clause)
++      if (unparsedYear) Left(())
++      else if (clauseRanges.size == 1) Right(clauseRanges.headOption)
++      else if (clauseRanges.size > 1) Left(())
++      else if (claimRanges.size == 1) Right(claimRanges.headOption)
++      else if (claimRanges.isEmpty) Right(None)
++      else Left(())
++    }
+     spans.foreach { case sp @ (s, e) =>
+       val clause = stripped.substring(s, e)
+       val depths = depthMatches.collect { case (`sp`, m) => m.group(1).toDouble }
+-      val clauseRanges = rangesIn(clause)
+-      // Right(window) when the claim's window is known (None: the claim states none)
+-      val window: Either[Unit, Option[(Int, Int)]] =
+-        if (unparsedYear) Left(())
+-        else if (clauseRanges.size == 1) Right(clauseRanges.headOption)
+-        else if (clauseRanges.size > 1) Left(())
+-        else if (claimRanges.size == 1) Right(claimRanges.headOption)
+-        else if (claimRanges.isEmpty) Right(None)
+-        else Left(())
++      val window = windowOf(clause)
+       claimPair match {
+         case None      => unbacked += Reasons.AbsenceNotSearched
+         case Some(ids) =>
+@@ -521,6 +598,198 @@ object ClaimVerification {
+       }
+     }
+ 
++    // ---- Phase 17 absence rule (decision 6; P16-L-10..L-15): it only ADDS reasons ----
++    // Nothing above is changed by it and `checked` is never raised, so no status can rise
++    // (decision 6.2). An absence claim is verified only when every condition of item 1f holds;
++    // each condition that fails adds its reason (the lists and the scope rule: [[AbsenceRule]]).
++    if (absenceRule) {
++      val (t, clauses) = absenceClauses(stripped)
++      val bundleNames: Set[String] =
++        items.values.flatMap(EvidenceValues.names).map(normName).filter(_.nonEmpty).toSet
++      val kinds = clauses.map { case sp @ (s, e) =>
++        val c = t.substring(s, e)
++        sp -> AbsenceRule.classify(c, AbsenceRule.namesSomeone(c, bundleNames))
++      }
++      def overlapsPhrase(sp: (Int, Int)): Boolean =
++        spans.exists { case (ps, pe) => ps < sp._2 && sp._1 < pe }
++      // (a) the absence spans: the Phase 16 phrase spans plus every clause read as an absence
++      val ruleSpans = kinds.collect { case (sp, AbsenceRule.Absence) => sp }
++      val allSpans = (spans ++ ruleSpans).distinct
++      val namesTwo = claimNamed.size >= 2
++      val words = AbsenceRule.tokens(t)
++      val pairNames = claimPairNamed.map(_._2).getOrElse(Nil)
++      val pairParts = pairNames.flatMap(AbsenceRule.parts).toSet
++      val labels = windows.keySet.map(_.toLowerCase(Locale.ROOT))
++      // (a) unclear scope, both kinds of predicate, a negation beside the pair with no listed
++      // predicate; (g) a word outside the closed vocabulary of absence claims
++      val unclear = (namesTwo || allSpans.nonEmpty) && kinds.exists(_._2 == AbsenceRule.Unclear)
++      val mixed = allSpans.nonEmpty && kinds.exists(_._2 == AbsenceRule.Connection)
++      val negationOnly = namesTwo && kinds.exists { case (sp, k) =>
++        k == AbsenceRule.NegationOnly && !overlapsPhrase(sp)
++      }
++      val unknownWord = allSpans.nonEmpty &&
++        words.exists(w => !AbsenceRule.inVocabulary(w, pairParts, labels))
++      val ambiguous = unclear || mixed || negationOnly || unknownWord
++      if (ambiguous) uncovered += Reasons.AbsenceAmbiguous
++      // (e, P16-L-15) an absence about researchers the claim does not name
++      if ((allSpans.nonEmpty || ambiguous) && words.exists(w => AbsenceRule.UnnamedWords(w.word)))
++        unbacked += Reasons.AbsenceUnnamed
++      // (c) found paths and coauthor edges of the whole bundle (cited or not)
++      val bundleGraph = items.values.toList.filter(_.evidenceType != EvidenceType.SemanticContext)
++      val bundleFound = bundleGraph.filter { i =>
++        val p = EvidenceValues.pairs(i)
++        (i.evidenceType == EvidenceType.GraphPath && EvidenceValues.numbers(i).contains("hops")) ||
++        (i.evidenceType == EvidenceType.CoauthorEdge && !p.get("found").contains("false"))
++      }
++      val foundSet = (foundPaths ++ foundEdges ++ bundleFound).distinct
++      // the hops between the pair on a found path (anywhere on it) or edge (one hop)
++      def hopsBetween(f: EvidenceItem, ids: Set[String]): Option[Double] = {
++        val p = EvidenceValues.pairs(f)
++        if (f.evidenceType == EvidenceType.CoauthorEdge)
++          (p.get("researcherA"), p.get("researcherB")) match {
++            case (Some(a), Some(b)) if Set(a, b) == ids => Some(1.0)
++            case _                                      => None
++          }
++        else
++          p.get("pathIds").map(_.split(",").toList).flatMap { path =>
++            val at = ids.toList.map(path.indexOf)
++            if (ids.size == 2 && at.forall(_ >= 0)) Some(math.abs(at.head - at.last).toDouble)
++            else None
++          }
++      }
++      allSpans.foreach { case (s, e) =>
++        val depths = (BoundHopRe.findAllMatchIn(stripped) ++ DepthRe.findAllMatchIn(stripped))
++          .filter(m => m.start >= s && m.end <= e)
++          .map(_.group(1).toDouble)
++          .toList
++        val window = windowOf(stripped.substring(s, e))
++        val win = window.toOption.flatten
++        // (f) positive eligibility: each condition is established from the evidence, and the
++        // claim can be verified only when all of them are (never because no blocker matched)
++        val established: List[(Boolean, String, Boolean)] = claimPairNamed match {
++          case None             => List((false, Reasons.AbsenceNotSearched, false))
++          case Some((ids, nms)) =>
++            val otherParts = bundleNames.filterNot(nms.contains).flatMap(AbsenceRule.parts)
++            val pairNone = absentItems.filter(i => idPair(i).contains(ids))
++            val windowed = window.toOption.toList.flatMap(w => pairNone.filter(i => yw(i) == w))
++            val support = windowed.filter(isComplete)
++            val maxDepths = support.flatMap(i => EvidenceValues.numbers(i).get("maxDepth"))
++            val through = foundSet.flatMap(f => hopsBetween(f, ids).map(f -> _))
++            val contradicted = through.exists { case (f, h) =>
++              val hopsOk = depths.isEmpty || depths.exists(h <= _)
++              val windowOk = win match {
++                case Some((ws, we)) => yw(f).exists { case (fs, fe) => fs >= ws && fe <= we }
++                case None           => true
++              }
++              hopsOk && windowOk
++            }
++            List(
++              // (a) recognised without ambiguity (its reason was added above)
++              (!ambiguous, Reasons.AbsenceAmbiguous, false),
++              // (b) no possible third name: capitalised and not the pair's, or a name part of
++              // another researcher in the bundle
++              (
++                !words.exists(w => AbsenceRule.isThirdName(w, pairParts, otherParts)),
++                Reasons.AbsenceThirdName,
++                false
++              ),
++              // (e, P16-L-14) a stated depth (a search is always depth-limited)
++              (depths.nonEmpty, Reasons.AbsenceNoDepth, false),
++              // (d) the claim's window is known, every range in it is that window, and no year
++              // carries a time qualifier
++              (window.isRight, Reasons.AbsenceTimeQualifier, false),
++              (win.forall(w => claimRanges.forall(_ == w)), Reasons.AbsenceTimeQualifier, false),
++              (
++                AbsenceRule.TimeQualifierRe.findFirstIn(stripped).isEmpty,
++                Reasons.AbsenceTimeQualifier,
++                false
++              ),
++              // a cited `path=none` search for exactly the pair in that window, complete, and at
++              // least as deep as every stated depth
++              (windowed.nonEmpty, Reasons.AbsenceNotSearched, false),
++              (windowed.isEmpty || support.nonEmpty, Reasons.AbsenceBoundedSearch, false),
++              (
++                support.isEmpty || depths.forall(d => maxDepths.exists(_ >= d)),
++                Reasons.AbsenceBeyondDepth,
++                false
++              ),
++              // (c) no found path with both researchers anywhere on it, and no edge between them
++              (!contradicted, Reasons.HopsConflict, true),
++              (contradicted || through.isEmpty, Reasons.AbsenceFoundPath, false)
++            )
++        }
++        // every condition not established adds its reason, so a span that is not eligible
++        // (`established.forall(_._1)` false) can never leave the claim verified
++        established.foreach { case (ok, reason, conflict) =>
++          if (!ok) {
++            if (conflict) conflicts += reason
++            else if (reason == Reasons.AbsenceAmbiguous) uncovered += reason
++            else unbacked += reason
++          }
++        }
++      }
++
++      // (h) Phase 17 repair, P17-A-01: a structural rule that does not depend on listing every
++      // absence phrasing. When the claim names two researchers whom a found path (anywhere on it)
++      // or an edge of the bundle connects, it can be verified only when its wording affirms that
++      // connection in a form the verifier reads: a clause read as a connection whose words before
++      // its predicate all belong to the closed vocabulary ([[AbsenceRule.affirms]]), or a claim
++      // with no predicate and no negation at all whose every word belongs to it (a quantity of the
++      // pair, such as joint publications). Otherwise ConnectionUnconfirmed (at most partially
++      // supported). An absence wording the lists recognise was already checked above (conflicting
++      // when the found path contradicts it).
++      val namedIds: List[String] = claimNamed
++        .flatMap(n => idsByName.get(n).filter(_.size == 1).toList.flatten)
++        .distinct
++      val connectedPairs: List[Set[String]] = namedIds
++        .combinations(2)
++        .map(_.toSet)
++        .filter(ids => foundSet.exists(f => hopsBetween(f, ids).isDefined))
++        .toList
++      if (connectedPairs.nonEmpty) {
++        val knownParts =
++          claimNamed.flatMap(AbsenceRule.parts).toSet ++ bundleNames.flatMap(AbsenceRule.parts)
++        def known(w: AbsenceRule.Tok): Boolean =
++          AbsenceRule.inAffirmVocabulary(w, knownParts, labels)
++        val readings = clauses.map { case sp @ (s, e) =>
++          val c = t.substring(s, e)
++          sp -> AbsenceRule.read(c, AbsenceRule.namesSomeone(c, bundleNames))
++        }
++        val affirmed = clauses.exists { case (s, e) =>
++          AbsenceRule.affirms(t.substring(s, e), known)
++        }
++        val quantity = kinds.forall(_._2 == AbsenceRule.Neutral) && words.forall(known)
++        if (!affirmed && !quantity) uncovered += Reasons.ConnectionUnconfirmed
++        // (c on possible absence, P17-A-04): with no affirmed connection, an unclear clause that
++        // may state an absence (an absence predicate not negated, or a connection predicate under
++        // a tight negation, in a clause that names nobody or holds both kinds) is contradicted, as
++        // an absence clause is, by a found path or edge between a connected pair named in the claim
++        // inside the clause's window and within its stated depth
++        if (!affirmed) readings.foreach { case (sp @ (s, e), r) =>
++          if (r.kind == AbsenceRule.Unclear && r.mayStateAbsence && !allSpans.contains(sp)) {
++            val depths = (BoundHopRe.findAllMatchIn(stripped) ++ DepthRe.findAllMatchIn(stripped))
++              .filter(m => m.start >= s && m.end <= e)
++              .map(_.group(1).toDouble)
++              .toList
++            val win = windowOf(stripped.substring(s, e)).toOption.flatten
++            val contradicted = connectedPairs.exists { ids =>
++              foundSet.exists { f =>
++                hopsBetween(f, ids).exists { h =>
++                  val hopsOk = depths.isEmpty || depths.exists(h <= _)
++                  val windowOk = win match {
++                    case Some((ws, we)) => yw(f).exists { case (fs, fe) => fs >= ws && fe <= we }
++                    case None           => true
++                  }
++                  hopsOk && windowOk
++                }
++              }
++            }
++            if (contradicted) conflicts += Reasons.HopsConflict
++          }
++        }
++      }
++    }
++
+     // ---- hop counts (of found paths; an absence statement's depth was checked above) ----
+     // P16-A-09: a positive hop count N against a complete search that found no path within a
+     // depth of at least N contradicts that search
+@@ -675,3 +944,509 @@ object ClaimVerification {
+     VerifiedClaim(c, status, valid, reasons.distinct, checked)
+   }
+ }
++
++/** Phase 17 decision 6 (P16-L-10..L-15): how a claim about the absence of a connection is
++  * recognised, in one place. A small, tested rule over word tokens and the absence clauses of
++  * [[ClaimVerification]], not a language parser.
++  *
++  * Recognition (item a), per clause:
++  *   - a connection predicate ([[ConnectionWords]], [[ConnectionPhrases]]) governed by a negation
++  *     ([[Negations]], or any word ending in `n't`) is an absence statement;
++  *   - an absence predicate ([[AbsenceWords]], [[AbsencePhrases]]) that is not negated is an
++  *     absence statement; a negated one ("not disconnected") states a connection;
++  *   - a negation governs a predicate when it comes before it in the clause and every word between
++  *     them is a scope word ([[ScopeWords]]) or, for a connection predicate, another connection
++  *     predicate ("no path connects"). `not only`, `not just`, `not merely`, `not simply` are not
++  *     negations;
++  *   - the scope is unclear ([[Unclear]]) when a negation comes before a predicate with other words
++  *     between ("no evidence that A and B are disconnected"), when a negation follows every
++  *     predicate of its clause, when the clause holds absence and connection predicates, or when an
++  *     absence statement names no researcher ("although they never coauthored").
++  *
++  * Eligibility (items b, d, e, g) uses [[isThirdName]], [[Allowlist]], [[TimeQualifierRe]],
++  * [[UnnamedWords]] and [[inVocabulary]] ([[FunctionWords]] is the closed list of function and
++  * scope words, built from the correct absence claims of the fixtures and the deterministic
++  * synthesis wording).
++  *
++  * Phase 17 repair (P17-A-01, P17-A-04): a claim that names two researchers whom a found path or
++  * edge of the bundle connects is verified only when [[affirms]] reads a clause as an affirmed
++  * connection (closed vocabulary [[inAffirmVocabulary]] before its predicate), or the claim has no
++  * predicate and no negation and only closed-vocabulary words; this does not depend on listing
++  * absence phrasings. An [[Unclear]] clause that may state an absence ([[Reading]]) is checked
++  * against those found paths when no clause affirms the connection.
++  */
++private[runtime] object AbsenceRule {
++
++  /** A clause's reading. */
++  sealed trait Kind
++  case object Absence extends Kind
++  case object Connection extends Kind
++  case object Unclear extends Kind
++
++  /** A negation with no predicate in its clause ("A is not a direct coauthor of B"). */
++  case object NegationOnly extends Kind
++  case object Neutral extends Kind
++
++  /** Negation words (item a); every word ending in `n't` is a negation too. */
++  val Negations: Set[String] =
++    Set(
++      "no",
++      "not",
++      "never",
++      "none",
++      "without",
++      "cannot",
++      "neither",
++      "nor",
++      "nothing",
++      "nobody",
++      // Phase 17 repair (P17-A-01)
++      "lack",
++      "lacks",
++      "lacked",
++      "lacking"
++    )
++
++  /** Words after `not` that make it emphatic, not a negation ("not only connected but ..."). */
++  val NotEmphatic: Set[String] = Set("only", "just", "merely", "simply")
++
++  /** Connection predicates (item a i). */
++  val ConnectionWords: Set[String] = Set(
++    "connected",
++    "connects",
++    "connect",
++    "connection",
++    "connections",
++    "path",
++    "paths",
++    "linked",
++    "link",
++    "links",
++    "reachable",
++    "reach",
++    "reached",
++    "collaborated",
++    "collaborate",
++    "collaborates",
++    "coauthored",
++    "co-authored",
++    "coauthors",
++    "co-authors",
++    "route",
++    "routes",
++    "chain",
++    "chains",
++    "joined"
++  )
++
++  /** Connection predicates of more than one word (matched before single words). */
++  val ConnectionPhrases: List[List[String]] =
++    List("same connected component", "same component").map(_.split(' ').toList)
++
++  /** Absence predicates (item a ii). */
++  val AbsenceWords: Set[String] = Set(
++    "disconnected",
++    "unconnected",
++    "unreachable",
++    "unlinked",
++    "isolated",
++    "separate",
++    "separated",
++    "apart",
++    // Phase 17 repair (P17-A-01)
++    "absent",
++    "unrelated"
++  )
++
++  /** Absence predicates of more than one word (matched before single words). */
++  val AbsencePhrases: List[List[String]] = List(
++    "different connected components",
++    "different connected component",
++    "different components",
++    "different component",
++    "another connected component",
++    "another component",
++    // Phase 17 repair (P17-A-01)
++    "distinct connected components",
++    "distinct connected component",
++    "distinct components",
++    "distinct component"
++  ).map(_.split(' ').toList)
++
++  /** Words that may stand between a negation and the predicate it governs. */
++  val ScopeWords: Set[String] = Set(
++    "a",
++    "an",
++    "the",
++    "any",
++    "be",
++    "been",
++    "is",
++    "are",
++    "was",
++    "were",
++    "have",
++    "has",
++    "had",
++    "do",
++    "does",
++    "did",
++    "even",
++    "ever",
++    "yet",
++    "directly",
++    "indirectly",
++    "mutually",
++    "in",
++    "such",
++    "known",
++    "direct",
++    "indirect",
++    "coauthorship",
++    "co-authorship",
++    "collaboration",
++    "collaborative",
++    "connecting",
++    "shortest",
++    "other"
++  )
++
++  /** Function and scope words an absence claim may use (item g), from the correct absence claims of
++    * the fixtures ("No coauthorship path between A and B exists within 6 hops in 2015-2025.", "A
++    * and B are not connected within 4 hops in 2015-2025.", "No path between A and B exists within
++    * depth 6 in w2021-2023.", "A is not connected to B ...") and the deterministic synthesis
++    * wording ("In 2015-2025, no coauthorship path between A and B exists within depth 6 (the
++    * bounded search completed).").
++    */
++  val FunctionWords: Set[String] = Set(
++    "of",
++    "in",
++    "within",
++    "between",
++    "up",
++    "to",
++    "at",
++    "most",
++    "hops",
++    "hop",
++    "steps",
++    "step",
++    "depth",
++    "limit",
++    "path",
++    "the",
++    "and",
++    "any",
++    "coauthorship",
++    "window",
++    "exists",
++    "exist",
++    "existed",
++    "is",
++    "are",
++    "was",
++    "were",
++    "be",
++    "been",
++    "have",
++    "has",
++    "had",
++    "there",
++    "bounded",
++    "search",
++    "completed"
++  )
++
++  /** Words that are never a third name (item b i): sentence starters, month names, and the metric
++    * and status words the verifier knows. Lower case.
++    */
++  val Allowlist: Set[String] = Set(
++    "the",
++    "there",
++    "no",
++    "not",
++    "none",
++    "neither",
++    "nor",
++    "never",
++    "in",
++    "within",
++    "between",
++    "both",
++    "a",
++    "an",
++    "and",
++    "of",
++    "to",
++    "up",
++    "at",
++    "from",
++    "during",
++    "although",
++    "though",
++    "however",
++    "while",
++    "but",
++    "yet",
++    "they",
++    "it",
++    "this",
++    "these",
++    "is",
++    "are",
++    "was",
++    "were",
++    "since",
++    "before",
++    "after",
++    "until",
++    "for",
++    "with",
++    "by",
++    "as",
++    "january",
++    "february",
++    "march",
++    "april",
++    "may",
++    "june",
++    "july",
++    "august",
++    "september",
++    "october",
++    "november",
++    "december",
++    "path",
++    "coauthorship",
++    "search",
++    "depth",
++    "hops",
++    "window",
++    "complete",
++    "completed",
++    "bounded",
++    "verified"
++  )
++
++  /** Words that make an absence claim about researchers it does not name (P16-L-15). */
++  val UnnamedWords: Set[String] = Set(
++    "anyone",
++    "anybody",
++    "someone",
++    "somebody",
++    "everyone",
++    "everybody",
++    "nobody",
++    "others",
++    "people",
++    "researchers",
++    "colleagues",
++    "collaborators",
++    "common",
++    "shared",
++    "share",
++    "shares",
++    "mutual",
++    "his",
++    "her",
++    "hers",
++    "him",
++    "their",
++    "theirs",
++    "them",
++    "who",
++    "whom",
++    "whose"
++  )
++
++  /** A year used with a time qualifier (item d, P16-L-13). */
++  val TimeQualifierRe: scala.util.matching.Regex =
++    ("(?i)\\b(?:before|after|since|until|till|prior(?:\\s+to)?|between)\\s+" +
++      "(?:the\\s+)?(?:year\\s+)?(?:19|20)[0-9]{2}").r
++
++  // numbers, years, year ranges and window labels (`full-2015-2025`, `w2021-2023`)
++  private val NumberTok =
++    "(?:[0-9]+(?:[.,][0-9]+)*|(?:full-|w)?(?:19|20)[0-9]{2}(?:-(?:19|20)[0-9]{2})?s?)".r
++  private val TokRe = "[\\p{L}\\p{N}]+(?:['-][\\p{L}\\p{N}]+)*".r
++
++  /** A word token: lower case (a trailing `'s` removed), its raw text and position. */
++  final case class Tok(word: String, raw: String, start: Int, end: Int)
++
++  /** Curly apostrophes read as straight ones (same length, so positions are kept). */
++  def normalize(t: String): String = t.replace('’', '\'').replace('‘', '\'')
++
++  def tokens(text: String): Vector[Tok] =
++    TokRe
++      .findAllMatchIn(normalize(text))
++      .map { m =>
++        val w = m.matched.toLowerCase(Locale.ROOT).stripSuffix("'s")
++        Tok(w, m.matched, m.start, m.end)
++      }
++      .toVector
++
++  /** The lower-case word parts of a name. */
++  def parts(name: String): Set[String] = tokens(name).map(_.word).toSet
++
++  /** `n` occurs in `t` as whole words. */
++  def wordIn(t: String, n: String): Boolean =
++    n.nonEmpty && s"(?<![\\p{L}\\p{N}])${java.util.regex.Pattern.quote(n)}(?![\\p{L}\\p{N}])".r
++      .findFirstIn(t)
++      .isDefined
++
++  def isNegation(w: String): Boolean = Negations.contains(w) || w.endsWith("n't")
++
++  private def capitalised(t: Tok): Boolean = t.raw.headOption.exists(Character.isUpperCase)
++
++  /** The clause names a researcher: a capitalised word outside [[Allowlist]] (one-word names
++    * count), a name run, or a name of the bundle.
++    */
++  def namesSomeone(clause: String, bundleNames: Set[String]): Boolean = {
++    val lower = clause.toLowerCase(Locale.ROOT)
++    tokens(clause).exists(t => capitalised(t) && !Allowlist(t.word) && !isNegation(t.word)) ||
++    RulePlanner.nameRuns(clause).nonEmpty || bundleNames.exists(n => wordIn(lower, n))
++  }
++
++  /** A clause's reading: its [[Kind]]; whether some predicate is read as an absence (an absence
++    * predicate not negated, or a connection predicate under a tight negation), so an [[Unclear]]
++    * clause may state an absence (P17-A-04); and the token index of the first predicate read as a
++    * connection without negation, or of a negated absence predicate (P17-A-01).
++    */
++  final case class Reading(kind: Kind, mayStateAbsence: Boolean, affirmAt: Option[Int])
++
++  /** The reading of one clause (see the object comment). */
++  def classify(clause: String, namesSomeone: Boolean): Kind = read(clause, namesSomeone).kind
++
++  /** P17-A-01: the clause affirms a connection: it reads as [[Connection]] and every word before
++    * its first affirmative predicate is `known` (the closed vocabulary of [[inAffirmVocabulary]]),
++    * so an unlisted word that may negate it ("lack", "devoid of") leaves the connection unaffirmed.
++    */
++  def affirms(clause: String, known: Tok => Boolean): Boolean = {
++    val r = read(clause, namesSomeone = true)
++    r.kind == Connection && r.affirmAt.exists(k => tokens(clause).take(k).forall(known))
++  }
++
++  /** The reading of one clause, with its details (see [[Reading]]). */
++  def read(clause: String, namesSomeone: Boolean): Reading = {
++    val w = tokens(clause).map(_.word)
++    val n = w.size
++    // predicates: (start, end exclusive, isConnection); phrases first, their words consumed
++    val preds = List.newBuilder[(Int, Int, Boolean)]
++    var i = 0
++    while (i < n) {
++      def phraseAt(ps: List[List[String]]) =
++        ps.find(p => i + p.size <= n && w.slice(i, i + p.size).toList == p)
++      phraseAt(ConnectionPhrases)
++        .map(p => (p.size, true))
++        .orElse(
++          phraseAt(AbsencePhrases).map(p => (p.size, false))
++        ) match {
++        case Some((len, conn)) => preds += ((i, i + len, conn)); i += len
++        case None              =>
++          if (ConnectionWords(w(i))) preds += ((i, i + 1, true))
++          else if (AbsenceWords(w(i))) preds += ((i, i + 1, false))
++          i += 1
++      }
++    }
++    val ps = preds.result()
++    val negs = w.indices.filter { j =>
++      isNegation(w(j)) && !(w(j) == "not" && j + 1 < n && NotEmphatic(w(j + 1)))
++    }.toList
++    val connAt = ps.filter(_._3).flatMap(p => p._1 until p._2).toSet
++    if (ps.isEmpty) Reading(if (negs.nonEmpty) NegationOnly else Neutral, false, None)
++    else {
++      // per predicate: Some(true) governed tightly, Some(false) negation before it with other
++      // words between (unclear), None no negation before it
++      val readings = ps.map { case (s, _, conn) =>
++        val before = negs.filter(_ < s)
++        val tight =
++          before.exists(j => (j + 1 until s).forall(k => ScopeWords(w(k)) || (conn && connAt(k))))
++        val gov = if (tight) Some(true) else if (before.nonEmpty) Some(false) else None
++        (conn, gov)
++      }
++      def isAbsence(r: (Boolean, Option[Boolean])) = r match {
++        case (true, Some(true)) => true
++        case (false, None)      => true
++        case _                  => false
++      }
++      def isConnection(r: (Boolean, Option[Boolean])) = r match {
++        case (true, None)        => true
++        case (false, Some(true)) => true
++        case _                   => false
++      }
++      val dangling = negs.exists(j => !ps.exists(_._1 > j))
++      val loose = readings.exists(_._2.contains(false))
++      val absence = readings.exists(isAbsence)
++      val connection = readings.exists(isConnection)
++      val affirmAt = ps.zip(readings).collectFirst { case ((s, _, _), r) if isConnection(r) => s }
++      val kind =
++        if (loose || dangling || (absence && connection)) Unclear
++        else if (absence) { if (namesSomeone) Absence else Unclear }
++        else Connection
++      Reading(kind, absence, affirmAt)
++    }
++  }
++
++  /** P17-A-01: words a claim about a connected pair may use besides [[inVocabulary]]: the emphatic
++    * words after `not`, and the words of the deterministic pair, path, edge and metric wordings
++    * (Synthesis.scala). Closed: any other word leaves the connection unaffirmed.
++    */
++  val AffirmWords: Set[String] = Set(
++    "only",
++    "just",
++    "merely",
++    "simply",
++    "share",
++    "shares",
++    "shared",
++    "joint",
++    "publication",
++    "publications",
++    "paper",
++    "papers",
++    "edge",
++    "weight",
++    "weighted",
++    "distinct",
++    "coauthor",
++    "co-author",
++    "direct",
++    "degree",
++    "breadth",
++    "intensity",
++    "occurrences",
++    "total",
++    "other",
++    "another",
++    "community",
++    "communities",
++    "members",
++    "researchers",
++    "rank",
++    "by",
++    "with",
++    "from",
++    "via",
++    "through",
++    "shortest"
++  )
++
++  /** P17-A-01: the closed vocabulary of a claim about a connected pair: [[inVocabulary]] (with the
++    * name parts of the researchers the claim or the bundle names) plus [[AffirmWords]].
++    */
++  def inAffirmVocabulary(t: Tok, nameParts: Set[String], windowLabels: Set[String]): Boolean =
++    inVocabulary(t, nameParts, windowLabels) || AffirmWords(t.word)
++
++  /** Item b: a possible third name. */
++  def isThirdName(t: Tok, pairParts: Set[String], otherParts: Set[String]): Boolean =
++    !pairParts(t.word) && !NumberTok.matches(t.word) && (
++      (capitalised(t) && !Allowlist(t.word) && !isNegation(t.word)) || otherParts(t.word)
++    )
++
++  /** Item g: the word belongs to the closed vocabulary of absence claims. */
++  def inVocabulary(t: Tok, pairParts: Set[String], windowLabels: Set[String]): Boolean = {
++    val x = t.word
++    pairParts(x) || isNegation(x) || ConnectionWords(x) || AbsenceWords(x) ||
++    (ConnectionPhrases ++ AbsencePhrases).exists(_.contains(x)) || ScopeWords(x) ||
++    FunctionWords(x) || Allowlist(x) || NumberTok.matches(x) || windowLabels(x)
++  }
++}
+diff --git a/modules/rag/src/test/scala/org/scholarchain/rag/RagIngestJobSuite.scala b/modules/rag/src/test/scala/org/scholarchain/rag/RagIngestJobSuite.scala
+index 14f7c7c..ad8123a 100644
+--- a/modules/rag/src/test/scala/org/scholarchain/rag/RagIngestJobSuite.scala
++++ b/modules/rag/src/test/scala/org/scholarchain/rag/RagIngestJobSuite.scala
+@@ -501,6 +501,96 @@ class RagIngestJobSuite extends munit.FunSuite {
+     assert(!r.render().contains("example-other-bucket"))
+   }
+ 
++  test(
++    "P17-F-12: a store or SDK failure is recorded by its exception class only, never its message"
++  ) {
++    import org.scholarchain.storage.ports.{ObjectInfo, ObjectRef, ObjectStore, PutOutcome}
++    import org.scholarchain.storage.local.LocalStorageEnvironment
++    final class ProbeStoreFailure(msg: String) extends RuntimeException(msg)
++    val leak = "probe-host-leak.invalid"
++    val failing = new ObjectStore {
++      private def boom: Nothing = throw new ProbeStoreFailure(s"unable to reach $leak")
++      def putIfAbsent(
++          ref: ObjectRef,
++          bytes: Array[Byte],
++          contentType: String,
++          metadata: Map[String, String]
++      ): PutOutcome = boom
++      def get(ref: ObjectRef): Option[Array[Byte]] = boom
++      def openStream(ref: ObjectRef): Option[java.io.InputStream] = boom
++      def head(ref: ObjectRef): Option[ObjectInfo] = boom
++      def list(bucket: String, prefix: String, maxKeys: Int): List[ObjectInfo] = boom
++    }
++    val factory: (
++        org.scholarchain.storage.StorageConfig,
++        String,
++        Path
++    ) => Either[String, RagIngestJob.IngestStores] =
++      (cfg, _, _) => {
++        val base = new RagIngestJob.LocalIngestStores(LocalStorageEnvironment.create(cfg, None))
++        Right(new RagIngestJob.IngestStores {
++          def kind = "aws"
++          def description = base.description
++          def pipeline(
++              e: org.scholarchain.storage.ports.EmbeddingPort,
++              s: String,
++              x: org.scholarchain.core.SemanticDocument => org.scholarchain.storage.ingest.DocumentExtras
++          ) = base.pipeline(e, s, x)
++          def vectors = base.vectors
++          def textStore = base.textStore
++          def objects: ObjectStore = failing
++          def rejectsTotal: Long = base.rejectsTotal
++          def report(c: org.scholarchain.storage.StorageConfig): ujson.Obj = base.report(c)
++          def close(): Unit = base.close()
++        })
++      }
++    val root = Files.createTempDirectory("rag-job-f12")
++    val graph = storageConfigOf("rag-voyage-example-v1.json").zones("graph")
++    val printed = scala.collection.mutable.ListBuffer.empty[String]
++    val out = root.resolve("attempt-01")
++    val opts = parseOk(
++      Array(
++        "--config",
++        configPath("rag-voyage-example-v1.json").toString,
++        "--export",
++        s"s3://${graph.bucket}/${graph.prefix}/exports/run=${"0" * 32}",
++        "--out",
++        out.toString,
++        "--code-version",
++        TestCodeVersion,
++        "--stores",
++        "aws"
++      )
++    )
++    val result = RagIngestJob.execute(
++      opts,
++      factory,
++      voyageWiring,
++      RagIngestJob.Hooks(print = s => printed += s, configEnv = NoConfigEnv)
++    )
++    // the run fails on the export read (status), and the report copy fails too (copy outcome)
++    assertEquals(result.report("status").str, "failed: ProbeStoreFailure")
++    val copy = result.reportCopy.getOrElse(fail("no copy outcome"))
++    assertEquals(copy("outcome").str, "failed: ProbeStoreFailure")
++    val texts = List(
++      new String(Files.readAllBytes(out.resolve("run-report.json")), "UTF-8"),
++      new String(Files.readAllBytes(out.resolve("run-report-copy.json")), "UTF-8")
++    ) ++ printed
++    texts.foreach(t => assert(!t.contains(leak), s"the SDK message leaked: ${t.take(300)}"))
++    // the job's own refusals and the export source's validation errors keep their text
++    assertEquals(
++      RagIngestJob.failureText(new RuntimeException("own refusal")),
++      "RuntimeException: own refusal"
++    )
++    assertEquals(
++      RagIngestJob.failureText(
++        new org.scholarchain.storage.source.ExportSourceException("missing export file x")
++      ),
++      "ExportSourceException: missing export file x"
++    )
++    assertEquals(RagIngestJob.failureText(new ProbeStoreFailure(leak)), "ProbeStoreFailure")
++  }
++
+   test("7b: the free-disk bound is 15 GiB and fits the ops task's 30 GiB ephemeral storage") {
+     assertEquals(RagIngestJob.MinFreeBytes, 15L * 1024 * 1024 * 1024)
+     assert(RagIngestJob.MinFreeBytes < 30L * 1024 * 1024 * 1024)
+diff --git a/modules/rag/src/test/scala/org/scholarchain/rag/eval/RetrievalEvalSetSuite.scala b/modules/rag/src/test/scala/org/scholarchain/rag/eval/RetrievalEvalSetSuite.scala
+index 2693754..5058a1d 100644
+--- a/modules/rag/src/test/scala/org/scholarchain/rag/eval/RetrievalEvalSetSuite.scala
++++ b/modules/rag/src/test/scala/org/scholarchain/rag/eval/RetrievalEvalSetSuite.scala
+@@ -50,7 +50,7 @@ class RetrievalEvalSetSuite extends munit.FunSuite {
+     assertEquals(weak("q26"), List(RetrievalEvalSet.GraphOnly))
+   }
+ 
+-  test("q25 and q26 targets are the top 10 of the labelled pool by the benchmark's own rule") {
++  test("q25 and q26 targets are the top 10 of the labelled pool (this set's derivation, H-03)") {
+     val q26 = derived.questions.find(_.id == "q26").get
+     // pool values 1754, 1362, 1212, 1154, 1144, 1084, 1062, 1062 (tie: code-point order), 968, 939
+     assertEquals(q26.targets.head, "researcher:v1:c7883d2daae7743663d011b5212b90b6")
+@@ -64,6 +64,10 @@ class RetrievalEvalSetSuite extends munit.FunSuite {
+     assertEquals(q26.targets.last, "researcher:v1:d97b5c7fa0b28c53d2188a9bd53bf8fc")
+     val q25 = derived.questions.find(_.id == "q25").get
+     assertEquals(q25.targets.last, "researcher:v1:fd836e0f7348e1a2ff3d0ad3953b966a")
++    // H-03: the rule text names the top-limit cut as this set's derivation, not a benchmark rule
++    val topic = RetrievalEvalSet.Rule.find(_.contains("topicRanked")).get
++    assert(!topic.contains("the benchmark's own ranking rule"), topic)
++    assert(topic.contains("not a benchmark label") && topic.contains("default 10"), topic)
+   }
+ 
+   test("the packaged resource equals the derivation from benchmark-v1 and pins its sha256") {
+diff --git a/modules/rag/src/test/scala/org/scholarchain/rag/runtime/ClaimVerificationSuite.scala b/modules/rag/src/test/scala/org/scholarchain/rag/runtime/ClaimVerificationSuite.scala
+index f866ed5..23be398 100644
+--- a/modules/rag/src/test/scala/org/scholarchain/rag/runtime/ClaimVerificationSuite.scala
++++ b/modules/rag/src/test/scala/org/scholarchain/rag/runtime/ClaimVerificationSuite.scala
+@@ -97,7 +97,7 @@ class ClaimVerificationSuite extends munit.FunSuite {
+       None
+     )
+   private def status(c: DraftClaim): VerifiedClaim =
+-    ClaimVerification.verify(AnswerDraft("s", List(c), Nil), built.bundle).head
++    VerifierOracle.verify(AnswerDraft("s", List(c), Nil), built.bundle).head
+ 
+   test("m-1: verified needs a passed check; nothing checkable is partially supported") {
+     val qualitative =
+@@ -380,7 +380,7 @@ class ClaimVerificationSuite extends munit.FunSuite {
+     .fold(e => fail(e), identity)
+   private val r301Items = r301.items.map(i => i.evidenceId -> i).toMap
+   private def r301Verify(text: String, f: Fact*) =
+-    ClaimVerification.verifyClaim(
++    VerifierOracle.verifyClaim(
+       DraftClaim("claim-1", text, f.toList.map(x => r301.idOf(x).value), Nil, None),
+       r301Items
+     )
+diff --git a/modules/rag/src/test/scala/org/scholarchain/rag/runtime/GroundingSuite.scala b/modules/rag/src/test/scala/org/scholarchain/rag/runtime/GroundingSuite.scala
+index 8b64e7a..a355abe 100644
+--- a/modules/rag/src/test/scala/org/scholarchain/rag/runtime/GroundingSuite.scala
++++ b/modules/rag/src/test/scala/org/scholarchain/rag/runtime/GroundingSuite.scala
+@@ -68,7 +68,7 @@ class GroundingSuite extends munit.FunSuite {
+   private def claim(text: String, cites: List[Fact], nums: List[DraftNumber] = Nil) =
+     DraftClaim("claim-1", text, cites.map(id), nums, None)
+   private def verify(c: DraftClaim): VerifiedClaim =
+-    ClaimVerification.verifyClaim(c, items, windowsByLabel)
++    VerifierOracle.verifyClaim(c, items, windowsByLabel)
+ 
+   // ---- L-1 / L-4: one table, both places --------------------------------------------------------
+ 
+@@ -395,9 +395,9 @@ class GroundingSuite extends munit.FunSuite {
+       "Loubna Ben Allal is a coauthor with edge weight 2 and 2 joint publications, active from 2024 to 2025."
+     val planted =
+       "Loubna Ben Allal is a coauthor with edge weight 2 and 2 joint publications, active from 2015 to 2025."
+-    val ok = ClaimVerification.verifyClaim(q08Claim(original, q08Edge), q08Items, windowsByLabel)
++    val ok = VerifierOracle.verifyClaim(q08Claim(original, q08Edge), q08Items, windowsByLabel)
+     assertEquals(ok.status, Verified, ok.reasons.toString)
+-    val bad = ClaimVerification.verifyClaim(q08Claim(planted, q08Edge), q08Items, windowsByLabel)
++    val bad = VerifierOracle.verifyClaim(q08Claim(planted, q08Edge), q08Items, windowsByLabel)
+     assertNotEquals(bad.status, Verified)
+     assertEquals(bad.reasons, List(Reasons.YearConflict))
+     // the template claims (a window range plus edge years) stay verified
+@@ -406,7 +406,7 @@ class GroundingSuite extends munit.FunSuite {
+       "In 2015-2025, Elie Bakouch and Guilherme Penedo share 1 joint publications from 2022 to 2025, with edge weight 1." -> earlierEdge,
+       "In 2015–2025, Elie Bakouch and Loubna Ben Allal share 2 joint publications since 2024." -> q08Edge
+     ).foreach { case (t, e) =>
+-      val v = ClaimVerification.verifyClaim(q08Claim(t, e), q08Items, windowsByLabel)
++      val v = VerifierOracle.verifyClaim(q08Claim(t, e), q08Items, windowsByLabel)
+       assertEquals(v.status, Verified, s"$t: ${v.reasons}")
+     }
+     // a window year alone never supports a single year of an edge claim
+@@ -440,17 +440,17 @@ class GroundingSuite extends munit.FunSuite {
+ 
+   test("L-3: a window range is accepted for an identity-only claim through its context window") {
+     val t = "Elie Bakouch has 30 distinct coauthors between 2015 and 2025."
+-    val v = ClaimVerification.verifyClaim(q08Claim(t, q08Identity), q08Items, windowsByLabel)
++    val v = VerifierOracle.verifyClaim(q08Claim(t, q08Identity), q08Items, windowsByLabel)
+     assertEquals(v.status, Verified, v.reasons.toString)
+     val dash = "Elie Bakouch has 30 distinct coauthors in 2015-2025."
+     assertEquals(
+-      ClaimVerification.verifyClaim(q08Claim(dash, q08Identity), q08Items, windowsByLabel).status,
++      VerifierOracle.verifyClaim(q08Claim(dash, q08Identity), q08Items, windowsByLabel).status,
+       Verified
+     )
+     // another range is still a conflict
+     val other = "Elie Bakouch has 30 distinct coauthors between 2016 and 2025."
+     assertEquals(
+-      ClaimVerification.verifyClaim(q08Claim(other, q08Identity), q08Items, windowsByLabel).status,
++      VerifierOracle.verifyClaim(q08Claim(other, q08Identity), q08Items, windowsByLabel).status,
+       Conflicting
+     )
+   }
+diff --git a/modules/rag/src/test/scala/org/scholarchain/rag/runtime/PathAbsenceSuite.scala b/modules/rag/src/test/scala/org/scholarchain/rag/runtime/PathAbsenceSuite.scala
+index 1ebb2bb..86eebd7 100644
+--- a/modules/rag/src/test/scala/org/scholarchain/rag/runtime/PathAbsenceSuite.scala
++++ b/modules/rag/src/test/scala/org/scholarchain/rag/runtime/PathAbsenceSuite.scala
+@@ -59,7 +59,7 @@ class PathAbsenceSuite extends munit.FunSuite {
+ 
+   private def verify(text: String, f: Fact): VerifiedClaim = {
+     val (items, id) = itemsOf(f)
+-    ClaimVerification.verifyClaim(DraftClaim("claim-1", text, List(id), Nil, None), items)
++    VerifierOracle.verifyClaim(DraftClaim("claim-1", text, List(id), Nil, None), items)
+   }
+ 
+   test("L2: a correct absence claim in hops citing a complete path=none item is verified") {
+@@ -165,7 +165,7 @@ class PathAbsenceSuite extends munit.FunSuite {
+     val built = new EvidenceBuilder(ctx).build(queryRun, facts).fold(e => fail(e), identity)
+     val items = built.items.map(i => i.evidenceId -> i).toMap
+     val ids = facts.map(f => built.idOf(f).value)
+-    ClaimVerification.verifyClaim(DraftClaim("claim-1", text, ids, Nil, None), items)
++    VerifierOracle.verifyClaim(DraftClaim("claim-1", text, ids, Nil, None), items)
+   }
+ 
+   test(

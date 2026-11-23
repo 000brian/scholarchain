@@ -5,6 +5,8 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Paths
 import java.util.concurrent.atomic.AtomicInteger
 
+import scala.jdk.CollectionConverters._
+
 import org.scholarchain.core.config.ScholarChainConfig
 import org.scholarchain.rag.embedding.{EmbeddingProviders, HttpResult, HttpTransport}
 import org.scholarchain.rag.runtime.{LlmFactory, RuntimeFixtures, RuntimeService}
@@ -404,6 +406,73 @@ class CompositionSuite extends munit.FunSuite {
       } finally control.close()
       assertEquals(handlerBuilds.get, 1)
     } finally rt.close()
+  }
+
+  test(
+    "P16-A-12 (H-04): Composition.embeddingWork passes the configured vector index names into " +
+      "EmbeddingWork.indexes, so the composed worker releases an unknown index before re-embedding"
+  ) {
+    import EmbeddingWorkerSuite.{Index, Key, StubQueue, processed}
+    val url = "https://queue.example.invalid/example-embedding-tasks"
+    val withQueue =
+      awsConfig.copy(service = awsConfig.service.map(_.copy(embeddingQueueUrl = Some(url))))
+    val configured = withQueue.vectors.toList.flatMap(_.indexNames).toSet
+    // the anthropic v2 config names all five indexes, the re-embed index among them
+    assertEquals(configured.size, 5, configured.toString)
+    assert(configured.contains(Index), configured.toString)
+    val http = new CountingHttp
+    val opts = awsOptions(http, new CountingTransport, new CountingTransport)
+    val (rt, stores) = Composition
+      .aws(withQueue, RuntimeFixtures.sparkRun, opts)
+      .fold(e => fail(e), identity)
+    try {
+      val built = Composition
+        .embeddingWork(withQueue, rt, opts.embeddingWiring)
+        .fold(e => fail(e), identity)
+        .getOrElse(fail("no embedding work"))
+      // the wiring under test: Main.scala's `config.vectors...indexNames` argument
+      assertEquals(built.indexes, configured)
+      // and its effect: the composed indexes drive the worker's pre-check (queue and re-embed
+      // call are stubbed; the indexes are the composed ones, unchanged)
+      val q = new StubQueue
+      val releasedBeforeReembed = new java.util.concurrent.ConcurrentLinkedQueue[List[String]]()
+      val reembed: Seq[org.scholarchain.storage.ingest.ReembedTask] => Vector[
+        org.scholarchain.storage.ingest.ReembedOutcome
+      ] = ts => { releasedBeforeReembed.add(q.released); ts.map(processed).toVector }
+      val composed = built.copy(
+        queue = q,
+        handlerOf = log =>
+          Right(new org.scholarchain.rag.reembed.ReembedHandler(reembed, configured, 10, log))
+      )
+      val server = ServiceServer
+        .start(
+          rt,
+          stores,
+          ServerOptions(
+            role = Role.Worker,
+            port = Some(0),
+            env = env.get,
+            logSink = new MemoryLogSink,
+            startWorker = false,
+            closeRuntime = false,
+            name = "p16-a-12",
+            embedding = Some(composed)
+          )
+        )
+        .fold(e => fail(e), identity)
+      try {
+        val w = server.embeddingWorker.getOrElse(fail("no embedding worker"))
+        val ok = q.put(org.scholarchain.rag.reembed.EmbeddingTask.render("task-a12-ok", Index, Key))
+        val unknown = q.put(
+          org.scholarchain.rag.reembed.EmbeddingTask.render("task-a12-idx", "unknown-index-v1", Key)
+        )
+        assertEquals(w.processOne(), EmbeddingOutcome(2, 1, 1, 0, 0))
+        // released up front (before the batch's re-embed call), not after it
+        assertEquals(releasedBeforeReembed.asScala.toList, List(List(unknown)))
+        assertEquals(q.acked, List(ok))
+      } finally server.close()
+    } finally rt.close()
+    assertEquals(http.calls.get, 0)
   }
 
   test("decision 8.1: service.embeddingQueueUrl with a local runtime is refused by embeddingWork") {

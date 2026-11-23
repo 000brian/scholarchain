@@ -1,0 +1,56 @@
+Phase 17 session 2 tool versions (orchestrator, start check 6, 2026-11-22), verbatim output
+
+$ java -version
+openjdk version "17.0.21" 2026-10-20
+OpenJDK Runtime Environment Temurin-17.0.21+9 (build 17.0.21+9)
+OpenJDK 64-Bit Server VM Temurin-17.0.21+9 (build 17.0.21+9, mixed mode, sharing)
+
+$ aws --version
+aws-cli/2.40.0 Python/3.15.2 Darwin/25.6.0 source/arm64
+
+$ claude --version
+2.1.330 (Claude Code)
+
+$ docker --version
+Docker version 29.9.3, build 5457199
+
+$ python3 --version
+Python 3.15.2
+
+$ git --version
+git version 2.50.1 (Apple Git-155)
+
+$ sw_vers
+ProductName:		macOS
+ProductVersion:		26.6.2
+BuildVersion:		25G83
+
+$ uname -m
+arm64
+
+$ terraform version
+Terraform v1.17.1
+on darwin_arm64
+(Terraform printed a notice that 1.17.2 is available; not upgraded.)
+
+$ shellcheck --version
+ShellCheck - shell script analysis tool
+version: 0.11.0
+
+$ head -n 5 .claude/.last-test-run
+timestamp=2026-11-22T15:54:10.491673Z
+module_tests=2306
+contract_tests=399
+
+Ledger values (project/build.properties at HEAD 50ba087ecd33178eaa8ccc69286b9de85e8a8146):
+project/build.properties:20  sbt.version=1.13.1
+project/build.properties:23  version.java=17
+project/build.properties:24  version.scala3=3.3.9
+project/build.properties:25  version.scala213=2.13.17
+project/build.properties:28  version.spark=4.1.1
+project/build.properties:29  version.hadoop=3.4.2
+project/build.properties:37  version.awssdk=2.59.1
+project/build.properties:40  version.scalafmt=3.11.5
+project/build.properties:43-45  sbt-scalafmt 2.6.2, sbt-assembly 2.5.0, sbt-projectmatrix 0.11.0
+project/build.properties:48  image.java-runtime=eclipse-temurin:17.0.21_9-jre-noble@sha256:042c05a77eb915684fc8c92cfbbef4fd6f8c24ca7d934d1a7db3543453aaa077
+project/build.properties:16  target runtime comment: emr-spark-8.1.0

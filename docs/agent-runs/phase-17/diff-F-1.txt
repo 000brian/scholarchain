@@ -1,0 +1,510 @@
+diff --git a/.gitignore b/.gitignore
+index 0803d1c..1d10292 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -79,7 +79,10 @@ infra/terraform/environments/course/plans/
+ # target/, and every other rule above). The only exception is secret material: the secret
+ # rules below repeat the secrets section above (plus Terraform state) after the negation,
+ # so a secret-looking file under experiments/ or releases/ stays ignored. Keep both lists
+-# identical, and add any new rule above this block.
++# identical, and add any new rule above this block. The second exception is OS and IDE noise
++# (Phase 14 finding D-01): the noise rules at the end repeat the "IDEs and OS" section above
++# (plus other OS metadata files) so that Finder, Explorer or an IDE cannot add files to raw
++# experiment results or release records.
+ !experiments/**
+ !releases/**
+ .env
+@@ -106,3 +109,12 @@ secrets
+ .gnupg
+ **/.config/gh
+ **/.docker/config.json
++# OS and IDE noise (D-01), repeated after the negation so it stays ignored everywhere.
++.DS_Store
++._*
++Thumbs.db
++ehthumbs.db
++Desktop.ini
++.idea/
++.vscode/
++*.iml
+diff --git a/scripts/README.md b/scripts/README.md
+index 2431707..608a5a0 100644
+--- a/scripts/README.md
++++ b/scripts/README.md
+@@ -2,7 +2,7 @@
+ 
+ Owner: infra-engineer. This file is the reproduction guide until the root `README.md` links to it (documentation-engineer, Phase 17; planned deviation 12.5). The scripts are the only interface: there are no GitHub Actions (planned deviation 12.4). Each script's `--help` text is its full contract; this page summarizes them and gives the order of a full reproduction.
+ 
+-Status of every script: `static: shellcheck clean`, `runtime: untested`, `human execution required`. No agent runs any script.
++Status of every script: `static: shellcheck clean`, `human execution required`. No agent runs any script. Runtime (Phase 15 L-06: the earlier blanket "runtime: untested" was stale): the human ran check.sh, package.sh, plan.sh and `archive-evidence.sh --local-only` in Phase 13; check.sh, package.sh (also `--publish`), plan.sh, deploy.sh, smoke-test.sh, run-bounded-pipeline.sh and archive-evidence.sh (S3 mode) in Phase 14; plan.sh, deploy.sh, smoke-test.sh, run-bounded-pipeline.sh, run-experiment.sh, archive-evidence.sh and cleanup.sh in Phase 15; check.sh and the emulator scripts (env.sh, setup.sh, probes.sh) in Phase 16. Each run, its exit code and its record are in that phase's `docs/agent-runs/phase-NN/runbook-log.md` (Phase 13: its human gate); a failed attempt there stays a failed attempt. rollback.sh has never run (`runtime: untested`). Each script's own header holds its current runtime line: a part changed after its last run is `runtime: untested` until the human runs it again; Phase 17 changes (release-manifest.sh, the env.sh `SCHOLARCHAIN_CFG_*` sweep, probes.sh P16-B-03, deploy.sh help text E-01, archive-evidence.sh E-03) are `runtime: untested`.
+ 
+ ## Prerequisites
+ 
+@@ -37,7 +37,7 @@ Gate 4 runs `shellcheck -x -P SCRIPTDIR` on `scripts/*.sh`, `scripts/lib/*.sh`,
+ 
+ ## The ten scripts
+ 
+-Exit codes everywhere: 0 ok, 2 usage, 3 missing prerequisite, 4 refused by a safety check, 5 a command failed, 6 a check failed, 7 timed out; run-experiment.sh adds 8 (an identifier found in its run record or folder; Phase 15). Records under `evidence/**` are gitignored and never overwritten (a `NAME.started.json` first, then `NAME.json`).
++Exit codes everywhere: 0 ok, 2 usage, 3 missing prerequisite, 4 refused by a safety check, 5 a command failed, 6 a check failed, 7 timed out; run-experiment.sh adds 8 (an identifier found in its run record or folder; Phase 15), and so does release-manifest.sh (an identifier would be written; Phase 17, see "Release manifest" below). Records under `evidence/**` are gitignored and never overwritten (a `NAME.started.json` first, then `NAME.json`).
+ 
+ | Script | Command line | Reads | Environment variables (names) | Human approval points | Writes | Cloud | Rollback behavior |
+ |---|---|---|---|---|---|---|---|
+@@ -54,6 +54,23 @@ Exit codes everywhere: 0 ok, 2 usage, 3 missing prerequisite, 4 refused by a saf
+ 
+ `{data-bucket}` is the logical name of the data-lake bucket: records and printed lines never hold the real bucket name or the account ID, and the scripts resolve `s3://{data-bucket}/KEY` from `terraform output data_bucket_name`. The Terraform plan and apply output that plan.sh, deploy.sh and cleanup.sh show and save (`.plan.txt`, `.apply.txt`) is masked line by line (`<account>`, `<data-bucket>`, `<vector-bucket>`, including buckets an apply is creating); plan and removal-plan records keep the account only as `account_sha256` (sha256 of `scholarchain-account-v1:ACCOUNT_ID`) and `account_masked`, and deploy.sh and `cleanup.sh --remove` compare that fingerprint with the caller's. The unmasked plan exists only inside the binary `.tfplan` file.
+ 
++## Release manifest (Phase 17, decision 7 item 1)
++
++`scripts/release-manifest.sh` is an eleventh script, outside the table above. Status: `static: shellcheck clean`, `runtime: untested` (until the human's E10 run, Phase 17 decision 18), `human execution required`.
++
++| Command line | Reads | Environment variables (names) | Human approval points | Writes | Cloud | Rollback behavior |
++|---|---|---|---|---|---|---|
++| `bash scripts/release-manifest.sh --clone PATH --marker PATH --out-dir PATH` | this working tree at HEAD (`git ls-tree`, `git cat-file`, `git grep` of the committed `APPROVED-PLAN-SHA256:`, `APPROVED-MANIFEST-SHA256:` and `EVIDENCE-ARCHIVE-SHA256:` lines in `docs/agent-runs/**/approvals.md` and `human-gate.md`), `releases/course/*.json`, `datasets/dataset-manifest.yaml`, `config/course.json`, `prompts/**`, `experiments/raw/`, `experiments/evaluation/raw/`, `experiments/emulator/raw/`; the four jars in the clone; the `--marker` file | `TMPDIR` (private temporary folder) | the human runs it at E10 (dry run at E5 with an `--out-dir` under `/tmp`) and commits `releases/manifest/RC_SHA/` | `OUT_DIR/RC_SHA/release-manifest.json` and `release-manifest.md` (RC_SHA = full HEAD SHA), through `OUT_DIR/.incomplete-RC_SHA-XXXXXX/`; inside this repository only `--out-dir releases/manifest` is accepted | none (no network, no AWS, no Terraform, no sbt) | nothing to undo: a folder is never overwritten; a repeated E10 at a new HEAD writes a new folder |
++
++- **Options:** `--clone` is the top folder of the fresh clone of E3 (not this tree), whose HEAD must equal this tree's HEAD; it is used only to hash the jars. `--marker` is the saved copy of the clone's `.claude/.last-test-run` taken right after E3 (`timestamp=`, `module_tests=`, `contract_tests=` lines). `--out-dir` receives `RC_SHA/` and is created if missing (its parent must exist).
++- **Order of checks, each refusal writes nothing:** options (2); repository root (4); tools `git jq unzip` and `shasum` or `sha256sum` (3); `--marker` exists (3); `--clone` is the top folder of a Git working tree (3) and not this tree (4); clone HEAD equals this HEAD (3); exactly one of each mandatory jar in the clone (3 when missing, 6 when more than one); this tree is clean (4); `--out-dir` accepted and `RC_SHA/` absent (4). The jar checks come before the clean-tree check, so `check.sh`'s probes give their stated codes on a dirty tree too.
++- **Mandatory jars:** the four jars `project/PackageCheck.scala` opens, at the paths `scripts/package.sh` (`check_jars`) uses: `modules/hadoop/target/scala-*/scholarchain-hadoop-assembly-*.jar`, `modules/entity-resolution/target/scala-*/scholarchain-entity-resolution-assembly-*.jar`, `modules/spark/target/scala-*/scholarchain-spark-analytics-assembly-*.jar`, `modules/services/target/scala-*/scholarchain-services-assembly-*.jar`. None is optional. `check.sh` gate 7 builds all four (`sbt -batch packageCheck` depends on the four assemblies). If one is missing in the clone, build it there with `sbt -batch packageCheck` (all four), or `sbt -batch packageJobs` (hadoop, entity-resolution, spark) plus `sbt -batch services/assembly`. A jar whose `scholarchain-build-info.properties` has a `buildCommit` other than the build commit, a `module` other than expected, or `buildDirty` other than `false` is refused (6). `package.sh` runs `sbt clean` and rebuilds the jars, so run it (E5) before E10, never between E10 and E11's checksum recomputation.
++- **Contents, each with its source path:** release candidate and build commit; planned tag `v1.0-submission`; per release record its commit, plan commit, plan sha256, environment, Region, image repository, tag and digest, per service the task definition, previous task definition, image tag and digest check, and whether a committed `APPROVED-PLAN-SHA256:` line carries the same sha256 (file and line); every signed plan checksum with its file and line; every signed experiment manifest; the dataset snapshots and checksums (with their line in `datasets/dataset-manifest.yaml`); run IDs (the Spark graph runs named in `experiments/raw/*/*/run-record.json`, every experiment attempt folder, every evaluation run folder, every emulator run folder, all from `git ls-tree HEAD`; local-only evidence archives as `local only` with their committed checksum line); every file under `prompts/` with its sha256; the model identifiers from `config/course.json` with their field paths; the test counts from `--marker`, labelled E3 with the tested SHA; sha256, size and build info of the four jars; the sha256 of key committed artifacts at HEAD (the dataset manifest, `config/course.json`, `project/PackageCheck.scala`, the signed experiment manifests, `experiments/evaluation/suite-v1.json`, `evaluate.py`, every `frozen-files-sha256-E12.txt`, every tracked `*.sha256` under `docs/agent-runs/` and `experiments/`, the release records, the approval files that hold an `EVIDENCE-ARCHIVE-SHA256:` line); and the rule line for commits after the release candidate (Phase 17 decision 7 item 1, applied at E12). Repository files are hashed as committed at HEAD (`git cat-file`), equal to `shasum -a 256` of the file on a clean checkout.
++- **Identifier check (exit 8), before anything is written to `OUT_DIR`, and again on the written files:** a twelve-digit number (an alphanumeric token of exactly 12 digits) other than the placeholders `123456789012` and `210987654321` and a 12-character prefix of a commit of this repository (for example the release record name `20261119T193246Z-167196849087-d539.json`); an ARN with an account; an `amazonaws.com`, `execute-api` or `.elb.` host; an `s3://` URI that is not a `{placeholder}`; a bucket name of this environment (the `scholarchain-course` patterns of `register_bucket_patterns`); an access-key, Anthropic-key or Voyage-key shape. It prints the document, the line and the kind, never the value. It is pattern based because the script makes no AWS call (the value-based `check_no_identifiers` of `run-experiment.sh` and `archive-evidence.sh` needs the account and bucket names from AWS).
++- **Write path:** both files are built in the private temporary folder, checked, copied into `OUT_DIR/.incomplete-RC_SHA-XXXXXX/` (`mktemp -d`), validated (`jq empty`, every mandatory field, the Markdown holds the SHA, the tag, every jar checksum and the rule line), checked again, and HEAD must not have moved; only then is the folder renamed to `OUT_DIR/RC_SHA/`. On a failure after the temporary folder exists, no `RC_SHA/` is left and the script prints `INCOMPLETE-FOLDER: PATH`: never commit it; remove it, then run again.
++- **Output lines:** `STEP: release-manifest.sh NAME`, `INFO:`, four `SUMMARY: release-manifest ...` lines (counts, `jars_not_present=0`, test counts), `MANIFEST-FOLDER: PATH`, `RESULT: release-manifest.sh ok|failed`.
++- **check.sh probes (gate 9):** `--help` (0); no options and an unknown option (2); a missing `--marker` file, a `--clone` folder that is not a Git working tree, a `--clone` repository whose HEAD differs, and a `--clone` working tree at this HEAD without jars (3 each); the fixtures live in check.sh's private temporary folder, and `release-manifest-wrote-nothing` checks that no refusal created the `--out-dir` folder. They run at E4 in the fresh clone, before E10.
++
+ ## Full reproduction, in order (zsh, one line each, from the repository root)
+ 
+ This is the order Phase 14 session 3 runs (Phase 14 work order, decision 12; step IDs D0a to D20). Pipeline before the runtime-on plan: the plan needs the Spark graph run ID. A full reproduction from nothing starts with check.sh in a fresh clone and the first runtime-off apply (see "First apply" below); experiments (Phase 15) and cleanup come after D20.
+@@ -103,37 +120,40 @@ Uppercase words (`LOCAL_DIR`, `SCOPE`, `HEX`, `HEX32`, `HEX64`, `ATTEMPT_ID`, `B
+ 
+ ## Phase 15 runbook (Phase 15 work order, decision 13)
+ 
+-Phase 15 session 3 runs these steps in this order, one at a time, each by the human (no agent runs a script). The work order (`docs/agent-runs/phase-15/prompt.md`, decision 13) is authoritative for each step's checks; this table is the order and the commands. Every script refuses an untracked file, so every report copy and every finished raw folder is committed before the next script runs. Long runs: `caffeinate -i bash scripts/NAME.sh ARGS 2>&1 | tee /tmp/p15-DNN.log; echo "exit=${pipestatus[1]}"`.
++Phase 15 session 3 ran these steps, each by the human (no agent runs a script). They do not all run one at a time: the D-numbers are fixed names, not the order. The table lists the steps in the order decision 13 of the Phase 15 work order (`docs/agent-runs/phase-15/prompt.md`, "Order and overlap") starts them, and its "When" column states every overlap (Phase 15 M-06). The work order is authoritative for each step's checks; this table is the order and the commands. Every script refuses an untracked file, so every report copy and every finished raw folder is committed before the next script runs. Long runs: `caffeinate -i bash scripts/NAME.sh ARGS 2>&1 | tee /tmp/p15-DNN.log; echo "exit=${pipestatus[1]}"`.
+ 
+-| Step | What | Command or action |
+-|---|---|---|
+-| D0 | Billing numbers; cost bound line in `approvals.md`; commit `docs/agent-runs/**` | human |
+-| D0a | local checks, no AWS: derive scripts with `--fixtures`, syntax of collectors and load generators, `jq empty` on the manifests, executable bits, `git status --short` prints nothing | human (lines from the orchestrator) |
+-| D1 | package | `bash scripts/package.sh` (the build commit is the session 2 commit) |
+-| D2 | publish | `bash scripts/package.sh --publish` |
+-| D3 | runtime-on plan | `bash scripts/plan.sh --runtime-enabled true --image-tag BUILD --graph-run-id run:v1:f2625d504b12749389cf4f5b1a26aed4`; compare `plans/*.summary.txt` with the expected list (infra-engineer 5a and 5b reports); any stateful delete or replace is a stop |
+-| D4a | state-machine checks on the saved plan, before signing | the read-only `validate-state-machine-definition` and `test-state` lines of decision 9.3 (agent-report-infra-5a.md) |
+-| D4 | deploy | `bash scripts/deploy.sh --plan-sha256 HEX64`; commit the release record. Rollback: `rollback.sh` to the Phase 14 revisions (`f159535e`) with the human's go |
+-| D5 | smoke A (q05), G-29 check | `bash scripts/smoke-test.sh --question '...'` (key exported with `read -rs`); the record holds `api_url: "{api-url}"`, no host |
+-| D6 | G-28 re-run (q13) | `bash scripts/smoke-test.sh --question '...'`, then one explain read (the orchestrator writes it) |
+-| D7 | G-27 ingest probe, then the skip-only pass | probe: `bash scripts/run-bounded-pipeline.sh --stage load --snapshot dblp-2026-11-01 --loader rag-ingest --export 's3://{data-bucket}/graph/exports/20261119T062721Z-ba345f8d576c-cebe/run=f2625d504b12749389cf4f5b1a26aed4' --max-documents 5000 --wait-timeout 1800`; the full pass only if the probe wrote 0 vectors and 0 text objects with skip ratio 1.0: the same line without `--max-documents` (wait sized from the probe; rag's estimate `--wait-timeout 1800`) |
+-| D7a | `p15-a-hadoop` (evening, attended, second terminal, right after D7 started) | `caffeinate -i bash scripts/run-experiment.sh --manifest experiments/manifests/p15-a-hadoop.json --manifest-sha256 HEX64` |
+-| D8 | two cheap live suites | the sbt commands of the Phase 14 rag report |
+-| D9 | sign the manifests | one `APPROVED-MANIFEST-SHA256: HEX64` line per manifest in `approvals.md`, one commit (before D7a) |
+-| D9a | dry checks | `bash scripts/run-experiment.sh --manifest ... --manifest-sha256 HEX64 --check` for every signed manifest (the `p15-a-hadoop` one before D7a); then `git status --short` prints nothing |
+-| D10 | F | `run-experiment.sh` with `p15-f-poison-replay` (terminal with `SCHOLARCHAIN_SERVICE_API_KEY` exported); commit the raw folder |
+-| D11 | E | `run-experiment.sh` with `p15-e-retrieval-modes` (its collector runs the `rag-retrieval-eval` loader); commit the raw folder |
+-| D11a | `p15-a-spark` (second terminal, after D11's folder is committed) | `run-experiment.sh` with `p15-a-spark` |
+-| D11b | `p15-b-spark-burst` (third terminal, right after D11a) | `run-experiment.sh` with `p15-b-spark-burst` |
+-| D12, D12b | C, then C's derived plot | `run-experiment.sh` with `p15-c-embedding-backlog`; commit; `python3 -I experiments/derived/NAME.py --manifest p15-c-embedding-backlog`; commit its output |
+-| D13, D14 | D-query, D-read | `run-experiment.sh` with `p15-d-query-load`, then `p15-d-read-load`; commit after each |
+-| D15 | gate check before the demo | orchestrator (records only) |
+-| D16 to D18 | demo recording; `AwsAdaptersAwsSuite` (last); deploy-engineer's read-only report | human and agents |
+-| D19, D20 | runtime-off and cleanup-mode plan, deploy | `bash scripts/plan.sh --runtime-enabled false --cleanup-mode true`; sign; `bash scripts/deploy.sh --plan-sha256 HEX64`; commit the release record (every service desired 0, running 0) |
+-| D21 | overnight fallback only (see "Evening EMR runs and the D21 fallback") | one `caffeinate -i zsh -c '...'` line from the orchestrator |
+-| D22, D23 | results check; derived tables and plots | `python3 -I experiments/derived/NAME.py` per script; commit `experiments/derived/out/**` |
+-| D24 to D28 | instructor note, archive, cleanup | see "Cleanup order (D24 to D28)" |
+-| D29, D30 | final summary; copy and commit `runbook-log.md` | orchestrator and human |
++Order in short: D0, D0a, D1, D2, D3 with D4a, D4; then D7 starts; D9 and D9a's `--check` of `p15-a-hadoop` (the runner refuses an unsigned manifest); then D7a starts while D7 runs; D5, D6, D8 and the rest of D9a run while D7 and D7a run; after D7 ends: D10 (F), then D11 (E), then D11a and D11b start in that order and run beside D12 (then D12b), D13 and D14; D15 after D11a's folder is committed; then D16 to D18; the join; D19, D20; D21 only as the overnight fallback; D22 to D30.
++
++| Step | When (start rule; overlaps) | What | Command or action |
++|---|---|---|---|
++| D0 | first | Billing numbers; cost bound line in `approvals.md`; commit `docs/agent-runs/**` | human |
++| D0a | after D0 | local checks, no AWS: derive scripts with `--fixtures`, syntax of collectors and load generators, `jq empty` on the manifests, executable bits, `git status --short` prints nothing | human (lines from the orchestrator) |
++| D1 | after D0a | package | `bash scripts/package.sh` (the build commit is the session 2 commit) |
++| D2 | after D1 | publish | `bash scripts/package.sh --publish` |
++| D3 | after D2 | runtime-on plan | `bash scripts/plan.sh --runtime-enabled true --image-tag BUILD --graph-run-id run:v1:f2625d504b12749389cf4f5b1a26aed4`; compare `plans/*.summary.txt` with the expected list (infra-engineer 5a and 5b reports); any stateful delete or replace is a stop |
++| D4a | part of D3, before signing | state-machine checks on the saved plan | the read-only `validate-state-machine-definition` and `test-state` lines of decision 9.3 (agent-report-infra-5a.md) |
++| D4 | after D3 is signed | deploy | `bash scripts/deploy.sh --plan-sha256 HEX64`; commit the release record. Rollback: `rollback.sh` to the Phase 14 revisions (`f159535e`) with the human's go |
++| D7 | right after D4; runs beside D9, D9a, D7a, D5, D6, D8 | G-27 ingest probe, then the skip-only pass | probe: `bash scripts/run-bounded-pipeline.sh --stage load --snapshot dblp-2026-11-01 --loader rag-ingest --export 's3://{data-bucket}/graph/exports/20261119T062721Z-ba345f8d576c-cebe/run=f2625d504b12749389cf4f5b1a26aed4' --max-documents 5000 --wait-timeout 1800`; the full pass only if the probe wrote 0 vectors and 0 text objects with skip ratio 1.0: the same line without `--max-documents` (wait sized from the probe; rag's estimate `--wait-timeout 1800`) |
++| D9 | after D7 started; before D7a | sign the manifests | one `APPROVED-MANIFEST-SHA256: HEX64` line per manifest in `approvals.md`, one commit |
++| D9a (part 1) | after D9; before D7a | dry check of `p15-a-hadoop` | `bash scripts/run-experiment.sh --manifest experiments/manifests/p15-a-hadoop.json --manifest-sha256 HEX64 --check`; then `git status --short` prints nothing |
++| D7a | after D9a part 1, while D7 runs (evening, attended, second terminal) | `p15-a-hadoop` | `caffeinate -i bash scripts/run-experiment.sh --manifest experiments/manifests/p15-a-hadoop.json --manifest-sha256 HEX64` |
++| D5 | while D7 and D7a run | smoke A (q05), G-29 check | `bash scripts/smoke-test.sh --question '...'` (key exported with `read -rs`); the record holds `api_url: "{api-url}"`, no host |
++| D6 | while D7 and D7a run, after D5 | G-28 re-run (q13) | `bash scripts/smoke-test.sh --question '...'`, then one explain read (the orchestrator writes it) |
++| D8 | any time from D7 on (for example during D7) | two cheap live suites | the sbt commands of the Phase 14 rag report |
++| D9a (part 2) | while D7 and D7a run; before D10 | dry checks of the other signed manifests | `bash scripts/run-experiment.sh --manifest ... --manifest-sha256 HEX64 --check` for every other signed manifest; then `git status --short` prints nothing |
++| D10 | after D7 ended (F re-embeds vectors) | F | `run-experiment.sh` with `p15-f-poison-replay` (terminal with `SCHOLARCHAIN_SERVICE_API_KEY` exported); commit the raw folder |
++| D11 | after D10 (needs the `ops` task; its collector starts a nested pipeline) | E | `run-experiment.sh` with `p15-e-retrieval-modes` (its collector runs the `rag-retrieval-eval` loader); commit the raw folder |
++| D11a | after D11's folder is committed (second terminal); runs beside D11b, D12, D13, D14 | `p15-a-spark` | `run-experiment.sh` with `p15-a-spark` |
++| D11b | right after D11a started (third terminal); runs beside D11a, D12, D13, D14 | `p15-b-spark-burst` | `run-experiment.sh` with `p15-b-spark-burst` |
++| D12, D12b | after D7 and D11; beside D11a and D11b; D12b right after C's folder is committed | C, then C's derived plot | `run-experiment.sh` with `p15-c-embedding-backlog`; commit; `python3 -I experiments/derived/NAME.py --manifest p15-c-embedding-backlog`; commit its output |
++| D13, D14 | after D12b; beside D11a and D11b | D-query, D-read | `run-experiment.sh` with `p15-d-query-load`, then `p15-d-read-load`; commit after each |
++| D15 | after D11a ended and its folder is committed | gate check before the demo | orchestrator (records only) |
++| D16 to D18 | after D15 | demo recording; `AwsAdaptersAwsSuite` (last); deploy-engineer's read-only report | human and agents |
++| D19, D20 | after the join below | runtime-off and cleanup-mode plan, deploy | `bash scripts/plan.sh --runtime-enabled false --cleanup-mode true`; sign; `bash scripts/deploy.sh --plan-sha256 HEX64`; commit the release record (every service desired 0, running 0) |
++| D21 | overnight fallback only (see "Evening EMR runs and the D21 fallback") | EMR runs not finished in the evening | one `caffeinate -i zsh -c '...'` line from the orchestrator |
++| D22, D23 | after the join (or in the morning after D21) | results check; derived tables and plots | `python3 -I experiments/derived/NAME.py` per script; commit `experiments/derived/out/**` |
++| D24 to D28 | after D23 | instructor note, archive, cleanup | see "Cleanup order (D24 to D28)" |
++| D29, D30 | last | final summary; copy and commit `runbook-log.md` | orchestrator and human |
+ 
+ Join before D19: every EMR run has ended and its folder is committed; `aws emr list-clusters --active --query 'length(Clusters)' --output text` prints `0` and no pipeline execution is `RUNNING`.
+ 
+@@ -143,7 +163,8 @@ Join before D19: every EMR run has ended and its folder is committed; `aws emr l
+ - `--spark-shuffle-partitions N` (stage spark): `spark.sql.shuffle.partitions` of both Spark steps (field `spark.shufflePartitions`), 8..512, default 32. Recorded in `configuration.execution_settings.spark_shuffle_partitions`.
+ - `--max-documents N` (loader rag-ingest, optional): passed on as `RagIngestJob --max-documents N` (1..10000000): every run and the retrieval smoke use the first N rendered documents. Recorded in `inputs.loader_options.max_documents` (null = all) and in `inputs.ops_command`.
+ - `--loader rag-retrieval-eval` (experiment E; `org.scholarchain.rag.eval.RetrievalEvalJob`, no LLM call): `--graph-run-id run:v1:HEX32` (required; passed on as the job's `--graph-run`), `--modes LIST` (optional, comma list without spaces of `graph-only`, `vector-only`, `fused`; fused needs the other two), `--max-seconds N` (optional, 60..3600; job default 1200), `--question-timeout-seconds N` (optional, 5..300; job default 60). The job's `--attempt-id` is the script's own attempt ID, and its `--out` is a new folder inside the task. `--wait-timeout` must be at least the job's total limit plus 300 s (usage error 2 otherwise). Same refusals as every loader: the ops task definition's image tag must be the build commit, and no ops task of the family may be running (one ops task at a time). The report copy goes to `s3://{data-bucket}/rag/retrieval-eval/ATTEMPT_ID/report.json` (put-if-absent); the script prints `EVAL-REPORT: LOCATION` before the task starts and `EVAL-REPORT-COPY: OUTCOME LOCATION` after it, and records `outputs.retrieval_eval_report` (`location`, `copy_outcome`). Container exit 0 means completed with the copy `created` or `already present`; exit 1 (failed, the job's total time limit, or a failed copy) or 2 (refused arguments) makes the stage exit 6.
+-- Example (E, run by its collector through run-experiment.sh): `bash scripts/run-bounded-pipeline.sh --stage load --snapshot dblp-2026-11-01 --loader rag-retrieval-eval --graph-run-id run:v1:f2625d504b12749389cf4f5b1a26aed4 --wait-timeout 1800`.
++- Example (E, run by its collector through run-experiment.sh; the values of the signed manifest `experiments/manifests/p15-e-retrieval-modes.json`, `args`): `bash scripts/run-bounded-pipeline.sh --stage load --snapshot dblp-2026-11-01 --loader rag-retrieval-eval --graph-run-id run:v1:f2625d504b12749389cf4f5b1a26aed4 --modes graph-only,vector-only,fused --max-seconds 1200 --question-timeout-seconds 60 --wait-timeout 2400`.
++- Sizing `--wait-timeout` (Phase 15 M-03): the pipeline's own rule above (`limit + 300`, `run-bounded-pipeline.sh` around line 683) is a floor, not a safe value. The job checks its total limit only when a question starts, so it can end up to about 12 minutes (720 s) after `--max-seconds` (Phase 15 review finding H-02). The E collector (`experiments/collectors/e-retrieval-modes.sh`) therefore requires at least `limit + 300 + 720` (2220 s at the job default 1200 s) and refuses less with exit 2. Use at least that when you run the loader directly too; the signed manifest uses 2400 (its `notes`, "WAIT LIMITS"). A value between the two rules can end with pipeline exit 7 while the task still works.
+ 
+ ## The experiment runner (run-experiment.sh)
+ 
+@@ -217,7 +238,7 @@ Phase 13 (decision 13): only check.sh (fresh clone), package.sh (no `--publish`)
+ 
+ ## AWS Emulator (Phase 16, decision 12; run book step E14)
+ 
+-Local only: no AWS account, no cost, no network beyond Docker's image build. The emulator is AWS's local emulator of the AWS APIs (https://docs.aws.amazon.com/emulator/latest/userguide/what-is-service.html); on macOS it runs in Docker from an image you build (https://docs.aws.amazon.com/emulator/latest/userguide/getting-started-docker.html). Files: `docker/emulator/Dockerfile` (build-engineer), `config/emulator.json`, `scripts/emulator/env.sh`, `scripts/emulator/setup.sh`, `scripts/emulator/probes.sh`, `scripts/emulator/lib.sh` (shared safety contract), `scripts/emulator/OPERATIONS.md` (which operations are documented, and which stay probes). Status of every emulator script: `static: shellcheck clean`, `runtime: untested`, `human execution required`.
++Local only: no AWS account, no cost, no network beyond Docker's image build. The emulator is AWS's local emulator of the AWS APIs (https://docs.aws.amazon.com/emulator/latest/userguide/what-is-service.html); on macOS it runs in Docker from an image you build (https://docs.aws.amazon.com/emulator/latest/userguide/getting-started-docker.html). Files: `docker/emulator/Dockerfile` (build-engineer), `config/emulator.json`, `scripts/emulator/env.sh`, `scripts/emulator/setup.sh`, `scripts/emulator/probes.sh`, `scripts/emulator/lib.sh` (shared safety contract), `scripts/emulator/OPERATIONS.md` (which operations are documented, and which stay probes). Status of every emulator script: `static: shellcheck clean`, `human execution required`; the human ran the Phase 16 versions once (E14, `docs/agent-runs/phase-16/runbook-log.md`); the Phase 17 changes to env.sh (the `SCHOLARCHAIN_CFG_*` sweep, step 8 below) and probes.sh (P16-B-03) are `runtime: untested`.
+ 
+ Two terminals: the **emulator terminal** runs only `docker run` (step 5) and shows the emulator's log; the **[EMULATOR] terminal** is every other step after step 8, with the `[EMULATOR] ` prompt. Never use the [EMULATOR] terminal for anything else (its AWS variables point at the emulator), and never run the emulator steps while another sbt process, a source-changing repair or a commit runs. Every line is one zsh line from the repository root.
+ 
+@@ -232,7 +253,7 @@ Two terminals: the **emulator terminal** runs only `docker run` (step 5) and sho
+ | 6 | second terminal | `aws --version` | AWS CLI v2 |
+ | 7 | second terminal | `for i in $(seq 30); do curl -sf --cacert ~/.aws/emulator/9297/ca.pem https://127.0.0.1:9297/__admin/health && break; sleep 1; done; echo` | prints `ok` within 30 tries (the documentation's wait loop, https://docs.aws.amazon.com/emulator/latest/userguide/point-sdk-to-emulator.html) |
+ | 7b | second terminal | `ls ~/.aws/emulator/9297/` | lists `ca.pem`, `config`, `emulator_credentials`, `truststore.p12` |
+-| 8 | second terminal (becomes the [EMULATOR] terminal) | `source scripts/emulator/env.sh` | `INFO: env.sh: this terminal now targets the AWS Emulator ... Credentials file present: yes`; the prompt starts with `[EMULATOR] ` |
++| 8 | second terminal (becomes the [EMULATOR] terminal) | `source scripts/emulator/env.sh` | `INFO: env.sh: cleared N exported SCHOLARCHAIN_CFG_* variable(s) ...` (a count only; Phase 17: env.sh now clears every exported `SCHOLARCHAIN_CFG_*` variable itself, so the Phase 16 hand step `unset -m 'SCHOLARCHAIN_CFG_*'` is no longer needed), then `INFO: env.sh: this terminal now targets the AWS Emulator ... Credentials file present: yes`; the prompt starts with `[EMULATOR] ` |
+ | 9 | [EMULATOR] | `export SCHOLARCHAIN_EMULATOR_RUN_ID=...` and `export SCHOLARCHAIN_EMULATOR_RESULTS_DIR=...` (absolute, `experiments/emulator/raw/RUN_ID/`) | the orchestrator writes both lines with the values filled in; one run ID for the whole attempt |
+ | 10 | [EMULATOR] | `mkdir -p "$SCHOLARCHAIN_EMULATOR_RESULTS_DIR"` then `ls -d "$SCHOLARCHAIN_EMULATOR_RESULTS_DIR"` | the folder exists |
+ | 11 | [EMULATOR] | `bash scripts/emulator/setup.sh` | `INFO: setup.sh emulator account confirmed: yes`, then `SUMMARY: setup.sh created=... failed=0`; exit 0 (6 means a create failed: the RESULT lines say which) |
+@@ -245,6 +266,6 @@ Rules the scripts and suites enforce (the emulator safety contract, Phase 16 dec
+ 
+ A re-run, full or partial, starts with a restarted emulator (step 15, then step 5 with the same image), a new run ID and results folder, and `setup.sh` again; setup.sh and probes.sh refuse a results folder that already holds their file.
+ 
+-Environment variables (names): read by the scripts: `SCHOLARCHAIN_EMULATOR_ENDPOINT`, `AWS_ENDPOINT_URL`, `AWS_SHARED_CREDENTIALS_FILE`, `AWS_CONFIG_FILE`, the eight unset variables above, `SCHOLARCHAIN_CONFIG_FILE`, `SCHOLARCHAIN_EMULATOR_RESULTS_DIR`, `SCHOLARCHAIN_EMULATOR_RUN_ID` (probes.sh, vector key tag), `HOME`, `TMPDIR`; set by env.sh: `AWS_ENDPOINT_URL`, `AWS_SHARED_CREDENTIALS_FILE`, `AWS_CONFIG_FILE`, `AWS_CA_BUNDLE`, `AWS_EC2_METADATA_DISABLED`, `AWS_DISABLE_HOST_PREFIX_INJECTION`, `AWS_REGION`, `AWS_DEFAULT_REGION`, `SCHOLARCHAIN_EMULATOR_ENDPOINT`, `SCHOLARCHAIN_CONFIG_FILE`.
++Environment variables (names): read by the scripts: `SCHOLARCHAIN_EMULATOR_ENDPOINT`, `AWS_ENDPOINT_URL`, `AWS_SHARED_CREDENTIALS_FILE`, `AWS_CONFIG_FILE`, the eight unset variables above, `SCHOLARCHAIN_CONFIG_FILE`, `SCHOLARCHAIN_EMULATOR_RESULTS_DIR`, `SCHOLARCHAIN_EMULATOR_RUN_ID` (probes.sh, vector key tag), `HOME`, `TMPDIR`; set by env.sh: `AWS_ENDPOINT_URL`, `AWS_SHARED_CREDENTIALS_FILE`, `AWS_CONFIG_FILE`, `AWS_CA_BUNDLE`, `AWS_EC2_METADATA_DISABLED`, `AWS_DISABLE_HOST_PREFIX_INJECTION`, `AWS_REGION`, `AWS_DEFAULT_REGION`, `SCHOLARCHAIN_EMULATOR_ENDPOINT`, `SCHOLARCHAIN_CONFIG_FILE`; unset by env.sh: the eight variables above, the four ScholarChain API-key variables, every exported `SCHOLARCHAIN_CFG_*` variable (found by name at run time, counted) and every `SCHOLARCHAIN_CFG_*` name ConfigLoader knows.
+ 
+ Exit codes (setup.sh, probes.sh): 0 ok; 2 usage; 3 missing prerequisite (tool, file, results folder, emulator not healthy); 4 refused by a safety rule (one `preflight` line in the results file when the results folder is usable); 5 unexpected command failure; 6 a create or probe call failed (results complete); 7 interrupted.
+diff --git a/scripts/archive-evidence.sh b/scripts/archive-evidence.sh
+index f52f776..ad6a8f9 100644
+--- a/scripts/archive-evidence.sh
++++ b/scripts/archive-evidence.sh
+@@ -5,7 +5,11 @@
+ # (author). Run by the human.
+ #
+ # Status (Phase 14, I-25): static: shellcheck clean; runtime: untested; human
+-# execution required.
++# execution required. Phase 17 change (E-03: the --local-only value of
++# byte_copies_hold_identifiers names its account-only scope instead of
++# false): runtime: untested. History: the human ran earlier versions in
++# Phases 13 to 15 (Phase 13 --local-only; Phase 14 D18 and Phase 15 D25,
++# S3 mode; runbook-log.md of phases 14 and 15).
+ 
+ set -Eeuo pipefail
+ umask 077
+@@ -48,8 +52,10 @@ REPORTS_COUNT=0
+ REPORTS_BYTES=0
+ FILE_COUNT=0
+ # JSON text for byte_copies_hold_identifiers (I-25): true or false only after
+-# the check ran with the account ID registered; otherwise a "not checked: ..."
+-# string, never false.
++# the check ran in S3 mode (account ID and bucket names registered); true
++# also when --local-only found the account ID; a clean --local-only check
++# (account only, E-03 Phase 17) is the string "account only: ..."; without an
++# account a "not checked: ..." string. Never false unless the full check ran.
+ IDENTIFIER_WARNINGS='"not checked: the check did not run"'
+ 
+ usage() {
+@@ -123,8 +129,11 @@ reports/ are kept exactly; if one holds an identifier, the script warns and
+ records it (byte_copies_hold_identifiers: true or false). That check needs
+ the account ID: S3 mode learns it from the caller (sts get-caller-identity)
+ and keeps it in memory only; --local-only knows it only from a legacy plan
+-record, and without it records "not checked: account unknown" (I-25). The
+-archive is gitignored and never committed.
++record, and without it records "not checked: account unknown" (I-25). With
++it, --local-only checks the account ID only (bucket names are unknown
++without AWS): it records true when the account ID is found, else
++"account only: no account ID found; bucket names not checked (--local-only)",
++never false (E-03, Phase 17). The archive is gitignored and never committed.
+ 
+ Requirements: bash, git, jq, tar, find, shasum or sha256sum, timeout or
+ gtimeout (GNU coreutils); S3 mode also terraform (output only) and aws (CLI
+@@ -568,6 +577,12 @@ write_manifest() {
+     warn "byte copies were not checked for identifiers: account unknown (use S3 mode to check them)"
+   else
+     IDENTIFIER_WARNINGS="false"
++    # E-03 (Phase 17): --local-only registers only the account ID (bucket
++    # names are unknown without AWS), so a clean result is not "false" there:
++    # it names its scope. A found identifier is still true in both modes.
++    if [ "${LOCAL_ONLY}" = "true" ]; then
++      IDENTIFIER_WARNINGS='"account only: no account ID found; bucket names not checked (--local-only)"'
++    fi
+     if ! check_no_identifiers "${PARTIAL}/repo"; then
+       IDENTIFIER_WARNINGS="true"
+       warn "byte copies under repo/ hold an identifier (listed above); they are kept unchanged; never commit the archive"
+diff --git a/scripts/check.sh b/scripts/check.sh
+index 1830a4c..4901795 100644
+--- a/scripts/check.sh
++++ b/scripts/check.sh
+@@ -4,7 +4,8 @@
+ # infra-engineer (author). Run by the human, normally in a fresh clone.
+ #
+ # Status (Phase 13): static: shellcheck clean; runtime: untested; human
+-# execution required.
++# execution required. Phase 17 (decision 7 item 1): release-manifest refusal
++# probes added to gate 9; runtime: untested.
+ 
+ set -Eeuo pipefail
+ umask 077
+@@ -123,7 +124,18 @@ Gates, in order (each has its own "STEP: check.sh gate-NAME" marker and a
+                      identity_assignment data file in mode
+                      identity-assignments-only, every data file in mode full,
+                      never a _SUCCESS or _manifest.json file, and refuses an
+-                     unknown mode). A probe that reached a cloud call
++                     unknown mode). Release-manifest probes (Phase 17):
++                     scripts/release-manifest.sh --help (exit 0); no
++                     options and an unknown option (exit 2); a missing
++                     --marker file, a --clone folder that is not a Git
++                     working tree, a --clone repository whose HEAD
++                     differs, and a --clone working tree at this HEAD
++                     without the mandatory jars (exit 3 each); the fixtures
++                     (an empty folder, a new repository with one empty
++                     commit, a shared no-checkout clone of this checkout)
++                     live under the private temporary folder, and no
++                     refusal may create the --out-dir folder
++                     (release-manifest-wrote-nothing). A probe that reached a cloud call
+                      would fail for lack of credentials, so no probe can
+                      change AWS. These probes are the first execution of the
+                      scripts; they test refusal paths and the local archive.
+@@ -917,6 +929,68 @@ upload${tab}run=0123abcd/run-report.json"
+   return "${bad}"
+ }
+ 
++# Phase 17 (decision 7 item 1): offline refusal probes of
++# scripts/release-manifest.sh. Fixtures live only under PROBE_DIR: an empty
++# folder (not a Git working tree), a new repository with one empty commit (its
++# HEAD differs), and a shared, no-checkout clone of this checkout whose HEAD
++# is set to this HEAD (a Git working tree with no jar). Each refusal must exit
++# with its stated code, and no probe may create the --out-dir folder.
++probe_release_manifest() {
++  local rm_dir="${PROBE_DIR}/release-manifest" out marker head ok=0
++  out="${rm_dir}/out"
++  marker="${rm_dir}/marker.txt"
++  if [ ! -f scripts/release-manifest.sh ]; then
++    printf '  PROBE: release-manifest failed (scripts/release-manifest.sh missing)\n'
++    printf 'release-manifest\tfailed\t127\t0\n' >>"${TMP_DIR}/probes.tsv"
++    PROBES_BAD=1
++    return 0
++  fi
++  probe help-release-manifest 0 '^Usage: scripts/release-manifest\.sh' \
++    bash scripts/release-manifest.sh --help || true
++  probe release-manifest-no-options 2 'exit=2' bash scripts/release-manifest.sh || true
++  probe release-manifest-unknown-option 2 'unknown argument' bash scripts/release-manifest.sh --bogus || true
++  if mkdir -p -- "${rm_dir}/not-git" &&
++    printf 'timestamp=2026-01-01T00:00:00Z\nmodule_tests=1\ncontract_tests=1\n' >"${marker}"; then
++    ok=1
++  fi
++  head="$(head_commit)" || ok=0
++  if [ "${ok}" -eq 1 ]; then
++    if ! with_timeout "${PROBE_TIMEOUT}" git init -q -- "${rm_dir}/other" ||
++      ! with_timeout "${PROBE_TIMEOUT}" git -C "${rm_dir}/other" -c user.name=check \
++        -c user.email=check@example.invalid -c commit.gpgsign=false commit -q --allow-empty \
++        -m 'check.sh probe: a different HEAD'; then
++      ok=0
++    fi
++  fi
++  if [ "${ok}" -eq 1 ]; then
++    if ! with_timeout "${PROBE_TIMEOUT}" git clone -q --shared --no-checkout -- "${REPO_ROOT}" "${rm_dir}/same" ||
++      ! git -C "${rm_dir}/same" update-ref --no-deref HEAD "${head}"; then
++      ok=0
++    fi
++  fi
++  if [ "${ok}" -ne 1 ]; then
++    printf '  release-manifest: could not prepare the fixture folders under the private temporary folder\n'
++    probe_record release-manifest-fixtures 1
++    return 0
++  fi
++  probe release-manifest-missing-marker 3 'marker file not found' \
++    bash scripts/release-manifest.sh --clone "${rm_dir}/same" --marker "${rm_dir}/no-such-marker.txt" \
++    --out-dir "${out}" || true
++  probe release-manifest-clone-not-git 3 'Git working tree' \
++    bash scripts/release-manifest.sh --clone "${rm_dir}/not-git" --marker "${marker}" --out-dir "${out}" || true
++  probe release-manifest-clone-head-differs 3 'differs from this tree' \
++    bash scripts/release-manifest.sh --clone "${rm_dir}/other" --marker "${marker}" --out-dir "${out}" || true
++  probe release-manifest-jar-missing 3 'mandatory jar missing' \
++    bash scripts/release-manifest.sh --clone "${rm_dir}/same" --marker "${marker}" --out-dir "${out}" || true
++  if [ -e "${out}" ]; then
++    printf '  release-manifest: a refusal created %s\n' "${out}"
++    probe_record release-manifest-wrote-nothing 1
++  else
++    probe_record release-manifest-wrote-nothing 0
++  fi
++  return 0
++}
++
+ gate_probes() {
+   local s rc example_sha dirty
+   PROBE_DIR="${TMP_DIR}/probes"
+@@ -967,6 +1041,7 @@ gate_probes() {
+   rc=0
+   probe_er_upload_plan || rc=1
+   probe_record er-upload-plan "${rc}"
++  probe_release_manifest
+   return "${PROBES_BAD}"
+ }
+ 
+diff --git a/scripts/deploy.sh b/scripts/deploy.sh
+index 724feb0..f7537bd 100644
+--- a/scripts/deploy.sh
++++ b/scripts/deploy.sh
+@@ -7,7 +7,11 @@
+ # Status (Phase 14, I-28): static: shellcheck clean; runtime: untested; human
+ # execution required. Phase 16 L-07 change (endpoint values registered for
+ # masking before the apply; the saved apply copy masked again after it):
+-# runtime: untested.
++# runtime: untested. Phase 17 change (E-01: help text only, the stale
++# "Phase 14 order" paragraph replaced by a pointer to scripts/README.md):
++# runtime: untested. History: the human ran earlier versions in Phases 14
++# and 15 (for example Phase 15 D4 and D20, exit 0,
++# docs/agent-runs/phase-15/runbook-log.md:28 and :86).
+ 
+ set -Eeuo pipefail
+ umask 077
+@@ -106,16 +110,11 @@ changes no plan input (infra/terraform/ and the files listed in
+ SC_PLAN_INPUT_PATHS) and no build input, so signed plans
+ and packaged artifacts stay valid.
+ 
+-Phase 14 order (decided in the Phase 13 work order):
+-  1. deploy.sh with the plan signed at the Phase 13 gate (runtime off);
+-     commit its release record.
+-  2. bash scripts/package.sh --publish (image to ECR, jars to
+-     artifacts/BUILD_COMMIT/).
+-  3. bash scripts/plan.sh --runtime-enabled true --image-tag BUILD_COMMIT
+-     --graph-run-id ID; commit APPROVED-PLAN-SHA256 for it in
+-     docs/agent-runs/phase-14/approvals.md.
+-  4. deploy.sh with that second plan; commit the release record; then run
+-     scripts/smoke-test.sh.
++Order of a full reproduction (runtime-off plan and deploy, package and
++publish, the bounded pipeline, then the runtime-on plan, which needs the
++Spark graph run ID, and its deploy, then the smoke tests): see
++scripts/README.md, "Full reproduction, in order". That table is the
++authoritative order; this help text does not repeat it.
+ 
+ It never edits Terraform state by hand, never runs any other plan, and asks
+ no question. If the apply fails, no release record is written; run plan.sh
+diff --git a/scripts/emulator/env.sh b/scripts/emulator/env.sh
+index fe39c03..d698521 100644
+--- a/scripts/emulator/env.sh
++++ b/scripts/emulator/env.sh
+@@ -5,10 +5,12 @@
+ #
+ #   source scripts/emulator/env.sh
+ #
+-# It must parse and behave the same in zsh (the human's shell) and bash, so it
+-# uses only POSIX-style tests, case, unset, export and printf (no arrays, no
+-# bash-only expansions, no functions). It starts no program, makes no network
+-# call and writes no file. It changes no shell option.
++# It must parse and behave the same in zsh (the human's shell) and bash 3.2,
++# so it uses only POSIX-style tests, case, unset, export, printf, read, a
++# command substitution and a here-document (no arrays, no bash-only or
++# zsh-only expansions, no functions, no pipelines). The only program it starts
++# is one awk process that prints variable names (never values). It makes no
++# network call and writes no file. It changes no shell option.
+ #
+ # What it does, in order:
+ #   1. Refuses (return 4) unless the current folder is the repository root
+@@ -21,9 +23,13 @@
+ #      AWS_WEB_IDENTITY_TOKEN_FILE, AWS_CONTAINER_CREDENTIALS_RELATIVE_URI,
+ #      AWS_CONTAINER_CREDENTIALS_FULL_URI. It also unsets the four ScholarChain
+ #      API-key variables named in config/course.json (the emulator config uses
+-#      the fake embedding and LLM providers, so no key is needed) and every
+-#      SCHOLARCHAIN_CFG_* override ConfigLoader knows, so a value left from an
+-#      AWS session (for example a real queue URL) never overrides
++#      the fake embedding and LLM providers, so no key is needed). Then it
++#      unsets every exported variable whose name starts with SCHOLARCHAIN_CFG_
++#      (any name, found at run time; Phase 17 decision 7 item 2) and prints
++#      one line with how many it cleared (a count only, never a name or a
++#      value), and finally every SCHOLARCHAIN_CFG_* override ConfigLoader
++#      knows by name (also unexported ones; not counted), so a value left from
++#      an AWS session (for example a real queue URL) never overrides
+ #      config/emulator.json.
+ #   3. Exports the variables of the emulator documentation, "To point your SDK
+ #      at a local emulator"
+@@ -46,7 +52,10 @@
+ # Return codes: 0 done; 2 executed instead of sourced (bash only); 4 refused
+ # (not at the repository root).
+ #
+-# Status: static: shellcheck clean; runtime: untested; human execution required.
++# Status (Phase 17): static: shellcheck clean; runtime: untested; human
++# execution required. History: the human sourced the Phase 16 version once
++# (E14 part 2, docs/agent-runs/phase-16/runbook-log.md:58, then cleared the
++# SCHOLARCHAIN_CFG_* overrides by hand); the Phase 17 sweep has never run.
+ 
+ if [ -n "${BASH_VERSION:-}" ] && [ "${BASH_SOURCE[0]:-}" = "$0" ]; then
+   printf 'ERROR: env.sh: source this file (source scripts/emulator/env.sh); running it changes nothing\n' >&2
+@@ -68,8 +77,37 @@ unset AWS_PROFILE AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN \
+ unset SCHOLARCHAIN_VOYAGE_API_KEY SCHOLARCHAIN_ANTHROPIC_API_KEY \
+   SCHOLARCHAIN_SERVICE_API_KEY SCHOLARCHAIN_SERVICE_READONLY_API_KEY
+ 
++# Every exported SCHOLARCHAIN_CFG_* variable, whatever its name (Phase 17,
++# decision 7 item 2). Method, the same in bash 3.2 and zsh: one awk process
++# prints only the NAMES from its ENVIRON array (never a value; a value with a
++# newline cannot fake a name), filtered to ^SCHOLARCHAIN_CFG_[A-Za-z0-9_]+$;
++# the names come back through a command substitution and a here-document into
++# a while-read loop, which runs in the current shell in both shells (no
++# pipeline, no array, no word splitting, which zsh does not do by default).
++# Each successful unset is counted; only the count is printed.
++SC_EMU_CFG_COUNT=0
++if command -v awk >/dev/null 2>&1; then
++  SC_EMU_CFG_NAMES="$(awk 'BEGIN { for (k in ENVIRON) if (k ~ /^SCHOLARCHAIN_CFG_[A-Za-z0-9_]+$/) print k }' </dev/null)"
++  while IFS= read -r SC_EMU_CFG_NAME; do
++    case "${SC_EMU_CFG_NAME}" in
++      SCHOLARCHAIN_CFG_?*)
++        if unset "${SC_EMU_CFG_NAME}" 2>/dev/null; then
++          SC_EMU_CFG_COUNT=$((SC_EMU_CFG_COUNT + 1))
++        fi
++        ;;
++    esac
++  done <<SC_EMU_CFG_EOF
++${SC_EMU_CFG_NAMES}
++SC_EMU_CFG_EOF
++  printf 'INFO: env.sh: cleared %s exported SCHOLARCHAIN_CFG_* variable(s) (count only; no name or value is printed)\n' "${SC_EMU_CFG_COUNT}"
++else
++  printf 'WARN: env.sh: awk not found; only the known SCHOLARCHAIN_CFG_* names below are cleared (count not available)\n' >&2
++fi
++unset SC_EMU_CFG_COUNT SC_EMU_CFG_NAMES SC_EMU_CFG_NAME
++
+ # Every SCHOLARCHAIN_CFG_* variable ConfigLoader knows (ConfigLoader.allKeys
+-# through ConfigKey.envVarFor, modules/core/.../config/ConfigLoader.scala).
++# through ConfigKey.envVarFor, modules/core/.../config/ConfigLoader.scala),
++# also when it is set in this shell but not exported (not counted above).
+ unset SCHOLARCHAIN_CFG_ENVIRONMENT SCHOLARCHAIN_CFG_AWS_REGION \
+   SCHOLARCHAIN_CFG_AWS_ACCOUNT_ID SCHOLARCHAIN_CFG_STORAGE_RAW_BUCKET \
+   SCHOLARCHAIN_CFG_STORAGE_CURATED_BUCKET SCHOLARCHAIN_CFG_STORAGE_GRAPH_BUCKET \
+diff --git a/scripts/emulator/probes.sh b/scripts/emulator/probes.sh
+index 81e3e09..b446e75 100644
+--- a/scripts/emulator/probes.sh
++++ b/scripts/emulator/probes.sh
+@@ -4,8 +4,11 @@
+ # policy story). Owner: infra-engineer (Phase 16, decision 12 item 4). Run by
+ # the human in the [EMULATOR] terminal after setup.sh; never by an agent.
+ #
+-# Status (Phase 16): static: shellcheck clean; runtime: untested; human
+-# execution required.
++# Status (Phase 17): static: shellcheck clean; runtime: untested; human
++# execution required. History: the human ran the Phase 16 version once
++# (E14 part 4, success path, exit line not pasted;
++# docs/agent-runs/phase-16/runbook-log.md:61); the Phase 17 change (P16-B-03,
++# the refusal path of safety()) has never run.
+ 
+ set -Eeuo pipefail
+ umask 077
+@@ -192,8 +195,11 @@ safety() {
+   local rc=0
+   emu_safety_check required || rc=$?
+   if [ "${rc}" -ne 0 ]; then
+-    if [ "${EMU_FAILED_RULE}" != "results-dir-path" ] && [ -d "${SCHOLARCHAIN_EMULATOR_RESULTS_DIR}" ] &&
+-      [ ! -e "${SCHOLARCHAIN_EMULATOR_RESULTS_DIR}/probes.jsonl" ]; then
++    # P16-B-03 (Phase 17): the results folder may be unset when an earlier
++    # rule failed; `:-` keeps set -u from aborting before the exit-4 line
++    # (the same guard as setup.sh).
++    if [ "${EMU_FAILED_RULE}" != "results-dir-path" ] && [ -n "${SCHOLARCHAIN_EMULATOR_RESULTS_DIR:-}" ] &&
++      [ -d "${SCHOLARCHAIN_EMULATOR_RESULTS_DIR}" ] && [ ! -e "${SCHOLARCHAIN_EMULATOR_RESULTS_DIR}/probes.jsonl" ]; then
+       EMU_RESULTS_FILE="${SCHOLARCHAIN_EMULATOR_RESULTS_DIR}/probes.jsonl"
+       emu_preflight_line "${EMU_FAILED_RULE}"
+     fi

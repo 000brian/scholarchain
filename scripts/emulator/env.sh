@@ -5,10 +5,12 @@
 #
 #   source scripts/emulator/env.sh
 #
-# It must parse and behave the same in zsh (the human's shell) and bash, so it
-# uses only POSIX-style tests, case, unset, export and printf (no arrays, no
-# bash-only expansions, no functions). It starts no program, makes no network
-# call and writes no file. It changes no shell option.
+# It must parse and behave the same in zsh (the human's shell) and bash 3.2,
+# so it uses only POSIX-style tests, case, unset, export, printf, read, a
+# command substitution and a here-document (no arrays, no bash-only or
+# zsh-only expansions, no functions, no pipelines). The only program it starts
+# is one awk process that prints variable names (never values). It makes no
+# network call and writes no file. It changes no shell option.
 #
 # What it does, in order:
 #   1. Refuses (return 4) unless the current folder is the repository root
@@ -21,9 +23,13 @@
 #      AWS_WEB_IDENTITY_TOKEN_FILE, AWS_CONTAINER_CREDENTIALS_RELATIVE_URI,
 #      AWS_CONTAINER_CREDENTIALS_FULL_URI. It also unsets the four ScholarChain
 #      API-key variables named in config/course.json (the emulator config uses
-#      the fake embedding and LLM providers, so no key is needed) and every
-#      SCHOLARCHAIN_CFG_* override ConfigLoader knows, so a value left from an
-#      AWS session (for example a real queue URL) never overrides
+#      the fake embedding and LLM providers, so no key is needed). Then it
+#      unsets every exported variable whose name starts with SCHOLARCHAIN_CFG_
+#      (any name, found at run time; Phase 17 decision 7 item 2) and prints
+#      one line with how many it cleared (a count only, never a name or a
+#      value), and finally every SCHOLARCHAIN_CFG_* override ConfigLoader
+#      knows by name (also unexported ones; not counted), so a value left from
+#      an AWS session (for example a real queue URL) never overrides
 #      config/emulator.json.
 #   3. Exports the variables of the emulator documentation, "To point your SDK
 #      at a local emulator"
@@ -46,7 +52,10 @@
 # Return codes: 0 done; 2 executed instead of sourced (bash only); 4 refused
 # (not at the repository root).
 #
-# Status: static: shellcheck clean; runtime: untested; human execution required.
+# Status (Phase 17): static: shellcheck clean; runtime: untested; human
+# execution required. History: the human sourced the Phase 16 version once
+# (E14 part 2, docs/agent-runs/phase-16/runbook-log.md:58, then cleared the
+# SCHOLARCHAIN_CFG_* overrides by hand); the Phase 17 sweep has never run.
 
 if [ -n "${BASH_VERSION:-}" ] && [ "${BASH_SOURCE[0]:-}" = "$0" ]; then
   printf 'ERROR: env.sh: source this file (source scripts/emulator/env.sh); running it changes nothing\n' >&2
@@ -68,8 +77,37 @@ unset AWS_PROFILE AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN \
 unset SCHOLARCHAIN_VOYAGE_API_KEY SCHOLARCHAIN_ANTHROPIC_API_KEY \
   SCHOLARCHAIN_SERVICE_API_KEY SCHOLARCHAIN_SERVICE_READONLY_API_KEY
 
+# Every exported SCHOLARCHAIN_CFG_* variable, whatever its name (Phase 17,
+# decision 7 item 2). Method, the same in bash 3.2 and zsh: one awk process
+# prints only the NAMES from its ENVIRON array (never a value; a value with a
+# newline cannot fake a name), filtered to ^SCHOLARCHAIN_CFG_[A-Za-z0-9_]+$;
+# the names come back through a command substitution and a here-document into
+# a while-read loop, which runs in the current shell in both shells (no
+# pipeline, no array, no word splitting, which zsh does not do by default).
+# Each successful unset is counted; only the count is printed.
+SC_EMU_CFG_COUNT=0
+if command -v awk >/dev/null 2>&1; then
+  SC_EMU_CFG_NAMES="$(awk 'BEGIN { for (k in ENVIRON) if (k ~ /^SCHOLARCHAIN_CFG_[A-Za-z0-9_]+$/) print k }' </dev/null)"
+  while IFS= read -r SC_EMU_CFG_NAME; do
+    case "${SC_EMU_CFG_NAME}" in
+      SCHOLARCHAIN_CFG_?*)
+        if unset "${SC_EMU_CFG_NAME}" 2>/dev/null; then
+          SC_EMU_CFG_COUNT=$((SC_EMU_CFG_COUNT + 1))
+        fi
+        ;;
+    esac
+  done <<SC_EMU_CFG_EOF
+${SC_EMU_CFG_NAMES}
+SC_EMU_CFG_EOF
+  printf 'INFO: env.sh: cleared %s exported SCHOLARCHAIN_CFG_* variable(s) (count only; no name or value is printed)\n' "${SC_EMU_CFG_COUNT}"
+else
+  printf 'WARN: env.sh: awk not found; only the known SCHOLARCHAIN_CFG_* names below are cleared (count not available)\n' >&2
+fi
+unset SC_EMU_CFG_COUNT SC_EMU_CFG_NAMES SC_EMU_CFG_NAME
+
 # Every SCHOLARCHAIN_CFG_* variable ConfigLoader knows (ConfigLoader.allKeys
-# through ConfigKey.envVarFor, modules/core/.../config/ConfigLoader.scala).
+# through ConfigKey.envVarFor, modules/core/.../config/ConfigLoader.scala),
+# also when it is set in this shell but not exported (not counted above).
 unset SCHOLARCHAIN_CFG_ENVIRONMENT SCHOLARCHAIN_CFG_AWS_REGION \
   SCHOLARCHAIN_CFG_AWS_ACCOUNT_ID SCHOLARCHAIN_CFG_STORAGE_RAW_BUCKET \
   SCHOLARCHAIN_CFG_STORAGE_CURATED_BUCKET SCHOLARCHAIN_CFG_STORAGE_GRAPH_BUCKET \

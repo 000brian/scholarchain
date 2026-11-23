@@ -97,7 +97,7 @@ class ClaimVerificationSuite extends munit.FunSuite {
       None
     )
   private def status(c: DraftClaim): VerifiedClaim =
-    ClaimVerification.verify(AnswerDraft("s", List(c), Nil), built.bundle).head
+    VerifierOracle.verify(AnswerDraft("s", List(c), Nil), built.bundle).head
 
   test("m-1: verified needs a passed check; nothing checkable is partially supported") {
     val qualitative =
@@ -380,7 +380,7 @@ class ClaimVerificationSuite extends munit.FunSuite {
     .fold(e => fail(e), identity)
   private val r301Items = r301.items.map(i => i.evidenceId -> i).toMap
   private def r301Verify(text: String, f: Fact*) =
-    ClaimVerification.verifyClaim(
+    VerifierOracle.verifyClaim(
       DraftClaim("claim-1", text, f.toList.map(x => r301.idOf(x).value), Nil, None),
       r301Items
     )

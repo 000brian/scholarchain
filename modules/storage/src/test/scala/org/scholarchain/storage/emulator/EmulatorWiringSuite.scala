@@ -296,6 +296,148 @@ class EmulatorWiringSuite extends munit.FunSuite {
       EmulatorSafety.Rules.All.filterNot(_.startsWith("unset:")),
       scriptRules
     )
+    assertEquals(libSafetyMismatches(lib), Nil)
+  }
+
+  // P16-A-05: the parts the first comparison did not cover. Each lib.sh rule is read from the
+  // script text and compared with what EmulatorSafety.check does on the same inputs.
+
+  private lazy val libText: String = new String(
+    Files.readAllBytes(repoRoot.resolve("scripts/emulator/lib.sh")),
+    StandardCharsets.UTF_8
+  )
+
+  /** A shell `case` pattern (`*`, `?`, literal characters) as a whole-string regex. */
+  private def globMatches(glob: String, v: String): Boolean =
+    v.matches(glob.map {
+      case '*' => ".*"
+      case '?' => "."
+      case c   => java.util.regex.Pattern.quote(c.toString)
+    }.mkString)
+
+  /** The pattern of lib.sh's `case "${VAR:-}" in PATTERN) ;; *) EMU_FAILED_RULE="RULE"` block. */
+  private def libCasePattern(lib: String, variable: String, rule: String): Option[String] =
+    ("""case "\$\{""" + java.util.regex.Pattern.quote(variable) +
+      """:-\}" in\s+(\S+)\) ;;\s+\*\)\s+EMU_FAILED_RULE="""" +
+      java.util.regex.Pattern.quote(rule) + "\"").r.findFirstMatchIn(lib).map(_.group(1))
+
+  /** Every difference between lib.sh's results-dir set test, absolute-path (slash-star) rules and
+    * credentials/config path suffixes and EmulatorSafety.check; Nil when they are identical.
+    */
+  private def libSafetyMismatches(lib: String): List[String] = {
+    val out = mutable.ListBuffer.empty[String]
+    val samples = List("/", "/a/b", "a", "", "./a", "a/", " /a")
+    def refusedWith(env: Map[String, String], rule: String): Boolean =
+      EmulatorSafety.check(env, _ => true, false, () => "r").left.toOption.contains(rule)
+
+    // 1. lib.sh:140, the results-dir set test: `+x` (set, even empty) or `:+x` (non-empty only)
+    val SetTest = """\[ -n "\$\{SCHOLARCHAIN_EMULATOR_RESULTS_DIR(:?\+)x\}" \]""".r
+    val setOp = SetTest.findAllMatchIn(lib).map(_.group(1)).toList match {
+      case List(op) => Some(op)
+      case other    => out += s"results-dir set test: found $other"; None
+    }
+    setOp.foreach { op =>
+      val libEmptyIsSet = op == "+"
+      val scalaEmptyIsSet =
+        refusedWith(good + (EmulatorSafety.ResultsDirVar -> ""), "results-dir-path")
+      if (libEmptyIsSet != scalaEmptyIsSet)
+        out += s"results-dir set test: lib.sh empty-is-set=$libEmptyIsSet, Scala=$scalaEmptyIsSet"
+    }
+
+    // 2. lib.sh:107-113, :133-139, :141-147, the absolute-path `case` rules
+    def homeEnv(h: String) = good ++ Map(
+      "HOME" -> h,
+      EmulatorSafety.CredentialsFileVar -> s"$h/.aws/emulator/9297/emulator_credentials",
+      EmulatorSafety.ConfigFileVar -> s"$h/.aws/emulator/9297/config"
+    )
+    List[(String, String, String => Map[String, String])](
+      ("HOME", "credentials-file", homeEnv),
+      (
+        "SCHOLARCHAIN_CONFIG_FILE",
+        "config-file-path",
+        v => good + ("SCHOLARCHAIN_CONFIG_FILE" -> v)
+      ),
+      (
+        EmulatorSafety.ResultsDirVar,
+        "results-dir-path",
+        v => good + (EmulatorSafety.ResultsDirVar -> v)
+      )
+    ).foreach { case (variable, rule, envOf) =>
+      libCasePattern(lib, variable, rule) match {
+        case None          => out += s"$rule: no case block for $variable"
+        case Some(pattern) =>
+          samples.foreach { v =>
+            // the results-dir block runs only when the set test triggers (optional mode)
+            val checked =
+              variable != EmulatorSafety.ResultsDirVar || setOp.forall(_ == "+") || v.nonEmpty
+            val libAccepts = !checked || globMatches(pattern, v)
+            val scalaAccepts = !refusedWith(envOf(v), rule)
+            if (libAccepts != scalaAccepts)
+              out += s"$rule: pattern '$pattern' on '$v': lib.sh=$libAccepts, Scala=$scalaAccepts"
+          }
+      }
+    }
+
+    // 3. lib.sh:91, :115, :123, the credentials and config file paths under $HOME
+    val EmuDir = """emu_dir\(\) \{ printf '%s([^']*)/%s' "\$\{HOME:-\}" "\$\{EMU_PORT\}"; \}""".r
+    val Port = """(?m)^EMU_PORT="([0-9]+)"""".r
+    def pathRule(variable: String, rule: String) =
+      ("""if \[ "\$\{""" + variable + """:-\}" != "\$\{dir\}([^"]*)" \]; then\s+EMU_FAILED_RULE="""" +
+        rule + "\"").r.findFirstMatchIn(lib).map(_.group(1))
+    (
+      EmuDir.findFirstMatchIn(lib).map(_.group(1)),
+      Port.findFirstMatchIn(lib).map(_.group(1)),
+      pathRule("AWS_SHARED_CREDENTIALS_FILE", "credentials-file"),
+      pathRule("AWS_CONFIG_FILE", "config-file")
+    ) match {
+      case (Some(base), Some(port), Some(cred), Some(conf)) =>
+        if (!lib.contains("""dir="$(emu_dir)""""))
+          out += "credentials/config paths: dir is not $(emu_dir)"
+        val dirPath = s"$home$base/$port"
+        val credPath = s"$dirPath$cred"
+        val libEnv = good ++ Map(
+          EmulatorSafety.CredentialsFileVar -> credPath,
+          EmulatorSafety.ConfigFileVar -> s"$dirPath$conf"
+        )
+        EmulatorSafety.check(libEnv, _.toString == credPath, false, () => "r") match {
+          case Left(r)  => out += s"credentials/config paths: lib.sh's paths refused by Scala ($r)"
+          case Right(_) => ()
+        }
+      case parts => out += s"credentials/config paths: not found in lib.sh $parts"
+    }
+    out.toList
+  }
+
+  test("P16-A-05: the lib.sh comparison fails when lib.sh's set test, path rules or paths change") {
+    def mutate(from: String, to: String): String = {
+      val m = libText.replaceFirst(from, to)
+      assertNotEquals(m, libText, s"mutation $from did not apply")
+      m
+    }
+    val Q = java.util.regex.Matcher.quoteReplacement _
+    List(
+      // empty counts as unset (the finding's own example)
+      mutate(
+        """\$\{SCHOLARCHAIN_EMULATOR_RESULTS_DIR\+x\}""",
+        Q("${SCHOLARCHAIN_EMULATOR_RESULTS_DIR:+x}")
+      ) ->
+        "results-dir set test",
+      mutate("""(case "\$\{HOME:-\}" in\s+)/\*""", "$1*") -> "credentials-file:",
+      mutate(
+        """(case "\$\{SCHOLARCHAIN_CONFIG_FILE:-\}" in\s+)/\*""",
+        "$1?*"
+      ) -> "config-file-path:",
+      mutate("""(case "\$\{SCHOLARCHAIN_EMULATOR_RESULTS_DIR:-\}" in\s+)/\*""", "$1*") ->
+        "results-dir-path:",
+      mutate("""printf '%s/\.aws/emulator/%s'""", Q("printf '%s/.aws/emu/%s'")) ->
+        "credentials/config paths",
+      mutate("""\$\{dir\}/emulator_credentials" \]""", Q("${dir}/credentials\" ]")) ->
+        "credentials/config paths",
+      mutate("""\$\{dir\}/config" \]""", Q("${dir}/config.ini\" ]")) -> "credentials/config paths"
+    ).foreach { case (mutated, label) =>
+      val found = libSafetyMismatches(mutated)
+      assert(found.exists(_.startsWith(label)), s"expected a '$label' mismatch, got $found")
+    }
   }
 
   // ---- credentials ----------------------------------------------------------------------

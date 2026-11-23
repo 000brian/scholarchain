@@ -1,0 +1,25 @@
+ M .gitignore
+ M experiments/README.md
+ M experiments/collectors/lib/collector-common.sh
+ M experiments/results-summary-template.md
+ M modules/hadoop/src/test/scala/org/scholarchain/hadoop/LocalPipelineRunner.scala
+ M modules/rag/src/main/resources/org/scholarchain/rag/eval/benchmark-v1-eval-set.json
+ M modules/rag/src/main/scala/org/scholarchain/rag/eval/RetrievalEvalSet.scala
+ M modules/rag/src/main/scala/org/scholarchain/rag/runtime/ClaimVerification.scala
+ M modules/rag/src/test/scala/org/scholarchain/rag/eval/RetrievalEvalSetSuite.scala
+ M modules/rag/src/test/scala/org/scholarchain/rag/runtime/ClaimVerificationSuite.scala
+ M modules/rag/src/test/scala/org/scholarchain/rag/runtime/GroundingSuite.scala
+ M modules/rag/src/test/scala/org/scholarchain/rag/runtime/PathAbsenceSuite.scala
+ M modules/services/src/test/scala/org/scholarchain/services/CompositionSuite.scala
+ M modules/storage/src/test/scala/org/scholarchain/storage/GraphQuerySuite.scala
+ M modules/storage/src/test/scala/org/scholarchain/storage/emulator/EmulatorWiringSuite.scala
+ M scripts/README.md
+ M scripts/archive-evidence.sh
+ M scripts/check.sh
+ M scripts/deploy.sh
+ M scripts/emulator/env.sh
+ M scripts/emulator/probes.sh
+?? modules/rag/src/test/scala/org/scholarchain/rag/runtime/AbsenceRuleSuite.scala
+?? modules/rag/src/test/scala/org/scholarchain/rag/runtime/VerifierMonotonicSuite.scala
+?? modules/rag/src/test/scala/org/scholarchain/rag/runtime/VerifierOracle.scala
+?? scripts/release-manifest.sh

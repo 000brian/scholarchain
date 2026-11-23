@@ -5,7 +5,7 @@ import scala.collection.immutable.ListMap
 import org.scholarchain.core.{MentionId, ResearcherId, WorkId}
 import org.scholarchain.storage.local.InMemoryGraph
 import org.scholarchain.storage.neptune.CypherTemplates
-import org.scholarchain.storage.ports.{GraphQuery, GraphReadSettings, NodeUpsert}
+import org.scholarchain.storage.ports.{GraphQuery, GraphReadSettings, GraphStop, NodeUpsert}
 
 class GraphQuerySuite extends munit.FunSuite {
   import TestFixtures._
@@ -174,6 +174,24 @@ class GraphQuerySuite extends munit.FunSuite {
     assertEquals(stopped.rows, Nil)
     assert(!stopped.complete, "stopped at the time limit is not complete")
     assert(stopped.depthSearched.exists(_ < 3), stopped.toString)
+  }
+
+  test(
+    "P16-A-03: a timed-out path search says stoppedBy = TimeLimit; found and no-path say None"
+  ) {
+    val g = chain()
+    assertEquals(g.run(GraphQuery.PathBetween(rA, rD, Full, 4)).map(_.stoppedBy), Right(None))
+    assertEquals(g.run(GraphQuery.PathBetween(rA, rD, Full, 2)).map(_.stoppedBy), Right(None))
+
+    // the clock passes the 1000 ms budget at the first check inside the search
+    var t = 0L
+    val slow = chain(() => { val now = t; t += 1000; now })
+    val stopped = slow.run(GraphQuery.PathBetween(rA, rD, Full, 4)).toOption.get
+    assertEquals(stopped.stoppedBy, Some(GraphStop.TimeLimit))
+    assertEquals(
+      (stopped.rows, stopped.complete, stopped.truncated, stopped.depthSearched),
+      (Nil, false, false, Some(0))
+    )
   }
 
   test("path search reports more than one shortest path as truncated") {

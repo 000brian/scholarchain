@@ -1,0 +1,2 @@
+S-ID file list (orchestrator, Phase 17 session 2): 1,628 paths, produced by `git ls-files -co --exclude-standard` at about 21:00 on 2026-11-22 (HEAD 50ba087 plus the uncommitted session 2 work).
+The full list is not kept here: 43 of its paths (tracked, under experiments/derived/fixtures/, committed before Phase 17) contain a run of twelve zeros in their file names, which decision 20's commit scan never accepts in a staged file. Regenerate the list with the same command at the session 2 commit.

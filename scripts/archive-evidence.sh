@@ -5,7 +5,11 @@
 # (author). Run by the human.
 #
 # Status (Phase 14, I-25): static: shellcheck clean; runtime: untested; human
-# execution required.
+# execution required. Phase 17 change (E-03: the --local-only value of
+# byte_copies_hold_identifiers names its account-only scope instead of
+# false): runtime: untested. History: the human ran earlier versions in
+# Phases 13 to 15 (Phase 13 --local-only; Phase 14 D18 and Phase 15 D25,
+# S3 mode; runbook-log.md of phases 14 and 15).
 
 set -Eeuo pipefail
 umask 077
@@ -48,8 +52,10 @@ REPORTS_COUNT=0
 REPORTS_BYTES=0
 FILE_COUNT=0
 # JSON text for byte_copies_hold_identifiers (I-25): true or false only after
-# the check ran with the account ID registered; otherwise a "not checked: ..."
-# string, never false.
+# the check ran in S3 mode (account ID and bucket names registered); true
+# also when --local-only found the account ID; a clean --local-only check
+# (account only, E-03 Phase 17) is the string "account only: ..."; without an
+# account a "not checked: ..." string. Never false unless the full check ran.
 IDENTIFIER_WARNINGS='"not checked: the check did not run"'
 
 usage() {
@@ -123,8 +129,11 @@ reports/ are kept exactly; if one holds an identifier, the script warns and
 records it (byte_copies_hold_identifiers: true or false). That check needs
 the account ID: S3 mode learns it from the caller (sts get-caller-identity)
 and keeps it in memory only; --local-only knows it only from a legacy plan
-record, and without it records "not checked: account unknown" (I-25). The
-archive is gitignored and never committed.
+record, and without it records "not checked: account unknown" (I-25). With
+it, --local-only checks the account ID only (bucket names are unknown
+without AWS): it records true when the account ID is found, else
+"account only: no account ID found; bucket names not checked (--local-only)",
+never false (E-03, Phase 17). The archive is gitignored and never committed.
 
 Requirements: bash, git, jq, tar, find, shasum or sha256sum, timeout or
 gtimeout (GNU coreutils); S3 mode also terraform (output only) and aws (CLI
@@ -568,6 +577,12 @@ write_manifest() {
     warn "byte copies were not checked for identifiers: account unknown (use S3 mode to check them)"
   else
     IDENTIFIER_WARNINGS="false"
+    # E-03 (Phase 17): --local-only registers only the account ID (bucket
+    # names are unknown without AWS), so a clean result is not "false" there:
+    # it names its scope. A found identifier is still true in both modes.
+    if [ "${LOCAL_ONLY}" = "true" ]; then
+      IDENTIFIER_WARNINGS='"account only: no account ID found; bucket names not checked (--local-only)"'
+    fi
     if ! check_no_identifiers "${PARTIAL}/repo"; then
       IDENTIFIER_WARNINGS="true"
       warn "byte copies under repo/ hold an identifier (listed above); they are kept unchanged; never commit the archive"

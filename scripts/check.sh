@@ -4,7 +4,8 @@
 # infra-engineer (author). Run by the human, normally in a fresh clone.
 #
 # Status (Phase 13): static: shellcheck clean; runtime: untested; human
-# execution required.
+# execution required. Phase 17 (decision 7 item 1): release-manifest refusal
+# probes added to gate 9; runtime: untested.
 
 set -Eeuo pipefail
 umask 077
@@ -123,7 +124,18 @@ Gates, in order (each has its own "STEP: check.sh gate-NAME" marker and a
                      identity_assignment data file in mode
                      identity-assignments-only, every data file in mode full,
                      never a _SUCCESS or _manifest.json file, and refuses an
-                     unknown mode). A probe that reached a cloud call
+                     unknown mode). Release-manifest probes (Phase 17):
+                     scripts/release-manifest.sh --help (exit 0); no
+                     options and an unknown option (exit 2); a missing
+                     --marker file, a --clone folder that is not a Git
+                     working tree, a --clone repository whose HEAD
+                     differs, and a --clone working tree at this HEAD
+                     without the mandatory jars (exit 3 each); the fixtures
+                     (an empty folder, a new repository with one empty
+                     commit, a shared no-checkout clone of this checkout)
+                     live under the private temporary folder, and no
+                     refusal may create the --out-dir folder
+                     (release-manifest-wrote-nothing). A probe that reached a cloud call
                      would fail for lack of credentials, so no probe can
                      change AWS. These probes are the first execution of the
                      scripts; they test refusal paths and the local archive.
@@ -917,6 +929,68 @@ upload${tab}run=0123abcd/run-report.json"
   return "${bad}"
 }
 
+# Phase 17 (decision 7 item 1): offline refusal probes of
+# scripts/release-manifest.sh. Fixtures live only under PROBE_DIR: an empty
+# folder (not a Git working tree), a new repository with one empty commit (its
+# HEAD differs), and a shared, no-checkout clone of this checkout whose HEAD
+# is set to this HEAD (a Git working tree with no jar). Each refusal must exit
+# with its stated code, and no probe may create the --out-dir folder.
+probe_release_manifest() {
+  local rm_dir="${PROBE_DIR}/release-manifest" out marker head ok=0
+  out="${rm_dir}/out"
+  marker="${rm_dir}/marker.txt"
+  if [ ! -f scripts/release-manifest.sh ]; then
+    printf '  PROBE: release-manifest failed (scripts/release-manifest.sh missing)\n'
+    printf 'release-manifest\tfailed\t127\t0\n' >>"${TMP_DIR}/probes.tsv"
+    PROBES_BAD=1
+    return 0
+  fi
+  probe help-release-manifest 0 '^Usage: scripts/release-manifest\.sh' \
+    bash scripts/release-manifest.sh --help || true
+  probe release-manifest-no-options 2 'exit=2' bash scripts/release-manifest.sh || true
+  probe release-manifest-unknown-option 2 'unknown argument' bash scripts/release-manifest.sh --bogus || true
+  if mkdir -p -- "${rm_dir}/not-git" &&
+    printf 'timestamp=2026-01-01T00:00:00Z\nmodule_tests=1\ncontract_tests=1\n' >"${marker}"; then
+    ok=1
+  fi
+  head="$(head_commit)" || ok=0
+  if [ "${ok}" -eq 1 ]; then
+    if ! with_timeout "${PROBE_TIMEOUT}" git init -q -- "${rm_dir}/other" ||
+      ! with_timeout "${PROBE_TIMEOUT}" git -C "${rm_dir}/other" -c user.name=check \
+        -c user.email=check@example.invalid -c commit.gpgsign=false commit -q --allow-empty \
+        -m 'check.sh probe: a different HEAD'; then
+      ok=0
+    fi
+  fi
+  if [ "${ok}" -eq 1 ]; then
+    if ! with_timeout "${PROBE_TIMEOUT}" git clone -q --shared --no-checkout -- "${REPO_ROOT}" "${rm_dir}/same" ||
+      ! git -C "${rm_dir}/same" update-ref --no-deref HEAD "${head}"; then
+      ok=0
+    fi
+  fi
+  if [ "${ok}" -ne 1 ]; then
+    printf '  release-manifest: could not prepare the fixture folders under the private temporary folder\n'
+    probe_record release-manifest-fixtures 1
+    return 0
+  fi
+  probe release-manifest-missing-marker 3 'marker file not found' \
+    bash scripts/release-manifest.sh --clone "${rm_dir}/same" --marker "${rm_dir}/no-such-marker.txt" \
+    --out-dir "${out}" || true
+  probe release-manifest-clone-not-git 3 'Git working tree' \
+    bash scripts/release-manifest.sh --clone "${rm_dir}/not-git" --marker "${marker}" --out-dir "${out}" || true
+  probe release-manifest-clone-head-differs 3 'differs from this tree' \
+    bash scripts/release-manifest.sh --clone "${rm_dir}/other" --marker "${marker}" --out-dir "${out}" || true
+  probe release-manifest-jar-missing 3 'mandatory jar missing' \
+    bash scripts/release-manifest.sh --clone "${rm_dir}/same" --marker "${marker}" --out-dir "${out}" || true
+  if [ -e "${out}" ]; then
+    printf '  release-manifest: a refusal created %s\n' "${out}"
+    probe_record release-manifest-wrote-nothing 1
+  else
+    probe_record release-manifest-wrote-nothing 0
+  fi
+  return 0
+}
+
 gate_probes() {
   local s rc example_sha dirty
   PROBE_DIR="${TMP_DIR}/probes"
@@ -967,6 +1041,7 @@ gate_probes() {
   rc=0
   probe_er_upload_plan || rc=1
   probe_record er-upload-plan "${rc}"
+  probe_release_manifest
   return "${PROBES_BAD}"
 }
 

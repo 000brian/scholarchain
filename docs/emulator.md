@@ -45,7 +45,7 @@ As recorded: started 2026-11-22T18:37:58Z, telemetry off, endpoint `https://127.
 - ScholarChain uses a separate emulator configuration, [`config/emulator.json`](../config/emulator.json). Every resource name in it starts with `scholarchain-emu-`, and it has no graph-store (Neptune) section.
 - `scripts/emulator/setup.sh` creates the resources that configuration names: one data bucket, six DynamoDB tables, one vector bucket with five indexes, and two work queues, each with a dead-letter queue and a maximum receive count of 5. It also creates one extra bucket with a deny-all bucket policy for the policy probe.
 
-As recorded: the human's shell still exported Phase 15 `SCHOLARCHAIN_CFG_*` configuration overrides. The human cleared them in the `[EMULATOR]` terminal with `unset -m 'SCHOLARCHAIN_CFG_*'`. `env.sh` does not clear these variables. This is a known gap (section 8), proposed for later.
+As recorded: the human's shell still exported Phase 15 `SCHOLARCHAIN_CFG_*` configuration overrides. The human cleared them in the `[EMULATOR]` terminal with `unset -m 'SCHOLARCHAIN_CFG_*'`. The Phase 16 `env.sh` used in this run did not clear these variables, a known gap of this run (section 8). Since Phase 17 (commit pending), `env.sh` clears every exported `SCHOLARCHAIN_CFG_*` variable itself (`runtime: untested`); this change was made after Phase 16's emulator run (Phase 16 step E14), which was not repeated.
 
 ### 2.4 Commands
 
@@ -184,7 +184,7 @@ Limitations of this work:
 - No Neptune, no query pipeline and no language model on the emulator (section 7). The emulator results say nothing about answer quality, retrieval or graph analytics.
 - A side-by-side live comparison is not possible now, because the AWS environment was removed on Nov 21. Section 6 compares against Phase 15's committed records, which were made with Phase 15 code.
 - The Step Functions comparison (D4a) could not be made, because its input is gone.
-- `scripts/emulator/env.sh` does not clear `SCHOLARCHAIN_CFG_*` overrides left in the shell. The human cleared them by hand in this run (proposed later).
+- The Phase 16 `scripts/emulator/env.sh` used in this run did not clear `SCHOLARCHAIN_CFG_*` overrides left in the shell; the human cleared them by hand in this run. Since Phase 17 (commit pending), `env.sh` clears every exported `SCHOLARCHAIN_CFG_*` variable itself (`runtime: untested`); this change was made after Phase 16's emulator run (Phase 16 step E14), which was not repeated.
 - One run, on one laptop. The emulator is not a live validation of production behavior. Phase 16 code fixes remain "fixed in code, tested offline, not validated live".
 
 ## 9. Status lines
@@ -194,4 +194,4 @@ Limitations of this work:
 - `sbt storage/EmulatorTest/test`: ran in E14; 8 tests passed (as recorded); results in `results-EmulatorAdaptersEmulatorSuite.jsonl`.
 - `sbt services/EmulatorTest/test`: ran in E14; 1 test passed (as recorded); results in `results-EmbeddingWorkerEmulatorSuite.jsonl`.
 - `scripts/emulator/probes.sh`: ran in E14; results in `probes.jsonl` (9 passed, 5 not exercised).
-- `scripts/emulator/env.sh`: used in E14; does not clear `SCHOLARCHAIN_CFG_*` (limitation).
+- `scripts/emulator/env.sh`: the Phase 16 version was used in E14 and did not clear `SCHOLARCHAIN_CFG_*` (limitation of that run). Since Phase 17 (commit pending), `env.sh` clears every exported `SCHOLARCHAIN_CFG_*` variable itself: `runtime: untested`, a change made after Phase 16's emulator run (Phase 16 step E14), which was not repeated.
