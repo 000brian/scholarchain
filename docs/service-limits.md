@@ -5,7 +5,7 @@
 - Infrastructure side (table 1, step I1a, infra-engineer): 21 rows; 16 verified, 5 unverified, 0 not checked. (infra-engineer's report gave IL-11 as verified; the review found that its page contradicts the fact, so this document records it as `unverified`, finding P17-D-04.)
 - Storage and retrieval side (table 2, step L, storage-engineer): 39 rows; 38 verified, 1 unverified, 0 not checked.
 
-Because 6 rows are `unverified`, the Phase 17 requirement "verified limits" is `deviation (unplanned)` under decision 2 of the Phase 17 work order (`docs/agent-runs/phase-17/prompt.md`, "Verified limits, what `done` means"); the human decides it at the gate. A table alone is not verification: each `verified` row cites the AWS documentation page that states the value.
+Because 6 rows are `unverified`, the Phase 17 requirement "verified limits" is `deviation (unplanned)` under decision 2 of the Phase 17 work order (`docs/agent-runs/phase-17/prompt.md`, "Verified limits, what `done` means"). The human accepted it as an unplanned deviation at Phase 17 session 3, step E1 (`docs/agent-runs/phase-17/runbook-log.md`, row "E1 decisions"); the 6 rows stay `unverified`. A table alone is not verification: each `verified` row cites the AWS documentation page that states the value.
 
 **Region:** us-east-1 only (`infra/terraform/environments/course/course.tfvars:6`, `aws_region = "us-east-1"`).
 

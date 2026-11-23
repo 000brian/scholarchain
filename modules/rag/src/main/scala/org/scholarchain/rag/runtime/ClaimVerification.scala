@@ -130,6 +130,10 @@ object ClaimVerification {
     // most partially supported otherwise, never verified)
     val ConnectionUnconfirmed =
       "the claim names researchers that a found path connects, but its wording does not affirm the connection in a form the verifier can check"
+    // Phase 17 session 3, E1 (P17-L-01): an accepted connection form ([[AbsenceRule.AcceptedForms]])
+    // with negation words is verified only when a cited found path or edge connects the pair
+    val ConnectionNotFound =
+      "the claim states that researchers are connected, but no cited found path or edge connects them in its window"
     val all: List[String] = List(
       CitedNotInBundle,
       EvidenceIdNotCited,
@@ -161,6 +165,7 @@ object ClaimVerification {
       AbsenceTimeQualifier,
       AbsenceFoundPath,
       ConnectionUnconfirmed,
+      ConnectionNotFound,
       NothingCheckable
     )
   }
@@ -788,6 +793,52 @@ object ClaimVerification {
           }
         }
       }
+
+      // (i) Phase 17 session 3, E1 (P17-L-01, the human's allow-list rule): a claim that names two
+      // researchers and holds any word of the negation or absence lists anywhere in it is verified
+      // only when the whole claim is one of the fixed accepted forms ([[AbsenceRule.AcceptedForms]])
+      // over the pair's names, a depth and a window, and that form's evidence holds. Any other such
+      // claim gets AbsenceAmbiguous (at most partially supported). This only adds reasons.
+      if (namesTwo && AbsenceRule.hasNegationOrAbsence(stripped)) {
+        AbsenceRule.matchForm(text, pairNames) match {
+          case None    => uncovered += Reasons.AbsenceAmbiguous
+          case Some(m) =>
+            val ids = claimPair.getOrElse(Set.empty)
+            def inWindow(f: EvidenceItem): Boolean = m.window.forall { case (ws, we) =>
+              yw(f).exists { case (fs, fe) => fs >= ws && fe <= we }
+            }
+            m.form.kind match {
+              case AbsenceRule.AbsenceForm =>
+                // a cited complete `path=none` search for exactly the pair, in the form's window,
+                // at least as deep as the form's depth; no found path or edge (bundle) between them
+                val windowed =
+                  absentItems.filter(i => idPair(i).contains(ids) && yw(i) == m.window)
+                val complete = windowed.filter(isComplete)
+                val deep = complete.filter(i =>
+                  EvidenceValues.numbers(i).get("maxDepth").exists(d => m.depth.forall(_ <= d))
+                )
+                if (windowed.isEmpty) unbacked += Reasons.AbsenceNotSearched
+                else if (complete.isEmpty) unbacked += Reasons.AbsenceBoundedSearch
+                else if (deep.isEmpty) unbacked += Reasons.AbsenceBeyondDepth
+                if (foundSet.exists(f => hopsBetween(f, ids).isDefined))
+                  unbacked += Reasons.AbsenceFoundPath
+              case AbsenceRule.ConnectionForm =>
+                // a cited found path (both researchers anywhere on it) or edge between the pair
+                // inside the form's window
+                val cited = (foundPaths ++ foundEdges).filter(f =>
+                  hopsBetween(f, ids).isDefined && inWindow(f)
+                )
+                if (cited.isEmpty) unbacked += Reasons.ConnectionNotFound
+              case AbsenceRule.UncertainForm =>
+                // a cited path search for exactly the pair that stopped early at the form's depth
+                val stopped = absentItems.filter(i =>
+                  idPair(i).contains(ids) && !isComplete(i) &&
+                    EvidenceValues.numbers(i).get("depthSearched").exists(d => m.depth.contains(d))
+                )
+                if (stopped.isEmpty) unbacked += Reasons.AbsenceNotSearched
+            }
+        }
+      }
     }
 
     // ---- hop counts (of found paths; an absence statement's depth was checked above) ----
@@ -974,6 +1025,11 @@ object ClaimVerification {
   * predicate and no negation and only closed-vocabulary words; this does not depend on listing
   * absence phrasings. An [[Unclear]] clause that may state an absence ([[Reading]]) is checked
   * against those found paths when no clause affirms the connection.
+  *
+  * Phase 17 session 3, E1 (P17-L-01, the human's allow-list rule): a claim that names two
+  * researchers and holds any negation or absence word anywhere ([[hasNegationOrAbsence]]) is
+  * verified only when the whole claim is one of [[AcceptedForms]] ([[matchForm]]) and that form's
+  * evidence holds; otherwise it is at most partially supported (AbsenceAmbiguous).
   */
 private[runtime] object AbsenceRule {
 
@@ -1004,7 +1060,9 @@ private[runtime] object AbsenceRule {
       "lack",
       "lacks",
       "lacked",
-      "lacking"
+      "lacking",
+      // Phase 17 session 3, E1 (P17-L-01)
+      "zero"
     )
 
   /** Words after `not` that make it emphatic, not a negation ("not only connected but ..."). */
@@ -1055,7 +1113,13 @@ private[runtime] object AbsenceRule {
     "apart",
     // Phase 17 repair (P17-A-01)
     "absent",
-    "unrelated"
+    "unrelated",
+    // Phase 17 session 3, E1 (P17-L-01; "strangers" also covers P17-K-02)
+    "missing",
+    "nonexistent",
+    "non-existent",
+    "strangers",
+    "stranger"
   )
 
   /** Absence predicates of more than one word (matched before single words). */
@@ -1448,5 +1512,126 @@ private[runtime] object AbsenceRule {
     pairParts(x) || isNegation(x) || ConnectionWords(x) || AbsenceWords(x) ||
     (ConnectionPhrases ++ AbsencePhrases).exists(_.contains(x)) || ScopeWords(x) ||
     FunctionWords(x) || Allowlist(x) || NumberTok.matches(x) || windowLabels(x)
+  }
+
+  // ---- Phase 17 session 3, E1 (P17-L-01): the accepted forms (the human's allow-list rule) ----
+
+  /** What an accepted form states, so which evidence it needs. */
+  sealed trait FormKind
+
+  /** Needs a cited complete `path=none` search for the pair, window and depth, and no found path.
+    */
+  case object AbsenceForm extends FormKind
+
+  /** Needs a cited found path or edge between the pair inside the window. */
+  case object ConnectionForm extends FormKind
+
+  /** Needs a cited path search for the pair that stopped early at the stated depth. */
+  case object UncertainForm extends FormKind
+
+  /** An accepted form: a template over `{A}` and `{B}` (the pair's names, either order), `{N}` (a
+    * depth) and `{W}` (a window: a year range, optionally as a `w` or `full-` window label).
+    */
+  final case class AcceptedForm(kind: FormKind, template: String)
+
+  /** THE list of accepted forms, in one place. A claim that names two researchers and holds any
+    * word of the negation or absence lists ([[hasNegationOrAbsence]]) can be verified only when the
+    * whole claim (case, spacing and one final period aside) is one of these. Taken from the correct
+    * claims of the fixtures, the deterministic synthesis wording and the decision 6 positive
+    * controls. Adding a form is a behaviour change with its own test.
+    */
+  val AcceptedForms: List[AcceptedForm] = List(
+    AcceptedForm(AbsenceForm, "{A} and {B} are not connected within {N} hops in {W}."),
+    AcceptedForm(AbsenceForm, "{A} is not connected to {B} within {N} hops in {W}."),
+    AcceptedForm(
+      AbsenceForm,
+      "No coauthorship path between {A} and {B} exists within {N} hops in {W}."
+    ),
+    AcceptedForm(AbsenceForm, "No path between {A} and {B} exists within depth {N} in {W}."),
+    // Synthesis.scala, the complete path=none template
+    AcceptedForm(
+      AbsenceForm,
+      "In {W}, no coauthorship path between {A} and {B} exists within depth {N} (the bounded search completed)."
+    ),
+    // decision 6.2 positive controls
+    AcceptedForm(ConnectionForm, "{A} and {B} are not disconnected in {W}."),
+    AcceptedForm(
+      ConnectionForm,
+      "{A} and {B} are not only connected but frequent coauthors in {W}."
+    ),
+    // the honest "unknown" wording of a search that stopped early
+    AcceptedForm(
+      UncertainForm,
+      "The path search between {A} and {B} did not complete after depth {N}; whether a path exists is unknown."
+    )
+  )
+
+  /** A claim matched to an accepted form, with the depth and window it states. */
+  final case class FormMatch(
+      form: AcceptedForm,
+      depth: Option[Double],
+      window: Option[(Int, Int)]
+  )
+
+  /** The text holds a word of the negation list (or a word ending in `n't`), of the absence list,
+    * or an absence phrase, anywhere.
+    */
+  def hasNegationOrAbsence(text: String): Boolean = {
+    val w = tokens(text).map(_.word)
+    w.exists(x => isNegation(x) || AbsenceWords(x)) ||
+    AbsencePhrases.exists(p => w.sliding(p.size).exists(_.toList == p))
+  }
+
+  private def canon(s: String): String =
+    normalize(s).replaceAll("\\s+", " ").trim.toLowerCase(Locale.ROOT).stripSuffix(".")
+
+  private val HoleRe = "\\{([abnw])\\}".r
+  private val DepthHole = "([0-9]{1,3})"
+  private val WindowHole = "(?:full-|w)?((?:19|20)[0-9]{2})[-–]((?:19|20)[0-9]{2})"
+
+  /** The accepted form the whole `text` is, with `pairNames` (exactly two distinct names) in the
+    * `{A}` and `{B}` places in either order; None when it is none of them.
+    */
+  def matchForm(text: String, pairNames: List[String]): Option[FormMatch] = {
+    val names = pairNames.map(canon).distinct
+    if (names.size != 2) None
+    else {
+      val t = canon(text)
+      val orders = List((names(0), names(1)), (names(1), names(0)))
+      AcceptedForms.iterator
+        .flatMap { f =>
+          val tmpl = canon(f.template)
+          orders.iterator.flatMap { case (a, b) =>
+            val re = new StringBuilder
+            val holes = List.newBuilder[Char]
+            var last = 0
+            HoleRe.findAllMatchIn(tmpl).foreach { h =>
+              re ++= java.util.regex.Pattern.quote(tmpl.substring(last, h.start))
+              h.group(1) match {
+                case "a" => re ++= java.util.regex.Pattern.quote(a)
+                case "b" => re ++= java.util.regex.Pattern.quote(b)
+                case "n" => re ++= DepthHole; holes += 'n'
+                case _   => re ++= WindowHole; holes += 'w'
+              }
+              last = h.end
+            }
+            re ++= java.util.regex.Pattern.quote(tmpl.substring(last))
+            val m = java.util.regex.Pattern.compile(re.result()).matcher(t)
+            if (!m.matches()) None
+            else {
+              var g = 0
+              var depth = Option.empty[Double]
+              var window = Option.empty[(Int, Int)]
+              holes.result().foreach {
+                case 'n' => g += 1; depth = Some(m.group(g).toDouble)
+                case _   =>
+                  window = Some((m.group(g + 1).toInt, m.group(g + 2).toInt)); g += 2
+              }
+              Some(FormMatch(f, depth, window))
+            }
+          }
+        }
+        .nextOption()
+    }
   }
 }

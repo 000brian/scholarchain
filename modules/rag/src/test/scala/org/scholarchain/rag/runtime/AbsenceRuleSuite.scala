@@ -1,6 +1,7 @@
 package org.scholarchain.rag.runtime
 
 import org.scholarchain.core._
+import org.scholarchain.storage.ports.GraphStop
 
 /** Phase 17 decision 6: one fail-closed rule for claims about the absence of a connection
   * (P16-L-10..L-15, review-report-P16-L-round2.md). Each finding test uses the reviewer's failure
@@ -376,7 +377,6 @@ class AbsenceRuleSuite extends munit.FunSuite {
     // them, and its names and window check: never verified, whatever the wording
     List(
       "Alice Smith and Bob Jones are devoid of any coauthorship path in 2015-2025.",
-      "Alice Smith and Bob Jones are strangers in 2015-2025.",
       "Alice Smith and Bob Jones sit in disjoint parts of the graph in 2015-2025.",
       "Alice Smith and Bob Jones fail to have a path in 2015-2025."
     ).foreach { t =>
@@ -385,6 +385,12 @@ class AbsenceRuleSuite extends munit.FunSuite {
       assertEquals(now.status, PartiallySupported, s"$t ${show(now)}")
       assert(now.reasons.contains(Reasons.ConnectionUnconfirmed), s"$t ${show(now)}")
     }
+    // E1 (P17-L-01): "strangers" is now an absence predicate, so the same claim is recognised as
+    // an absence and the cited found path contradicts it (it fell further, to conflicting)
+    val (s, sb) = both("Alice Smith and Bob Jones are strangers in 2015-2025.", List(found))
+    assertEquals(sb.status, Verified, show(sb))
+    assertEquals(s.status, Conflicting, show(s))
+    assert(s.reasons.contains(Reasons.ConnectionUnconfirmed), show(s))
     // the rule also covers a claim that names a third researcher on the path
     val (three, threeBefore) =
       both("Alice Smith, Carol King and Bob Jones are strangers in 2015-2025.", List(found))
@@ -395,7 +401,7 @@ class AbsenceRuleSuite extends munit.FunSuite {
       EdgeFact(alice, bob, Full, FullW, "edge:v1:" + "a" * 32, 2.5, 3, 2016, 2022, Nil, src, 21)
     val (e, eb) = both("Alice Smith and Bob Jones are strangers in 2015-2025.", List(edge))
     assertEquals(eb.status, Verified, show(eb))
-    assertEquals(e.status, PartiallySupported, show(e))
+    assertEquals(e.status, Conflicting, show(e))
     assert(e.reasons.contains(Reasons.ConnectionUnconfirmed), show(e))
   }
 
@@ -491,5 +497,185 @@ class AbsenceRuleSuite extends munit.FunSuite {
     val t = "Alice Smith is not connected to Bob Jones or to King within 6 hops in 2021-2023."
     val (now, _) = both(t, List(noneW1K))
     assert(now.reasons.contains(Reasons.AbsenceThirdName), show(now))
+  }
+
+  // ---- Phase 17 session 3, E1 (P17-L-01 = P17-A-01 residual): the accepted-forms rule ----------
+  // A claim that names two researchers and holds any negation or absence word anywhere is verified
+  // only when the whole claim is one of AbsenceRule.AcceptedForms, backed by its evidence.
+
+  private val edgeAB =
+    EdgeFact(alice, bob, Full, FullW, "edge:v1:" + "a" * 32, 2.5, 3, 2016, 2022, Nil, src, 21)
+  // a path search for Alice Smith / Bob Jones that stopped at a resource limit after depth 2
+  private val stoppedFull = PathAbsentFact(
+    alice,
+    bob,
+    Full,
+    FullW,
+    6,
+    false,
+    2,
+    src,
+    20,
+    Some(GraphStop.ResourceLimit)
+  )
+
+  test("E1 P17-A-01: the reviewer's three residual inputs are not verified") {
+    List(
+      ("Alice Smith and Bob Jones have a path that is missing in 2015-2025.", List(found)),
+      ("Alice Smith and Bob Jones collaborated zero times in 2015-2025.", List(edgeAB)),
+      ("A path linking Alice Smith and Bob Jones is nonexistent in 2015-2025.", List(found))
+    ).foreach { case (t, facts) =>
+      val (now, before) = both(t, facts)
+      assertEquals(before.status, Verified, s"Phase 16: $t ${show(before)}")
+      assertNotEquals(now.status, Verified, s"$t ${show(now)}")
+      assert(now.reasons.contains(Reasons.AbsenceAmbiguous), s"$t ${show(now)}")
+    }
+  }
+
+  test("E1 P17-K-02: both unrecognised-wording inputs are not verified") {
+    List(
+      "Alice Smith, Bob Jones and King are strangers in 2021-2023.",
+      "Alice Smith and Bob Jones are strangers in 2021-2023."
+    ).foreach { t =>
+      val (now, before) = both(t, List(noneW1K))
+      assertEquals(before.status, Verified, s"Phase 16: $t ${show(before)}")
+      assertNotEquals(now.status, Verified, s"$t ${show(now)}")
+      assert(now.reasons.contains(Reasons.AbsenceAmbiguous), s"$t ${show(now)}")
+    }
+  }
+
+  test("E1: the gate itself catches list words that the scope rule reads as a connection") {
+    // a negated absence predicate reads as a connection and the prefix is closed vocabulary, so
+    // before E1 these were verified; they are not accepted forms, so now at most partial
+    List(
+      "Alice Smith and Bob Jones are not in different components in 2015-2025.",
+      "Alice Smith and Bob Jones are not unconnected in 2015-2025.",
+      "Alice Smith and Bob Jones are not disconnected within 2 hops in 2015-2025."
+    ).foreach { t =>
+      val (now, before) = both(t, List(found))
+      assertEquals(before.status, Verified, s"Phase 16: $t ${show(before)}")
+      assertEquals(now.status, PartiallySupported, s"$t ${show(now)}")
+      assertEquals(now.reasons, List(Reasons.AbsenceAmbiguous), s"$t ${show(now)}")
+    }
+  }
+
+  test("E1: the extended lists, and every list word anywhere in a pair claim blocks verified") {
+    List("zero", "lack", "lacks", "lacking", "nobody", "nothing").foreach { w =>
+      assert(isNegation(w), w)
+    }
+    List("missing", "nonexistent", "absent", "strangers").foreach(w => assert(AbsenceWords(w), w))
+    val listed = Negations.toList ++ List("haven't", "isn't") ++ AbsenceWords.toList ++
+      AbsencePhrases.map(_.mkString(" "))
+    listed.foreach { w =>
+      assert(hasNegationOrAbsence(s"Alice Smith and Bob Jones $w"), w)
+      val t = s"Alice Smith and Bob Jones are connected within 2 hops in 2015-2025, $w."
+      val (now, _) = both(t, List(found))
+      assertNotEquals(now.status, Verified, s"$t ${show(now)}")
+    }
+    assert(!hasNegationOrAbsence("Alice Smith and Bob Jones are connected within 2 hops"))
+    // "different" and "distinct" alone are not list entries (only their component phrases are)
+    assert(!hasNegationOrAbsence("Alice Smith and Bob Jones have distinct coauthors"))
+  }
+
+  test("E1: the accepted forms are few, in one list, over names, a depth and a window only") {
+    assertEquals(AcceptedForms.size, 8)
+    AcceptedForms.foreach { f =>
+      val holes = "\\{[^}]*\\}".r.findAllIn(f.template).toSet
+      assert(holes.subsetOf(Set("{A}", "{B}", "{N}", "{W}")), f.template)
+      assert(holes("{A}") && holes("{B}"), f.template)
+      assert(hasNegationOrAbsence(f.template), f.template)
+    }
+    assertEquals(AcceptedForms.map(_.template).distinct.size, AcceptedForms.size)
+    // the one new reason code is additive fixed text
+    assert(Reasons.all.contains(Reasons.ConnectionNotFound))
+    assert(!Reasons.ConnectionNotFound.exists(_.isDigit))
+    assertEquals(Reasons.all.distinct.size, Reasons.all.size)
+  }
+
+  test("E1: each accepted absence form is verified only with its complete path=none search") {
+    List(
+      "Alice Smith and Bob Jones are not connected within 6 hops in 2021-2023.",
+      "Bob Jones and Alice Smith are not connected within 4 hops in 2021-2023",
+      "Alice Smith is not connected to Bob Jones within 6 hops in 2021-2023.",
+      "No coauthorship path between Alice Smith and Bob Jones exists within 6 hops in 2021-2023.",
+      "No path between Alice Smith and Bob Jones exists within depth 6 in w2021-2023.",
+      "In 2021-2023, no coauthorship path between Alice Smith and Bob Jones exists within depth 6 (the bounded search completed)."
+    ).foreach { t =>
+      val (ok, _) = both(t, List(noneW1K))
+      assertEquals(ok.status, Verified, s"$t ${show(ok)}")
+      // a deeper depth than the search, another window, a stopped search: never verified
+      val deeper = t
+        .replace("within 6", "within 8")
+        .replace("within 4", "within 8")
+        .replace("depth 6", "depth 8")
+      assertNotEquals(deeper, t)
+      assertNotEquals(both(deeper, List(noneW1K))._1.status, Verified, deeper)
+      val noneFull = PathAbsentFact(alice, bob, Full, FullW, 6, true, 6, src, 20, None)
+      assertNotEquals(both(t, List(noneFull))._1.status, Verified, s"window: $t")
+      // a found path with both researchers on it (cited) blocks it
+      assertNotEquals(both(t, List(noneW1K, pathABC))._1.status, Verified, s"found: $t")
+    }
+  }
+
+  test("E1: each accepted connection form needs a cited found path between the pair") {
+    List(
+      "Alice Smith and Bob Jones are not disconnected in 2015-2025.",
+      "Alice Smith and Bob Jones are not only connected but frequent coauthors in 2015-2025."
+    ).foreach { t =>
+      val (ok, _) = both(t, List(found))
+      assertEquals(ok.status, Verified, s"$t ${show(ok)}")
+      val (edge, _) = both(t, List(edgeAB))
+      assertEquals(edge.status, Verified, s"edge: $t ${show(edge)}")
+      // no found path cited: only a metric of the full window (names and window still check)
+      val metricA =
+        MetricFact(
+          alice,
+          Full,
+          FullW,
+          CollaborationMetric.DistinctCoauthors,
+          9.0,
+          None,
+          None,
+          src,
+          20
+        )
+      val metricB =
+        MetricFact(
+          bob,
+          Full,
+          FullW,
+          CollaborationMetric.DistinctCoauthors,
+          7.0,
+          None,
+          None,
+          src,
+          20
+        )
+      val (none, noneBefore) = both(t, List(metricA, metricB))
+      assertEquals(noneBefore.status, Verified, s"Phase 16: $t ${show(noneBefore)}")
+      assertEquals(none.status, Unsupported, s"$t ${show(none)}")
+      assert(none.reasons.contains(Reasons.ConnectionNotFound), s"$t ${show(none)}")
+    }
+  }
+
+  test("E1: the accepted uncertainty form needs a stopped search of that depth for the pair") {
+    val t =
+      "The path search between Alice Smith and Bob Jones did not complete after depth 2; whether a path exists is unknown."
+    val (ok, _) = both(t, List(stoppedFull))
+    assertEquals(ok.status, Verified, show(ok))
+    val (complete, _) = both(t, List(noneW1K))
+    assertNotEquals(complete.status, Verified, show(complete))
+  }
+
+  test("E1: a near miss of an accepted form is at most partially supported") {
+    List(
+      "Alice Smith and Bob Jones are not connected within 6 hops in 2021-2023 at all.",
+      "Alice Smith and Bob Jones are not connected within 6 hops in 2021-2023, nothing else.",
+      "Sadly, Alice Smith and Bob Jones are not connected within 6 hops in 2021-2023."
+    ).foreach { t =>
+      val (now, _) = both(t, List(noneW1K))
+      assertNotEquals(now.status, Verified, s"$t ${show(now)}")
+      assert(now.reasons.contains(Reasons.AbsenceAmbiguous), s"$t ${show(now)}")
+    }
   }
 }
