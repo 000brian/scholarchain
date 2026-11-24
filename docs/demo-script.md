@@ -6,7 +6,7 @@ This is the script for the final demonstration video (deliverable D19): the cour
 
 **Which clips exist.** The Phase 15 gate, decision 10, records: items 9 to 16 and 18 to 21 recorded live, item 22 recorded during the cleanup, item 7 (clip 19: the sbt gate passed in a fresh clone, 2,195 module and 399 contract tests; `check.sh` failed only on L-09), the bounded-run part of item 17 (clips 07 and 19), and a local unsupported-claim test for item 16 (clip 20). Items 1 to 6 and 8, and item 17's agent-replay part, are still to record. The clip numbers and what each clip showed come from the Phase 15 runbook log, [`docs/agent-runs/phase-15/runbook-log.md`](agent-runs/phase-15/runbook-log.md), rows "D16 clip NN" and "D25"/"D27"/"D28 ... clip 21". The log does not confirm whether clip 02 was recorded (row "D16 end"), so this script does not use it. The clips themselves are video files the human keeps outside Git; they are not in the repository.
 
-**Replay lines.** Every command below carries exactly one replay line, as the Phase 17 work order requires ("How the run ends (results)"): `replayed earlier (phase NN, EVIDENCE)`, `not replayable after teardown (archived evidence: PATH)`, `not replayed in phase 17 (REASON)`, or, in this draft, `planned for replay (ENN)` for a command the human replays in Phase 17 steps E3 to E6; step E11 replaces each `planned for replay` line with the observed result. No command here was run by the documentation agent (Phase 17 planned deviation 1). A screen (a file, a console page, a recorded clip) is not a command and has no replay line. Commands run from the repository root unless a line says otherwise. Every command here is also in [`README.md`](../README.md), with the same replay line, except three demonstration-only lines (the `sed -i.bak` and `tail -f` probes of item 6 and the unsupported-claim suite of item 16); those three are marked `not replayed in phase 17 (REASON)`, because the human's README replay (step E5) does not include them.
+**Replay lines.** Every command below carries exactly one replay line, as the Phase 17 work order requires ("How the run ends (results)"): `replayed earlier (phase NN, EVIDENCE)`, `not replayable after teardown (archived evidence: PATH)`, `not replayed in phase 17 (REASON)`, or `replayed in phase 17 (ENN, exit CODE)` for a command the human replayed in Phase 17 steps E3 to E6 (filled in with the observed result at step E11). The evidence of every `replayed in phase 17` line is the named step's row in the human's runbook log, `docs/agent-runs/phase-17/runbook-log.md` (written "runbook-log" below; E5's sub-steps are numbered E5.01 to E5.47 there); the raw terminal logs stayed local, not committed. No command here was run by the documentation agent (Phase 17 planned deviation 1). A screen (a file, a console page, a recorded clip) is not a command and has no replay line. Commands run from the repository root unless a line says otherwise. Every command here is also in [`README.md`](../README.md), with the same replay line, except three demonstration-only lines (the `sed -i.bak` and `tail -f` probes of item 6 and the unsupported-claim suite of item 16); those three are marked `not replayed in phase 17 (REASON)`, because the human's README replay (step E5) does not include them.
 
 **What to blur, in every clip.** The AWS account ID (the console's account menu, any ARN, any `sts` output), AWS profile names (the `AWS_PROFILE` value and the read-only profile's name, which `plan.sh` prints), the API address (`{api-url}`), queue URLs, bucket names, endpoint hosts, and any API key or token. The scripts mask the account in their own output (`********NNNN` or `<account>`), but console pages and raw command output do not. Nothing in this document is such a value; logical names (`{api-url}`, `{data-bucket}`) stand for them.
 
@@ -56,9 +56,9 @@ This is the script for the final demonstration video (deliverable D19): the cour
 ## 3. At least one agent role file
 
 - **Clip:** to record (new clip).
-- **Show:** [`.claude/agents/spark-engineer.md`](../.claude/agents/spark-engineer.md): the frontmatter `tools` field (the tool fence), the owned path `modules/spark/**`, the refusal boundaries and the report contract. Then the agent list in a Claude Code session.
+- **Show:** [`.claude/agents/spark-engineer.md`](../.claude/agents/spark-engineer.md): the frontmatter `tools` field (the tool fence), the owned path `modules/spark/**`, the refusal boundaries and the report contract. Then the role-file count in a Claude Code session (a count of 18, not a list of names).
 - **Say:** "This is one of the 18 role files. The tools field is the fence: this agent can edit only its own module, and it ends every run with the standard report contract. The reviewer, by contrast, has only read tools."
-- **Command (in a `claude` session started from the repository root):** `/agents` (lists the 18 agents). Replay: planned for replay (E5) (an optional recorded session in the clone).
+- **Command (in a `claude` session started from the repository root):** `ls .claude/agents | wc -l` (prints `18`, one file per agent; the `/agents` command does not exist in Claude Code 2.1.330, which answers "The /agents wizard has been removed.", so it is not replayable there, as in [`README.md`](../README.md#reproducing-the-agentic-workflow), step 5). Replay: replayed in phase 17 (E5, exit n/a: run inside the interactive session, output `18`); evidence: runbook-log row "E5 optional recorded `claude` session" (the human's report).
 - **Blur:** nothing.
 
 ## 4. A dangerous-command hook safely blocking a probe
@@ -67,10 +67,10 @@ This is the script for the final demonstration video (deliverable D19): the cour
 - **Show:** in a `claude` session, ask the orchestrator to run each command; the guard's block message appears instead of a result. Then the guard self-test's PASS lines.
 - **Say:** "The guard hook reads every command before it runs. It blocks Terraform removal, in-place file edits and watchers, and it tells the agent what to do instead. A hook is policy, not a suggestion: the command never runs."
 - **Commands:**
-  - In the `claude` session, ask: "Run this shell command: `echo 'terraform destroy'`". Expected: `PreToolUse:Bash hook error: BLOCKED by .claude/hooks/guard-dangerous.sh ...` (the Phase 1 probe, [`docs/agent-runs/phase-01/human-gate.md`](agent-runs/phase-01/human-gate.md), probe 3). Replay: planned for replay (E5) (same optional session).
+  - In the `claude` session, ask: "Run this shell command: `echo 'terraform destroy'`". Expected: `PreToolUse:Bash hook error: BLOCKED by .claude/hooks/guard-dangerous.sh ...` (the Phase 1 probe, [`docs/agent-runs/phase-01/human-gate.md`](agent-runs/phase-01/human-gate.md), probe 3). Replay: replayed in phase 17 (E5, exit n/a: interactive session; the probe was blocked); evidence: runbook-log row "E5 optional recorded `claude` session" (the human's report).
   - In the same session, ask: "Run this shell command: `sed -i.bak s/a/a/ README.md`". Expected: blocked with "Use the Edit tool." (self-test case `c-sed-i-main`, `.claude/hook-tests/guard-selftest.sh:129`). Replay: not replayed in phase 17 (demonstration-only probe for the video session; not in the README replay list, and E5 replays only the README's one dangerous-command probe; the self-test case above covers the same rule).
   - In the same session, ask: "Run this shell command: `tail -f README.md`". Expected: blocked with "No watchers: read with tail -n or grep, and finish the step." (self-test case `f-tail-f-probe3`, `.claude/hook-tests/guard-selftest.sh:219`). Replay: not replayed in phase 17 (demonstration-only probe for the video session; not in the README replay list, and E5 replays only the README's one dangerous-command probe; the self-test case above covers the same rule).
-  - In a terminal: `bash .claude/hook-tests/guard-selftest.sh` (one PASS or FAIL line per case, then a total). Replay: planned for replay (E5).
+  - In a terminal: `bash .claude/hook-tests/guard-selftest.sh` (one PASS or FAIL line per case, then a total). Replay: replayed in phase 17 (E5, exit 0); evidence: runbook-log E5.15 (TOTAL 369 passed, 0 failed).
 - **Blur:** nothing expected (the block messages hold no identifier).
 
 ## 5. A test-stop hook or equivalent deterministic gate
@@ -79,8 +79,8 @@ This is the script for the final demonstration video (deliverable D19): the cour
 - **Show:** the stop-hook self-test running; then the recorded Phase 1 probe, in which the Stop hook refused to let the session finish after a source change without a passing test run ([`docs/agent-runs/phase-01/human-gate.md`](agent-runs/phase-01/human-gate.md), probe 5); then the "Stop and SubagentStop gate" row of [`docs/agents.md`](agents.md#hooks-and-permission-floor).
 - **Say:** "A source-changing agent cannot stop until fresh, passing test reports or a passing sbt check exist after its last change. The marker file is written only by the build's own task, never by hand."
 - **Commands:**
-  - `bash .claude/hook-tests/stop-hook-selftest.sh`. Replay: planned for replay (E5).
-  - `.claude/hooks/validate-agent-files.sh` (validates the agent files, settings and hook wiring). Replay: planned for replay (E5).
+  - `bash .claude/hook-tests/stop-hook-selftest.sh`. Replay: replayed in phase 17 (E5, exit 0); evidence: runbook-log E5.16 (TOTAL 69 passed, 0 failed).
+  - `.claude/hooks/validate-agent-files.sh` (validates the agent files, settings and hook wiring). Replay: replayed in phase 17 (E5, exit 0); evidence: runbook-log E5.14 (72 checks passed, 0 failed).
 - **Blur:** nothing.
 
 ## 6. A phase report and repair record
@@ -97,8 +97,8 @@ This is the script for the final demonstration video (deliverable D19): the cour
 - **Show:** clip 19; then the Phase 16 result; then, if recorded, the E3 run's final `[success]` line and its marker counts.
 - **Say:** "This is the full gate from a clean checkout: formatting, compilation, every module test and the contract tests that need no AWS. The first fresh-clone run in Phase 15 exposed one packaging-list gap, which Phase 16 fixed; the final gate's run is the Phase 17 fresh clone."
 - **Commands (inside the fresh clone):**
-  - `sbt clean check`. Replay: planned for replay (E3).
-  - `bash scripts/check.sh --record-dir "$REPO/evidence/checks"` (`REPO` is the main checkout's absolute path). Replay: planned for replay (E4).
+  - `sbt clean check`. Replay: replayed in phase 17 (E3, exit 0); evidence: runbook-log row E3 (`[success] Total time: 1303 s`; 2352 module tests; contract tests 399 of 399).
+  - `bash scripts/check.sh --record-dir "$REPO/evidence/checks"` (`REPO` is the main checkout's absolute path). Replay: replayed in phase 17 (E4, exit 0); evidence: runbook-log row E4 (all 9 gates passed).
 - **Blur:** nothing expected; `check.sh` prints no account.
 
 ## 8. A dataset manifest and actual source samples
@@ -106,7 +106,7 @@ This is the script for the final demonstration video (deliverable D19): the cour
 - **Clip:** to record (new clip).
 - **Show:** [`datasets/dataset-manifest.yaml`](../datasets/dataset-manifest.yaml) (DBLP plus the OpenAlex, Crossref and ORCID entries, each with its snapshot and checksums), the committed samples under [`datasets/samples/`](../datasets/samples/) (`dblp/`, `openalex/`, `crossref/`, `orcid/`), [`datasets/LICENSES.md`](../datasets/LICENSES.md), and the validator's output.
 - **Say:** "The manifest pins every source snapshot by checksum, with its license and the bounded subset rule. These are real source records, small enough to commit, and the local pipeline runs on them."
-- **Command:** `bash datasets/scripts/validate.sh`. Replay: planned for replay (E5).
+- **Command:** `bash datasets/scripts/validate.sh`. Replay: replayed in phase 17 (E5, exit 0); evidence: runbook-log E5.17 (`RESULT: PASS (0 error(s))`).
 - **Blur:** nothing.
 
 ## 9. Hadoop job execution evidence and counters
@@ -114,7 +114,7 @@ This is the script for the final demonstration video (deliverable D19): the cour
 - **Clip:** recorded: clip 10 (Phase 15): the Step Functions execution list (A-Hadoop attempt 2 succeeded in 1:21:14), the EMR cluster's one completed step on 1 primary and 2 core m5.xlarge nodes, and the counters from the committed files: J01 read 13,073,341 records = 155,978 accepted + 12,917,264 excluded + 99 rejected; J09 20,125,392 (runbook-log row "D16 clip 10"). The committed run folder: [`experiments/raw/p15-a-hadoop/20261120T225632Z-eb786c5275a3-5c75/`](../experiments/raw/p15-a-hadoop/20261120T225632Z-eb786c5275a3-5c75/) (`hadoop-job-counters.csv`, `emr-steps.csv`); results in [`experiments/results-summary.md`](../experiments/results-summary.md), section 2.6.
 - **Show:** clip 10; then, live, the local bounded pipeline on the committed samples and its `local-run-report.json`.
 - **Say:** "Hadoop MapReduce does the first distributed pass over the full DBLP release: parse, normalize, author mentions, blocking and coauthor pairs, with counters and a reason for every rejected record. The same jobs run locally on the committed samples."
-- **Command:** `sbt "hadoop/Test/runMain org.scholarchain.hadoop.LocalBoundedPipeline /tmp/p17-hadoop-STAMP"` (a new output folder). Replay: planned for replay (E5).
+- **Command:** `sbt "hadoop/Test/runMain org.scholarchain.hadoop.LocalBoundedPipeline /tmp/p17-hadoop-STAMP"` (a new output folder). Replay: replayed in phase 17 (E5, exit 0); evidence: runbook-log E5.13 (`[success] Total time: 130 s`, `local-run-report.json` written).
 - **Blur (clip 10):** the account menu, the EMR cluster ARN and the state machine ARN in the console.
 
 ## 10. Spark job execution evidence and graph outputs
@@ -122,7 +122,7 @@ This is the script for the final demonstration video (deliverable D19): the cour
 - **Clip:** recorded: clip 11 (Phase 15): A-Spark's step took 1,488 s and B's 1,416 s, both with the same outputs (200,484 researchers, 155,978 works, 1,612,421 full-window edges, 0 invalid), and the Spark History Server (runbook-log row "D16 clip 11"). Committed: [`experiments/raw/p15-a-spark/20261120T225850Z-eb786c5275a3-4f7e/spark-outputs.csv`](../experiments/raw/p15-a-spark/20261120T225850Z-eb786c5275a3-4f7e/spark-outputs.csv); [`experiments/results-summary.md`](../experiments/results-summary.md), sections 2.7 and 2.8.
 - **Show:** clip 11; then, live, the known-graph and pipeline fixture suites passing.
 - **Say:** "Spark reads the Hadoop outputs and computes the graph facts: coauthor counts, weighted degree, team sizes, components, communities, a bridge measure and k-core. The fixture suites check these on graphs small enough to work out by hand."
-- **Command:** `sbt -batch "sparkAnalytics/testOnly org.scholarchain.spark.KnownGraphSuite org.scholarchain.spark.PipelineFixtureSuite"`. Replay: planned for replay (E5).
+- **Command:** `sbt -batch "sparkAnalytics/testOnly org.scholarchain.spark.KnownGraphSuite org.scholarchain.spark.PipelineFixtureSuite"`. Replay: replayed in phase 17 (E5, exit 0); evidence: runbook-log E5.07 (43/43).
 - **Blur (clip 11):** the account menu and cluster ARN; the History Server address if it shows a host.
 
 ## 11. Neptune graph query
@@ -156,7 +156,7 @@ This is the script for the final demonstration video (deliverable D19): the cour
 - **Say:** "One question goes through the whole workflow: plan, graph and vector retrieval, one evidence bundle, synthesis by the model, then deterministic verification. The claim the evidence did not support was removed and shown as removed."
 - **Commands:**
   - `bash scripts/smoke-test.sh --question 'Which paper of Wanli Ouyang had the most coauthors on one paper between 2015 and 2025?'` (the scripted form of the same question). Replay: not replayable after teardown (archived evidence: `docs/agent-runs/phase-14/runbook-log.md`, row D14; `docs/agent-runs/phase-15/runbook-log.md`, row D5).
-  - `sbt -batch "services/testOnly org.scholarchain.services.QueryApiSuite"` (its test "full query-to-evidence lifecycle with fakes", `modules/services/src/test/scala/org/scholarchain/services/QueryApiSuite.scala:87`). Replay: planned for replay (E5).
+  - `sbt -batch "services/testOnly org.scholarchain.services.QueryApiSuite"` (its test "full query-to-evidence lifecycle with fakes", `modules/services/src/test/scala/org/scholarchain/services/QueryApiSuite.scala:87`). Replay: not replayed in phase 17 (this `testOnly` line was not in the E5 runbook; the suite ran and passed, 11 of 11, inside E5.10 `services/test` and E3's `sbt clean check`, local logs, not committed; runbook-log rows "E5 part 1" and E3).
 - **Blur (clip 01):** the API address and the API key; the log notes that one content hash shows a masked digit run, which is not an identifier.
 
 ## 15. Evidence and explain endpoints for the answer
@@ -171,9 +171,9 @@ This is the script for the final demonstration video (deliverable D19): the cour
 
 - **Clip:** recorded: clip 04 (Phase 15): real non-verified outcomes from experiment D's explain records (q10 unsupported, q16 conflicting, q01 partially supported) and the false-premise question "Which Nobel Prize did Wanli Ouyang win in 2019, and with which coauthors?", whose year claim was removed as conflicting and two claims kept as partially supported (runbook-log row "D16 clip 04"; body [`experiments/evaluation/raw/answers/p15-demo/p15-demo-n.json`](../experiments/evaluation/raw/answers/p15-demo/p15-demo-n.json)); and clip 20 (Phase 15, local): `UnsupportedClaimEndToEndSuite` passed 7 of 7 in 15 s, with its first test's source shown (runbook-log row "D16 clip 20").
 - **Show:** clip 04, then clip 20, or the same suite live.
-- **Say:** "The verifier is deterministic code, not a model. A number the evidence does not hold is never verified, and a claim that contradicts its evidence is removed. One honest limit: claims that two researchers are not connected are only partly covered; after Phase 17 such a claim with a negation or absence word must match a fixed accepted form, but wording with no listed word can still pass, and that is a recorded known limitation."
+- **Say:** "The verifier is deterministic code, not a model. A number the evidence does not hold is never verified, and a claim that contradicts its evidence is removed. One honest limit: claims that two researchers are not connected are only partly covered; after Phase 17 such a claim that gives both researchers' full names and holds a negation or absence word must match a fixed accepted form. The rule applies only when a claim gives both full names, so a claim that names the pair by surname only is not checked by it, and wording with no listed word can still pass; both are recorded known limitations."
 - **Command:** `sbt -batch "contractTests/testOnly org.scholarchain.contracts.runtime.UnsupportedClaimEndToEndSuite"`. Replay: not replayed in phase 17 (demonstration-only line, not in the README replay list; the Phase 15 clip 20 run of this suite, runbook-log row "D16 clip 20", is the earlier record, and E3's full `sbt clean check` runs every contract suite).
-- **What to say about absence claims, if asked:** the rule as built and its known limitations are in [`docs/api.md`](api.md#9-claim-verification-statuses-and-reasons) and the [final report, section 12.2](../reports/final-report.md#122-claim-verification) (after session 3, step E1: P17-A-01 resolved against the human's allow-list rule, P16-L-10 closed for wording that contains a list word, absence wording with no list word a known limitation; the final review stays REQUEST_CHANGES for the control slice, P17-F-01, accepted as a known limitation).
+- **What to say about absence claims, if asked:** the rule as built and its known limitations are in [`docs/api.md`](api.md#9-claim-verification-statuses-and-reasons) and the [final report, section 12.2](../reports/final-report.md#122-claim-verification) (after session 3, step E1: P17-A-01 resolved against the human's allow-list rule, P16-L-10 closed only for claims that give both researchers' full names and contain a list word, because the rule applies only when a claim gives both full names (a known limitation of the fix), absence wording with no list word a known limitation; the final review stays REQUEST_CHANGES for the control slice, P17-F-01, accepted as a known limitation).
 - **Blur (clip 04):** the API address and the API key.
 
 ## 17. Reproduction scripts, agent replay instructions, and a clean-checkout bounded run
@@ -182,9 +182,9 @@ This is the script for the final demonstration video (deliverable D19): the cour
 - **Show:** [`scripts/README.md`](../scripts/README.md) ("The ten scripts", "Full reproduction, in order"); the README sections [Reproducing the agentic workflow](../README.md#reproducing-the-agentic-workflow) and [Bounded reproduction exercise: replay Phase 02](../README.md#bounded-reproduction-exercise-replay-phase-02); the clone and branch lines of that exercise; clips 07 and 19.
 - **Say:** "Every operational step is a source-controlled script, and the README says exactly how to replay a phase with a fresh Claude Code session. The bounded pipeline runs from a clean checkout: in the cloud before the teardown, and locally on the committed samples today."
 - **Commands:**
-  - `git clone https://github.com/000brian/scholarchain.git /tmp/p17-replay-STAMP`. Replay: planned for replay (E5).
-  - `cd /tmp/p17-replay-STAMP`. Replay: planned for replay (E5).
-  - `git switch -c replay-phase-02 684c610bbcb2d314e4177677a08fdf2be0302ba6` (the Phase 01 accepted commit, [`docs/agent-runs/phase-01/commit.txt`](agent-runs/phase-01/commit.txt)). Replay: planned for replay (E5).
+  - `git clone https://github.com/000brian/scholarchain.git /tmp/p17-replay-STAMP`. Replay: replayed in phase 17 (E5, exit 0); evidence: runbook-log E5.42.
+  - `cd /tmp/p17-replay-STAMP`. Replay: replayed in phase 17 (E5, exit 0); evidence: runbook-log row "E5 part 4" (E5.43 to E5.47 ran in the replay clone).
+  - `git switch -c replay-phase-02 684c610bbcb2d314e4177677a08fdf2be0302ba6` (the Phase 01 accepted commit, [`docs/agent-runs/phase-01/commit.txt`](agent-runs/phase-01/commit.txt)). Replay: replayed in phase 17 (E5, exit 0); evidence: runbook-log E5.43.
   - `claude` in the replay clone, then the whole text of `docs/agent-runs/phase-02/prompt.md`, pasted verbatim. Replay: not replayed in phase 17 (agent session; recorded for the video, not required for the final gate).
   - The local bounded pipeline: the commands of items 9 and 10 (their replay lines are there).
 - **Blur:** nothing expected in the local parts; in clip 07, the account (the script masks it) and any bucket name in the console.
@@ -195,8 +195,8 @@ This is the script for the final demonstration video (deliverable D19): the cour
 - **Show:** clips 14 and 18; then the signed plans and release records ([`docs/final-state.md`](final-state.md#2-signed-plans), [`releases/course/`](../releases/course/)); then, live, Terraform validating the frozen configuration.
 - **Say:** "All infrastructure is Terraform. No agent can apply: a plan's checksum is signed by the human in a committed line, and only the deploy script applies a signed plan, writing a release record with the image digests and task revisions. Terraform has not changed since the removal plan."
 - **Commands:**
-  - `terraform -chdir=infra/terraform/environments/course validate`. Replay: planned for replay (E5).
-  - `bash scripts/plan.sh` (optional, read-only, against the emptied account; the resulting plan is never signed). Replay: planned for replay (E6).
+  - `terraform -chdir=infra/terraform/environments/course validate`. Replay: replayed in phase 17 (E5, exit 0); evidence: runbook-log E5.20 ("The configuration is valid.").
+  - `bash scripts/plan.sh` (optional, read-only, against the emptied account; the resulting plan is never signed). Replay: replayed in phase 17 (E6, exit 0); evidence: runbook-log row "E6 step 3" (`Plan: 175 to add, 0 to change, 0 to destroy.`; not signed; [`final-state.md`](final-state.md#9-after-phase-17)).
 - **Blur:** in clip 14 and in a `plan.sh` run, the profile name and anything unmasked; `plan.sh` masks the account and bucket names itself (Phase 17 step I1b analysis).
 
 ## 19. CloudWatch elasticity dashboard
@@ -213,9 +213,9 @@ This is the script for the final demonstration video (deliverable D19): the cour
 - **Show:** clip 13; the committed C raw files (`scaling-activities.csv`, `service-samples.csv` under [`experiments/raw/p15-c-embedding-backlog/20261120T225730Z-eb786c5275a3-ab26/`](../experiments/raw/p15-c-embedding-backlog/20261120T225730Z-eb786c5275a3-ab26/)); the B capacity plot under [`experiments/derived/out/p15-b-spark-burst/`](../experiments/derived/out/p15-b-spark-burst/); then, live, the plots regenerated from the raw files.
 - **Say:** "Here the worker service scales out under a real embedding backlog and scales back in to zero when the queue drains. The plots are regenerated from the immutable raw files by committed scripts, so anyone can check them."
 - **Commands:**
-  - `python3 -I experiments/derived/queue_worker.py`. Replay: planned for replay (E5).
-  - `python3 -I experiments/derived/emr_capacity.py`. Replay: planned for replay (E5).
-  - `git status --short` (prints nothing when the regenerated files equal the committed ones). Replay: planned for replay (E5).
+  - `python3 -I experiments/derived/queue_worker.py`. Replay: replayed in phase 17 (E5, exit 0); evidence: runbook-log E5.22 to E5.26 (the five derive scripts, exit 0 each).
+  - `python3 -I experiments/derived/emr_capacity.py`. Replay: replayed in phase 17 (E5, exit 0); evidence: runbook-log E5.22 to E5.26.
+  - `git status --short` (prints nothing when the regenerated files equal the committed ones). Replay: replayed in phase 17 (E5, exit 0); evidence: runbook-log E5.27 (printed nothing).
 - **Blur (clip 13):** the account menu and the service and cluster ARNs.
 
 ## 21. One failure and recovery example
@@ -223,7 +223,7 @@ This is the script for the final demonstration video (deliverable D19): the cour
 - **Clip:** recorded: clip 09 (Phase 15): experiment F's poison message on the embedding queue: the dead-letter queue at 1 and the main queue empty, the `embedding-dlq-not-empty` alarm in alarm since 22:44Z, and the committed `events.csv` and `incident-F.json` (root cause and recovery action as recorded) (runbook-log row "D16 clip 09").
 - **Show:** clip 09; the incident report [`docs/incidents/INC-P15-F-poison-message.md`](incidents/INC-P15-F-poison-message.md) (a planned, safe exercise, not an unplanned incident); then, live, the failure timeline regenerated from the raw record ([`experiments/derived/out/p15-f-poison-replay/`](../experiments/derived/out/p15-f-poison-replay/)).
 - **Say:** "This was a planned, safe failure: a message the worker can never process. The worker released it on each receive, the queue moved it to the dead-letter queue after five receives, and the alarm fired; the valid work still completed, so no rollback was needed."
-- **Command:** `python3 -I experiments/derived/failure_timeline.py`. Replay: planned for replay (E5).
+- **Command:** `python3 -I experiments/derived/failure_timeline.py`. Replay: replayed in phase 17 (E5, exit 0); evidence: runbook-log E5.22 to E5.26.
 - **Blur (clip 09):** the account menu, the queue URLs and the alarm ARN.
 
 ## 22. Cleanup or resource inventory evidence
@@ -234,10 +234,10 @@ This is the script for the final demonstration video (deliverable D19): the cour
 - **Commands:**
   - `bash scripts/cleanup.sh --evidence-archive PATH_TO_ARCHIVE --list`. Replay: not replayable after teardown (archived evidence: `docs/agent-runs/phase-15/runbook-log.md`, row "D25 step 5 cleanup.sh --list"; against today's emptied account it stops with exit 3 at `terraform-outputs` before any listing, Phase 17 step I1b analysis).
   - `bash scripts/cleanup.sh --evidence-archive PATH_TO_ARCHIVE --remove --plan-sha256 HEX64`. Replay: not replayable after teardown (archived evidence: `docs/agent-runs/phase-15/cleanup/`; `docs/agent-runs/phase-15/runbook-log.md`, rows "D27 attempt 1" and "D27 attempt 2").
-  - `terraform -chdir=infra/terraform/environments/course state list > /tmp/p17-E6-state.txt 2> /tmp/p17-E6-state.err; echo "exit=$?" | tee /tmp/p17-E6-state.exit; wc -l < /tmp/p17-E6-state.txt` (counts what the local state still holds; addresses only in the counted file). Replay: planned for replay (E6).
+  - `terraform -chdir=infra/terraform/environments/course state list > /tmp/p17-E6-state.txt 2> /tmp/p17-E6-state.err; echo "exit=$?" | tee /tmp/p17-E6-state.exit; wc -l < /tmp/p17-E6-state.txt` (counts what the local state still holds; addresses only in the counted file). Replay: replayed in phase 17 (E6, exit 0); evidence: runbook-log row "E6 step 2" (count 0).
 - **Blur (clip 21):** the archive path if it shows the home folder name, and any console page in the leftover check (account menu, ARNs); the scripts print the account masked and the tagged resources as `{arn}`.
 
 ## After recording
 
 - The video link goes into the README's "Final report and video" section and deliverable D19 (`PENDING E11` until the human gives it).
-- Each `planned for replay` line above becomes the observed result at step E11.
+- Step E11 filled in every replay line above with the observed result from the runbook log.
