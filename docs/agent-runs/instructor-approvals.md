@@ -33,7 +33,33 @@ Questions:
 
 **How it is applied:** embedding provider `voyage` (`voyage-4`, 1024 dimensions) by default; `bedrock` (`amazon.titan-embed-text-v2:0`, 1024 dimensions) kept as a switch. Synthesis and query planning use the Anthropic API with model `claude-haiku-5-5` from Phase 9; `bedrock` (`anthropic.claude-haiku-5-5`) is kept as a switch. Embeddings first used in docs/agent-runs/phase-07/prompt.md, decision 7; synthesis in docs/agent-runs/phase-09/prompt.md, decision 5d. Phase 9 cost: Anthropic about $0.06, Voyage $0, AWS $0 (docs/agent-runs/phase-09/human-gate.md).
 
-## Earlier approvals (add the details you have)
+## 2026-11-24: Fixes for TA autograder findings committed as part of Phase 17
+
+**Received by:** Brian Wilk, in person after class
+
+**Situation:** I ran the student autograder (V1 1.0.3, V2 2.3.0, V3 3.0.0) on the repository during Phase 17, after its release candidate was tested, and it reported some failed and warning checks.
+
+**Question:** Can I commit the fixes to the checks I failed from the autograder as a part of Phase 17?
+
+**Instructor's answer (paraphrased):**
+
+> Yes.
+
+**How it is applied:** documentation-only fixes and explanations, with no change to code, scripts, hooks, tests or Terraform, so the tested release candidate is unchanged. Every finding and its answer is in docs/agent-runs/phase-17/autograder-response.md.
+
+## 2026-11-24: Repository made public before the deadline
+
+**Received by:** all of the class in lecture
+
+**Question:** N/A
+
+**Instructor's answer (paraprahsed):**
+
+> Because of intellectual property laws, the repository can be made public at any time.
+
+**How it is applied:** the repository was made public on 2026-11-24 at about 11 AM CST, before the submission deadline. The history was scanned for identifiers first (docs/agent-runs/phase-17/runbook-log.md, E12 history scan).
+
+## Earlier approvals 
 
 - Scala 2.13 for sparkAnalytics, core cross-built (Microsoft Teams; see docs/agent-runs/phase-02/prompt.md, decision 1).
 - $25 total ceiling across all providers; Budgets alerts at $10, $15 and $20; own AWS account; smaller datasets allowed with documented criteria.

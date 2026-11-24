@@ -47,6 +47,14 @@ As recorded: started 2026-11-22T18:37:58Z, telemetry off, endpoint `https://127.
 
 As recorded: the human's shell still exported Phase 15 `SCHOLARCHAIN_CFG_*` configuration overrides. The human cleared them in the `[EMULATOR]` terminal with `unset -m 'SCHOLARCHAIN_CFG_*'`. The Phase 16 `env.sh` used in this run did not clear these variables, a known gap of this run (section 8). Since Phase 17 (commit pending), `env.sh` clears every exported `SCHOLARCHAIN_CFG_*` variable itself (`runtime: untested`); this change was made after Phase 16's emulator run (Phase 16 step E14), which was not repeated.
 
+**Why `env.sh` sets no strict mode** (autograder check U01; Phase 17 step E12, documentation of existing code, no code change). `scripts/emulator/env.sh` is a file the operator sources into an interactive terminal; it is not a script that runs on its own.
+
+- **Only the operator's terminal sources it.** Every use in the repository is `source scripts/emulator/env.sh` typed by the operator (`env.sh:4-6`). No script, test or experiment executes it or sources it (read-only check by code-reviewer at commit `d8b49fa`).
+- **No strict mode, by design.** Its header says "It changes no shell option" (`env.sh:13`). `set -e` sourced into an interactive shell would close the operator's terminal at the first failing command.
+- **Running it under bash is refused.** If it is run with bash instead of sourced, it prints an error and exits with code 2 (`env.sh:60-63`).
+- **It has no executable bit.** `git ls-files -s scripts/emulator/env.sh` shows mode 100644.
+- **The scripts run after it set strict mode themselves.** `setup.sh` and `probes.sh` run as their own bash processes and set `set -Eeuo pipefail` (`scripts/emulator/setup.sh:10`, `scripts/emulator/probes.sh:13`).
+
 ### 2.4 Commands
 
 After the emulator is healthy and `env.sh` is sourced, a run is these lines, one after another:

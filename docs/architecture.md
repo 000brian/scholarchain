@@ -14,6 +14,7 @@ Contents:
 - [4. Why each technology is used](#4-why-each-technology-is-used)
 - [5. Consolidation of services](#5-consolidation-of-services)
 - [6. What was not built](#6-what-was-not-built)
+- [7. Design notes](#7-design-notes)
 
 ## 1. Build-time workflow
 
@@ -200,9 +201,9 @@ Deterministic graph facts (counts, paths, components, communities, bridge measur
 Each reason below is the argument recorded in a phase gate, work order or report, not a product description.
 
 - **S3 raw and curated zones.** The pipeline stages never call each other in code; they exchange versioned files whose schemas are defined in `core` (`CLAUDE.md`, "Module dependency boundaries"). S3 keys are versioned and files are never overwritten, with content hashes and source references (Phase 7 gate, [`docs/agent-runs/phase-07/human-gate.md`](agent-runs/phase-07/human-gate.md)), so every stage's input is a fixed, addressable run.
-- **Hadoop MapReduce on EMR.** The parse, normalize, mention, blocking and pair-candidate work is record-at-a-time and shuffle-shaped. The Phase 4 gate ([`docs/agent-runs/phase-04/human-gate.md`](agent-runs/phase-04/human-gate.md)) records why the jobs are real MapReduce: a DBLP reader that reads every record exactly once across file splits, coauthor pairs correct for any team size, counters where input equals accepted plus excluded plus rejected, and identical output on rerun. Phases 14 and 15 reproduced the same counters on EMR at two build commits ([`experiments/results-summary.md`](../experiments/results-summary.md), section 2.6).
+- **Hadoop MapReduce on EMR.** The parse, normalize, mention, blocking and pair-candidate work is record-at-a-time and shuffle-shaped. The Phase 4 gate ([`docs/agent-runs/phase-04/human-gate.md`](agent-runs/phase-04/human-gate.md)) records why the jobs are real MapReduce: a DBLP reader that reads every record exactly once across file splits, coauthor pairs correct for any team size, counters where input equals accepted plus excluded plus rejected, and identical output on rerun. Phases 14 and 15 reproduced the same counters on EMR at two build commits ([`experiments/results-summary.md`](../experiments/results-summary.md), section 2.6). The contract of each job (types, input and output locations, classes, codec, configuration keys, tests and fixtures) and two known limitations (the blocking cap is applied in the reducer; teams over the hard limit are rejected) are in [`docs/hadoop-job-contracts.md`](hadoop-job-contracts.md).
 - **Entity resolution on the laptop.** `ErMain` reads and writes local files only, the bounded data is small, and running it locally avoids EMR cost ([`docs/agent-runs/phase-13/prompt.md`](agent-runs/phase-13/prompt.md), decision 12, deviation 2). The laptop run in Phase 14 matched Phase 5's accepted run exactly (Phase 14 gate, "Pipeline").
-- **Spark on EMR.** Graph construction and analytics (distinct coauthors, weighted degree, team sizes, components, communities, k-core, bridge measures, path evidence) need joins and iterative algorithms over the whole graph. Spark consumes the Hadoop outputs instead of re-parsing DBLP, never collects the whole graph to the driver, and is checked on hand-checkable known graphs (Phase 6 gate, [`docs/agent-runs/phase-06/human-gate.md`](agent-runs/phase-06/human-gate.md)). `sparkAnalytics` compiles with Scala 2.13 to match the EMR Spark runtime, an instructor-approved deviation (`CLAUDE.md`, "Scala versions").
+- **Spark on EMR.** Graph construction and analytics (distinct coauthors, weighted degree, team sizes, components, communities, k-core, bridge measures, path evidence) need joins and iterative algorithms over the whole graph. Spark consumes the Hadoop outputs instead of re-parsing DBLP, never collects the whole graph to the driver (every driver-side `.collect()` and its bound: [section 7.2](#72-spark-collect-calls-and-their-bounds)), and is checked on hand-checkable known graphs (Phase 6 gate, [`docs/agent-runs/phase-06/human-gate.md`](agent-runs/phase-06/human-gate.md)). `sparkAnalytics` compiles with Scala 2.13 to match the EMR Spark runtime, an instructor-approved deviation (`CLAUDE.md`, "Scala versions").
 - **Neptune.** Paths and neighbourhoods are graph traversals. The runtime reaches Neptune only through typed, parameterized query templates with validated integers and window labels, so user text never becomes database code (Phase 9 gate, [`docs/agent-runs/phase-09/human-gate.md`](agent-runs/phase-09/human-gate.md)). One `db.t4g.medium` instance was chosen because it is the free-trial class (Phase 12 gate, area 7).
 - **DynamoDB.** Per-window metrics, rankings, evidence bundles, the entity-link cache, the run ledger and audit records, and query jobs are key lookups and conditional writes. Per-window metrics live in DynamoDB, full-window metrics also on Neptune nodes; safe repeat writes rely on conditional puts (Phase 7 gate). Tables are on demand with point-in-time recovery off because the data can be rebuilt (Phase 12 gate, area 6).
 - **S3 Vectors.** The durable semantic tier for researcher, community, paper, path and topic summaries. Vector metadata stays small and long text stays in S3; vector similarity never supplies a count, edge or path (Phase 7 gate; `CLAUDE.md`, "Architecture invariants"). In the Phase 15 retrieval-mode experiment, vector-only retrieval scored MRR 0.003 against 0.818 graph-only (exploratory, n = 11; Phase 15 gate, Results), which is consistent with using vectors for context, not for graph facts (interpretation; `docs/evaluation.md` states the limits of that experiment).
@@ -247,3 +248,67 @@ Reason recorded in the Phase 12 work order ([`docs/agent-runs/phase-12/prompt.md
 | Betweenness centrality | not computed; bridge measures are participation coefficient, cross-community degree and communities connected | Phase 6 gate |
 | Terraform environment-parity guard (K-01) | not built (Terraform frozen in Phase 17) | Phase 16 gate; Phase 17 work order decision 2 |
 | A live system | removed Nov 21 (instructor-approved teardown) | Phase 15 gate |
+
+## 7. Design notes
+
+Written in Phase 17 session 3, step E12, in answer to two autograder warnings (V01 and A01). Both notes describe existing code at commit `d8b49fa`. No code was changed.
+
+### 7.1 Fixed model IDs in code
+
+The autograder flagged two lines as hard-coded model IDs. Neither selects the model the system uses; both belong to the Bedrock switch, which is kept but not used (every Bedrock quota of the account was 0; [`docs/agent-runs/instructor-approvals.md`](agent-runs/instructor-approvals.md), line 12).
+
+- **The models in use come from configuration.** They are `models.embeddingModelId` `voyage-4` and `models.answerModelId` `claude-haiku-5-5` (`config/course.json:15-18`). The providers are `embedding.provider` `voyage` and `llm.provider` `anthropic` (`config/course.json:61`, `:72`). The release manifest records the same values ([`release-manifest.md`](../releases/manifest/b4d8f1229fc145e1492e1a8cbb8a44a368d026af/release-manifest.md), section "Models (config/course.json)", lines 139-147). The code reads the embedding model from configuration (`modules/rag/src/main/scala/org/scholarchain/rag/embedding/EmbeddingModelSpec.scala:110-118`).
+- **`EmbeddingModelSpec.scala:55`** (`BedrockTitanModel = "amazon.titan-embed-text-v2:0"`) is an allow-list, not a default. The Bedrock embedding switch accepts only that model and refuses any other ID (`EmbeddingModelSpec.scala:89-97`). The reason is that the code's dimension set (`:60`) and input limit (8,192 tokens, `:62-69`) are Titan Text Embeddings V2's. A different Bedrock model ID from configuration would select a model whose dimensions and limits the code does not know. The Phase 7 work order chose this model for the switch ([`docs/agent-runs/phase-07/prompt.md`](agent-runs/phase-07/prompt.md), line 170).
+- **`Llm.scala:638`** is the Bedrock namespace prefix `anthropic.`, not a model ID. `bedrockModelId` adds it to `models.answerModelId` from configuration when it is missing (`modules/rag/src/main/scala/org/scholarchain/rag/runtime/Llm.scala:636-638`). The Phase 9 work order records the synthesis model as a fixed ID with Bedrock ID `anthropic.claude-haiku-5-5` ([`docs/agent-runs/phase-09/prompt.md`](agent-runs/phase-09/prompt.md), lines 144 and 235). The instructor approval records how both switches are applied ([`docs/agent-runs/instructor-approvals.md`](agent-runs/instructor-approvals.md), line 34).
+- **Why exact, pinned IDs.** The embedding model ID is part of the model spec stored in every vector's metadata. Changing any field of it changes the ID, and the ingest pipeline then re-embeds every key (`EmbeddingModelSpec.scala:15-23`). An exact, pinned ID therefore keeps stored vectors and answers traceable to the model that made them. A moving alias would change vectors without changing the recorded ID.
+
+### 7.2 Spark collect calls and their bounds
+
+There are 18 Spark `.collect()` calls in `modules/spark/src/main` (a read-only check by code-reviewer at `d8b49fa`; the autograder's count is also 18). Each brings a result to the driver.
+
+- 17 are bounded by a number that does not grow with the input. 11 are bounded by a literal limit or a configuration value with an upper validation cap. 6 are bounded only by configuration values that have no upper validation cap.
+- 1, `sizeBuckets`, grows with the input. It is listed as a known limitation below.
+
+Paths below are under `modules/spark/src/main/scala/org/scholarchain/spark/`. The validation caps are in `JobConfig.scala`:
+
+- `pathTopK` is 0..100 (`:122`);
+- `pathRandomPairs` is 0..100 (`:123`);
+- `diameterSources` is 0..100 (`:124`).
+
+`pathMaxDepth` (`:121`) and `diameterMaxDepth` (`:125`) are checked only as at least 1. The number of windows is checked only as non-empty with distinct labels (`:100-101`). The committed job configuration [`modules/spark/conf/phase06.json`](../modules/spark/conf/phase06.json) sets:
+
+- `pathMaxDepth` 6 (line 22);
+- `diameterMaxDepth` 12 (line 26);
+- five windows (lines 7-13).
+
+These are the values the bounds marked "committed config" use. The path pairs number at most C(100,2) + 100 = 5,050 (top-K pairs plus random pairs, `Paths.scala:103-109`), with at most 400 distinct researcher IDs (`Paths.scala:111`).
+
+| # | Call (file:line) | What reaches the driver | Bound |
+|---|---|---|---|
+| 1 | `JsonlExport.scala:537` | up to 5 decode-error strings | `.limit(5)` at `:537` |
+| 2 | `Output.scala:157` | up to 5 validation-error strings | `.limit(5)` at `:157` |
+| 3 | `Output.scala:158` | up to 20 records of one table (round-trip sample) | `.limit(20)` at `:158` (row count fixed; a record's width depends on its array fields) |
+| 4 | `Paths.scala:60` | seeded researcher IDs | `.limit(n)` at `:59`, n ≤ 200 or ≤ 100 (`Paths.scala:100-101`; `JobConfig.scala:123-124`) |
+| 5 | `Paths.scala:85` | top-K researcher IDs | `.limit(cfg.pathTopK)` at `:83`, ≤ 100 (`JobConfig.scala:122`) |
+| 6 | `Paths.scala:93` | the largest component | `.limit(1)` at `:92` |
+| 7 | `Paths.scala:118` | vertex index of the wanted IDs | `isin(wanted)` at `:116`, ≤ 400 IDs (`:111`) |
+| 8 | `Paths.scala:126` | component of the wanted IDs | `isin(wanted)` at `:124`, ≤ 400 IDs |
+| 9 | `Paths.scala:211` | BFS parent chains | **config only:** ≤ pairs × (`pathMaxDepth` + 1) rows (comment `:208`; loop cap `:193`; one parent per node, `Algorithms.scala:276-278`); committed config: ≤ 5,050 × 7 = 35,350 rows |
+| 10 | `Paths.scala:220` | researcher IDs of the chain nodes | **config only:** `isin(nodeIdx)` at `:218`, the distinct nodes of #9 (`:213`) |
+| 11 | `Paths.scala:265` | one edge row per path hop | **config only:** join with the hop keys (`:251-257`), ≤ 5,050 × `pathMaxDepth` rows; a row's `supportingWorkIds` grows with the pair's joint papers |
+| 12 | `Paths.scala:306` | distance histogram for the effective diameter | **config only:** `groupBy("dist")` at `:303`, dist ≤ `diameterMaxDepth` (`Algorithms.scala:270`); committed config: ≤ 12 rows |
+| 13 | `Pipeline.scala:900` | display names of researchers on evidence paths | **config only:** `isin(pathIds)` at `:898`, the path IDs of #9 (`:892`) |
+| 14 | `Pipeline.scala:948` | integrity-violation counts per check and window | **config only:** `groupBy("check", "windowLabel")` at `:945`. The checks are 11 literal checks with an empty window label (`GraphBuild.scala:93-94`, `:341-353`) plus 2 per window (`Pipeline.scala:645`, `:654`), so there are ≤ 11 + 2 × windows rows; committed config: ≤ 21 rows |
+| 15 | `Pipeline.scala:1116` | (size, count) for every distinct component or community size | **grows with the input** (known limitation below) |
+| 16 | `Pipeline.scala:1133` | the largest component | `.limit(1)` at `:1133` |
+| 17 | `Pipeline.scala:1136` | the largest community | `.limit(1)` at `:1136` |
+| 18 | `Pipeline.scala:1142` | the top 15 coreness values | `.limit(15)` at `:1141` |
+
+**Stated plainly.** Rows 9 to 14 are bounded only because the configured `pathMaxDepth`, `diameterMaxDepth` and window count are small. The code does not cap them from above. A configuration with a very large depth or many windows would bring proportionally more rows to the driver. The committed configuration's bounds are the ones given in the table.
+
+**Known limitation: `sizeBuckets` (`Pipeline.scala:1111-1122`).**
+
+- **What it does.** `sizeBuckets` groups by the data-valued `size` (`:1114`) and collects one row per distinct size (`:1116`). It applies its 9 fixed buckets (`:1099-1109`) on the driver after the collect (`:1118-1121`). It is called for components and for communities (`:1158`, `:1162`).
+- **How large the result can get.** The distinct sizes of k groups sum to at most N researchers, so k(k+1)/2 ≤ N and the result has fewer than √(2N) rows. That is about 2,650 rows of two numbers at N = 3.5 million (an illustrative size, not a measured one). At the measured full-window size of 200,484 researchers ([final report, section 9](../reports/final-report.md#9-spark-coauthorship-graph-collaboration-metrics-paths-communities-bridge-analysis-and-temporal-analytics)) it is at most 632 rows.
+- **The limitation.** The result is small, but it grows with the input. Bucketing on the executors before the `groupBy` would cap it at 9 rows.
+- **Status.** That change belongs to spark-engineer and is out of scope after the release candidate. It is listed in [final report section 23.1](../reports/final-report.md#231-system-and-scope-limitations).

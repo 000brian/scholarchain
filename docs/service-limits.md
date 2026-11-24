@@ -116,6 +116,10 @@ Recorded by the two agents; no code, Terraform or configuration was changed (Ter
 
 - Not checked, outside step I1a's list (proposed later): EMR `m5.xlarge` availability per Availability Zone; the HTTP API 30 s integration timeout (`infra/terraform/modules/runtime/ingress.tf:134-135`; the only page found was a Solutions guide, not the API Gateway quota page).
 - Application limits that are not AWS service limits (route time limits, graph neighbour bounds, request size, concurrency per task) are in [`docs/api.md`](api.md#8-limits-and-timeouts).
+- Pipeline limits that are not AWS service limits (Phase 17 step E12, documentation of existing code, no code change):
+  - The Hadoop blocking cap is applied in the reducer, so an oversize group still reaches one reducer ([`docs/hadoop-job-contracts.md`](hadoop-job-contracts.md#131-j05-applies-the-block-cap-in-the-reducer-check-hadoop-04)).
+  - Teams above the hard limit of 5,000 authors are rejected with no pairs, and are counted ([`docs/hadoop-job-contracts.md`](hadoop-job-contracts.md#132-teams-over-the-hard-limit-are-rejected-check-hadoop-pairs-wrong)).
+  - The Spark driver-side collects and their bounds, including the one that grows with the input (`sizeBuckets`), are in [`docs/architecture.md`](architecture.md#72-spark-collect-calls-and-their-bounds).
 - OpenSearch: not implemented (optional tier), so no OpenSearch limit applies ([`docs/architecture.md`](architecture.md#6-what-was-not-built)).
 - Bedrock: not used at runtime; the model endpoints are Anthropic and Voyage (instructor-approved deviation, [`docs/agent-runs/instructor-approvals.md`](agent-runs/instructor-approvals.md)), so no Bedrock quota is relied on.
 - The live values of the removed environment: the tables state the values in the committed Terraform and configuration, which [`docs/final-state.md`](final-state.md) ties to the signed plans and release records.
