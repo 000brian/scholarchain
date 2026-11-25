@@ -59,6 +59,24 @@ Questions:
 
 **How it is applied:** the repository was made public on 2026-11-24 at about 11 AM CST, before the submission deadline. The history was scanned for identifiers first (docs/agent-runs/phase-17/runbook-log.md, E12 history scan).
 
+## 2026-11-24: Written confirmation (Microsoft Teams): code and documentation fixes in Phase 17
+
+**Received by:** Brian Wilk, Microsoft Teams
+
+**Question:** With the extension, I'd like to fix a few autograder findings in code rather than only documenting them. These would be code changes, made by the owning agents with tests and review, and I'd re-run my full fresh-clone build and test checks afterwards. Is it okay to do these code fixes as part of Phase 17, or would you prefer I only document them as known limitations?
+
+**Instructor's answer (verbatim):**
+
+> Your proposed file, docs/agent-runs/phase-17/autograder-response.md, is an appropriate location for documenting each finding, its classification, corrective action, and supporting evidence.
+Yes, you may make code and documentation fixes during Phase 17, especially now that the deadline has been extended. There is no reason to preserve known defects merely to comply with an artificial phase boundary. Please ensure that the following requirements hold trye.
+Changes are implemented through the appropriate agents, tested, and reviewed.
+Each change is documented with its rationale and corresponding autograder finding.
+You rerun the relevant tests and verify the complete project from a fresh clone.
+You distinguish genuine implementation defects from autograder false positives rather than modifying correct code simply to satisfy an incorrect check.
+Remember that the autograder is a tool for evaluating your project, not an infallible authority. Identifying and explaining its mistakes is itself evidence of sound engineering judgment. Please proceed with the fixes and push your validated commits well before the deadline.
+
+**How it is applied:** every fix is made by its owning agent, tested and reviewed; each is documented in docs/agent-runs/phase-17/autograder-response.md with its rationale and finding; the project is re-verified from a fresh clone; findings are classified as genuine defects or autograder false positives, and correct code is not changed to satisfy an incorrect check.
+
 ## Earlier approvals 
 
 - Scala 2.13 for sparkAnalytics, core cross-built (Microsoft Teams; see docs/agent-runs/phase-02/prompt.md, decision 1).

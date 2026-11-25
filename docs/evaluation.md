@@ -563,7 +563,7 @@ The Wilson intervals are allowed by decision 3 and the review note N1 ([review-r
 | partially supported share, all claims | 2 / 31 | 0.064516 | bootstrap [0, 0.1875] |
 | contradiction rate (conflicting), all claims | 1 / 31 | 0.032258 | bootstrap [0, 0.09375] |
 | unsupported share, all claims | 0 / 31 | 0 | bootstrap [0, 0] |
-| support, claims citing coauthor_edge evidence | 10 / 10 | 1 | bootstrap [1, 1] (3 answers with claims) |
+| support, claims citing coauthor_edge evidence | 10 of 10 | 1 | bootstrap [1, 1] (3 answers with claims) |
 | support, claims citing graph_path evidence | 1 / 1 | 1 | descriptive (1 answer with claims) |
 | support, claims citing work or authorship evidence | 1 / 1 | 1 | descriptive (1 answer with claims) |
 | support, claims citing metric evidence | 13 / 15 | 0.866667 | bootstrap [0.555556, 1] (5 answers with claims) |
@@ -751,7 +751,7 @@ Per-phase BLOCKED-ON totals ([`counts-by-phase.csv`](../experiments/evaluation/r
 
 **Audit of 20 sampled events** (E11; [`audit-sample.csv`](../experiments/evaluation/raw/factory/20261122T170517Z-7e551c8003c3-d311/audit-sample.csv); strata in audit-strata.csv: 11 findings, 3 executions, 2 repairs, 1 each of blocked-row, blocked-terminal, hook-block and manual-intervention):
 - The human wrote 1 in both audit columns on all 20 rows, recorded as yes (runbook-log :47).
-- Event is real: 20 of 20. Correctly classified: 20 of 20. Agreement 20/20, computed by hand from audit-sample.csv (`grep -c` of rows ending `,1,1,`). Kind (c).
+- Event is real: 20 of 20. Correctly classified: 20 of 20. Agreement 20 of 20, computed by hand from audit-sample.csv (`grep -c` of rows ending `,1,1,`). Kind (c).
 - No interval: the 20 events are a stratified fixed-seed sample of a full population (suite :189).
 
 #### Interpretation

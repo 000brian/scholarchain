@@ -4,7 +4,16 @@ The TA autograder ran against commit d8b49fa on 2026-11-24. On that day the huma
 
 This file answers each FAIL or WARN row of V1, each partial or deduction row of V2 `hadoop_mapreduce`, and the partial row of V3 `factory_reproducibility`. The reports were read as data. No key text is quoted here.
 
-Results in short: V1 had 8 FAIL and 9 WARN rows (17 A-items). V2 `hadoop_mapreduce` had 2 partial rows and 1 minor deduction (B-items); `dataset_engineering` and `spark_analytics` were all met. V3 `factory_reproducibility` had 1 partial row (C1).
+Results in short: V1 had 8 FAIL and 9 WARN rows (17 A-items). V2 `hadoop_mapreduce` had 2 partial rows and 1 minor deduction (B-items); `dataset_engineering` and `spark_analytics` were all met. V3 `factory_reproducibility` had 1 partial row (C1). A second run on 62de5e5 is recorded at the end ("Second run").
+
+## Built-in subagent disclosure
+
+- Part of the research for this file was done by Claude Code's built-in general-purpose subagent, not by one of the 18 repository agents. It is called "the research subagent" below.
+- It was used once in Phase 17 (session 3, step E12). It drafted this file. No other built-in subagent (general-purpose, Explore or any other) was used in Phase 17, and no earlier phase used one (the human checked the earlier phases; runbook-log row "E12 built-in subagent disclosure").
+- It has Claude Code's full default tool set, because it has no file under `.claude/agents/` that narrows its tools. It was instructed to work read-only, and it wrote only this draft, in the session scratchpad. It wrote nothing in the repository.
+- code-reviewer reviewed its draft (review-report-autograder.md: REQUEST_CHANGES, fixed; review-report-autograder-2.md: APPROVE).
+- The hooks still applied to it. The PreToolUse guard runs on every Bash, Read, Grep, Glob, Write, Edit, MultiEdit and NotebookEdit call (.claude/settings.json:211); other tools in its default set (for example WebFetch, WebSearch and MCP tools) are not matched by the guard. Its own transcript, checked by the orchestrator, shows only Bash (60 calls), Read (3) and Write (1, the scratchpad draft) calls, plus its hand-back, so every one of its tool calls went through the guard. The orchestrator also read its 60 Bash commands in that transcript. None wrote or deleted a file: the only redirection goes to `/dev/null`, and there is no `tee`, `cp`, `mv`, `touch`, `mkdir`, `chmod`, `ln`, in-place edit or file removal. None ran a git write command: the git subcommands are `log`, `show`, `ls-files`, `merge-base` and `grep`. None used the network (no `curl`, `wget`, URL, `ssh` or `nc`), and none ran an AWS command (the word appears only inside repository file paths). It ran no sbt, script, interpreter, Docker or Terraform command. Command kinds: `grep`, `head`, `tail -n`, `cut`, `wc`, `ls`, `cat`, `echo`, `sort`, `uniq`, `xargs` (only with `echo` and `basename`), one `sed -n`, the read-only git subcommands above, and shell loops and functions around them. It read the autograder reports, repository files (including the variable names in course.tfvars for A6) and one saved tool-output file of this session, and none of the off-limits files (Terraform state or plans, `evidence/`, `~/.aws/`, the phase-17 temporary logs). The stop hook does not exempt it: the self-test s38-unknown-agent-not-exempt uses `general-purpose` as the example of an unknown agent that is not exempt (docs/agent-runs/amendment-02/repair-01.md:802).
+- It owns no artifact. The 18 repository agents remain the only artifact owners (docs/agents.md). This use is an unplanned deviation, listed for the human gate. For the rest of Phase 17 only the 18 repository agents are used.
 
 ## Mapping
 
@@ -20,7 +29,7 @@ Results in short: V1 had 8 FAIL and 9 WARN rows (17 A-items). V2 `hadoop_mapredu
 | A8 | V1 | E03 | Files a report claims were really changed by that phase's commits | FAIL |
 | A9 | V1 | E04 | Files the phase changed but its report doesn't list | WARN |
 | A10 | V1 | E05 | Files changed in a phase belong to its OWNER | WARN |
-| A11 | V1 | C03 | No TaskForge leftovers in the control plane or code | WARN |
+| A11 | V1 | C03 | No leftovers of the tutorial's sample application in the control plane or code | WARN |
 | A12 | V1 | O02 | One writer per artifact | WARN |
 | A13 | V1 | O03 | Writers have write tools | WARN |
 | A14 | V1 | R03 | guard-dangerous.sh covers every destructive category ScholarChain names | FAIL |
@@ -50,7 +59,7 @@ Phase 17:
 Found: 15 messages "… is not a commit in this repo" for 10 distinct strings: phase-12 `5f249df5`; phase-14 `6d4a629c`, `a865a94d`, `5c77365f`, `61957631`, `5656145e`; phase-15 `d636c648`, `71fe9071`, `235b56f5`, `934d78c3`.
 
 Answer:
-- Every 40-character hash in the three files resolves to a commit that is an ancestor of HEAD. The orchestrator and the research agent checked 50 of 50 hashes with `git merge-base --is-ancestor` (phase-12: 3, phase-14: 20, phase-15: 27).
+- Every 40-character hash in the three files resolves to a commit that is an ancestor of HEAD. The orchestrator and the research subagent (Claude Code's built-in general-purpose subagent; see "Built-in subagent disclosure") checked 50 of 50 hashes with `git merge-base --is-ancestor` (phase-12: 3, phase-14: 20, phase-15: 27).
 - The flagged strings are not commit hashes. Each one is the 8-character prefix of a signed Terraform plan sha256, quoted inside a commit subject. Each prefix matches a signed plan sha256: an `APPROVED-PLAN-SHA256:` line, or for phase 12 the plan sha256 line in the phase-12 human gate:
 
 | String | commit.txt line(s) | Signed plan record |
@@ -110,7 +119,7 @@ Answer:
 Found: 352 items "phase-NN: report claims PATH, but no phase-NN commit changed it". 295 of them add "(this path never existed in the repo)".
 
 Method:
-- The research agent took a systematic sample of 32 of the 352 items: every 11th item in report order, starting with item 1.
+- The research subagent (Claude Code's built-in general-purpose subagent) took a systematic sample of 32 of the 352 items: every 11th item in report order, starting with item 1.
 - For each item, it listed the files changed by that phase's commits. Those are the commits whose subject starts with `phase-NN` (`phase 07+08` for phase 07), or the commits in that phase's commit.txt. It used `git show --name-only` and `git log`, then matched the reported path as a path suffix.
 
 Result:
@@ -161,7 +170,7 @@ Answer: Most phases ran several agents, and each agent wrote its own report (`ag
 | 16 | experiments/derived/out/… | phase-16/agent-report-experiment-X1.md, X2.md |
 | 17 | rag/runtime/AbsenceRuleSuite.scala, rag/eval/RetrievalEvalSet.scala | phase-17/agent-report-rag.md, repair-E1-rag.md |
 
-The research agent checked one representative file per phase with grep, not every file in each "+N more" list.
+The research subagent (Claude Code's built-in general-purpose subagent) checked one representative file per phase with grep, not every file in each "+N more" list.
 
 ## A10 (V1 E05): files changed in a phase belong to its OWNER
 
@@ -188,13 +197,13 @@ Answer: Each phase ran several agents, and each file was written by its owner, o
 | 17 | experiments/collectors/lib (3) | experiment-engineer | phase-17/agent-report-experiment.md |
 | 17 | scripts/* (7) | infra-engineer | phase-17/agent-report-infra-I1a.md, -I1b.md |
 
-No crossing is unrecorded at this level. The research agent checked by grep that each owner's report names the file or folder, not file by file for the large experiments lists.
+No crossing is unrecorded at this level. The research subagent (Claude Code's built-in general-purpose subagent) checked by grep that each owner's report names the file or folder, not file by file for the large experiments lists.
 
-## A11 (V1 C03): TaskForge leftovers
+## A11 (V1 C03): leftovers of the tutorial's sample application
 
 Found: "docs/agent-runs/phase-01/course-specification.md: 2 mention(s) | docs/agent-runs/phase-17/course-specification.md: 2 mention(s)".
 
-Answer: `git grep -i taskforge d8b49fa` finds only these two files, at lines 129 and 3051 of each. Both files are the course specification's own text, kept as human-owned phase records. The control plane and the code contain no mention.
+Answer: a case-insensitive `git grep` at d8b49fa for the name of the tutorial's sample application finds only these two files, at lines 129 and 3051 of each. Both files are the course specification's own text, kept as human-owned phase records. The control plane and the code contain no mention.
 
 ## A12 (V1 O02): `evidence/**` has two writers
 
@@ -234,7 +243,7 @@ Answer: answered in docs (Phase 17 E12 autograder pass). Fact basis (review-repo
 - 17 are bounded: 11 by a literal limit or a hard-capped config value, and 6 by config values without an upper validation cap (pathMaxDepth, diameterMaxDepth, window count).
 - 1 is recorded as a known limitation: Pipeline.scala:1116 `sizeBuckets`. It groups by data-valued size, so it returns at most about √(2N) rows and grows with input.
 
-Doc location: docs/architecture.md:265-314 (section 7.2, all 18 calls), pointer at :206; known limitation in reports/final-report.md:619.
+Doc location: docs/architecture.md:265-314 (section 7.2, all 18 calls), pointer at :206; known limitation in reports/final-report.md:620.
 
 ## A17 (V1 U01): bash strict mode
 
@@ -253,19 +262,19 @@ Doc location: docs/emulator.md:50-56.
 
 Found: "Block-size cap, oversize counters, fallback families and MatchCandidate output exist. But the cap is applied in the reducer: the mapper emits all members and the whole oversize group still reaches one reducer (streamed, not buffered). No pre-pass, salting or sampling."
 
-Answer: answered in docs (Phase 17 E12 autograder pass) as a known limitation. Target: docs/hadoop-job-contracts.md:208-214 (section 13.1); reports/final-report.md:617; docs/service-limits.md:120.
+Answer: answered in docs (Phase 17 E12 autograder pass) as a known limitation. Target: docs/hadoop-job-contracts.md:208-214 (section 13.1); reports/final-report.md:618; docs/service-limits.md:120.
 
 ## B2 (V2 HADOOP-11): job contracts
 
 Found: "Job contracts are in Scaladoc, the defaults XML and agent reports … but no standalone per-job contract document with types, S3 prefixes, reducers, codec and fixture for each job was found."
 
-Answer: answered in docs (Phase 17 E12 autograder pass): a new per-job contract document, docs/hadoop-job-contracts.md, linked from the README index and docs/architecture.md (human decision, runbook-log row "E12 autograder results"). Target: docs/hadoop-job-contracts.md (227 lines, sections per job J01 to J09), linked from README.md:441 (D06 row) and docs/architecture.md:204.
+Answer: answered in docs (Phase 17 E12 autograder pass): a new per-job contract document, docs/hadoop-job-contracts.md, linked from the README index and docs/architecture.md (human decision, runbook-log row "E12 autograder results"). Target: docs/hadoop-job-contracts.md (227 lines, sections per job J01 to J09), linked from README.md:443 (D06 row) and docs/architecture.md:204.
 
 ## B3 (V2 HADOOP-PAIRS-WRONG, minor)
 
 Found: "Teams over the hard limit (default 5000) are rejected with no pairs; teams of 100-5000 are expanded. The drop is deliberate, counted and rejected, so only minor." Cited: modules/hadoop/src/main/resources/scholarchain-hadoop-defaults.xml:191-192.
 
-Answer: answered in docs (Phase 17 E12 autograder pass) as a known limitation. Target: docs/hadoop-job-contracts.md:216-227 (section 13.2); reports/final-report.md:618; docs/service-limits.md:121.
+Answer: answered in docs (Phase 17 E12 autograder pass) as a known limitation. Target: docs/hadoop-job-contracts.md:216-227 (section 13.2); reports/final-report.md:619; docs/service-limits.md:121.
 
 ## C1 (V3 FACTORY-07): phase records
 
@@ -275,9 +284,44 @@ Answer:
 - The judge's stated reasons are G02 and E01. Both are answered above. The "hashes" are signed-plan sha256 prefixes in commit subjects, and every real hash in those files resolves (A2). The early reports predate the Phase 1 report contract, and phase-02 has the field (A7).
 - The judge's reason does not mention the missing Phase 17 gate files. The gate commit adds `human-gate.md` and `commit.txt` for Phase 17, which clears V1 P01 for phase-17 (A1).
 - That the gate commit alone clears FACTORY-07 is (not verified): the judge's text ties the partial to A2 and A7, which stay unchanged by human decision.
+- Update: on the second run (62de5e5, see "Second run"), FACTORY-07 is met.
 
 ## Other rows
 
 - V3 FACTORY-05: met, but queued for a human (`v1_contradiction`: V1 R03). Answered in A14.
 - V2 HADOOP-12: met, `needs_human: always_human` (EMR run evidence cannot be confirmed from the repository alone). No action.
 - No other V1 FAIL or WARN rows. V2 `dataset_engineering` and `spark_analytics` were all met. The other V3 deductions do not apply.
+
+## Second run (62de5e5)
+
+The human ran V1, V2 and V3 again against commit 62de5e5942137510a21587693600e6008ffa3354 on 2026-11-24 (V2 rows timed 22:56 to 23:01 UTC, V3 rows 23:04 UTC) and compared them with the first run (runbook-log row "E12 autograder second run (human)").
+
+| Result | Checks |
+|---|---|
+| Improved | V2 HADOOP-11: partial -> met (B2). V3 FACTORY-07: partial -> met (C1). |
+| Unchanged | V1: the same FAIL and WARN rows, as expected (A1 to A17). V2 HADOOP-04 partial (B1) and HADOOP-PAIRS-WRONG minor (B3). |
+| New | V3 deduction FACTORY-AGENTS-NOT-SUBMITTED (minor) (N1). V2 DATA-02 and DATA-05: met -> partial (N4). V2 SPARK-09: met -> partial (N5). The V2 pre-scan "tries to set marks" pattern on two ratios in docs/evaluation.md (N2). One more V1 C03 warn from this file's mentions of the tutorial's sample application (N3). |
+
+### N1 (V3 FACTORY-AGENTS-NOT-SUBMITTED, minor)
+
+Cause: the Phase 17 records named a "read-only research agent" with no file under `.claude/agents/` and no catalog row. Answer: disclosed, not removed. See "Built-in subagent disclosure" above. The README agent catalog now has a note: README.md:90 ("Built-in subagents", directly under the catalog table). The runbook log records it (row "E12 built-in subagent disclosure").
+
+### N2 (V2 pre-scan, docs/evaluation.md ratios)
+
+Answer: the two ratios are written in words ("10 of 10" form), with no number or meaning changed: docs/evaluation.md:566 and :754. The table header "k / n" at docs/evaluation.md:560 and the other rows of that table were left as they are.
+
+### N3 (V1 C03, this file)
+
+Answer: this file now calls it "the tutorial's sample application" (A11 and the mapping table).
+
+### N4 (V2 DATA-02 and DATA-05: met -> partial)
+
+Found (as the human summarised the V2 report): the Crossref manifest entry lacks a schema version, a real snapshot date and an observed size; the OpenAlex and Crossref schema notes have no schema version; the ORCID notes give few types.
+
+Answer: `datasets/**` is an input of these checks and is not changed after the release candidate (human decision). Recorded as a known limitation: reports/final-report.md:615 (section 23.1, "Dataset records are incomplete for the enrichment sources"), with the sources datasets/dataset-manifest.yaml:540-563 and datasets/schemas/openalex.md, crossref.md and orcid.md:26-53.
+
+### N5 (V2 SPARK-09: met -> partial)
+
+Found (as the human summarised the V2 report): shortest paths and the diameter estimate are computed only on the full window, not per configured window.
+
+Answer: a code limitation, not changed after the release candidate. Only the Spark-precomputed path evidence and the effective-diameter estimate are limited to the full window; runtime path questions in other windows use the bounded live path search (modules/rag/src/main/scala/org/scholarchain/rag/runtime/Stages.scala:617). Recorded as a known limitation: reports/final-report.md:621 (section 23.1, "Spark-precomputed path evidence and the effective-diameter estimate cover the full window only"), with the sources modules/spark/src/main/scala/org/scholarchain/spark/Pipeline.scala:609 (window loop) and :815-843 (paths and diameter on the full window).

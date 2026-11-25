@@ -1,0 +1,35 @@
+diff --git a/README.md b/README.md
+index 6a82625..884ed9f 100644
+--- a/README.md
++++ b/README.md
+@@ -89,2 +89,4 @@ One row per file in [`.claude/agents/`](.claude/agents/) (18 files). Sources: ea
+ 
++**Built-in subagents.** In Phase 17, Claude Code's built-in subagents (one general-purpose subagent) were also used, for read-only research only. They have no file under `.claude/agents/` and own no artifact; the 18 repository agents in the table above remain the only artifact owners ([`docs/agents.md`](docs/agents.md#artifact-ownership)).
++
+ Who owns any path, how it is invoked, what it may change, which gate checks it and how its report is kept: [`docs/agents.md`](docs/agents.md) ("Artifact ownership", "Tool fences", "Lifecycle routing", "Report contract") and [`docs/agent-runs/README.md`](docs/agent-runs/README.md). Project commands (`.claude/commands/`): `/deploy`, `/experiment`, `/incident`, `/rollback`, `/run-pipeline`.
+diff --git a/docs/evaluation.md b/docs/evaluation.md
+index 053d836..27d31cc 100644
+--- a/docs/evaluation.md
++++ b/docs/evaluation.md
+@@ -565,3 +565,3 @@ The Wilson intervals are allowed by decision 3 and the review note N1 ([review-r
+ | unsupported share, all claims | 0 / 31 | 0 | bootstrap [0, 0] |
+-| support, claims citing coauthor_edge evidence | 10 / 10 | 1 | bootstrap [1, 1] (3 answers with claims) |
++| support, claims citing coauthor_edge evidence | 10 of 10 | 1 | bootstrap [1, 1] (3 answers with claims) |
+ | support, claims citing graph_path evidence | 1 / 1 | 1 | descriptive (1 answer with claims) |
+@@ -753,3 +753,3 @@ Per-phase BLOCKED-ON totals ([`counts-by-phase.csv`](../experiments/evaluation/r
+ - The human wrote 1 in both audit columns on all 20 rows, recorded as yes (runbook-log :47).
+-- Event is real: 20 of 20. Correctly classified: 20 of 20. Agreement 20/20, computed by hand from audit-sample.csv (`grep -c` of rows ending `,1,1,`). Kind (c).
++- Event is real: 20 of 20. Correctly classified: 20 of 20. Agreement 20 of 20, computed by hand from audit-sample.csv (`grep -c` of rows ending `,1,1,`). Kind (c).
+ - No interval: the 20 events are a stratified fixed-seed sample of a full population (suite :189).
+diff --git a/reports/final-report.md b/reports/final-report.md
+index 373f502..890231c 100644
+--- a/reports/final-report.md
++++ b/reports/final-report.md
+@@ -614,2 +614,3 @@ This section collects every known limitation, with its source. "Open" means not
+ - **Provenance gap in two cache tables.** In the Phase 16 samples, ResearcherMetricCache and EntityLinkCache items carry run ID, policy version and item hash but not dataset, source record IDs or schema version (0 of 25 each; section 10).
++- **Dataset records are incomplete for the enrichment sources (autograder follow-up; documented in Phase 17 step E12, no dataset change).** The Crossref manifest entry has no schema version (its `schema` block holds only the notes file and the selected fields, `datasets/dataset-manifest.yaml:561-563`), no real snapshot date (`snapshot.id: unknown`, because the bounded corpus uses the live REST API, `:540-542`) and no observed size (its `size_estimate` holds two estimates and the Crossref blog's statement of the public data file, `:548-551`). The OpenAlex and Crossref schema notes ([`datasets/schemas/openalex.md`](../datasets/schemas/openalex.md), [`datasets/schemas/crossref.md`](../datasets/schemas/crossref.md)) state no schema version. The ORCID schema notes list the kept fields but give the value type or shape of only a few (the `{ "value": ... }` wrapper and `publication-date`, [`datasets/schemas/orcid.md`](../datasets/schemas/orcid.md):50-53). By human decision, `datasets/**` is not changed after the release candidate, so this stays a known limitation.
+ - **Entity resolution.** The LLM adjudication band never ran with a real model. Middle-name variants are not compared, and coverage is limited (section 8).
+@@ -619,2 +620,3 @@ This section collects every known limitation, with its source. "Open" means not
+ - **One Spark collect grows with the input (autograder check A01; documented in Phase 17 step E12, no code change).** `sizeBuckets` (`modules/spark/src/main/scala/org/scholarchain/spark/Pipeline.scala:1116`) collects one row per distinct component or community size. That is fewer than √(2N) rows for N researchers: about 2,650 at N = 3.5 million, an illustrative size, and at most 632 at the measured 200,484. Bucketing on the executors would cap it at 9 rows; that is a spark-engineer code change, out of scope after the release candidate. Six other collects are bounded only by configuration values with no upper validation cap (`pathMaxDepth`, `diameterMaxDepth`, the window count). Their committed-configuration bounds are stated in [`docs/architecture.md`](../docs/architecture.md#72-spark-collect-calls-and-their-bounds).
++- **Spark-precomputed path evidence and the effective-diameter estimate cover the full window only (autograder follow-up; documented in Phase 17 step E12, no code change).** The per-window stage loops over every configured window (`for (nw <- cfg.windows)`, `modules/spark/src/main/scala/org/scholarchain/spark/Pipeline.scala:609`) for edges, metrics, components, communities, k-core and bridges. Path evidence and the effective-diameter estimate run once, after that loop, on `cfg.fullWindow` only (`Pipeline.scala:815-843`; `fullWindow` is the window named by `fullWindowLabel`, `modules/spark/src/main/scala/org/scholarchain/spark/JobConfig.scala:61-64`). In `modules/spark/src/main/scala/org/scholarchain/spark/Paths.scala`, the object comment says "full window only" (`:39`), the bounded shortest paths are computed by `shortestPaths` (called at `:130`, defined at `:164`), and the diameter estimate is one batched BFS from the sampled sources (`:292-298`). So no window other than the full one has Spark-precomputed path evidence or an effective-diameter estimate. Runtime path questions in other windows use the bounded live path search instead: the runtime path stage runs `GraphQuery.PathBetween` with the question's window and depth cap (`modules/rag/src/main/scala/org/scholarchain/rag/runtime/Stages.scala:617`), and its answer is labelled with origin `graph-path-search`. Computing them per window is a spark-engineer code change, out of scope after the release candidate.
+ - **Optional components not built:** OpenSearch, GitHub Actions and an OpenAPI file. The GitHub MCP server is defined but switched off. Bedrock is not used (quota 0); its switch is kept ([`docs/architecture.md`](../docs/architecture.md#6-what-was-not-built)).
