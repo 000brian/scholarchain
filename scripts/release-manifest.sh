@@ -9,8 +9,8 @@
 # new folder OUT_DIR/RC_SHA/ (through OUT_DIR/.incomplete-RC_SHA-XXXXXX/) and a
 # private temporary folder under ${TMPDIR:-/tmp} that it removes on exit.
 #
-# Status (Phase 17): static: shellcheck clean; runtime: untested; human
-# execution required.
+# Status (Phase 17): static: shellcheck clean; runtime: ran at Phase 17
+# runbook steps E5.40 (dry run) and E10, both exit 0; human execution required.
 
 set -Eeuo pipefail
 umask 077
@@ -145,7 +145,7 @@ TERM; 8 an identifier would be written.
 Output lines: "STEP: release-manifest.sh NAME", "INFO: ...", "SUMMARY: ...",
 "MANIFEST-FOLDER: PATH" on success, "RESULT: release-manifest.sh ok|failed".
 
-Status: static: shellcheck clean; runtime: untested; human execution required.
+Status: static: shellcheck clean; runtime: ran at Phase 17 runbook steps E5.40 (dry run) and E10, both exit 0; human execution required.
 EOF
 }
 

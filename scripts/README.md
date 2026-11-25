@@ -2,7 +2,7 @@
 
 Owner: infra-engineer. This file is the reproduction guide until the root `README.md` links to it (documentation-engineer, Phase 17; planned deviation 12.5). The scripts are the only interface: there are no GitHub Actions (planned deviation 12.4). Each script's `--help` text is its full contract; this page summarizes them and gives the order of a full reproduction.
 
-Status of every script: `static: shellcheck clean`, `human execution required`. No agent runs any script. Runtime (Phase 15 L-06: the earlier blanket "runtime: untested" was stale): the human ran check.sh, package.sh, plan.sh and `archive-evidence.sh --local-only` in Phase 13; check.sh, package.sh (also `--publish`), plan.sh, deploy.sh, smoke-test.sh, run-bounded-pipeline.sh and archive-evidence.sh (S3 mode) in Phase 14; plan.sh, deploy.sh, smoke-test.sh, run-bounded-pipeline.sh, run-experiment.sh, archive-evidence.sh and cleanup.sh in Phase 15; check.sh and the emulator scripts (env.sh, setup.sh, probes.sh) in Phase 16. Each run, its exit code and its record are in that phase's `docs/agent-runs/phase-NN/runbook-log.md` (Phase 13: its human gate); a failed attempt there stays a failed attempt. rollback.sh has never run (`runtime: untested`). Each script's own header holds its current runtime line: a part changed after its last run is `runtime: untested` until the human runs it again; Phase 17 changes (release-manifest.sh, the env.sh `SCHOLARCHAIN_CFG_*` sweep, probes.sh P16-B-03, deploy.sh help text E-01, archive-evidence.sh E-03) are `runtime: untested`.
+Status of every script: `static: shellcheck clean`, `human execution required`. No agent runs any script. Runtime (Phase 15 L-06: the earlier blanket "runtime: untested" was stale): the human ran check.sh, package.sh, plan.sh and `archive-evidence.sh --local-only` in Phase 13; check.sh, package.sh (also `--publish`), plan.sh, deploy.sh, smoke-test.sh, run-bounded-pipeline.sh and archive-evidence.sh (S3 mode) in Phase 14; plan.sh, deploy.sh, smoke-test.sh, run-bounded-pipeline.sh, run-experiment.sh, archive-evidence.sh and cleanup.sh in Phase 15; check.sh and the emulator scripts (env.sh, setup.sh, probes.sh) in Phase 16. Each run, its exit code and its record are in that phase's `docs/agent-runs/phase-NN/runbook-log.md` (Phase 13: its human gate); a failed attempt there stays a failed attempt. rollback.sh has never run (`runtime: untested`). Each script's own header holds its current runtime line: a part changed after its last run is `runtime: untested` until the human runs it again; Phase 17 changes (the env.sh `SCHOLARCHAIN_CFG_*` sweep, probes.sh P16-B-03, deploy.sh help text E-01, archive-evidence.sh E-03) are `runtime: untested`; release-manifest.sh (new in Phase 17) ran at Phase 17 runbook steps E5.40 (dry run) and E10, both exit 0.
 
 ## Prerequisites
 
@@ -56,7 +56,7 @@ Exit codes everywhere: 0 ok, 2 usage, 3 missing prerequisite, 4 refused by a saf
 
 ## Release manifest (Phase 17, decision 7 item 1)
 
-`scripts/release-manifest.sh` is an eleventh script, outside the table above. Status: `static: shellcheck clean`, `runtime: untested` (until the human's E10 run, Phase 17 decision 18), `human execution required`.
+`scripts/release-manifest.sh` is an eleventh script, outside the table above. Status: `static: shellcheck clean`, `runtime: ran at Phase 17 runbook steps E5.40 (dry run) and E10, both exit 0`, `human execution required`.
 
 | Command line | Reads | Environment variables (names) | Human approval points | Writes | Cloud | Rollback behavior |
 |---|---|---|---|---|---|---|
