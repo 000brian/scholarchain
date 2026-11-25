@@ -121,7 +121,10 @@ class LocalPipelineRunnerSuite extends munit.FunSuite {
         "hadoop.j08a-pair-expand",
         "hadoop.j08b-pair-consolidate",
         "hadoop.j04-exact-id-join",
+        // Phase 17 R3: counting pre-passes before J05 and J05b
+        "hadoop.j05p-block-sizes",
         "hadoop.j05-blocking",
+        "hadoop.j05bp-fallback-block-sizes",
         "hadoop.j05b-fallback-blocking",
         "hadoop.j05c-fallback-coverage",
         "hadoop.j06-candidate-features",

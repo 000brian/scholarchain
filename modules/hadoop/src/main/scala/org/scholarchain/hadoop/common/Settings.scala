@@ -219,6 +219,11 @@ object Settings {
     val ExportReducers = "scholarchain.export.reducers"
     val ExportPolicy = "scholarchain.export.policyVersion"
 
+    /** Path key (set by the J05 and J05b specs, not fingerprinted): the `oversizeKeys/` directory
+      * of the job's block-size pre-pass (J05p for J05, J05bp for J05b). Absent: no pre-pass.
+      */
+    val OversizeKeysPath = "scholarchain.path.oversizeKeys"
+
     // Per-run keys (set by drivers, never in the defaults file).
     val RunId = "scholarchain.run.id"
     val RunJobName = "scholarchain.run.jobName"

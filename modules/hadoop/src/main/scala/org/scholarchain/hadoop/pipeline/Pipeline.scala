@@ -2,7 +2,7 @@ package org.scholarchain.hadoop.pipeline
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
-import org.scholarchain.hadoop.blocking.{BlockingJob, FallbackBlockingJob, FallbackCoverageJob}
+import org.scholarchain.hadoop.blocking.{BlockingJob, FallbackBlockingJob}
 import org.scholarchain.hadoop.candidates.CandidateFeatureJob
 import org.scholarchain.hadoop.common.{JobObserver, JobResult, JobRunner, PathIds}
 import org.scholarchain.hadoop.dblp.DblpExtractJob
@@ -41,11 +41,24 @@ final case class PipelineResult(
     fallbackBlocking: JobResult,
     fallbackCoverage: JobResult,
     candidates: JobResult,
-    graphExport: JobResult
+    graphExport: JobResult,
+    blockSizes: JobResult,
+    fallbackBlockSizes: JobResult
 ) {
+
+  /** Every job in run order. */
   def all: List[JobResult] =
     dblp.all ++ normalize ++
-      List(join, blocking, fallbackBlocking, fallbackCoverage, candidates, graphExport)
+      List(
+        join,
+        blockSizes,
+        blocking,
+        fallbackBlockSizes,
+        fallbackBlocking,
+        fallbackCoverage,
+        candidates,
+        graphExport
+      )
 }
 
 /** The Hadoop job graph:
@@ -54,8 +67,10 @@ final case class PipelineResult(
   * dblp XML --J01--> works, mentions, venues
   *   works + mentions --J07--> teams, authorPapers, mentionContexts
   *   teams --J08a--> pairInstances --J08b--> pairs
-  *   mentionContexts --J05--> blocks, oversizeMembers
-  *     oversizeMembers --J05b--> fallback blocks, coverage
+  *   mentionContexts --J05p--> oversizeKeys (counting pre-pass, see BlockingChain)
+  *   mentionContexts + oversizeKeys --J05--> blocks, oversizeMembers
+  *     oversizeMembers --J05bp--> still-oversize fallback keys
+  *     oversizeMembers + those keys --J05b--> fallback blocks, coverage
   *     oversizeMembers + coverage --J05c--> uncoveredMembers, oversizeKeySummary
   *     blocks + fallback blocks --J06--> candidates (MatchCandidate)
   * enrichment JSONL --J02 (per kind)--> normalized, institutions, topics
@@ -128,46 +143,17 @@ object Pipeline {
         )
       )
     )
-    val blocking = step(BlockingJob.JobName)(
-      JobRunner.run(
-        conf,
-        JobRunner.fromRuns(List(dblp.teams.runId))(
-          BlockingJob.spec(
-            dblp.teams.dir(PublicationTeamJob.Contexts),
-            spec.outputRoot,
-            spec.dblpSnapshot,
-            _
-          )
-        )
-      )
+    val chain = BlockingChain.run(
+      conf,
+      dblp.teams.dir(PublicationTeamJob.Contexts),
+      dblp.teams.runId,
+      spec.outputRoot,
+      spec.dblpSnapshot,
+      observer
     )
-    val fallbackBlocking = step(FallbackBlockingJob.JobName)(
-      JobRunner.run(
-        conf,
-        JobRunner.fromRuns(List(blocking.runId))(
-          FallbackBlockingJob.spec(
-            blocking.dir(BlockingJob.OversizeMembers),
-            spec.outputRoot,
-            spec.dblpSnapshot,
-            _
-          )
-        )
-      )
-    )
-    val fallbackCoverage = step(FallbackCoverageJob.JobName)(
-      JobRunner.run(
-        conf,
-        JobRunner.fromRuns(List(blocking.runId, fallbackBlocking.runId))(
-          FallbackCoverageJob.spec(
-            blocking.dir(BlockingJob.OversizeMembers),
-            fallbackBlocking.dir(FallbackBlockingJob.Coverage),
-            spec.outputRoot,
-            spec.dblpSnapshot,
-            _
-          )
-        )
-      )
-    )
+    val blocking = chain.blocking
+    val fallbackBlocking = chain.fallbackBlocking
+    val fallbackCoverage = chain.fallbackCoverage
     val candidates = step(CandidateFeatureJob.JobName)(
       JobRunner.run(
         conf,
@@ -228,7 +214,9 @@ object Pipeline {
       fallbackBlocking,
       fallbackCoverage,
       candidates,
-      graphExport
+      graphExport,
+      chain.blockSizes,
+      chain.fallbackBlockSizes
     )
   }
 }

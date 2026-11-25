@@ -102,6 +102,23 @@ object OversizeKeySummary {
   *     largest fallback block actually written to `blocks/` (its [[CandidateBlock]] `size`, after
   *     duplicate members collapse). Never exceeds the cap; absent when no fallback block was
   *     emitted.
+  *
+  * Still-oversize policy (Phase 17 R3, check HADOOP-04). The pipeline runs the counting pre-pass
+  * J05bp ([[FallbackBlockSizeJob]]) over the same `oversizeMembers/` first and passes its
+  * `oversizeKeys/` (`oversizeKeys`). A fallback group listed there is still over the fallback cap
+  * after re-keying. The policy, deterministic because it depends only on the group's size: such a
+  * group is not formed. Its member values are never shuffled (the mapper counts them as
+  * STILL_OVERSIZE_MEMBERS and sends one size marker `#<count>` per map task under the group's key);
+  * (so one value per map task that saw the group, not counted in the `largestReduceGroup` stat);
+  * the reducer sums the markers, counts the group as OVERSIZE_BLOCKS and STILL_OVERSIZE_BLOCKS and
+  * lists it in `fallbackOversizeBlocks/` with its size, limits and reason. No further key is tried
+  * for it; each of its members is covered only by its other fallback blocks (other coauthors or
+  * kinds) and otherwise is counted and listed as uncovered by J05c (FALLBACK_UNCOVERED_MEMBERS,
+  * `uncoveredMembers/`, `oversizeKeySummary/`), keeping its dblp-prior cluster downstream. Every
+  * other fallback group is within the cap (REKEYED_BLOCKS) and is emitted or counted as a singleton
+  * as above. The records written are the same as with the reducer-side cap, which stays as a guard
+  * for a run without the pre-pass (`oversizeKeys` = None; such groups also count
+  * REDUCER_CAPPED_BLOCKS, 0 in the pipeline).
   */
 object FallbackBlockingJob {
   val JobName = "hadoop.j05b-fallback-blocking"
@@ -115,11 +132,20 @@ object FallbackBlockingJob {
   /** Largest fallback block written to `blocks/` (never exceeds the fallback maxBlockSize). */
   val LargestEmittedFallbackBlockStat = "largestEmittedFallbackBlock"
 
+  /** Prefix of a size marker value (member values are JSON objects and start with `{`). */
+  val SizeMarker = "#"
+
+  /** @param oversizeKeys
+    *   the `oversizeKeys/` directory of the J05bp run over the same `oversizeMembers` with the same
+    *   configuration (its run ID belongs in this job's input runs); None runs without the pre-pass
+    *   (reducer-side cap only)
+    */
   def spec(
       oversizeMembers: Path,
       outputRoot: Path,
       snapshotId: String,
-      inputFingerprint: String
+      inputFingerprint: String,
+      oversizeKeys: Option[Path] = None
   ): JobSpec =
     JobSpec(
       JobName,
@@ -137,6 +163,9 @@ object FallbackBlockingJob {
         BlockLimit.of(s, Settings.Keys.FallbackMaxBlock)
         job.getConfiguration
           .set(BoundedLineInputFormat.LimitKeyKey, Settings.Keys.InternalMaxLineBytes)
+        oversizeKeys.foreach(p =>
+          job.getConfiguration.set(Settings.Keys.OversizeKeysPath, p.toString)
+        )
         job.setInputFormatClass(classOf[BoundedLineInputFormat])
         FileInputFormat.addInputPath(job, oversizeMembers)
         job.setMapperClass(classOf[FallbackBlockingMapper])
@@ -163,12 +192,27 @@ object FallbackBlockingJob {
 class FallbackBlockingMapper extends ContractLineMapper {
   private var families: Set[String] = Set.empty
   private var kinds: List[String] = Nil
+  // reduce keys of the still-oversize fallback groups found by J05bp (empty without the pre-pass)
+  private var stillOversize: Set[String] = Set.empty
+  private val diverted = new DivertedSizes
 
   override def setup(ctx: Ctx): Unit = {
     super.setup(ctx)
-    val (f, k) = FallbackKeys.configured(new Settings(ctx.getConfiguration))
+    val s = new Settings(ctx.getConfiguration)
+    val (f, k) = FallbackKeys.configured(s)
     families = f.toSet
     kinds = k
+    stillOversize = OversizeKeySet.configured(
+      ctx.getConfiguration,
+      BlockLimit.of(s, Settings.Keys.FallbackMaxBlock).effective
+    )
+  }
+
+  override def cleanup(ctx: Ctx): Unit = {
+    diverted.sorted.foreach { case (k, n) =>
+      emit(k, FallbackBlockingJob.SizeMarker + n.toString, ctx)
+    }
+    super.cleanup(ctx)
   }
 
   protected def line(text: String, location: String, ctx: Ctx): Unit =
@@ -187,7 +231,12 @@ class FallbackBlockingMapper extends ContractLineMapper {
               case values =>
                 values.foreach { parts =>
                   io.count(Counters.FallbackKeysEmitted)
-                  emit((fallback :: om.blockKey :: parts).mkString("\t"), member, ctx)
+                  val key = FallbackKeys.reduceKey(fallback, om.blockKey, parts)
+                  if (stillOversize.contains(key)) {
+                    // still-oversize policy: the group is not formed; count, never shuffle
+                    io.count(Counters.StillOversizeMembers)
+                    diverted.add(key)
+                  } else emit(key, member, ctx)
                 }
             }
           }
@@ -206,6 +255,9 @@ class FallbackBlockingReducer extends Reducer[Text, Text, NullWritable, Text] {
   private val largest = new MaxTracker(FallbackBlockingJob.LargestFallbackBlockStat)
   // post-cap: only blocks written to blocks/ (never exceeds maxBlock)
   private val largestEmitted = new MaxTracker(FallbackBlockingJob.LargestEmittedFallbackBlockStat)
+  // member values read by one reduce call, size markers excluded (at most the cap with the
+  // pre-pass, whatever the map-task layout)
+  private val groups = new MaxTracker(BlockingJob.LargestReduceGroupStat)
 
   override def setup(ctx: Ctx): Unit = {
     io = new TaskIO(ctx, reduceStage = true)
@@ -222,16 +274,27 @@ class FallbackBlockingReducer extends Reducer[Text, Text, NullWritable, Text] {
     val (primaryFamily, _) = FallbackKeys.split(fallback)
     val blockKey = FallbackKeys.blockKey(primaryKey, fields.drop(2))
     val buffer = mutable.ArrayBuffer.empty[String]
-    var n = 0L
+    var members = 0L
+    var marked = 0L // member values counted by mappers under the still-oversize policy
     val it = values.iterator()
     while (it.hasNext) {
       val v = it.next().toString
-      n += 1
-      if (n <= maxBlock) buffer += v
+      if (v.startsWith(FallbackBlockingJob.SizeMarker))
+        marked += v.substring(FallbackBlockingJob.SizeMarker.length).toLong
+      else {
+        members += 1
+        if (members <= maxBlock) buffer += v
+      }
     }
+    val n = members + marked
+    // only member values count: size markers are one per map task (layout-dependent), so a group
+    // of markers only (a still-oversize group) is not offered
+    if (members > 0) groups.offer(members, key.toString)
     if (n > maxBlock) buffer.clear()
     largest.offer(n, s"$fallback\t$blockKey")
     if (n > maxBlock) {
+      if (marked > 0) io.count(Counters.StillOversizeBlocks)
+      else io.count(Counters.ReducerCappedBlocks)
       io.count(Counters.OversizeBlock)
       io.countIn(Counters.OversizePerFamilyGroup, fallback)
       if (limit.reason(n) == BlockLimit.PairReason) io.count(Counters.PairLimitOversizeBlocks)
@@ -250,8 +313,11 @@ class FallbackBlockingReducer extends Reducer[Text, Text, NullWritable, Text] {
           )
           .render()
       )
-    } else if (n == 1 && !emitSingletons) io.count(Counters.SingletonBlocks)
-    else {
+    } else if (n == 1 && !emitSingletons) {
+      io.count(Counters.RekeyedBlocks)
+      io.count(Counters.SingletonBlocks)
+    } else {
+      io.count(Counters.RekeyedBlocks)
       val ms = CandidateBlock.normalise(buffer.map(read[BlockMember](_)))
       if (ms.size < n) io.count(Counters.Duplicate, n - ms.size)
       io.count(Counters.BlocksEmitted)
@@ -294,6 +360,7 @@ class FallbackBlockingReducer extends Reducer[Text, Text, NullWritable, Text] {
   override def cleanup(ctx: Ctx): Unit = {
     largest.flush(io)
     largestEmitted.flush(io)
+    groups.flush(io)
     io.close()
   }
 }

@@ -293,7 +293,12 @@
       (key, size, limit = effective cap, maxBlockSize, maxPairsPerBlock, pairs, reason
       max_block_size or max_pairs_per_block), and their members are written to oversizeMembers/
       for the fallback (J05b) and its coverage accounting (J05c). So every emitted block is
-      expanded by J06, for any combination of the two settings.</description>
+      expanded by J06, for any combination of the two settings. Enforced before the reduce
+      step (Phase 17 R3): the counting pre-pass J05p (hadoop.j05p-block-sizes, combiner, reducers
+      scholarchain.blocking.reducers) lists every key over this cap in oversizeKeys/
+      (OVERSIZE_KEYS_FOUND); J05 re-keys the members of those keys by mention ID in the mapper
+      (OVERSIZE_MEMBERS_REKEYED), so no J05 reduce group holds more members than the cap and the
+      oversize block reaches J05b's fallback keys as oversizeMembers/.</description>
   </property>
   <property>
     <name>scholarchain.blocking.fallback.families</name>
@@ -328,7 +333,14 @@
       (FALLBACK_UNCOVERED_MEMBERS) and listed in J05c uncoveredMembers/; oversizeKeySummary/
       gives covered and uncovered counts per oversize key (the worst keys have the most
       uncovered members). 200 members yield 19,900 pairs, within the default
-      scholarchain.candidates.maxPairsPerBlock.</description>
+      scholarchain.candidates.maxPairsPerBlock. Enforced before the reduce step (Phase 17 R3):
+      the counting pre-pass J05bp (hadoop.j05bp-fallback-block-sizes, reducers
+      scholarchain.blocking.fallback.reducers) lists every fallback key still over this cap.
+      Still-oversize policy: such a group is not formed; J05b's mapper counts its values
+      (STILL_OVERSIZE_MEMBERS) without shuffling them, the group is counted (OVERSIZE_BLOCKS,
+      STILL_OVERSIZE_BLOCKS) and listed in fallbackOversizeBlocks/, and its members are covered
+      only by their other fallback blocks, otherwise counted and listed as uncovered by J05c.
+      Groups within the cap count as REKEYED_BLOCKS.</description>
   </property>
   <property>
     <name>scholarchain.blocking.fallback.reducers</name>

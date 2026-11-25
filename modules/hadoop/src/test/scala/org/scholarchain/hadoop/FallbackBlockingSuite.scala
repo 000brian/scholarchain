@@ -364,7 +364,24 @@ class FallbackBlockingSuite extends munit.FunSuite {
       TestSupport.lines(conf, f, FallbackBlockingJob.Coverage).map(read[FallbackCoverage](_))
     assertEquals(cov.size, 8)
     assertEquals(cov.map(_.mentionId).toSet, kdd)
-    assertEquals(inputRuns(f), List(p.blocking.runId.value))
+    // Phase 17 R3: J05 and J05b also read their counting pre-passes (J05p, J05bp)
+    assertEquals(
+      inputRuns(f),
+      List(p.blocking.runId.value, p.fallbackBlockSizes.runId.value).sorted
+    )
+    assertEquals(
+      inputRuns(p.blocking),
+      List(p.dblp.teams.runId.value, p.blockSizes.runId.value).sorted
+    )
+    // the four fallback groups over the cap are still oversize: counted, never shuffled
+    assertEquals(f.main(Counters.StillOversizeBlocks), 4L)
+    assertEquals(f.main(Counters.StillOversizeMembers), 12L)
+    assertEquals(f.main(Counters.RekeyedBlocks), 6L)
+    assertEquals(f.main(Counters.ReducerCappedBlocks), 0L)
+    assertEquals(p.blocking.main(Counters.ReducerCappedBlocks), 0L)
+    assertEquals(p.blocking.main(Counters.OversizeMembersRekeyed), 12L)
+    assert(f.stats(BlockingJob.LargestReduceGroupStat).value <= 2L)
+    assert(p.blocking.stats(BlockingJob.LargestReduceGroupStat).value <= 3L)
   }
 
   test("J05c: uncovered members counted and listed; per-key summary; worst key stat") {
@@ -580,7 +597,10 @@ class FallbackBlockingSuite extends munit.FunSuite {
     )
     assertEquals(inputRuns(j), List(p.blocking.runId.value, p.fallbackBlocking.runId.value).sorted)
     assertEquals(inputRuns(c), List(p.blocking.runId.value, p.fallbackBlocking.runId.value).sorted)
-    assertEquals(inputRuns(f), List(p.blocking.runId.value))
+    assertEquals(
+      inputRuns(f),
+      List(p.blocking.runId.value, p.fallbackBlockSizes.runId.value).sorted
+    )
     assertNotEquals(p.blocking.runId, base.blocking.runId)
   }
 

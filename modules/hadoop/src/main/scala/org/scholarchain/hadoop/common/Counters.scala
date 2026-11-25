@@ -72,6 +72,35 @@ object Counters {
     */
   val PairLimitOversizeBlocks = "PAIR_LIMIT_OVERSIZE_BLOCKS"
 
+  /** J05p, J05bp (block-size pre-passes): distinct block keys whose size was counted. */
+  val BlockKeysCounted = "BLOCK_KEYS_COUNTED"
+
+  /** J05p, J05bp: block keys over the effective cap, listed in `oversizeKeys/` (known before the
+    * blocking step that reads them).
+    */
+  val OversizeKeysFound = "OVERSIZE_KEYS_FOUND"
+
+  /** J05 mapper: member values of oversize primary keys re-keyed by mention ID (one reduce group
+    * per mention, never one per oversize block); equals OVERSIZE_BLOCK_MEMBERS.
+    */
+  val OversizeMembersRekeyed = "OVERSIZE_MEMBERS_REKEYED"
+
+  /** J05b: fallback groups (re-keyed oversize members) within the fallback cap. */
+  val RekeyedBlocks = "REKEYED_BLOCKS"
+
+  /** J05b: fallback groups still over the fallback cap after re-keying (still-oversize policy: not
+    * formed, listed in `fallbackOversizeBlocks/`; a subset of OVERSIZE_BLOCKS).
+    */
+  val StillOversizeBlocks = "STILL_OVERSIZE_BLOCKS"
+
+  /** J05b mapper: fallback key values of still-oversize groups, counted and never shuffled. */
+  val StillOversizeMembers = "STILL_OVERSIZE_MEMBERS"
+
+  /** J05, J05b: groups that reached one reduce call with more members than the cap. Always 0 when
+    * the job reads its pre-pass (`oversizeKeys/`); non-zero only for runs without the pre-pass.
+    */
+  val ReducerCappedBlocks = "REDUCER_CAPPED_BLOCKS"
+
   /** J06: members of blocks J06 did not expand (listed in `unexpandedMembers/`). */
   val UnexpandedMembers = "UNEXPANDED_BLOCK_MEMBERS"
 
