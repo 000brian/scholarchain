@@ -47,6 +47,51 @@ Dropped, never stored:
 * employment, education, funding, and peer review
 * every work group not linked to the subset
 
+## Field types (committed sample projection)
+
+Added in Phase 17 repair round R3 (N4, autograder checks DATA-02 and DATA-05).
+Nothing was fetched. Types are JSON types read from
+`datasets/samples/orcid/records.jsonl` (1 record, 2 work groups, 5
+work summaries, 15 external-id entries: 5 on groups, 10 on summaries) on 2026-11-24 by walking every value.
+"Observed" lists every type seen; a type not seen is not claimed. Schema
+version: ORCID message schema v3.0 (manifest `format.api`; sample
+`_projection` text).
+
+The projection unwraps some API `{ "value": ... }` wrappers to plain values
+(`val()` in `datasets/scripts/make_samples.py:150-151`): `name.given-names`,
+`name.family-name`, `name.credit-name`, work-summary `title` (API
+`title.title.value`) and `source-name` (API `source.source-name.value`). Other
+wrappers are kept as the API returned them.
+
+| Projected path | Observed JSON type | Note |
+|---|---|---|
+| `orcid-path` | string | bare iD, `0000-0003-3226-9189` (API `name.path`, make_samples.py:172) |
+| `name` | object | |
+| `name.given-names` | string | unwrapped |
+| `name.family-name` | string | unwrapped |
+| `name.credit-name` | null | unwrapped; only null observed (no public credit name); the non-null type is not observed |
+| `name.visibility` | string | `public` |
+| `works-group-projection` | array of object | DOI-linked groups only |
+| `works-group-projection[].external-ids` | object | |
+| `….external-ids.external-id` | array of object | |
+| `….external-id[].external-id-type` | string | observed values `doi`, `eid`, `source-work-id`, `isbn`, `issn` |
+| `….external-id[].external-id-value` | string | as asserted by the source (case varies) |
+| `….external-id[].external-id-relationship` | string | observed values `self`, `part-of` |
+| `….external-id[].external-id-url` | object or null | object is `{value: string}` |
+| `….external-id[].external-id-normalized` | object | `{transient: boolean, value: string}` |
+| `….external-id[].external-id-normalized-error` | null | only null observed |
+| `works-group-projection[].work-summary` | array of object | |
+| `….work-summary[].put-code` | integer | |
+| `….work-summary[].type` | string | observed values `conference-paper`, `other` |
+| `….work-summary[].title` | string | unwrapped |
+| `….work-summary[].source-name` | string | unwrapped |
+| `….work-summary[].publication-date` | object | |
+| `….publication-date.year` | object | `{value: string}`, for example `"2023"` |
+| `….publication-date.month` | object or null | `{value: string}`, zero-padded, for example `"07"` |
+| `….publication-date.day` | object or null | `{value: string}`, for example `"19"` |
+| `….work-summary[].external-ids` | object | same shape as the group `external-ids` |
+| `_projection` | string | ScholarChain note naming the dropped sections |
+
 ## Shape notes
 
 * The API JSON uses `{ "value": ... }` wrappers for most scalars.

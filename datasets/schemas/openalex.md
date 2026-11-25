@@ -8,6 +8,17 @@ Owner: dataset-engineer. Checked 2026-11-12.
 | Snapshot | `s3://openalex/data/` (anonymous; HTTPS `https://openalex.s3.amazonaws.com/`); manifest date 2026-10-14 |
 | License | CC0 1.0 (bucket `LICENSE.txt`) |
 
+## Schema version
+
+Added in Phase 17 repair round R3 (N4, autograder checks DATA-02 and DATA-05).
+Nothing was fetched; each value names its source.
+
+| Item | Value | Source |
+|---|---|---|
+| ScholarChain projection schema version | `1` | Defined by ScholarChain, not by OpenAlex. Version 1 is the work and author field lists below and in `schema.work_fields_selected` and `schema.author_fields_selected` of `datasets/dataset-manifest.yaml`, as committed in 6788952 (Phase 3) and unchanged until this note. A change to the selected fields bumps it. |
+| OpenAlex source schema version | not recorded | No committed record names an OpenAlex schema version number. The committed records identify OpenAlex data by date only: the snapshot manifest date 2026-10-14 (manifest `snapshot.id`) and dated release-note entries (manifest `source.evidence`, `limitations`). The sample keeps only the selected fields, not the response `meta` envelope. |
+| Data state of the sample | API retrieval 2026-11-12; latest `updated_date` in `datasets/samples/openalex/works.jsonl` is 2026-11-10T11:39:43.021295 | Manifest `samples[].attribution`; `updated_date` read from the sample file on 2026-11-24. All 4 sample works carry `authorships[].raw_orcid`, the field the release notes date to 2026-04-29 (table below). |
+
 ## Access used by ScholarChain
 
 | Purpose | Request |

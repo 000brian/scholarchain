@@ -9,6 +9,17 @@ Owner: dataset-engineer. Checked 2026-11-12.
 | Bulk | 2026 public data file (208 GB, nearly 180M records, JSONL in tar) via Academic Torrents (DOI 10.13003/nggf-vt1j) or the Requester Pays bucket `api-snapshots-reqpays-crossref`. Not scripted: Requester Pays needs AWS credentials. |
 | Metadata reuse | "almost none of the metadata is subject to copyright, and you may use it for any purpose"; abstracts may be copyrighted. No SPDX identifier is published. |
 
+## Schema version
+
+Added in Phase 17 repair round R3 (N4, autograder checks DATA-02 and DATA-05).
+Nothing was fetched; each value names its source.
+
+| Item | Value | Source |
+|---|---|---|
+| ScholarChain projection schema version | `1` | Defined by ScholarChain, not by Crossref. Version 1 is the field list below and in `schema.work_fields_selected` of `datasets/dataset-manifest.yaml`, as committed in 6788952 (Phase 3) and unchanged until this note. A change to the selected fields bumps it. Mirrored in the manifest as `schema.projection_schema_version`. |
+| Crossref source schema version | not recorded | The sample keeps only the selected item fields, not the response envelope (`datasets/scripts/make_samples.py:205-207`). No committed record names a Crossref REST API or metadata schema version. Manifest: `schema.source_schema_version: unknown` with its reason. |
+| Data date | 2026-11-12 (API retrieval date of the sample) | Manifest `snapshot.snapshot_date` and its sources; not a Crossref release. |
+
 ## Access used by ScholarChain
 
 * Batch request: `GET /works?filter=doi:D1,doi:D2,...&select=<fields>&rows=N`.

@@ -14,6 +14,10 @@
 
 manifest_schema: scholarchain.dataset-manifest
 manifest_version: 1
+# manifest_version stays 1 for additive, optional keys (Phase 5 added
+# subset_rule.measurement; Phase 17 R3 N4 added crossref snapshot.snapshot_date*,
+# size_estimate.observed and schema.*_schema_version). No reader depends on the
+# new keys, and every "unknown" among them carries an *_unknown_reason.
 checked_on: "2026-11-12"
 owner: dataset-engineer
 validation_command: "bash datasets/scripts/validate.sh"
@@ -542,6 +546,20 @@ datasets:
       id_unknown_reason: "Bounded corpus uses the live REST API (time-stamped per retrieval). The 2026 public data file exists (blog 2026-03-17) but its exact object key, release date and checksums were not published on the pages checked."
       public_data_file: {year: 2026, compressed_size: "208 GB (blog statement)", record_count: "nearly 180 million (blog statement)", torrent_doi: "10.13003/nggf-vt1j", requester_pays_bucket: api-snapshots-reqpays-crossref}
       public_data_file_note: "Requester Pays requires AWS credentials and incurs AWS charges; not scripted here (no credentials, no AWS mutation by datasets/**). Torrent download is a manual human action if ever needed."
+      # Phase 17 R3 N4 (autograder V2 DATA-02/DATA-05): snapshot date added from
+      # committed records only; nothing was fetched. `id` stays unknown (no
+      # Crossref release is pinned); the date below is the retrieval date of the
+      # only Crossref data ScholarChain holds.
+      snapshot_date: "2026-11-12"
+      snapshot_date_kind: "API retrieval date of the committed sample datasets/samples/crossref/works.jsonl (time-stamped per retrieval, see id_unknown_reason); not a Crossref release date"
+      snapshot_date_sources:
+        - "datasets/dataset-manifest.yaml samples[datasets/samples/crossref/works.jsonl].attribution: 'Crossref REST API (https://api.crossref.org), retrieval 2026-11-12' (line 729 at commit cdd36c8)"
+        - "datasets/LICENSES.md:22 (samples/crossref/works.jsonl: 'Crossref REST API, 2026-11-12')"
+        - "docs/agent-runs/phase-03/agent-report-dataset.md:3 (sources checked against official pages on 2026-11-12) and :38 (samples fetched with 1 Crossref batch request; no date on that line)"
+        - "experiments/evaluation/raw/repro/e5-pipeline-20261122T1715Z-79b5583/hadoop-pipeline.log:143 (local pipeline run used this sample as crossref snapshot=2026-11-12)"
+      snapshot_date_consistency: "Latest `indexed` timestamp in the sample is 2026-11-04T01:01:03Z (10.1145/3539618.3591687), earlier than 2026-11-12; read from datasets/samples/crossref/works.jsonl on 2026-11-24"
+      bounded_corpus_retrieval_date: unknown
+      bounded_corpus_retrieval_date_unknown_reason: "not recorded: the full subset Crossref fetch has not run; docs/agent-runs/phase-05/human-gate.md:93 ('Fetch the enrichment data (OpenAlex, Crossref, ORCID) ... Not scheduled yet') and reports/final-report.md:613 ('Enrichment data reached the manifest and the local sample pipeline only')"
     format:
       api: "JSON; /works?filter=doi:A,doi:B&select=...&rows=N (multiple doi filters OR-ed, observed 4 of 4 returned); /works/{doi}"
       notes: datasets/schemas/crossref.md
@@ -549,6 +567,22 @@ datasets:
       subset_api_requests_estimate: "about 2,500-2,900 requests at 50 DOIs per request; estimate"
       subset_bytes_estimate: "about 0.3-0.4 GB of projected JSON; estimate from 9,347 bytes per 4 projected works"
       public_data_file_bytes: "208 GB compressed (Crossref blog 2026-03-17)"
+      # Phase 17 R3 N4: observed size, measured on the committed sample only.
+      observed:
+        kind: measurement
+        measured_on: "2026-11-24"
+        sample_file: datasets/samples/crossref/works.jsonl
+        sample_bytes: 9617
+        sample_bytes_source: "wc -c and ls -l on datasets/samples/crossref/works.jsonl (9617); equals samples[].bytes, which validate_datasets.py enforces against the file"
+        sample_records: 4
+        sample_records_source: "wc -l on datasets/samples/crossref/works.jsonl (4 JSON lines); equals samples[].records"
+        sample_sha256: 6f806e5874353226c57d62366790fb2b8221e5bf2c4ce9539c226d80034a5a40
+        sample_sha256_source: "shasum -a 256 on datasets/samples/crossref/works.jsonl; equals samples[].sha256"
+        sample_note: "The file holds 9,617 bytes (sample_bytes_source); subset_bytes_estimate uses 9,347 bytes per 4 projected works (this manifest, size_estimate.subset_bytes_estimate). The cause of the difference is not recorded: no committed record states how the 9,347-byte figure was measured."
+        subset_bytes: unknown
+        subset_bytes_unknown_reason: "not recorded: the full subset Crossref fetch has not run (see snapshot.bounded_corpus_retrieval_date_unknown_reason), so no observed subset size exists; subset_bytes_estimate above stays an estimate"
+        public_data_file_bytes: unknown
+        public_data_file_bytes_unknown_reason: "not recorded as a measurement: the 208 GB figure is Crossref's blog statement; no committed record shows a download (the file is not scripted, snapshot.public_data_file_note; docs/agent-runs/phase-03/agent-report-dataset.md:92)"
     s3_prefixes:
       raw_api: "s3://{raw_bucket}/raw/crossref/api/subset=dblp-subset-v1/retrieved={yyyy-mm-dd}/works/"
     checksums:
@@ -561,6 +595,13 @@ datasets:
     schema:
       notes: datasets/schemas/crossref.md
       work_fields_selected: [DOI, title, author, container-title, event, published, issued, type, publisher, prefix, member, URL, ISBN, indexed, deposited, created, license]
+      # Phase 17 R3 N4: schema version. Two versions are kept apart: the
+      # ScholarChain projection (defined here, so it can be versioned here) and
+      # Crossref's own schema (no committed record names one).
+      projection_schema_version: 1
+      projection_schema_version_definition: "ScholarChain-defined label, not a Crossref value. Version 1 = work_fields_selected above plus the field shapes in datasets/schemas/crossref.md, exactly as committed in 6788952 (phase 3); `git diff --stat 6788952 HEAD -- datasets/` shows no change to this list or to crossref.md before Phase 17 R3. Any change to the selected fields bumps it."
+      source_schema_version: unknown
+      source_schema_version_unknown_reason: "not recorded: the sample keeps only the selected item fields (no response envelope; datasets/scripts/make_samples.py:205-207 keeps message.items only), and no committed record (this manifest, datasets/schemas/crossref.md, docs/agent-runs/phase-03 and phase-05 dataset reports) names a Crossref REST API or metadata schema version"
     linkage_keys:
       - {field: doi, from: "item.DOI (bare), normalised", to: "dblp doi"}
       - {field: orcid, from: "author[].ORCID (https://orcid.org/... URL), normalised; author[].authenticated-orcid flag kept", to: "dblp author@orcid, orcid record"}
