@@ -7,10 +7,16 @@ import scala.jdk.CollectionConverters.*
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
-import org.scholarchain.hadoop.blocking.BlockingJob
+import org.scholarchain.hadoop.blocking.{
+  BlockLimit,
+  BlockSizeJob,
+  BlockingJob,
+  FallbackBlockingJob,
+  FallbackCoverageJob
+}
 import org.scholarchain.hadoop.candidates.CandidateFeatureJob
 import org.scholarchain.hadoop.common.{Counters, Disposition, JobResult, JobRunner, Settings}
-import org.scholarchain.hadoop.pipeline.{DblpChain, DblpChainResult}
+import org.scholarchain.hadoop.pipeline.{BlockingChain, DblpChain, DblpChainResult}
 import org.scholarchain.hadoop.teams.PublicationTeamJob
 import upickle.default.read
 
@@ -83,46 +89,106 @@ object JobHarness {
   def chain(c: Configuration, input: JPath, out: JPath, snapshot: String): DblpChainResult =
     DblpChain.run(c, hpath(input), hpath(out), snapshot)
 
-  /** Runs J05 then J06 on the J07 mention contexts of `chain`. */
+  /** The effective member cap (member cap `capKey` with the pair limit) that `c` gives a blocking
+    * job, computed from `c` and the built-in defaults (`DefaultsXml`), independently of the job.
+    */
+  def effectiveCap(c: Configuration, capKey: String): Int = {
+    def v(k: String): String = Option(c.get(k)).getOrElse(DefaultsXml.values(k))
+    BlockLimit(v(capKey).toInt, v(Settings.Keys.CandidateMaxPairsPerBlock).toLong).effective
+  }
+
+  /** Phase 17 R3 (HADOOP-04): the counting pre-pass of `blocking` worked. No oversize group reached
+    * one reduce call (REDUCER_CAPPED_BLOCKS 0), every re-keyed member value was streamed out as an
+    * oversize member, and the pre-pass listed exactly the oversize blocks the job counted.
+    */
+  def assertPrePassEffective(prePass: JobResult, blocking: JobResult, clue: String): Unit = {
+    def eq(a: Long, b: Long, what: String): Unit =
+      if (a != b) throw new AssertionError(s"$clue ${blocking.jobName}: $what: $a != $b")
+    eq(blocking.main(Counters.ReducerCappedBlocks), 0L, "REDUCER_CAPPED_BLOCKS")
+    eq(prePass.main(Counters.OversizeKeysFound), blocking.main(Counters.OversizeBlock), "keys")
+  }
+
+  /** Runs J05p -> J05 (with the pre-pass) on the J07 mention contexts of `ch`; returns both. */
+  def primaryBlocking(
+      c: Configuration,
+      ch: DblpChainResult,
+      out: JPath,
+      snapshot: String
+  ): (JobResult, JobResult) = {
+    val root = hpath(out)
+    val contexts = ch.teams.dir(PublicationTeamJob.Contexts)
+    val j05p = JobRunner.run(
+      c,
+      JobRunner.fromRuns(List(ch.teams.runId))(BlockSizeJob.spec(contexts, root, snapshot, _))
+    )
+    val j05 = JobRunner.run(
+      c,
+      JobRunner.fromRuns(List(ch.teams.runId, j05p.runId))(
+        BlockingJob.spec(contexts, root, snapshot, _, Some(j05p.dir(BlockSizeJob.OversizeKeys)))
+      )
+    )
+    assertPrePassEffective(j05p, j05, "primaryBlocking")
+    if (j05.main(Counters.OversizeMembersRekeyed) != j05.main(Counters.OversizeMembers))
+      throw new AssertionError(s"J05: re-keyed values != oversize members: ${j05.counters}")
+    (j05p, j05)
+  }
+
+  /** Runs J05p -> J05 (with the counting pre-pass, as `BlockingChain` wires it) then J06 on the J07
+    * mention contexts of `chain`.
+    */
   def blockingAndCandidates(
       c: Configuration,
       ch: DblpChainResult,
       out: JPath,
       snapshot: String
   ): (JobResult, JobResult) = {
-    val j05 = JobRunner.run(
-      c,
-      BlockingJob.spec(
-        ch.teams.dir(PublicationTeamJob.Contexts),
-        hpath(out),
-        snapshot,
-        JobRunner.fingerprintRuns(List(ch.teams.runId))
-      )
-    )
+    val (_, j05) = primaryBlocking(c, ch, out, snapshot)
     val j06 = JobRunner.run(
       c,
-      CandidateFeatureJob.spec(
-        j05.dir(BlockingJob.Blocks),
-        hpath(out),
-        snapshot,
-        JobRunner.fingerprintRuns(List(j05.runId))
+      JobRunner.fromRuns(List(j05.runId))(
+        CandidateFeatureJob.spec(j05.dir(BlockingJob.Blocks), hpath(out), snapshot, _)
       )
     )
     (j05, j06)
   }
 
-  /** J05, J05b, J05c and J06 of one configuration (the candidate stage of the pipeline). */
+  /** J05p, J05, J05bp, J05b, J05c and J06 of one configuration (the candidate stage of the
+    * pipeline).
+    */
   final case class CandidateStage(
+      j05p: JobResult,
       j05: JobResult,
+      j05bp: JobResult,
       j05b: JobResult,
       j05c: JobResult,
       j06: JobResult
   ) {
-    def all: List[JobResult] = List(j05, j05b, j05c, j06)
+    def all: List[JobResult] = List(j05p, j05, j05bp, j05b, j05c, j06)
   }
 
-  /** Runs J05 -> J05b -> J05c -> J06 on `contexts` (J07 `mentionContexts/` of run `teamsRun`) with
-    * configuration `c`, wired as `Pipeline.run` wires them.
+  /** J06 over the primary and fallback blocks of `j05` and `j05b`. */
+  private def candidates(
+      c: Configuration,
+      j05: JobResult,
+      j05b: JobResult,
+      root: Path,
+      snapshot: String
+  ): JobResult =
+    JobRunner.run(
+      c,
+      JobRunner.fromRuns(List(j05.runId, j05b.runId))(
+        CandidateFeatureJob.spec(
+          List(j05.dir(BlockingJob.Blocks), j05b.dir(FallbackBlockingJob.Blocks)),
+          root,
+          snapshot,
+          _
+        )
+      )
+    )
+
+  /** Runs the blocking chain (`BlockingChain.run`: J05p -> J05 -> J05bp -> J05b -> J05c, the
+    * production wiring of `Pipeline.run`) and then J06 on `contexts` (J07 `mentionContexts/` of run
+    * `teamsRun`) with configuration `c`. Checks [[assertPrePassEffective]] for J05 and J05b.
     */
   def candidateStage(
       c: Configuration,
@@ -131,7 +197,34 @@ object JobHarness {
       out: JPath,
       snapshot: String
   ): CandidateStage = {
-    import org.scholarchain.hadoop.blocking.{FallbackBlockingJob, FallbackCoverageJob}
+    val root = hpath(out)
+    val b = BlockingChain.run(c, contexts, teamsRun, root, snapshot)
+    assertPrePassEffective(b.blockSizes, b.blocking, "candidateStage")
+    assertPrePassEffective(b.fallbackBlockSizes, b.fallbackBlocking, "candidateStage")
+    val j06 = candidates(c, b.blocking, b.fallbackBlocking, root, snapshot)
+    CandidateStage(
+      b.blockSizes,
+      b.blocking,
+      b.fallbackBlockSizes,
+      b.fallbackBlocking,
+      b.fallbackCoverage,
+      j06
+    )
+  }
+
+  /** J05, J05b, J05c and J06 through the 4-argument specs, WITHOUT the counting pre-passes (the
+    * reducer-side cap only, the code path before Phase 17 R3). Used only to show that a test fails
+    * on the old path.
+    */
+  final case class LegacyStage(j05: JobResult, j05b: JobResult, j05c: JobResult, j06: JobResult)
+
+  def legacyCandidateStage(
+      c: Configuration,
+      contexts: Path,
+      teamsRun: org.scholarchain.core.RunId,
+      out: JPath,
+      snapshot: String
+  ): LegacyStage = {
     val root = hpath(out)
     val j05 = JobRunner.run(
       c,
@@ -155,18 +248,7 @@ object JobHarness {
         )
       )
     )
-    val j06 = JobRunner.run(
-      c,
-      JobRunner.fromRuns(List(j05.runId, j05b.runId))(
-        CandidateFeatureJob.spec(
-          List(j05.dir(BlockingJob.Blocks), j05b.dir(FallbackBlockingJob.Blocks)),
-          root,
-          snapshot,
-          _
-        )
-      )
-    )
-    CandidateStage(j05, j05b, j05c, j06)
+    LegacyStage(j05, j05b, j05c, candidates(c, j05, j05b, root, snapshot))
   }
 
   /** All lines of `part-*` files directly under `<job output>/<sub>`. */
