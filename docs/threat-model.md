@@ -42,7 +42,7 @@ Spec item: prompt injection in paper titles, abstracts, full text, institution d
 Spec item: data poisoning through malicious or erroneous source records.
 
 - **Control as built:**
-  - Snapshots are pinned by checksum in `datasets/dataset-manifest.yaml` (for example the DBLP DTD `dtd_sha256` at `datasets/dataset-manifest.yaml:406`), and the operator checks them before upload (Phase 14 step D5a: [`docs/agent-runs/phase-14/runbook-log.md`](agent-runs/phase-14/runbook-log.md), rows D5a).
+  - Snapshots are pinned by checksum in `datasets/dataset-manifest.yaml` (for example the DBLP DTD `dtd_sha256` at `datasets/dataset-manifest.yaml:410`), and the operator checks them before upload (Phase 14 step D5a: [`docs/agent-runs/phase-14/runbook-log.md`](agent-runs/phase-14/runbook-log.md), rows D5a).
   - The Hadoop jobs reject malformed or out-of-scope records with a reason code and counters instead of guessing (rejected-record formats in `modules/hadoop/**`; Phase 4 gate, [`docs/agent-runs/phase-04/human-gate.md`](agent-runs/phase-04/human-gate.md)).
   - Entity resolution uses thresholds evaluated against human-labelled gold pairs; identity uncertainty is reported, not hidden (`CLAUDE.md`, "Architecture invariants"; Phase 5 gate, [`docs/agent-runs/phase-05/human-gate.md`](agent-runs/phase-05/human-gate.md)).
   - Every record carries provenance with its source record IDs ([`docs/data-lineage.md`](data-lineage.md#8-provenance-fields-and-schema-versions)).

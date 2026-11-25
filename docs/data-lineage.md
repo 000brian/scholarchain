@@ -25,7 +25,9 @@ flowchart TD
     RAW --> J01["J01 DBLP extract<br/>works, mentions, venues"]
     J01 --> J07["J07 publication teams<br/>teams, authorPapers, mentionContexts"]
     J07 --> J08["J08a, J08b<br/>coauthor pair candidates"]
-    J07 --> J05["J05, J05b, J05c<br/>blocking"]
+    J07 --> J05P["J05p block-size pre-pass<br/>oversizeKeys"]
+    J05P --> J05["J05 blocking, J05bp fallback pre-pass,<br/>J05b fallback, J05c coverage"]
+    J07 --> J05
     J05 --> J06["J06 match candidates"]
     J07 --> J04["J04 exact identifier join<br/>links"]
     J01 --> J09["J09 graph export"]
@@ -57,37 +59,39 @@ Every dataset is listed in `datasets/dataset-manifest.yaml` with its license, sn
 
 | Dataset | Role | Snapshot | Used in the AWS runs | Source |
 |---|---|---|---|---|
-| DBLP XML | primary | `2026-11-01` (file `dblp-2026-11-01.xml.gz`, 1,116,142,729 bytes, sha256 `0376ad01…1b18`; `dblp.dtd` 13,134 bytes, sha256 `2d864498…1ef6`) | yes (Phases 14 and 15) | `datasets/dataset-manifest.yaml:354-442`; [`docs/agent-runs/phase-14/runbook-log.md`](agent-runs/phase-14/runbook-log.md), rows D5a to D5c |
-| OpenAlex | enrichment | `2026-10-14` | no | `datasets/dataset-manifest.yaml:443-517` |
-| Crossref | enrichment | `unknown` (API retrieval) | no | `datasets/dataset-manifest.yaml:518-580` |
-| ORCID | enrichment | `2026` | no | `datasets/dataset-manifest.yaml:581-668` |
+| DBLP XML | primary | `2026-11-01` (file `dblp-2026-11-01.xml.gz`, 1,116,142,729 bytes, sha256 `0376ad01…1b18`; `dblp.dtd` 13,134 bytes, sha256 `2d864498…1ef6`) | yes (Phases 14 and 15) | `datasets/dataset-manifest.yaml:358-446`; [`docs/agent-runs/phase-14/runbook-log.md`](agent-runs/phase-14/runbook-log.md), rows D5a to D5c |
+| OpenAlex | enrichment | `2026-10-14` | no | `datasets/dataset-manifest.yaml:447-521` |
+| Crossref | enrichment | `unknown` (API retrieval); `snapshot_date` 2026-11-12, the API retrieval date of the committed sample, not a Crossref release | no | `datasets/dataset-manifest.yaml:522-621` (snapshot date `:553-560`) |
+| ORCID | enrichment | `2026` | no | `datasets/dataset-manifest.yaml:622-709` |
 
 **Enrichment status.** The enrichment normalizers exist (J02 kinds `openalex-work`, `openalex-author`, `crossref-work`, `orcid-record` in `modules/hadoop/src/main/scala/org/scholarchain/hadoop/sources/SourceNormalizers.scala:106`) and are tested on the committed samples under `datasets/samples/`. The Phase 14 and Phase 15 EMR runs read DBLP only: Phase 14 lists the ten Hadoop runs `j01`, `j04`, `j05`, `j05b`, `j05c`, `j06`, `j07`, `j08a`, `j08b`, `j09`, with no `j02` (runbook log, rows "D6 Hadoop, attempt 3" and "attempt 4"), and Phase 15 attempt 2 ran the same chain on the same DBLP input ([`experiments/results-summary.md`](../experiments/results-summary.md), section 2.6). J04 therefore ran with DBLP inputs only.
 
 ## 3. Hadoop jobs J01 to J09
 
-Code: `modules/hadoop/src/main/scala/org/scholarchain/hadoop/`. The job graph is documented in `pipeline/Pipeline.scala:51-69`.
+Code: `modules/hadoop/src/main/scala/org/scholarchain/hadoop/`. The job graph is documented in `pipeline/Pipeline.scala:64-84`; the blocking chain in `pipeline/BlockingChain.scala:27-41`. Per-job contracts are in [`docs/hadoop-job-contracts.md`](hadoop-job-contracts.md).
 
 | Job | Name in code | Input | Outputs | Source |
 |---|---|---|---|---|
 | J01 | `hadoop.j01-dblp-extract` | DBLP XML (record-synchronized reader, DTD entities) | `works`, `mentions`, `venues` | `dblp/DblpExtractJob.scala:41-48` |
 | J02 | `hadoop.j02-normalize-<kind>` | enrichment JSON Lines, one run per kind | `normalized`, `institutions`, `topics` | `sources/NormalizeJob.scala:23-26` |
-| J03, J04 | `hadoop.j04-exact-id-join` (J03's keyed indexes and J04's join are one job) | `mentionContexts` of J07 and the J02 `normalized` outputs | `links` | `ids/ExactIdJoinJob.scala:25-26`; `Pipeline.scala:114-130` |
-| J05 | `hadoop.j05-blocking` | `mentionContexts` | `blocks`, `oversizeMembers` | `blocking/BlockingJob.scala:348-351` |
-| J05b | `hadoop.j05b-fallback-blocking` | `oversizeMembers` | fallback `blocks`, `coverage` | `blocking/FallbackJobs.scala:107-110` |
-| J05c | `hadoop.j05c-fallback-coverage` | `oversizeMembers`, `coverage` | uncovered members, oversize key summary | `blocking/FallbackJobs.scala:317`; `Pipeline.scala:57-59` |
+| J03, J04 | `hadoop.j04-exact-id-join` (J03's keyed indexes and J04's join are one job) | `mentionContexts` of J07 and the J02 `normalized` outputs | `links` | `ids/ExactIdJoinJob.scala:25-26`; `Pipeline.scala:129-145` |
+| J05p | `hadoop.j05p-block-sizes` (counting pre-pass, added in Phase 17 repair round R3) | `mentionContexts` | `oversizeKeys` (keys over the J05 cap) | `blocking/BlockSizeJobs.scala:169-172`; `pipeline/BlockingChain.scala:58-65` |
+| J05 | `hadoop.j05-blocking` | `mentionContexts`, J05p `oversizeKeys` | `blocks`, `oversizeBlocks`, `oversizeMembers` | `blocking/BlockingJob.scala:513-516`; `pipeline/BlockingChain.scala:66-79` |
+| J05bp | `hadoop.j05bp-fallback-block-sizes` (counting pre-pass, added in Phase 17 repair round R3) | `oversizeMembers` | `oversizeKeys` (still-oversize fallback keys) | `blocking/BlockSizeJobs.scala:240-242`; `pipeline/BlockingChain.scala:81-88` |
+| J05b | `hadoop.j05b-fallback-blocking` | `oversizeMembers`, J05bp `oversizeKeys` | fallback `blocks`, `fallbackOversizeBlocks`, `coverage` | `blocking/FallbackJobs.scala:124-127`; `pipeline/BlockingChain.scala:89-102` |
+| J05c | `hadoop.j05c-fallback-coverage` | `oversizeMembers`, `coverage` | uncovered members, oversize key summary | `blocking/FallbackJobs.scala:384-386`; `pipeline/BlockingChain.scala:103-116` |
 | J06 | `hadoop.j06-candidate-features` | J05 and J05b `blocks` | `candidates` (MatchCandidate), one folder per block family | `candidates/CandidateFeatureJob.scala:193-194` |
 | J07 | `hadoop.j07-publication-teams` | `works`, `mentions` | `teams`, `authorPapers`, `mentionContexts` | `teams/PublicationTeamJob.scala:23-26` |
 | J08a, J08b | `hadoop.j08a-pair-expand`, `hadoop.j08b-pair-consolidate` | `teams` | pair instances, then `pairs` (CoauthorPairCandidate) | `pairs/PairJobs.scala:30`, `:155-156` |
-| J09 | `hadoop.j09-graph-export` | works, venues, authorPapers, teams, pairs, links, candidates, institutions, topics | the Spark-ready export (`work`, `venue`, `author_mention`, `publication_team`, `coauthor_pair_candidate`, `match_candidate`, ...) | `graphexport/GraphExportJob.scala:83`; `Pipeline.scala:187-222` |
+| J09 | `hadoop.j09-graph-export` | works, venues, authorPapers, teams, pairs, links, candidates, institutions, topics | the Spark-ready export (`work`, `venue`, `author_mention`, `publication_team`, `coauthor_pair_candidate`, `match_candidate`, ...) | `graphexport/GraphExportJob.scala:83`; `Pipeline.scala:173-208` |
 
 **Counters.** Group `scholarchain` holds `INPUT_RECORDS`, `ACCEPTED_RECORDS`, `EXCLUDED_RECORDS`, `REJECTED_RECORDS` and the job-specific counters; per-reason groups break down rejects, exclusions and field issues. Every job satisfies `INPUT_RECORDS = ACCEPTED_RECORDS + EXCLUDED_RECORDS + REJECTED_RECORDS` at the map stage (`common/Counters.scala:3-10`).
 
-**Partitioning.** Every job uses `StableHashPartitioner`: the first 4 bytes of SHA-256 of the map-output key, modulo the reducer count, so the same key lands in the same partition file in every run (`common/StableHashPartitioner.scala:9-13`). Blocking caps block sizes and has fallback keys and counters for oversize groups (`scholarchain-hadoop-defaults.xml`; G-17 below).
+**Partitioning.** Every job uses `StableHashPartitioner` by default: the first 4 bytes of SHA-256 of the map-output key, modulo the reducer count, so the same key lands in the same partition file in every run (`common/StableHashPartitioner.scala:9-13`; set for every job at `common/JobRunner.scala:140`). Two jobs override it with partitioners built on the same stable hash of a key prefix: J05 uses `BlockingPartitioner` with `BlockingGroupingComparator` (`blocking/BlockingJob.scala:399-472`, set at `:564-565`), and J05c uses `TwoFieldPrefixPartitioner` (`blocking/FallbackJobs.scala:420`). Blocking caps block sizes and has fallback keys and counters for oversize groups (`scholarchain-hadoop-defaults.xml`; G-17 below). Since Phase 17 repair round R3 (check HADOOP-04) the cap is enforced before the reduce step: the counting pre-passes J05p and J05bp list the oversize keys, J05 re-keys their members by mention ID, and J05b does not form still-oversize fallback groups, so no J05 or J05b reduce group holds more members than the cap ([`docs/hadoop-job-contracts.md`](hadoop-job-contracts.md#131-j05-oversize-blocks-the-cap-is-enforced-before-the-reduce-step-check-hadoop-04-fixed)). This is fixed in code, tested locally, not validated live on AWS; the recorded experiment results were produced by the earlier code.
 
 **Run IDs and idempotency.** A job's run ID is derived from the job name, the code version, the input fingerprint and the settings fingerprint; its output folder is `<root>/<scope>/<job>/run=<hex>` (`common/JobRunner.scala:85-96`). A folder with `_SUCCESS` and `_job.json` is reused only after its record and files pass the reuse check (`JobRunner.scala:75-79`). Every output record names the job and run that made it (Phase 4 gate, [`docs/agent-runs/phase-04/human-gate.md`](agent-runs/phase-04/human-gate.md)).
 
-**Recorded counts, Phase 14** (EMR, build `f159535e`, D6 attempt 4; runbook log, row "D6 attempt 4 counters vs Phase 5", which records that every counter equals Phase 5's accepted run):
+**Recorded counts, Phase 14** (produced by the code before repair round R3, without the J05p and J05bp pre-passes; EMR, build `f159535e`, D6 attempt 4; runbook log, row "D6 attempt 4 counters vs Phase 5", which records that every counter equals Phase 5's accepted run):
 
 | Job | Count |
 |---|---|
