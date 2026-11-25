@@ -280,7 +280,7 @@ Found: "Teams over the hard limit (default 5000) are rejected with no pairs; tea
 
 Answer: answered in docs (Phase 17 E12 autograder pass) as a known limitation. Target: docs/hadoop-job-contracts.md:216-227 (section 13.2); reports/final-report.md:619; docs/service-limits.md:121.
 
-Update: in repair round R3 the human classed the hard limit as a deliberate safety bound, not a defect (condition 4), after hadoop-engineer's analysis. See "Repair round R3", R3-B3. The line targets above are from the second run; after R3, section 13.2 of docs/hadoop-job-contracts.md is at :286-307 (the file now has 307 lines), and the other targets are listed under R3-Docs.
+Update: in repair round R3 the human classed the hard limit as a deliberate safety bound, not a defect (condition 4), after hadoop-engineer's analysis. See "Repair round R3", R3-B3. The line targets above are from the second run; after R3, section 13.2 of docs/hadoop-job-contracts.md was at :286-307 (the file then had 307 lines); after the fourth-run pass it is at :286-325 (325 lines; see "Fourth-run documentation change"), and the other targets are listed under R3-Docs.
 
 ## C1 (V3 FACTORY-07): phase records
 
@@ -311,6 +311,8 @@ The human ran V1, V2 and V3 again against commit 62de5e5942137510a21587693600e60
 ### N1 (V3 FACTORY-AGENTS-NOT-SUBMITTED, minor)
 
 Cause: the Phase 17 records named a "read-only research agent" with no file under `.claude/agents/` and no catalog row. Answer: disclosed, not removed. See "Built-in subagent disclosure" above. The README agent catalog now has a note: README.md:90 ("Built-in subagents", directly under the catalog table). The runbook log records it (row "E12 built-in subagent disclosure").
+
+**Instructor decision (after the fourth run):** the use of the built-in subagent is "acceptable ... No additional corrective action is necessary." Recorded by the human in docs/agent-runs/instructor-approvals.md, "2026-11-25: Built-in subagent use in Phase 17 (autograder FACTORY-AGENTS-NOT-SUBMITTED, N1)" (:80). No change follows: the disclosure above and README.md:90 stay as they are.
 
 ### N2 (V2 pre-scan, docs/evaluation.md ratios)
 
@@ -428,8 +430,12 @@ Categories:
 | 51 | 17 | phase17-reports/diff-E12-docs.txt | e | The session-scratchpad path of a diff file | docs/agent-runs/phase-17/agent-report-docs-E12.md:6 ("FILES CREATED: none in the repository (… in the scratchpad only)"); committed copy (d8b49fa) |
 | 52 | 17 | phase17-reports/repair-E11-docs.md | e | The session-scratchpad path of the report itself | docs/agent-runs/phase-17/repair-E11-docs.md:9; committed copy (ade85aa) |
 | 53 | 17 | releases/course/FILE.json | e | A field description in the release-manifest schema, naming the input records the script reads | docs/agent-runs/phase-17/agent-report-infra-I1a.md:108 (`release_records[]` {source (releases/course/FILE.json), …}). No phase-17 commit changed releases/course/ (last change 9efdf76, phase 15), and the report does not claim one did. |
+| 54 | 17 | phase17-reports/agent-report-docs-E11-R3.md | e | The session-scratchpad path of the report itself (fourth run, X5) | docs/agent-runs/phase-17/agent-report-docs-E11-R3.md:97 ("FILES CREATED: none in the repository; scratchpad: …"); committed copy docs/agent-runs/phase-17/agent-report-docs-E11-R3.md (b049e9e) |
+| 55 | 17 | phase17-reports/diff-E11-docs-R3.txt | e | The session-scratchpad path of a diff file (fourth run, X5) | docs/agent-runs/phase-17/agent-report-docs-E11-R3.md:92, :97; committed copy docs/agent-runs/phase-17/diff-E11-docs-R3.txt (b049e9e) |
 
-Category counts (total 53, matching the human's count):
+Rows 54 and 55 come from the fourth run (X5). Appending keeps the earlier row numbers; in the checker's own order these two rows fall between rows 45 and 46.
+
+Category counts after the third run (total 53, matching the human's count; after the fourth run 55, see X5):
 
 | Category | Count | Phases |
 |---|---|---|
@@ -497,6 +503,19 @@ Verification (condition 3): every change was tested by its owner; test-engineer 
 - **Why it is kept (human decision, condition 4):** the specification's security section lists "Malformed or decompression-bomb inputs" as a threat (course-specification.md:2718) and requires "Bounded inputs, outputs, retries, graph depth, and concurrency" (:2729). The limit is that bound. The specification also asks to "Count and report unusually large author teams because they can create quadratic pair expansion" (:1155): teams above the limit are counted and written to rejects with their reason, not dropped silently. The alternative (option A) would replace the materialized pairs with an implicit clique handled in Spark; it avoids the quadratic volume only as long as Spark never expands the pairs, and it would need new code in three modules.
 - **Verified by code-reviewer** (review-report-R3-partB.md, section 3): the hard limit (defaults XML :189-190, PublicationTeamJob.scala:133, TeamAssembler.scala:75-76), the record limit (defaults XML :141-142, DblpRecordScanner.scala:243, :308), the pair counts, the sharded streaming expansion (PairJobs.scala:73-80, :111-137), the reject reason and counter (Disposition.scala:112, PublicationTeamJob.scala:169) and the largest real team (137, Phase 15 experiment A counters). Not verifiable: the 693-byte figure and the volumes that rest on it.
 - **Change:** none in code. Documented in docs/hadoop-job-contracts.md, docs/service-limits.md and the final report's known limitations (R3-Docs).
+- **Instructor decision (after the fourth run):** keeping the 5,000-author bound is acceptable "provided that oversized records are explicitly detected, counted, and reported rather than silently discarded", with the rationale, the computational implications and evidence that the limit did not affect real-data results documented. Recorded by the human in docs/agent-runs/instructor-approvals.md, "2026-11-25: The 5,000-author hard limit in Hadoop pair expansion (autograder HADOOP-PAIRS-WRONG, B3)" (:101); the documentation is docs/hadoop-job-contracts.md section 13.2 (conditions table at the end of that section).
+
+| Condition | Where it is met (file:line) |
+|---|---|
+| Detected | modules/hadoop/src/main/scala/org/scholarchain/hadoop/teams/TeamAssembler.scala:75-76 (more than `hardLimit` authors); PublicationTeamJob.scala:148-151, :159-165 (the reducer stops buffering past `hardLimit + 1` mentions and rejects); limit scholarchain-hadoop-defaults.xml:188-193 |
+| Counted | per-reason counter `scholarchain.reject-reason:team_exceeds_hard_limit` and REJECTED_REDUCE_RECORDS (common/TaskIO.scala:46-47; group name common/Counters.scala:13); OVERSIZE_AUTHOR_TEAMS (PublicationTeamJob.scala:169; Counters.scala:47) |
+| Reported | counters written to each job's `_job.json` (common/JobRunner.scala:171-189) and to the run report (pipeline/ScholarChainHadoop.scala:94-108); one record per team in `rejects/v1/` (TaskIO.scala:50-60, :124-125) |
+| Not silently discarded | reject record with reason, size, limit and DBLP key (PublicationTeamJob.scala:159-177); the work record stays in the J09 export (pipeline/Pipeline.scala:175); contract test tests/contracts/src/test/scala/org/scholarchain/contracts/hadoop/JobLevelTeamScaleSuite.scala:148 |
+| Rationale | docs/hadoop-job-contracts.md:300-307 ("Why", "Why the bound stays"); specification docs/agent-runs/phase-17/course-specification.md:1155, :2718, :2729 |
+| Computational implications | docs/hadoop-job-contracts.md:302-305: pair counts from the limits; byte volumes labelled as estimates (the 693-byte figure has no committed record) |
+| Real data not affected | experiments/raw/p15-a-hadoop/20261120T225632Z-eb786c5275a3-5c75/hadoop-job-counters.csv:83 (maxTeamSize 137), :74-83 (no reject counter in J07), :10 and :78 (155,978 works, 155,978 teams); docs/agent-runs/phase-05/agent-report-hadoop.md:320 (largest team 137), :375-378 ("Nothing else was rejected."); summary at docs/hadoop-job-contracts.md:309-313 |
+
+What is not recorded: team sizes of DBLP records outside the subset rule `dblp-subset-v1` (excluded in J01, before J07); no committed run of the unfiltered full release reaches J07. The experiment file does not write a zero counter as 0 (it has no row with the value 0); the zero shows as a missing row and is confirmed by the derived check teams = works.
 
 ### R3-N4 (V2 DATA-02, DATA-05): dataset record fields (dataset-engineer)
 
@@ -533,3 +552,74 @@ agent-report-docs-R3.md, diff-docs-R3.txt; repair repair-docs-R3.md, diff-docs-R
 - **Pre-release-candidate decisions** (the human, runbook-log row "E12 R3 human decisions on the pre-RC list"): the human ran `datasets/scripts/validate.sh` on the edited manifest: `RESULT: PASS`, exit 0. Open minor P17-M-04 is closed: infra-engineer changed scripts/README.md:59 to record the release-manifest.sh runs at E5.40 (dry run) and E10, both exit 0 (repair-infra-R3.md). documentation-engineer named the file at docs/hadoop-job-contracts.md:107 (repair-docs-R3-5.md) and updated README.md:327, reports/final-report.md:612 and docs/runbook.md:191, which still called P17-M-04 open (repair-docs-R3-6.md). code-reviewer: APPROVE (review-report-R3-final.md, review-report-R3-final-2.md), with three minors, all fixed at the human's decision: scripts/README.md:5 and the release-manifest.sh header comment and `--help` status line now record the same runs (text only, no logic; shellcheck clean; no check.sh probe depends on the text; repair-infra-R3-2.md), and README.md:327 and docs/runbook.md:189 now say "`scripts/README.md` does not record this run" (repair-docs-R3-7.md). Focused re-check: APPROVE (review-report-R3-final-3.md).
 - **New release candidate and fresh-clone verification (condition 3):** the R3 commits (24490a5, e31b3bc, 15f77c7, dc57e5d, f28cc74, 4feef0f) changed `check.sh` inputs, so E2 to E5 and E10 were repeated on the new release candidate 4feef0ff117e9b7b0c1f411e875950e0bde06ba4 on 2026-11-25 (runbook-log rows "E2 (repeat, R3)" to "E10b (repeat, R3)"): `sbt clean check` in a new fresh clone of the GitHub remote, exit 0, module tests 2362 (151 suites, 5 skipped), contract tests 418 of 418 (35 suites); `check.sh` 9 of 9 gates; every README replay line exit 0; release manifest releases/manifest/4feef0ff117e9b7b0c1f411e875950e0bde06ba4/ (commit daca689); every checksum it lists recomputed (51 MATCH, 18 MATCH-RECORD, 0 DIFF; manifest-checksums-2.txt). The documentation was updated to the new release candidate (agent-report-docs-E11-R3.md, repair-docs-E11-R3.md); code-reviewer: APPROVE (review-report-final-docs-R3.md, review-report-final-docs-R3-2.md); identifier scan: no unexpected match (identifier-scan-R3.md).
 - **Full `sbt check`** after the last source change (test-report-R3-3.md): exit 0; module tests 151 suites, 2362 run and passed, 5 skipped; contract tests 35 suites, 418 of 418. The documentation changes after the earlier check are Markdown only.
+
+## Fourth run (b049e9e)
+
+The human ran V1 1.0.8, V2 2.3.5, V3 3.0.5 and V4 4.0.0 against commit b049e9e6cd10d8272bbbed53574600ad3eceaa54 on a fresh clone (V1 `run_date` 2026-11-25; result folders V2 p17-autograde-3-20261125-163948, V3 p17-autograde-3-20261125-164636, V4 20261125-164947). This is the first run on a commit that contains the R3 repairs (release candidate 4feef0f plus the documentation commits after it). Drafted by documentation-engineer (agent-report-docs-run4.md), merged by the orchestrator.
+
+| Result | Checks |
+|---|---|
+| Improved (since the third run) | V2 HADOOP-04 partial -> met (B1, R3-B1). V2 DATA-02 and DATA-05 partial -> met (N4, R3-N4). V1 C03: only the two copies of the course specification are left (2 mentions each); this file is no longer counted (N3). V1 E03 items 120 -> 116. V4 score 7.78 -> 8.01. |
+| Unchanged | V1 FAIL: P01, G02, G03, E03, R03. V1 WARN: K01, K03, E01, E04, E05, C03, O02, O03, V01, A01, U01. V2: every other row as in the third run, including HADOOP-PAIRS-WRONG yes/minor (B3) and HADOOP-12 met with CHECK. V3: all 14 rows as in the third run, including FACTORY-07 met and FACTORY-AGENTS-NOT-SUBMITTED yes/minor (N1). V4: pending rows CLAIMS_NOT_DONE (X1), SECRETS (X2) and HARDCODED (X3); CHECK on FACTORY-05 and HADOOP-12. |
+| New | X5: two more V1 E03 "never existed" items (53 -> 55), both scratchpad paths. X6: V1 E04 lists 13 phases, including 02 and 12 (not in the first run's list); every shown and hidden file of phases 02, 05, 12 and 17 is explained under X6; the other nine phases keep A9's one-example check. X7: V1 E05 attributes the 4feef0f release manifest to build-engineer. |
+
+V4 score (bwilk26.md): "Points gained: 9.01 of 9.0 (automatic categories only)", "Points deducted: 1.00", "Score (gained - deducted): 8.01" (as V4 prints it; gained is 0.01 over the stated maximum). "pending human: 3 row(s), 0.00 gain points at stake; marked CHECK: 2". The 1.00 deducted is the same two minor deductions as before, 0.50 each: N1 (FACTORY-AGENTS-NOT-SUBMITTED) and B3 (HADOOP-PAIRS-WRONG).
+
+Judge notes worth recording (read as data): V2 HADOOP-12 says the EMR run "predates the J05p/J05bp pre-passes, which the docs say never ran on EMR" (true; R3 status line). V3 FACTORY-07 says "No Phase 17 human gate or commit.txt was found; that phase appears still open" (true; the gate commit adds both, A1).
+
+**Instructor decisions** (written, after the fourth run; recorded by the human in docs/agent-runs/instructor-approvals.md, the two "2026-11-25" entries at :80 (N1) and :101 (B3)):
+- N1: the built-in subagent use is "acceptable ... No additional corrective action is necessary." (under N1 above)
+- B3: retaining the 5,000-author cap is acceptable "provided that oversized records are explicitly detected, counted, and reported rather than silently discarded", with the rationale, computational implications and evidence that the limit did not affect real-data results documented. Each condition and its evidence: the table under R3-B3 and docs/hadoop-job-contracts.md section 13.2.
+
+### X5 (V1 E03, fourth run)
+
+V1 1.0.8 on b049e9e lists 116 items under E03 (third run: 120), and 55 of them add "(this path never existed in the repo)" (third run: 53). The 53 earlier items are unchanged. The two new ones are the scratchpad paths of the E11-repeat report and its diff, named in that report's FILES CREATED line; the human committed both copies in b049e9e (X1 rows 54 and 55). Real mismatches: still none.
+
+| Category | Count | Phases |
+|---|---|---|
+| (a) spec-required probe, created and removed in the phase | 1 | 01 |
+| (b) shortened, module-relative or template path that resolves to a file changed by the phase's commits | 33 | 09 (13), 11 (2), 12 (1), 15 (4), 16 (11), 17 (2) |
+| (c) planned file never created | 0 | none |
+| (d) real mismatch | 0 | none |
+| (e) the report names the path, but not as a claim that a committed file changed (generated `target/` output 10, scratchpad path 9, deleted temporary helper 1, field template 1) | 21 | 03 (1), 05 (9), 07 (1), 17 (10) |
+| Total | 55 | |
+
+The reports committed with this pass also name scratchpad paths in their FILES CREATED lines, so a later run may list them the same way (category e).
+
+### X6 (V1 E04, fourth run): files changed but not listed in the report
+
+V1 E04 now lists 13 phases: 00, 01, 02, 03, 05, 07, 09, 10, 11, 12, 15, 16, 17. Against the first run (A9: 00, 01, 03, 04, 05, 07, 09, 10, 11, 14, 15, 16, 17), phases 02 and 12 are new and 04 and 14 are gone. The hidden files of phases 05 ("+21 more") and 17 ("+6 more") were reconstructed from V1's own JSON index (selfcheck-results.json): for each phase, its `files_changed` list minus the files its `files_claimed` list covers (an exact repository-relative path, or a claimed folder such as `modules/hadoop` or `tests`), in sorted order. For both phases the first eight files of the result are exactly the eight V1 shows, and the rest are 21 files for phase 05 and 6 for phase 17, the same as V1's counts (the matching rule is inferred from the data, not from the checker's code; the hidden names are a reconstruction). V1's `files_changed` lists (108 files for phase 05, 64 for phase 17) are the same as `git diff --name-only` over the phase ranges outside `docs/agent-runs/**`. V1's commit lists differ from "after the previous commit.txt" only in commits that change `docs/agent-runs/**` alone: 7070f61 in phase 05 (also first in V1's phase 06) and 50ba087, which V1 counts in phase 16, not 17. Researched by documentation-engineer (repair-docs-run4.md). The changed files of these phases are listed in that phase's reports, mostly as absolute local paths or module-relative paths, which the checker does not match (inferred from the reports, not from the checker's code).
+
+| Phase | Flagged files (as V1 shows them) | Owner and work order | Commit | Listed in |
+|---|---|---|---|---|
+| 02 | .gitignore, .scalafmt.conf, build.sbt, docker/services/Dockerfile, project/Ledger.scala, project/TestGate.scala, project/build.properties, project/plugins.sbt (all 8 shown) | build-engineer; docs/agent-runs/phase-02/prompt.md:26, deliverables :55-60 | 41eaea2 (phase-02/commit.txt:1; its 8 files are exactly these); gate phase-02/human-gate.md:60 | phase-02/agent-report.md:7-15 (FILES CREATED, absolute paths) |
+| 05 | datasets/dataset-manifest.yaml | dataset-engineer; phase-05/prompt.md:24 | 2297990 ("phase-05 part 1") | phase-05/agent-report-dataset.md:25 (FILES MODIFIED, absolute path) |
+| 05 | er/llm/adjudication-output-schema-v1.json, er/llm/adjudication-prompt-v1.txt | entity-resolution-engineer; phase-05/prompt.md:27, :98 | 2297990 | phase-05/agent-report-er.md:15, :16 (module-relative) |
+| 05 | er/cluster/CannotLinks.scala | entity-resolution-engineer; phase-05/prompt.md:27 | 2297990 | phase-05/repair-03.md:20 |
+| 05 | er/data/Loader.scala, er/data/Model.scala | entity-resolution-engineer; phase-05/prompt.md:27 | 2297990 | phase-05/agent-report-er.md:21; repair-01.md:27, :28 |
+| 05 | er/eval/EvalMain.scala, er/eval/EvalReport.scala | entity-resolution-engineer; phase-05/prompt-02.md:24 | 2297990 (EvalMain), a5322d4 (both; phase-05/commit.txt:1); gate phase-05/human-gate.md:106 | phase-05/agent-report-er.md:31; agent-report-er-eval.md:19, :24 |
+| 05 (hidden) | er/eval/GoldLabels.scala, er/features/PairFeatures.scala, er/io/Files.scala, er/llm/Adjudication.scala, er/normalize/Identifiers.scala, er/normalize/Text.scala, er/policy/Decide.scala, er/run/ErMain.scala | entity-resolution-engineer; phase-05/prompt.md:27 | 2297990 | phase-05/agent-report-er.md:31, :22, :18, :25, :19, :20, :24, :30 (FILES CREATED, package-relative); repair-01.md:23, :31 (absolute; Adjudication, Decide) |
+| 05 (hidden) | test resources synthetic-gold/gold-valid.csv, synthetic-gold/review-key.jsonl | entity-resolution-engineer; phase-05/prompt.md:27 | 2297990 | phase-05/agent-report-er.md:33 (module-relative and file name) |
+| 05 (hidden) | test …/er/Fixture.scala, NormalizeSuite.scala, DecisionSuite.scala, ErBench.scala | entity-resolution-engineer; phase-05/prompt.md:27 | 2297990 | phase-05/agent-report-er.md:32 (class names) |
+| 05 (hidden) | test …/er/PriorSpellingSuite.scala; HarnessDesignSuite.scala, CannotLinkRunSuite.scala; ReviewKeyRepairSuite.scala | entity-resolution-engineer; repairs phase-05/repair-01.md:1, repair-04.md:1, repair-06.md:1 | 2297990 | phase-05/repair-01.md:20; repair-04.md:13, :17; repair-06.md:16 (absolute) |
+| 05 (hidden) | er/eval/IntervalReliability.scala, test …/er/EvalRepairRound2Suite.scala, test …/er/EvalReportSuite.scala | entity-resolution-engineer; phase-05/prompt-02.md:24; repair-09.md:1 (first two) | a5322d4 (phase-05/commit.txt:1) | phase-05/agent-report-er-eval.md:560, :20 (absolute); repair-09.md:37 (absolute) |
+| 12 | .claude/agents/dataset-engineer.md, .claude/agents/infra-engineer.md, docs/agents.md (all 3 shown) | factory-engineer, step F; phase-12/prompt.md:118, :122, :125-126 | 4ad139e (phase-12/commit.txt:1; these 3 files, 5 lines each way) | phase-12/agent-report-factory.md:8-10, :36-38; review phase-12/review-report-factory.md:28 (APPROVE); **ratification** phase-12/human-gate.md:151 (the human ratifies the step F changes to these files, commit 4ad139e), also :70 ("I ratified and committed it (`4ad139e`)"); :41 is the step F status row |
+| 17 | rag/eval/benchmark-v1-eval-set.json, rag/eval/RetrievalEvalSet.scala, test …/eval/RetrievalEvalSetSuite.scala, test …/runtime/ClaimVerificationSuite.scala | rag-engineer; phase-17/prompt.md:152, :190 | d8b23f2 | phase-17/agent-report-rag.md:16, :15, :17, :13 |
+| 17 | rag/ingest/RagIngestJob.scala, test …/RagIngestJobSuite.scala | rag-engineer; repair step 6 (phase-17/repair-01-rag.md:5) | d8b23f2 | phase-17/repair-01-rag.md:9, :11 |
+| 17 | rag/runtime/ClaimVerification.scala, test …/runtime/AbsenceRuleSuite.scala | rag-engineer; step 1 and the E1 repair (phase-17/repair-E1-rag.md:5; runbook-log.md:22-23) | d8b23f2, b4d8f12 | phase-17/agent-report-rag.md:7; repair-01-rag.md:10; repair-E1-rag.md:8, :9 |
+| 17 (hidden) | test …/rag/runtime/GroundingSuite.scala, PathAbsenceSuite.scala, VerifierMonotonicSuite.scala, VerifierOracle.scala | rag-engineer; phase-17/prompt.md:152, :190, :202 | d8b23f2 | phase-17/agent-report-rag.md:14, :12, :8, :9 (absolute) |
+| 17 (hidden) | modules/storage/src/test/…/storage/GraphQuerySuite.scala, …/storage/emulator/EmulatorWiringSuite.scala | storage-engineer; phase-17/prompt.md:158, :224 (decision 8.2) | d8b23f2 | phase-17/agent-report-storage.md:8, :9 (FILES MODIFIED, absolute) |
+
+Phase 17 has no commit.txt yet (the gate commit adds it); the commits above are those whose subject starts with "phase-17". Unexplained: none of the files V1 shows or hides for phases 02, 05, 12 and 17. The other nine phases are as in A9, which checked one representative file per phase, not every file in each "+N more" list. Not a defect: no change.
+
+### X7 (V1 E05, fourth run): releases/manifest/ attributed to build-engineer
+
+V1 reports "phase-17: build-engineer changed releases/manifest/<RC>/release-manifest.json, owned by deploy-engineer" and the same for release-manifest.md, for both release candidates (4feef0f, new in this run, and b4d8f12, already in A10). No agent wrote these files:
+- They are written only by scripts/release-manifest.sh, infra-engineer's script (docs/agent-runs/phase-17/prompt.md:153, I1a row; :213, "A read-only script I run at E10 (again only if E10 repeats)"); its fixed output folder inside the repository is `releases/manifest` (scripts/release-manifest.sh:26).
+- The human ran it at E10 and at the E10 repeat (docs/agent-runs/phase-17/prompt.md:145, "infra-engineer (script), me (run)"; runbook-log.md:63 and :188) and committed the output: c6bbe14 (b4d8f12 manifest; runbook-log.md:64) and daca689 (4feef0f manifest; runbook-log.md:190). Each commit adds only the two manifest files.
+- docs/agents.md:36 (deploy-engineer row): release records under `releases/**` are "written only by approved scripts it executes (nobody hand-edits them; the guard blocks Write, Edit, and shell writes there for every agent)"; docs/agents.md:103 (lifecycle row "Release records (`releases/**`)"); docs/agents.md:139 (guard: "blocks every write to `releases/**` (records come only from approved scripts)").
+- The checker attributes every file of a phase to one agent (A10). Phase 17's chosen agent is build-engineer, which never touched `releases/**`. Known limitation of the checker; no change.
+
+### Fourth-run documentation change
+
+docs/hadoop-job-contracts.md section 13.2 only (documentation-engineer, agent-report-docs-run4.md, diff-docs-run4.txt): an "Instructor decision" bullet (:289), where the count is reported (:298), what happens to the record (:299), the recorded effect on real data (:309-313) and the conditions table (:315-325). Docs-only after the release candidate (rule line). code-reviewer: see review-report-run4.md.
