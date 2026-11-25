@@ -1,0 +1,1145 @@
+{
+  "kind": "scholarchain-release-manifest",
+  "version": 1,
+  "generated_utc": "2026-11-25T21:54:41Z",
+  "generator": {
+    "script": "scripts/release-manifest.sh",
+    "script_sha256_at_head": "6f5a172c5831ddf659e92cbb6a799ddb925d38bb2ad47ad1f880450743176385"
+  },
+  "release_candidate": {
+    "commit": "4feef0ff117e9b7b0c1f411e875950e0bde06ba4",
+    "source": "git rev-parse HEAD (this working tree, clean)"
+  },
+  "build_commit": {
+    "commit": "24490a565914f52fab3c5b9643cbbd7054e14e50",
+    "source": "scripts/lib/identity.sh build_commit (git log -1 --format=%H -- build.sbt project modules prompts docker config .scalafmt.conf .jvmopts .sbtopts)"
+  },
+  "planned_tag": {
+    "name": "v1.0-submission",
+    "source": "docs/agent-runs/phase-17/prompt.md decision 18, E13"
+  },
+  "clone": {
+    "folder_name": "p17-clone-20261125T1725Z",
+    "head": "4feef0ff117e9b7b0c1f411e875950e0bde06ba4",
+    "head_equals_release_candidate": true
+  },
+  "release_records": [
+    {
+      "source": "releases/course/20261118T184244Z-39af6e4d0c51-9e3a.json",
+      "attempt_id": "20261118T184244Z-39af6e4d0c51-9e3a",
+      "environment": "course",
+      "region": "us-east-1",
+      "commit": "39af6e4d0c51416886263a48fd2855e684a42db0",
+      "plan_commit": "1f9a20e8bc950c2be5d2565697263943284a95c9",
+      "build_commit": "e78bb100b11ca8eb8092c27de4573f660875e18d",
+      "plan_id": "20261118T183900Z-1f9a20e8bc95-0877",
+      "plan_sha256": "a865a94dce63f9cc6e683e62105814475a2849f0fa065234320c44d94eab67d1",
+      "applied_utc": "2026-11-18T18:42:44Z",
+      "runtime_enabled": false,
+      "image": {
+        "repository": "scholarchain-course-services",
+        "tag": null,
+        "digest": null
+      },
+      "services": {
+        "query": {
+          "task_definition": "scholarchain-course-query:1",
+          "previous_task_definition": "scholarchain-course-query:1",
+          "image_tag": "placeholder-runtime-disabled",
+          "digest_check": "not-applicable (runtime off, no task runs)"
+        },
+        "evidence": {
+          "task_definition": "scholarchain-course-evidence:1",
+          "previous_task_definition": "scholarchain-course-evidence:1",
+          "image_tag": "placeholder-runtime-disabled",
+          "digest_check": "not-applicable (runtime off, no task runs)"
+        },
+        "graph": {
+          "task_definition": "scholarchain-course-graph:1",
+          "previous_task_definition": "scholarchain-course-graph:1",
+          "image_tag": "placeholder-runtime-disabled",
+          "digest_check": "not-applicable (runtime off, no task runs)"
+        },
+        "worker": {
+          "task_definition": "scholarchain-course-worker:1",
+          "previous_task_definition": "scholarchain-course-worker:1",
+          "image_tag": "placeholder-runtime-disabled",
+          "digest_check": "not-applicable (runtime off, no task runs)"
+        }
+      },
+      "approval_line_committed": true,
+      "approval_lines": [
+        {
+          "path": "docs/agent-runs/phase-14/approvals.md",
+          "line": 17
+        }
+      ]
+    },
+    {
+      "source": "releases/course/20261118T212004Z-b925bc4ac306-8f27.json",
+      "attempt_id": "20261118T212004Z-b925bc4ac306-8f27",
+      "environment": "course",
+      "region": "us-east-1",
+      "commit": "b925bc4ac306d749dd968816e51b573a5bc62a73",
+      "plan_commit": "b15dc789980e0347ff82323d53bdfca1ec20a4c4",
+      "build_commit": "e78bb100b11ca8eb8092c27de4573f660875e18d",
+      "plan_id": "20261118T211217Z-b15dc789980e-a83e",
+      "plan_sha256": "5c77365f770a5cf85507194a07915d7b0b7f223d6b31ca7aeb434fdaea19cc12",
+      "applied_utc": "2026-11-18T21:20:04Z",
+      "runtime_enabled": false,
+      "image": {
+        "repository": "scholarchain-course-services",
+        "tag": null,
+        "digest": null
+      },
+      "services": {
+        "query": {
+          "task_definition": "scholarchain-course-query:1",
+          "previous_task_definition": "scholarchain-course-query:1",
+          "image_tag": "placeholder-runtime-disabled",
+          "digest_check": "not-applicable (runtime off, no task runs)"
+        },
+        "evidence": {
+          "task_definition": "scholarchain-course-evidence:1",
+          "previous_task_definition": "scholarchain-course-evidence:1",
+          "image_tag": "placeholder-runtime-disabled",
+          "digest_check": "not-applicable (runtime off, no task runs)"
+        },
+        "graph": {
+          "task_definition": "scholarchain-course-graph:1",
+          "previous_task_definition": "scholarchain-course-graph:1",
+          "image_tag": "placeholder-runtime-disabled",
+          "digest_check": "not-applicable (runtime off, no task runs)"
+        },
+        "worker": {
+          "task_definition": "scholarchain-course-worker:1",
+          "previous_task_definition": "scholarchain-course-worker:1",
+          "image_tag": "placeholder-runtime-disabled",
+          "digest_check": "not-applicable (runtime off, no task runs)"
+        }
+      },
+      "approval_line_committed": true,
+      "approval_lines": [
+        {
+          "path": "docs/agent-runs/phase-14/approvals.md",
+          "line": 29
+        }
+      ]
+    },
+    {
+      "source": "releases/course/20261119T054925Z-cf28e28596c1-d63f.json",
+      "attempt_id": "20261119T054925Z-cf28e28596c1-d63f",
+      "environment": "course",
+      "region": "us-east-1",
+      "commit": "cf28e28596c1156fcaa68f5df50518a62cc23996",
+      "plan_commit": "20e79f356209b7ed73337a132c5057747a266a61",
+      "build_commit": "f159535e498ad1a4504dad1fac0a3fb6ceee14e6",
+      "plan_id": "20261119T053958Z-20e79f356209-a8a1",
+      "plan_sha256": "619576314f4bcf324397381de79c70d6fde794873770ed526a676f870fdf8975",
+      "applied_utc": "2026-11-19T05:49:25Z",
+      "runtime_enabled": false,
+      "image": {
+        "repository": "scholarchain-course-services",
+        "tag": null,
+        "digest": null
+      },
+      "services": {
+        "query": {
+          "task_definition": "scholarchain-course-query:1",
+          "previous_task_definition": "scholarchain-course-query:1",
+          "image_tag": "placeholder-runtime-disabled",
+          "digest_check": "not-applicable (runtime off, no task runs)"
+        },
+        "evidence": {
+          "task_definition": "scholarchain-course-evidence:1",
+          "previous_task_definition": "scholarchain-course-evidence:1",
+          "image_tag": "placeholder-runtime-disabled",
+          "digest_check": "not-applicable (runtime off, no task runs)"
+        },
+        "graph": {
+          "task_definition": "scholarchain-course-graph:1",
+          "previous_task_definition": "scholarchain-course-graph:1",
+          "image_tag": "placeholder-runtime-disabled",
+          "digest_check": "not-applicable (runtime off, no task runs)"
+        },
+        "worker": {
+          "task_definition": "scholarchain-course-worker:1",
+          "previous_task_definition": "scholarchain-course-worker:1",
+          "image_tag": "placeholder-runtime-disabled",
+          "digest_check": "not-applicable (runtime off, no task runs)"
+        }
+      },
+      "approval_line_committed": true,
+      "approval_lines": [
+        {
+          "path": "docs/agent-runs/phase-14/approvals.md",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "source": "releases/course/20261119T193246Z-167196849087-d539.json",
+      "attempt_id": "20261119T193246Z-167196849087-d539",
+      "environment": "course",
+      "region": "us-east-1",
+      "commit": "1671968490871c19b52673fc1c0f72deef99d946",
+      "plan_commit": "ba345f8d576c253900b2e640be69542b42c6d473",
+      "build_commit": "f159535e498ad1a4504dad1fac0a3fb6ceee14e6",
+      "plan_id": "20261119T170425Z-ba345f8d576c-22ba",
+      "plan_sha256": "5656145ec55ef6c08230ab4aedae778cf19fa1f99aaa11225040a2c52c7f4199",
+      "applied_utc": "2026-11-19T19:32:46Z",
+      "runtime_enabled": true,
+      "image": {
+        "repository": "scholarchain-course-services",
+        "tag": "f159535e498ad1a4504dad1fac0a3fb6ceee14e6",
+        "digest": "sha256:79297e420fed6e5c1b98196dab7aa8386ec3ae30b24c66c7e37ab1ef696e59eb"
+      },
+      "services": {
+        "query": {
+          "task_definition": "scholarchain-course-query:2",
+          "previous_task_definition": "scholarchain-course-query:1",
+          "image_tag": "f159535e498ad1a4504dad1fac0a3fb6ceee14e6",
+          "digest_check": "verified (1 running task(s) on sha256:79297e420fed6e5c1b98196dab7aa8386ec3ae30b24c66c7e37ab1ef696e59eb)"
+        },
+        "evidence": {
+          "task_definition": "scholarchain-course-evidence:2",
+          "previous_task_definition": "scholarchain-course-evidence:1",
+          "image_tag": "f159535e498ad1a4504dad1fac0a3fb6ceee14e6",
+          "digest_check": "verified (1 running task(s) on sha256:79297e420fed6e5c1b98196dab7aa8386ec3ae30b24c66c7e37ab1ef696e59eb)"
+        },
+        "graph": {
+          "task_definition": "scholarchain-course-graph:2",
+          "previous_task_definition": "scholarchain-course-graph:1",
+          "image_tag": "f159535e498ad1a4504dad1fac0a3fb6ceee14e6",
+          "digest_check": "verified (1 running task(s) on sha256:79297e420fed6e5c1b98196dab7aa8386ec3ae30b24c66c7e37ab1ef696e59eb)"
+        },
+        "worker": {
+          "task_definition": "scholarchain-course-worker:2",
+          "previous_task_definition": "scholarchain-course-worker:1",
+          "image_tag": "f159535e498ad1a4504dad1fac0a3fb6ceee14e6",
+          "digest_check": "no running task (desired 0)"
+        }
+      },
+      "approval_line_committed": true,
+      "approval_lines": [
+        {
+          "path": "docs/agent-runs/phase-14/approvals.md",
+          "line": 45
+        }
+      ]
+    },
+    {
+      "source": "releases/course/20261120T213452Z-94ec6b01a4ca-44da.json",
+      "attempt_id": "20261120T213452Z-94ec6b01a4ca-44da",
+      "environment": "course",
+      "region": "us-east-1",
+      "commit": "94ec6b01a4cad9dca013a95d56dfe2fbc315ad4f",
+      "plan_commit": "85dacb447057cbb33c982dbb49cb2cf83a95e0aa",
+      "build_commit": "684636ef997ee041912e2b57d1c597ded8e9778d",
+      "plan_id": "20261120T211840Z-85dacb447057-8820",
+      "plan_sha256": "934d78c312a363ac02ee330db02372a20ab9226416f05e923041178b2d814480",
+      "applied_utc": "2026-11-20T21:34:52Z",
+      "runtime_enabled": true,
+      "image": {
+        "repository": "scholarchain-course-services",
+        "tag": "684636ef997ee041912e2b57d1c597ded8e9778d",
+        "digest": "sha256:abb0be8094004494217b593dc22f760e27edc7b2d831911db7b89608bde364a3"
+      },
+      "services": {
+        "query": {
+          "task_definition": "scholarchain-course-query:3",
+          "previous_task_definition": "scholarchain-course-query:2",
+          "image_tag": "684636ef997ee041912e2b57d1c597ded8e9778d",
+          "digest_check": "verified (1 running task(s) on sha256:abb0be8094004494217b593dc22f760e27edc7b2d831911db7b89608bde364a3)"
+        },
+        "evidence": {
+          "task_definition": "scholarchain-course-evidence:3",
+          "previous_task_definition": "scholarchain-course-evidence:2",
+          "image_tag": "684636ef997ee041912e2b57d1c597ded8e9778d",
+          "digest_check": "verified (1 running task(s) on sha256:abb0be8094004494217b593dc22f760e27edc7b2d831911db7b89608bde364a3)"
+        },
+        "graph": {
+          "task_definition": "scholarchain-course-graph:3",
+          "previous_task_definition": "scholarchain-course-graph:2",
+          "image_tag": "684636ef997ee041912e2b57d1c597ded8e9778d",
+          "digest_check": "verified (1 running task(s) on sha256:abb0be8094004494217b593dc22f760e27edc7b2d831911db7b89608bde364a3)"
+        },
+        "worker": {
+          "task_definition": "scholarchain-course-worker:3",
+          "previous_task_definition": "scholarchain-course-worker:2",
+          "image_tag": "684636ef997ee041912e2b57d1c597ded8e9778d",
+          "digest_check": "no running task (desired 0)"
+        }
+      },
+      "approval_line_committed": true,
+      "approval_lines": [
+        {
+          "path": "docs/agent-runs/phase-15/approvals.md",
+          "line": 9
+        }
+      ]
+    },
+    {
+      "source": "releases/course/20261120T225449Z-70876eb27b26-8ce8.json",
+      "attempt_id": "20261120T225449Z-70876eb27b26-8ce8",
+      "environment": "course",
+      "region": "us-east-1",
+      "commit": "70876eb27b268fddec044d84e1c547dd0e6118b5",
+      "plan_commit": "e94df52ca8fbd261acbdaa47007efde3c120d943",
+      "build_commit": "684636ef997ee041912e2b57d1c597ded8e9778d",
+      "plan_id": "20261120T223953Z-e94df52ca8fb-35bf",
+      "plan_sha256": "235b56f540bdc237ae511230736bbe184e420123609098ca809bac27b067de6d",
+      "applied_utc": "2026-11-20T22:54:49Z",
+      "runtime_enabled": true,
+      "image": {
+        "repository": "scholarchain-course-services",
+        "tag": "684636ef997ee041912e2b57d1c597ded8e9778d",
+        "digest": "sha256:abb0be8094004494217b593dc22f760e27edc7b2d831911db7b89608bde364a3"
+      },
+      "services": {
+        "query": {
+          "task_definition": "scholarchain-course-query:3",
+          "previous_task_definition": "scholarchain-course-query:3",
+          "image_tag": "684636ef997ee041912e2b57d1c597ded8e9778d",
+          "digest_check": "verified (1 running task(s) on sha256:abb0be8094004494217b593dc22f760e27edc7b2d831911db7b89608bde364a3)"
+        },
+        "evidence": {
+          "task_definition": "scholarchain-course-evidence:3",
+          "previous_task_definition": "scholarchain-course-evidence:3",
+          "image_tag": "684636ef997ee041912e2b57d1c597ded8e9778d",
+          "digest_check": "verified (1 running task(s) on sha256:abb0be8094004494217b593dc22f760e27edc7b2d831911db7b89608bde364a3)"
+        },
+        "graph": {
+          "task_definition": "scholarchain-course-graph:3",
+          "previous_task_definition": "scholarchain-course-graph:3",
+          "image_tag": "684636ef997ee041912e2b57d1c597ded8e9778d",
+          "digest_check": "verified (1 running task(s) on sha256:abb0be8094004494217b593dc22f760e27edc7b2d831911db7b89608bde364a3)"
+        },
+        "worker": {
+          "task_definition": "scholarchain-course-worker:3",
+          "previous_task_definition": "scholarchain-course-worker:3",
+          "image_tag": "684636ef997ee041912e2b57d1c597ded8e9778d",
+          "digest_check": "no running task (desired 0)"
+        }
+      },
+      "approval_line_committed": true,
+      "approval_lines": [
+        {
+          "path": "docs/agent-runs/phase-15/approvals.md",
+          "line": 65
+        }
+      ]
+    },
+    {
+      "source": "releases/course/20261121T052512Z-ebcbc03a90bd-01a4.json",
+      "attempt_id": "20261121T052512Z-ebcbc03a90bd-01a4",
+      "environment": "course",
+      "region": "us-east-1",
+      "commit": "ebcbc03a90bd85f087bce4d0b81d8192da696003",
+      "plan_commit": "d872d120d404271f4371c1aed49959534617766a",
+      "build_commit": "684636ef997ee041912e2b57d1c597ded8e9778d",
+      "plan_id": "20261121T045100Z-d872d120d404-f91a",
+      "plan_sha256": "71fe907167a22d8e83c806fcc02b044670e0dda8275561c73be2dfca66041fbd",
+      "applied_utc": "2026-11-21T05:25:12Z",
+      "runtime_enabled": false,
+      "image": {
+        "repository": "scholarchain-course-services",
+        "tag": null,
+        "digest": null
+      },
+      "services": {
+        "query": {
+          "task_definition": "scholarchain-course-query:4",
+          "previous_task_definition": "scholarchain-course-query:3",
+          "image_tag": "placeholder-runtime-disabled",
+          "digest_check": "not-applicable (runtime off, no task runs)"
+        },
+        "evidence": {
+          "task_definition": "scholarchain-course-evidence:4",
+          "previous_task_definition": "scholarchain-course-evidence:3",
+          "image_tag": "placeholder-runtime-disabled",
+          "digest_check": "not-applicable (runtime off, no task runs)"
+        },
+        "graph": {
+          "task_definition": "scholarchain-course-graph:4",
+          "previous_task_definition": "scholarchain-course-graph:3",
+          "image_tag": "placeholder-runtime-disabled",
+          "digest_check": "not-applicable (runtime off, no task runs)"
+        },
+        "worker": {
+          "task_definition": "scholarchain-course-worker:4",
+          "previous_task_definition": "scholarchain-course-worker:3",
+          "image_tag": "placeholder-runtime-disabled",
+          "digest_check": "not-applicable (runtime off, no task runs)"
+        }
+      },
+      "approval_line_committed": true,
+      "approval_lines": [
+        {
+          "path": "docs/agent-runs/phase-15/approvals.md",
+          "line": 73
+        }
+      ]
+    }
+  ],
+  "signed_plans": [
+    {
+      "plan_sha256": "aee655c7c8caa1b0e7c3912a07175f73bd12184cf198dca24983e96b70f9437d",
+      "signed_in": {
+        "path": "docs/agent-runs/phase-13/human-gate.md",
+        "line": 77
+      }
+    },
+    {
+      "plan_sha256": "6d4a629c5a6af7167c4581cbe5fdc417b054838b35d5c3653579f7aaf6a70df5",
+      "signed_in": {
+        "path": "docs/agent-runs/phase-14/approvals.md",
+        "line": 9
+      }
+    },
+    {
+      "plan_sha256": "a865a94dce63f9cc6e683e62105814475a2849f0fa065234320c44d94eab67d1",
+      "signed_in": {
+        "path": "docs/agent-runs/phase-14/approvals.md",
+        "line": 17
+      }
+    },
+    {
+      "plan_sha256": "5c77365f770a5cf85507194a07915d7b0b7f223d6b31ca7aeb434fdaea19cc12",
+      "signed_in": {
+        "path": "docs/agent-runs/phase-14/approvals.md",
+        "line": 29
+      }
+    },
+    {
+      "plan_sha256": "619576314f4bcf324397381de79c70d6fde794873770ed526a676f870fdf8975",
+      "signed_in": {
+        "path": "docs/agent-runs/phase-14/approvals.md",
+        "line": 37
+      }
+    },
+    {
+      "plan_sha256": "5656145ec55ef6c08230ab4aedae778cf19fa1f99aaa11225040a2c52c7f4199",
+      "signed_in": {
+        "path": "docs/agent-runs/phase-14/approvals.md",
+        "line": 45
+      }
+    },
+    {
+      "plan_sha256": "934d78c312a363ac02ee330db02372a20ab9226416f05e923041178b2d814480",
+      "signed_in": {
+        "path": "docs/agent-runs/phase-15/approvals.md",
+        "line": 9
+      }
+    },
+    {
+      "plan_sha256": "235b56f540bdc237ae511230736bbe184e420123609098ca809bac27b067de6d",
+      "signed_in": {
+        "path": "docs/agent-runs/phase-15/approvals.md",
+        "line": 65
+      }
+    },
+    {
+      "plan_sha256": "71fe907167a22d8e83c806fcc02b044670e0dda8275561c73be2dfca66041fbd",
+      "signed_in": {
+        "path": "docs/agent-runs/phase-15/approvals.md",
+        "line": 73
+      }
+    },
+    {
+      "plan_sha256": "d636c6482cb229475ccd0087970a6c3aa3f2bb65f7bfaed47becd0e9ec9e619e",
+      "signed_in": {
+        "path": "docs/agent-runs/phase-15/approvals.md",
+        "line": 76
+      }
+    }
+  ],
+  "signed_experiment_manifests": [
+    {
+      "path": "experiments/manifests/p15-a-hadoop.json",
+      "sha256": "1254a11cd8431bfdf41b0549edca9f62adf622a5c13858ee7e469be4fa0488d8",
+      "signed_in": [
+        {
+          "path": "docs/agent-runs/phase-15/approvals.md",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "path": "experiments/manifests/p15-a-spark.json",
+      "sha256": "1875db33a1f57632e9fcec579dcce3f1c717139ac1cba13c685ed654588f9531",
+      "signed_in": [
+        {
+          "path": "docs/agent-runs/phase-15/approvals.md",
+          "line": 21
+        }
+      ]
+    },
+    {
+      "path": "experiments/manifests/p15-b-spark-burst.json",
+      "sha256": "1b869c94c0370810d45810cfb1b2f7e91f272f94415b563d8c990b54d8f17c87",
+      "signed_in": [
+        {
+          "path": "docs/agent-runs/phase-15/approvals.md",
+          "line": 27
+        }
+      ]
+    },
+    {
+      "path": "experiments/manifests/p15-c-embedding-backlog.json",
+      "sha256": "36352e8fcdf6287a41b66e386f045f81d88db864a7f07e0169c7a6efa5101ab8",
+      "signed_in": [
+        {
+          "path": "docs/agent-runs/phase-15/approvals.md",
+          "line": 33
+        }
+      ]
+    },
+    {
+      "path": "experiments/manifests/p15-d-query-load.json",
+      "sha256": "2af43f86a39c31b00cb5c95810265e4d417be5522cef2bbdba0afaff33dc480b",
+      "signed_in": [
+        {
+          "path": "docs/agent-runs/phase-15/approvals.md",
+          "line": 39
+        }
+      ]
+    },
+    {
+      "path": "experiments/manifests/p15-d-read-load.json",
+      "sha256": "d851716dfbcd909f96a4b5e5be67d88a85206de67f9e74478b020825c7ce3070",
+      "signed_in": [
+        {
+          "path": "docs/agent-runs/phase-15/approvals.md",
+          "line": 45
+        }
+      ]
+    },
+    {
+      "path": "experiments/manifests/p15-e-retrieval-modes.json",
+      "sha256": "be3868dff8802e0cf2a2b60c5838444a3ec4bafb9cf7e9f15c2cab30ef1b8019",
+      "signed_in": [
+        {
+          "path": "docs/agent-runs/phase-15/approvals.md",
+          "line": 51
+        }
+      ]
+    },
+    {
+      "path": "experiments/manifests/p15-f-poison-replay.json",
+      "sha256": "a39c7e453f3c9264092fc22640e2c56465e06ff947bf031291ee9112a5b5fbaf",
+      "signed_in": [
+        {
+          "path": "docs/agent-runs/phase-15/approvals.md",
+          "line": 57
+        }
+      ]
+    }
+  ],
+  "datasets": {
+    "source": "datasets/dataset-manifest.yaml",
+    "source_sha256": "ae312233b85c68b03b3f0535b0caae513b77db2d2c2dc8e505621939978482a6",
+    "entries": [
+      {
+        "dataset": "crossref",
+        "snapshot": [
+          {
+            "key": "id",
+            "value": "unknown",
+            "line": 545
+          }
+        ],
+        "checksums": [
+          {
+            "key": "published",
+            "value": "unknown",
+            "line": 589
+          }
+        ],
+        "file_md5": []
+      },
+      {
+        "dataset": "dblp",
+        "snapshot": [
+          {
+            "key": "id",
+            "value": "2026-11-01",
+            "line": 380
+          },
+          {
+            "key": "doi",
+            "value": "10.4230/dblp.xml.2026-11-01",
+            "line": 381
+          },
+          {
+            "key": "publication_date",
+            "value": "2026-11-01",
+            "line": 382
+          }
+        ],
+        "checksums": [
+          {
+            "key": "snapshot_md5",
+            "value": "18ad5db59592406ec74289975c4b44cb",
+            "line": 408
+          },
+          {
+            "key": "dtd_sha256",
+            "value": "2d864498f9eef9298662df11e3874171ff24cd4a21ab5974f1369c90acdb1ef6",
+            "line": 410
+          }
+        ],
+        "file_md5": []
+      },
+      {
+        "dataset": "openalex",
+        "snapshot": [
+          {
+            "key": "id",
+            "value": "2026-10-14",
+            "line": 470
+          }
+        ],
+        "checksums": [
+          {
+            "key": "published",
+            "value": "unknown",
+            "line": 488
+          }
+        ],
+        "file_md5": []
+      },
+      {
+        "dataset": "orcid",
+        "snapshot": [
+          {
+            "key": "id",
+            "value": "2026",
+            "line": 646
+          },
+          {
+            "key": "doi",
+            "value": "10.23640/07243.34697766.v1",
+            "line": 647
+          },
+          {
+            "key": "cutoff",
+            "value": "2026-10-13",
+            "line": 648
+          },
+          {
+            "key": "published",
+            "value": "2026-10-22",
+            "line": 649
+          }
+        ],
+        "checksums": [
+          {
+            "key": "algorithm",
+            "value": "md5",
+            "line": 678
+          }
+        ],
+        "file_md5": [
+          {
+            "file": "ORCID_2026_10_summaries.tar.gz",
+            "md5": "a55a16fe0b292bda03cc6016546c8984",
+            "line": 651
+          },
+          {
+            "file": "ORCID_2026_10_activities_0.tar.gz",
+            "md5": "b4408eaed823afbd42d6a800b01c821c",
+            "line": 652
+          },
+          {
+            "file": "ORCID_2026_10_activities_1.tar.gz",
+            "md5": "17fd95ff1cd557902e219e6e5e1c3f9c",
+            "line": 653
+          },
+          {
+            "file": "ORCID_2026_10_activities_2.tar.gz",
+            "md5": "21c7be85e944d8a0a9580e29c617cdaa",
+            "line": 654
+          },
+          {
+            "file": "ORCID_2026_10_activities_3.tar.gz",
+            "md5": "c350088e3653d51ff7f39467bf338bb1",
+            "line": 655
+          },
+          {
+            "file": "ORCID_2026_10_activities_4.tar.gz",
+            "md5": "483d5a5c63bc5ec8f8bf88d0d92e41bd",
+            "line": 656
+          },
+          {
+            "file": "ORCID_2026_10_activities_5.tar.gz",
+            "md5": "99ebd6b33c5d6ed39cbd62fae7550c89",
+            "line": 657
+          },
+          {
+            "file": "ORCID_2026_10_activities_6.tar.gz",
+            "md5": "87a4b05d567436110b01b916a8c119fa",
+            "line": 658
+          },
+          {
+            "file": "ORCID_2026_10_activities_7.tar.gz",
+            "md5": "378338721f5d913cb231a0fee0bb114e",
+            "line": 659
+          },
+          {
+            "file": "ORCID_2026_10_activities_8.tar.gz",
+            "md5": "3d14bdda9e5ebb8c94b0701c99c9bb7f",
+            "line": 660
+          },
+          {
+            "file": "ORCID_2026_10_activities_9.tar.gz",
+            "md5": "54f6739ed5de832fc32b79df6a39daf6",
+            "line": 661
+          },
+          {
+            "file": "ORCID_2026_10_activities_X.tar.gz",
+            "md5": "ba665d7d3471ac873d1d7b4ed93d3a1f",
+            "line": 662
+          }
+        ]
+      }
+    ]
+  },
+  "run_ids": {
+    "spark_graph_runs": [
+      {
+        "run_id": "run:v1:f2625d504b12749389cf4f5b1a26aed4",
+        "named_in": [
+          "experiments/raw/p15-d-query-load/20261120T235521Z-ff00cfa278c8-ca0c/run-record.json",
+          "experiments/raw/p15-d-read-load/20261121T001529Z-abe4764a8293-b3f0/run-record.json",
+          "experiments/raw/p15-d-read-load/20261121T002254Z-abe4764a8293-db0d/run-record.json",
+          "experiments/raw/p15-e-retrieval-modes/20261120T221402Z-6a6c31a06d60-b6c7/run-record.json"
+        ]
+      }
+    ],
+    "experiment_attempts": [
+      {
+        "path": "experiments/raw/p15-a-hadoop/20261120T215912Z-b0c92f533c70-5a01",
+        "manifest_id": "p15-a-hadoop",
+        "attempt_id": "20261120T215912Z-b0c92f533c70-5a01",
+        "run_record_status": "failed"
+      },
+      {
+        "path": "experiments/raw/p15-a-hadoop/20261120T225632Z-eb786c5275a3-5c75",
+        "manifest_id": "p15-a-hadoop",
+        "attempt_id": "20261120T225632Z-eb786c5275a3-5c75",
+        "run_record_status": "succeeded"
+      },
+      {
+        "path": "experiments/raw/p15-a-spark/20261120T225850Z-eb786c5275a3-4f7e",
+        "manifest_id": "p15-a-spark",
+        "attempt_id": "20261120T225850Z-eb786c5275a3-4f7e",
+        "run_record_status": "succeeded"
+      },
+      {
+        "path": "experiments/raw/p15-b-spark-burst/20261120T225913Z-eb786c5275a3-fac6",
+        "manifest_id": "p15-b-spark-burst",
+        "attempt_id": "20261120T225913Z-eb786c5275a3-fac6",
+        "run_record_status": "succeeded"
+      },
+      {
+        "path": "experiments/raw/p15-c-embedding-backlog/20261120T225730Z-eb786c5275a3-ab26",
+        "manifest_id": "p15-c-embedding-backlog",
+        "attempt_id": "20261120T225730Z-eb786c5275a3-ab26",
+        "run_record_status": "succeeded"
+      },
+      {
+        "path": "experiments/raw/p15-d-query-load/20261120T235521Z-ff00cfa278c8-ca0c",
+        "manifest_id": "p15-d-query-load",
+        "attempt_id": "20261120T235521Z-ff00cfa278c8-ca0c",
+        "run_record_status": "succeeded"
+      },
+      {
+        "path": "experiments/raw/p15-d-read-load/20261121T001529Z-abe4764a8293-b3f0",
+        "manifest_id": "p15-d-read-load",
+        "attempt_id": "20261121T001529Z-abe4764a8293-b3f0",
+        "run_record_status": "succeeded"
+      },
+      {
+        "path": "experiments/raw/p15-d-read-load/20261121T002254Z-abe4764a8293-db0d",
+        "manifest_id": "p15-d-read-load",
+        "attempt_id": "20261121T002254Z-abe4764a8293-db0d",
+        "run_record_status": "failed"
+      },
+      {
+        "path": "experiments/raw/p15-e-retrieval-modes/20261120T221402Z-6a6c31a06d60-b6c7",
+        "manifest_id": "p15-e-retrieval-modes",
+        "attempt_id": "20261120T221402Z-6a6c31a06d60-b6c7",
+        "run_record_status": "succeeded"
+      },
+      {
+        "path": "experiments/raw/p15-f-poison-replay/20261120T223908Z-e94df52ca8fb-b4c0",
+        "manifest_id": "p15-f-poison-replay",
+        "attempt_id": "20261120T223908Z-e94df52ca8fb-b4c0",
+        "run_record_status": "succeeded"
+      }
+    ],
+    "evaluation_runs": [
+      {
+        "path": "experiments/evaluation/raw/answers/20261122T173416Z-7e551c8003c3-8128",
+        "kind": "answers",
+        "run_id": "20261122T173416Z-7e551c8003c3-8128"
+      },
+      {
+        "path": "experiments/evaluation/raw/answers/p15-demo",
+        "kind": "answers",
+        "run_id": "p15-demo"
+      },
+      {
+        "path": "experiments/evaluation/raw/er/20261122T170516Z-7e551c8003c3-91dd",
+        "kind": "er",
+        "run_id": "20261122T170516Z-7e551c8003c3-91dd"
+      },
+      {
+        "path": "experiments/evaluation/raw/factory/20261122T170410Z-7e551c8003c3-4c9e",
+        "kind": "factory",
+        "run_id": "20261122T170410Z-7e551c8003c3-4c9e"
+      },
+      {
+        "path": "experiments/evaluation/raw/factory/20261122T170517Z-7e551c8003c3-d311",
+        "kind": "factory",
+        "run_id": "20261122T170517Z-7e551c8003c3-d311"
+      },
+      {
+        "path": "experiments/evaluation/raw/graph/20261122T172641Z-7e551c8003c3-a0dc",
+        "kind": "graph",
+        "run_id": "20261122T172641Z-7e551c8003c3-a0dc"
+      },
+      {
+        "path": "experiments/evaluation/raw/graph/e5-sbt-20261122T1715Z-7e551c8",
+        "kind": "graph",
+        "run_id": "e5-sbt-20261122T1715Z-7e551c8"
+      },
+      {
+        "path": "experiments/evaluation/raw/performance/20261122T170410Z-7e551c8003c3-c22c",
+        "kind": "performance",
+        "run_id": "20261122T170410Z-7e551c8003c3-c22c"
+      },
+      {
+        "path": "experiments/evaluation/raw/performance/20261122T170516Z-7e551c8003c3-78bc",
+        "kind": "performance",
+        "run_id": "20261122T170516Z-7e551c8003c3-78bc"
+      },
+      {
+        "path": "experiments/evaluation/raw/ratings/20261122T173416Z-7e551c8003c3-c89f",
+        "kind": "ratings",
+        "run_id": "20261122T173416Z-7e551c8003c3-c89f"
+      },
+      {
+        "path": "experiments/evaluation/raw/repro/20261122T150259Z-7951f94-9a3d",
+        "kind": "repro",
+        "run_id": "20261122T150259Z-7951f94-9a3d"
+      },
+      {
+        "path": "experiments/evaluation/raw/repro/20261122T160611Z-79b5583-4c1e",
+        "kind": "repro",
+        "run_id": "20261122T160611Z-79b5583-4c1e"
+      },
+      {
+        "path": "experiments/evaluation/raw/repro/20261122T181639Z-7e551c8003c3-37b5",
+        "kind": "repro",
+        "run_id": "20261122T181639Z-7e551c8003c3-37b5"
+      },
+      {
+        "path": "experiments/evaluation/raw/repro/20261122T181639Z-7e551c8003c3-a9a7",
+        "kind": "repro",
+        "run_id": "20261122T181639Z-7e551c8003c3-a9a7"
+      },
+      {
+        "path": "experiments/evaluation/raw/repro/20261122T181639Z-7e551c8003c3-d603",
+        "kind": "repro",
+        "run_id": "20261122T181639Z-7e551c8003c3-d603"
+      },
+      {
+        "path": "experiments/evaluation/raw/repro/e5-pipeline-20261122T1715Z-79b5583",
+        "kind": "repro",
+        "run_id": "e5-pipeline-20261122T1715Z-79b5583"
+      },
+      {
+        "path": "experiments/evaluation/raw/retrieval/20261122T170410Z-7e551c8003c3-df76",
+        "kind": "retrieval",
+        "run_id": "20261122T170410Z-7e551c8003c3-df76"
+      },
+      {
+        "path": "experiments/evaluation/raw/retrieval/20261122T170516Z-7e551c8003c3-1864",
+        "kind": "retrieval",
+        "run_id": "20261122T170516Z-7e551c8003c3-1864"
+      }
+    ],
+    "emulator_runs": [
+      {
+        "path": "experiments/emulator/raw/20261122T1845Z-ecc1305-7d2e",
+        "run_id": "20261122T1845Z-ecc1305-7d2e"
+      }
+    ],
+    "local_only": [
+      {
+        "kind": "evidence archive",
+        "location": "local only (outside Git; never a repository path)",
+        "sha256": "a7115c16727ada7ba3e33b6354036f6b55e73237f11a552d0a6af5dcd5391e87",
+        "sha256_source": {
+          "path": "docs/agent-runs/phase-15/approvals.md",
+          "line": 78
+        }
+      }
+    ],
+    "source": "git ls-tree -r --name-only HEAD (committed paths only)"
+  },
+  "prompts": [
+    {
+      "path": "prompts/runtime/answer-synthesis-v1.md",
+      "file": "answer-synthesis-v1.md",
+      "sha256": "b319a4766ef2ee75dccec2b9f9f0b3268db795e622e4ed411e799a35f1a0565d"
+    },
+    {
+      "path": "prompts/runtime/answer-synthesis-v2.md",
+      "file": "answer-synthesis-v2.md",
+      "sha256": "f1f23c569b8a6504e658459eb425a122fa6e9bc54ba5ddedc1141675c8903537"
+    },
+    {
+      "path": "prompts/runtime/answer-synthesis-v3.md",
+      "file": "answer-synthesis-v3.md",
+      "sha256": "becccf473e825a63b1a7f3d644f9ffafd15e80fbdfe5c111180315bb7bcb32b8"
+    },
+    {
+      "path": "prompts/runtime/query-planner-v1.md",
+      "file": "query-planner-v1.md",
+      "sha256": "444a10a8e4366de8cd62608d2a5af587a7449d4e772a96bdc01cec1ef2979ea5"
+    },
+    {
+      "path": "prompts/runtime/query-planner-v2.md",
+      "file": "query-planner-v2.md",
+      "sha256": "60b5260e9c2eeabff46150fb09cf41a89fe39fbd23701b7023cdf0663e5684a1"
+    },
+    {
+      "path": "prompts/schemas/answer-claims-v1.schema.json",
+      "file": "answer-claims-v1.schema.json",
+      "sha256": "96a7b82fa767fc45b7ce7d1a53d75a817833787f21f7ab7312001d49303658ba"
+    },
+    {
+      "path": "prompts/schemas/answer-claims-v2.schema.json",
+      "file": "answer-claims-v2.schema.json",
+      "sha256": "bb9ed550640900c34866a7de10bbf3cc69752268b1bd3e620eadde355996f9de"
+    },
+    {
+      "path": "prompts/schemas/answer-claims-v3.schema.json",
+      "file": "answer-claims-v3.schema.json",
+      "sha256": "7bce3fe7cd90f747267acc5bc83c1b94076e847939798878d59a9204abd276de"
+    },
+    {
+      "path": "prompts/schemas/query-plan-draft-v1.schema.json",
+      "file": "query-plan-draft-v1.schema.json",
+      "sha256": "2f163a896429b9422b810e60df99a9c489a99b35ec3377113d9bd51a4f1ce028"
+    },
+    {
+      "path": "prompts/schemas/semantic-context-v1.schema.json",
+      "file": "semantic-context-v1.schema.json",
+      "sha256": "8489b483c4b1f8b786289440a2f4544e1a1ca655dd281e336b67e1bd4f5b3250"
+    }
+  ],
+  "models": {
+    "source": "config/course.json",
+    "embedding_model": {
+      "field": ".models.embeddingModelId",
+      "id": "voyage-4"
+    },
+    "answer_model": {
+      "field": ".models.answerModelId",
+      "id": "claude-haiku-5-5"
+    },
+    "embedding_provider": {
+      "field": ".embedding.provider",
+      "id": "voyage"
+    },
+    "embedding_dimensions": {
+      "field": ".embedding.dimensions",
+      "id": 1024
+    },
+    "answer_provider": {
+      "field": ".llm.provider",
+      "id": "anthropic"
+    }
+  },
+  "tests": {
+    "label": "E3 (sbt clean check in the fresh clone)",
+    "tested_sha": "4feef0ff117e9b7b0c1f411e875950e0bde06ba4",
+    "tested_sha_source": "git rev-parse HEAD in the --clone folder",
+    "marker_timestamp": "2026-11-25T17:46:00.163680Z",
+    "module_tests": 2362,
+    "contract_tests": 418,
+    "source": {
+      "option": "--marker",
+      "file_name": "p17-E3r-marker.txt",
+      "sha256": "66e8042b1efa11af77c5a463e25afa0ac69aa5519b1f2f0276928dace8c5bacc"
+    }
+  },
+  "jars": [
+    {
+      "name": "hadoop",
+      "module": "hadoop",
+      "path_in_clone": "modules/hadoop/target/scala-3.3.9/scholarchain-hadoop-assembly-0.1.0-SNAPSHOT.jar",
+      "sha256": "c26feafecff1db10f8345b6b41574a668fb16e2df7761eeaf3025f92765b0e0f",
+      "bytes": 11282209,
+      "status": "present",
+      "build_info": {
+        "buildCommit": "24490a565914f52fab3c5b9643cbbd7054e14e50",
+        "buildDirty": false,
+        "module": "hadoop"
+      }
+    },
+    {
+      "name": "entity-resolution",
+      "module": "entityResolution",
+      "path_in_clone": "modules/entity-resolution/target/scala-3.3.9/scholarchain-entity-resolution-assembly-0.1.0-SNAPSHOT.jar",
+      "sha256": "35bbbe38394a815382cab6a52c7eee47cb22f4b25c4d8a65bd55dfbf627bbd13",
+      "bytes": 11124184,
+      "status": "present",
+      "build_info": {
+        "buildCommit": "24490a565914f52fab3c5b9643cbbd7054e14e50",
+        "buildDirty": false,
+        "module": "entityResolution"
+      }
+    },
+    {
+      "name": "spark-analytics",
+      "module": "sparkAnalytics",
+      "path_in_clone": "modules/spark/target/scala-2.13/scholarchain-spark-analytics-assembly-0.1.0-SNAPSHOT.jar",
+      "sha256": "6d63287208b705f45ea736953e497bf8964a4c179a48b5dd3c9a1f8dac1090af",
+      "bytes": 3131041,
+      "status": "present",
+      "build_info": {
+        "buildCommit": "24490a565914f52fab3c5b9643cbbd7054e14e50",
+        "buildDirty": false,
+        "module": "sparkAnalytics"
+      }
+    },
+    {
+      "name": "services",
+      "module": "services",
+      "path_in_clone": "modules/services/target/scala-3.3.9/scholarchain-services-assembly-0.1.0-SNAPSHOT.jar",
+      "sha256": "4754f85e7464793a72c4397d9512661d0ad02e55bb9f0adf53888f6b8bb295c2",
+      "bytes": 33172120,
+      "status": "present",
+      "build_info": {
+        "buildCommit": "24490a565914f52fab3c5b9643cbbd7054e14e50",
+        "buildDirty": false,
+        "module": "services"
+      }
+    }
+  ],
+  "jar_source": "the four jars project/PackageCheck.scala opens (PackageCheck.Inputs), at the paths scripts/package.sh check_jars uses; none is optional",
+  "key_artifacts": [
+    {
+      "path": "config/course.json",
+      "sha256": "297b981435113ba5e1ccbc2473f810a64cce97c61e7bbeb75c1a0676d53fc5e8"
+    },
+    {
+      "path": "datasets/dataset-manifest.yaml",
+      "sha256": "ae312233b85c68b03b3f0535b0caae513b77db2d2c2dc8e505621939978482a6"
+    },
+    {
+      "path": "docs/agent-runs/phase-15/approvals.md",
+      "sha256": "95dbe2262b90666bafc54162b83d866a052ddbf30632afcfaa83ec6204ad6b43"
+    },
+    {
+      "path": "docs/agent-runs/phase-15/dynamodb-sample/dynamodb-sample.sha256",
+      "sha256": "ff1d0cd20631d0ad251731ef699b31f52009178152e32aaf8a1844968ec93853"
+    },
+    {
+      "path": "docs/agent-runs/phase-15/s3-copies/s3-copies.sha256",
+      "sha256": "8cf973f75c8884a8aeedcd35d6ef6c26c17b73cfa9ec0ba912659f2a988b4645"
+    },
+    {
+      "path": "docs/agent-runs/phase-16/frozen-files-sha256-E12.txt",
+      "sha256": "4f7ef9955bb85c7feaefb313e1968c72a3f0f8a748e3110242459e6da2c1bfb5"
+    },
+    {
+      "path": "experiments/evaluation/evaluate.py",
+      "sha256": "8e7f3e7478266a3de43ece14e40c351aa44262a61fd46e0058e01f95e5df96b3"
+    },
+    {
+      "path": "experiments/evaluation/raw/repro/20261122T150259Z-7951f94-9a3d/check-log.sha256",
+      "sha256": "b3b3e3fa65346b1a6bc9a192cdfe7cc0936f4d0e470c44c73bf9bfd8bce653e1"
+    },
+    {
+      "path": "experiments/evaluation/raw/repro/20261122T160611Z-79b5583-4c1e/check-log.sha256",
+      "sha256": "3a2c710571a37adb3332a4bca15e869e1f6f8b1676706c6abba2ce54264e4f58"
+    },
+    {
+      "path": "experiments/evaluation/suite-v1.json",
+      "sha256": "0f7f7d336433e00363a94d522a2bbbfdc93274cd32605cb411d445b98a339970"
+    },
+    {
+      "path": "experiments/manifests/p15-a-hadoop.json",
+      "sha256": "1254a11cd8431bfdf41b0549edca9f62adf622a5c13858ee7e469be4fa0488d8"
+    },
+    {
+      "path": "experiments/manifests/p15-a-spark.json",
+      "sha256": "1875db33a1f57632e9fcec579dcce3f1c717139ac1cba13c685ed654588f9531"
+    },
+    {
+      "path": "experiments/manifests/p15-b-spark-burst.json",
+      "sha256": "1b869c94c0370810d45810cfb1b2f7e91f272f94415b563d8c990b54d8f17c87"
+    },
+    {
+      "path": "experiments/manifests/p15-c-embedding-backlog.json",
+      "sha256": "36352e8fcdf6287a41b66e386f045f81d88db864a7f07e0169c7a6efa5101ab8"
+    },
+    {
+      "path": "experiments/manifests/p15-d-query-load.json",
+      "sha256": "2af43f86a39c31b00cb5c95810265e4d417be5522cef2bbdba0afaff33dc480b"
+    },
+    {
+      "path": "experiments/manifests/p15-d-read-load.json",
+      "sha256": "d851716dfbcd909f96a4b5e5be67d88a85206de67f9e74478b020825c7ce3070"
+    },
+    {
+      "path": "experiments/manifests/p15-e-retrieval-modes.json",
+      "sha256": "be3868dff8802e0cf2a2b60c5838444a3ec4bafb9cf7e9f15c2cab30ef1b8019"
+    },
+    {
+      "path": "experiments/manifests/p15-f-poison-replay.json",
+      "sha256": "a39c7e453f3c9264092fc22640e2c56465e06ff947bf031291ee9112a5b5fbaf"
+    },
+    {
+      "path": "project/PackageCheck.scala",
+      "sha256": "4450543483f90866d6eed5d432568355efc0acbc6859f069c93d27dc5a42b1eb"
+    },
+    {
+      "path": "releases/course/20261118T184244Z-39af6e4d0c51-9e3a.json",
+      "sha256": "c45882eb67524541d736d09f9003a88294ea8e62dda1b3ab6370d43047a5ecf0"
+    },
+    {
+      "path": "releases/course/20261118T212004Z-b925bc4ac306-8f27.json",
+      "sha256": "ab4bb9a9092078b918e3c280b897ab30ed66f155420977fe849cf5e47231d7cb"
+    },
+    {
+      "path": "releases/course/20261119T054925Z-cf28e28596c1-d63f.json",
+      "sha256": "f6ac615f4cc7fb2118ff34524f66142534b06395d6fe0469183e9ce2f7fdc686"
+    },
+    {
+      "path": "releases/course/20261119T193246Z-167196849087-d539.json",
+      "sha256": "b1b519b6ea21e0edc82a83dc674750169e333e58016d13df910bef8f7365fcbc"
+    },
+    {
+      "path": "releases/course/20261120T213452Z-94ec6b01a4ca-44da.json",
+      "sha256": "892c70c4fe4694e1ebf8e63e41c3fb3461899a6a69705f79b243032d4aefa7e9"
+    },
+    {
+      "path": "releases/course/20261120T225449Z-70876eb27b26-8ce8.json",
+      "sha256": "5a5682e8fa5dd15bb20f0ad0e87ae2f6ce3f1c7c985c867b3bbf5f443c0d955a"
+    },
+    {
+      "path": "releases/course/20261121T052512Z-ebcbc03a90bd-01a4.json",
+      "sha256": "92227c5b08f71a37c1901c4d9deb8f8ed636331c8e23602fb4e4e624dea05c4b"
+    }
+  ],
+  "key_artifacts_source": "git cat-file blob HEAD:PATH, sha256",
+  "rule_line": "commits after this one add or change only README.md, files under docs/ except docs/agents.md, docs/incidents/** and docs/agent-runs/**, files under reports/, new files under releases/manifest/RC_SHA/, and files under docs/agent-runs/phase-17/; they never delete or rename a file, and never change docs/agents.md, another phase's records, releases/course/ or an earlier manifest",
+  "identifier_check": "passed before writing (see scripts/release-manifest.sh --help)"
+}
