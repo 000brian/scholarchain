@@ -1,0 +1,282 @@
+diff --git a/docs/hadoop-job-contracts.md b/docs/hadoop-job-contracts.md
+index d67c8df..0b49c6a 100644
+--- a/docs/hadoop-job-contracts.md
++++ b/docs/hadoop-job-contracts.md
+@@ -2,7 +2,7 @@
+ 
+ One section per Hadoop MapReduce job of [`modules/hadoop/`](../modules/hadoop/): input and output key and value types, input and output locations, mapper, reducer, partitioner and combiner classes, output codec, the configuration keys with their defaults, and the tests and fixtures that exercise the job. The job graph and the recorded counts are in [`docs/data-lineage.md`](data-lineage.md#3-hadoop-jobs-j01-to-j09); this document does not repeat them.
+ 
+-**Status.** Documentation of existing code at commit `d8b49fa` (Phase 17 session 3, step E12 autograder follow-up, check HADOOP-11). No code, test or configuration was changed. Every item cites the file and line it comes from.
++**Status.** First written for the code at commit `d8b49fa` (Phase 17 session 3, step E12 autograder follow-up, check HADOOP-11), with no code change. Updated at Phase 17 session 3, repair round R3, for the code change of finding B1 (autograder check HADOOP-04): the counting pre-passes J05p and J05bp ([section 5.1](#51-j05p-block-size-pre-pass), [section 6.1](#61-j05bp-fallback-block-size-pre-pass)) and the J05 and J05b changes ([section 13.1](#131-j05-oversize-blocks-the-cap-is-enforced-before-the-reduce-step-check-hadoop-04-fixed)). That change is fixed in code, tested locally, not validated live on AWS; the recorded experiment results were produced by the earlier code. Finding B3 (check HADOOP-PAIRS-WRONG) changed no code ([section 13.2](#132-teams-over-the-hard-limit-are-rejected-check-hadoop-pairs-wrong)). Every item cites the file and line it comes from in the R3 working tree.
+ 
+ **Path abbreviations** used in the tables:
+ 
+@@ -18,7 +18,9 @@ Contents:
+ - [3. J02 source normalizers](#3-j02-source-normalizers)
+ - [4. J03 and J04 exact identifier join](#4-j03-and-j04-exact-identifier-join)
+ - [5. J05 blocking](#5-j05-blocking)
++  - [5.1 J05p block-size pre-pass](#51-j05p-block-size-pre-pass)
+ - [6. J05b fallback blocking](#6-j05b-fallback-blocking)
++  - [6.1 J05bp fallback block-size pre-pass](#61-j05bp-fallback-block-size-pre-pass)
+ - [7. J05c fallback coverage](#7-j05c-fallback-coverage)
+ - [8. J06 candidate features](#8-j06-candidate-features)
+ - [9. J07 publication teams](#9-j07-publication-teams)
+@@ -27,7 +29,7 @@ Contents:
+ - [12. J09 graph export](#12-j09-graph-export)
+ - [13. Known limitations and their rationale](#13-known-limitations-and-their-rationale)
+ 
+-Run order (not the numbering): J01, J07, J08a, J08b (`hadoop/pipeline/DblpChain.scala:43-75`), then J02 per source, J04, J05, J05b, J05c, J06, J09 (`hadoop/pipeline/Pipeline.scala:99-222`).
++Run order (not the numbering): J01, J07, J08a, J08b (`hadoop/pipeline/DblpChain.scala:43-75`), then J02 per source, J04, the blocking chain J05p, J05, J05bp, J05b, J05c (`hadoop/pipeline/BlockingChain.scala:49-118`, called at `hadoop/pipeline/Pipeline.scala:146-153`), then J06, J09 (`hadoop/pipeline/Pipeline.scala:114-220`). `PipelineResult.all` lists the jobs in this order (`hadoop/pipeline/Pipeline.scala:50-61`).
+ 
+ ## 1. What every job shares
+ 
+@@ -39,14 +41,14 @@ Every job is described by a `JobSpec` and run by `JobRunner.run` (`hadoop/common
+ | Map output key and value | `Text`, `Text` | `hadoop/common/JobRunner.scala:136-137` |
+ | Final output key and value | `NullWritable`, `Text` (one JSON line per record) through `TextOutputFormat`, wrapped in `LazyOutputFormat`; each named output is a `MultipleOutputs` output written to `<dir>/part-…` | `hadoop/common/JobRunner.scala:138-151`; `hadoop/common/TaskIO.scala:33-37` |
+ | Accounting outputs (every job) | `rejects/v1/`, `excluded/v1/`, `issues/v1/`, `conflicts/v1/`, `stats/` | `hadoop/common/TaskIO.scala:124-135`; added to every job at `hadoop/common/JobRunner.scala:143` |
+-| Partitioner | `StableHashPartitioner` (first 4 bytes of SHA-256 of the map-output key, modulo the reducer count); J05 and J05c override it with `TwoFieldPrefixPartitioner` | `hadoop/common/JobRunner.scala:140`; `hadoop/common/StableHashPartitioner.scala:14`, `:24` |
++| Partitioner | `StableHashPartitioner` (first 4 bytes of SHA-256 of the map-output key, modulo the reducer count); J05 overrides it with `BlockingPartitioner` and the grouping comparator `BlockingGroupingComparator` (section 5), J05c with `TwoFieldPrefixPartitioner` | `hadoop/common/JobRunner.scala:140`; `hadoop/common/StableHashPartitioner.scala:14`, `:24`; `hadoop/blocking/BlockingJob.scala:564-565`; `hadoop/blocking/FallbackJobs.scala:420` |
+ | Number of reducers | the job's own `*.reducers` key (each section) | `hadoop/common/JobRunner.scala:141` |
+-| Combiner | none: no job calls `setCombinerClass` (a search of `modules/hadoop/src/main` for `setCombinerClass` finds no match) | repository search |
++| Combiner | none, except the two counting pre-passes J05p and J05bp, which set `CountSumCombiner` (a search of `modules/hadoop/src/main` for `setCombinerClass` finds only these two calls) | `hadoop/blocking/BlockSizeJobs.scala:87-95`, `:199`, `:269` |
+ | Speculative execution | off for maps and reduces | `hadoop/common/JobRunner.scala:131-132` |
+ | Intermediate (shuffle) codec | on by default, `org.apache.hadoop.io.compress.DefaultCodec` (operational keys, not fingerprinted) | `defaults.xml:43-55`; `hadoop/common/JobRunner.scala:123-129` |
+ | Final output codec | off by default (`scholarchain.output.compress` false); when on, `org.apache.hadoop.io.compress.GzipCodec`. The EMR step passes `-D` only for the code version (`infra/terraform/modules/workflow/sfn.tf:358`), and `-D` options after the application options are not read (`hadoop/pipeline/ScholarChainHadoop.scala:19-21`), so the recorded EMR runs used the default (inferred from those two lines and from the bounded-pipeline run record note "built-in defaults (-D scholarchain.code.version only)", `scripts/run-bounded-pipeline.sh:1439-1440`; no EMR output listing was checked) | `defaults.xml:56-66`; `hadoop/common/JobRunner.scala:153-161` |
+ | Output folder | `<output root>/<scope>/<job name without "hadoop.">/run=<run hex>/`, holding the named outputs, `_SUCCESS` and `_job.json` (identity, counters, stats, sha256 of every output file) | `hadoop/common/JobRunner.scala:83`, `:92-96`, `:176-189` |
+-| Scope | `dblp/snapshot=<id>` for the DBLP jobs; `<datasetId>/snapshot=<id>` for J02; `linked/<label>` for J04 and J09, where the label joins the DBLP and source snapshots | each section; `hadoop/pipeline/Pipeline.scala:73-77`, `:114-115` |
++| Scope | `dblp/snapshot=<id>` for the DBLP jobs; `<datasetId>/snapshot=<id>` for J02; `linked/<label>` for J04 and J09, where the label joins the DBLP and source snapshots | each section; `hadoop/pipeline/Pipeline.scala:88-92`, `:129-130` |
+ | Output root on EMR | default `s3://{data-bucket}/curated/hadoop` (`{data-bucket}` is resolved by the script from the Terraform outputs); DBLP input under `s3://{data-bucket}/raw/…` | `scripts/run-bounded-pipeline.sh:131-133`, `:1397` |
+ | Output root locally | `<output dir>/real` and `<output dir>/synthetic` of the local runner; default `<output dir>` is `modules/hadoop/target/local-bounded-run` | `test/LocalBoundedPipeline.scala:57`, `:64`, `:94` |
+ | Shared configuration keys | output behaviour, reject preview, decompression guard, internal line limit (`scholarchain.internal.maxLineBytes`, 64 MiB) | `defaults.xml:31-88` |
+@@ -86,8 +88,8 @@ J02 did not run on EMR: the Phase 14 and 15 runs read DBLP only ([`docs/data-lin
+ 
+ | Item | Contract | Source |
+ |---|---|---|
+-| Job name | `hadoop.j04-exact-id-join` (J03's keyed indexes and J04's join are one job); dataset `scholarchain-hadoop`; scope `linked/<label>` | `hadoop/ids/ExactIdJoinJob.scala:15`, `:25`, `:38`, `:43`; `hadoop/pipeline/Pipeline.scala:115` |
+-| Input | J07 `mentionContexts/` and J02 `normalized/`, both `BoundedLineInputFormat` under the internal line limit | `hadoop/ids/ExactIdJoinJob.scala:47-64`; `hadoop/pipeline/Pipeline.scala:119-126` |
++| Job name | `hadoop.j04-exact-id-join` (J03's keyed indexes and J04's join are one job); dataset `scholarchain-hadoop`; scope `linked/<label>` | `hadoop/ids/ExactIdJoinJob.scala:15`, `:25`, `:38`, `:43`; `hadoop/pipeline/Pipeline.scala:130` |
++| Input | J07 `mentionContexts/` and J02 `normalized/`, both `BoundedLineInputFormat` under the internal line limit | `hadoop/ids/ExactIdJoinJob.scala:47-64`; `hadoop/pipeline/Pipeline.scala:134-141` |
+ | Map output | `doi\t<doi>` → `C` + MentionContext JSON or `S` + NormalizedSource JSON; records without a key count as MISSING_KEY_RECORDS | `hadoop/ids/ExactIdJoinJob.scala:17-19`, `:79`, `:92` |
+ | Reduce | `ExactLinker` per DOI group, bounded by `scholarchain.idjoin.maxGroupSize` (20000) | `hadoop/ids/ExactIdJoinJob.scala:20-21`, `:104`; `defaults.xml:256-261` |
+ | Outputs | `links/` (ExternalIdLink), `conflicts/v1/` | `hadoop/ids/ExactIdJoinJob.scala:20-22`, `:26` |
+@@ -99,54 +101,90 @@ J02 did not run on EMR: the Phase 14 and 15 runs read DBLP only ([`docs/data-lin
+ 
+ | Item | Contract | Source |
+ |---|---|---|
+-| Job name | `hadoop.j05-blocking`, scope `dblp/snapshot=<id>` | `hadoop/blocking/BlockingJob.scala:348`, `:366` |
+-| Input | J07 `mentionContexts/`, `BoundedLineInputFormat` | `hadoop/blocking/BlockingJob.scala:372-375` |
+-| Map output | key `<family>\t<key>` plus mention ID and content hash as secondary sort fields → `BlockMember` JSON, one per configured family and key | `hadoop/blocking/BlockingJob.scala:329-333`, `:401-406` |
+-| Partition and grouping | `TwoFieldPrefixPartitioner` and `TwoFieldPrefixGroupingComparator`: one reduce call per block, values in a fixed order | `hadoop/blocking/BlockingJob.scala:377-379` |
+-| Reduce | buffers at most the effective cap of members; larger blocks are not emitted and their members are streamed to `oversizeMembers/` (see [section 13.1](#131-j05-applies-the-block-cap-in-the-reducer-check-hadoop-04)) | `hadoop/blocking/BlockingJob.scala:437-497` |
+-| Outputs | `blocks/` (CandidateBlock), `oversizeBlocks/`, `oversizeMembers/`; `blocks/` and `oversizeMembers/` always exist | `hadoop/blocking/BlockingJob.scala:349-351`, `:368`, `:382` |
+-| Classes | mapper `BlockingMapper`, reducer `BlockingReducer` | `hadoop/blocking/BlockingJob.scala:376`, `:380`, `:386`, `:411` |
+-| Configuration | policy `scholarchain.blocking.policyVersion`; reducers `scholarchain.blocking.reducers` (4); `keyFamilies`, `maxBlockSize` (200), `emitSingletons`; also reads `scholarchain.candidates.maxPairsPerBlock` (125000) | `hadoop/blocking/BlockingJob.scala:363`, `:367`; `defaults.xml:269-297`, `:338-354`, `:366-380` |
+-| Tests and fixtures | `FallbackBlockingSuite` J05 (`test/FallbackBlockingSuite.scala:269`) on a generated corpus (`:244`); `BlockingDeterminismSuite` (`test/BlockingDeterminismSuite.scala:101`, `:127`); contract `JobLevelBlockingSuite` (`contracts/JobLevelBlockingSuite.scala:116`, `:132`) | as cited |
++| Job name | `hadoop.j05-blocking`, scope `dblp/snapshot=<id>` | `hadoop/blocking/BlockingJob.scala:513`, `:548` |
++| Input | J07 `mentionContexts/`, `BoundedLineInputFormat`; and the `oversizeKeys/` list of the J05p run (section 5.1), loaded once in each map task's `setup` (`OversizeKeySet`). The list's path is the path key `scholarchain.path.oversizeKeys`, set by the spec and not fingerprinted; without it (`oversizeKeys` = None) the job runs without the pre-pass | `hadoop/blocking/BlockingJob.scala:529-560`, `:578-586`; `hadoop/blocking/BlockSizeJobs.scala:52-82`; `hadoop/common/Settings.scala:222-225` |
++| Map output | three key kinds, `Text` → `Text`, for every configured family and key: (1) a key not on the list: `<family>\t<key>\t<mention ID>\t<content hash>` → `BlockMember` JSON (the Phase 4 secondary-sort key); (2) a key on the list: the member is re-keyed by its mention ID, `#member\t<family>\t<key>\t<mention ID>\t<content hash>` → `BlockMember` JSON (OVERSIZE_MEMBERS_REKEYED); (3) in `cleanup`, one size marker per listed key the map task saw, `#size\t<family>\t<key>` → the number of member values the task re-keyed for it | `hadoop/blocking/BlockingJob.scala:333-334`, `:343-361`, `:588-616` |
++| Partition and grouping | `BlockingPartitioner`: stable hash of `<family>\t<key>` for block members and size markers (the Phase 4 partition assignment) and of `<family>\t<key>\t<mention ID>` for re-keyed members, which spreads them over all reduce tasks. `BlockingGroupingComparator`: a reduce group is the first 2 tab-separated fields of a block member key, 3 of a size marker key, 4 of a re-keyed member key. So a block group holds at most the cap (only keys J05p found within it reach it), a re-keyed group holds the copies of one mention, and a marker group holds one value per map task that saw the key. The scaladoc at `hadoop/blocking/BlockingJob.scala:321-331` and `:476-482` names `BlockingPartitioner` and `BlockingGroupingComparator` (2-field block groups, 3-field marker groups, 4-field member groups); it named the Phase 4 `TwoFieldPrefixPartitioner` and `TwoFieldPrefixGroupingComparator` until the R3 minor repair pass fixed it (R3 review, minor finding 1, hadoop-engineer, comment only). The job sets the classes named here | `hadoop/blocking/BlockingJob.scala:363-385`, `:399-472`, `:564-565` |
++| Reduce | by group kind: a block group is buffered (at most the cap) and emitted, or counted as a singleton; a re-keyed member group is streamed to `oversizeMembers/` (OVERSIZE_BLOCK_MEMBERS); a size-marker group is summed to the block size, counted (OVERSIZE_BLOCKS, per family, PAIR_LIMIT_OVERSIZE_BLOCKS when the pair limit sets the cap) and listed in `oversizeBlocks/`. A block group over the cap reaches a reduce call only when the job runs without its pre-pass; the reducer-side cap then streams its members out and counts it as REDUCER_CAPPED_BLOCKS (0 in the pipeline). See [section 13.1](#131-j05-oversize-blocks-the-cap-is-enforced-before-the-reduce-step-check-hadoop-04-fixed) | `hadoop/blocking/BlockingJob.scala:494-510`, `:648-744` |
++| Outputs | `blocks/` (CandidateBlock), `oversizeBlocks/`, `oversizeMembers/`; `blocks/` and `oversizeMembers/` always exist. Stats: `largestBlock` (including oversize blocks) and `largestReduceGroup` (the most member values one reduce call read; size markers are not counted) | `hadoop/blocking/BlockingJob.scala:514-527`, `:550`, `:568`, `:626-629` |
++| Classes | mapper `BlockingMapper`, reducer `BlockingReducer`, partitioner `BlockingPartitioner`, grouping comparator `BlockingGroupingComparator` | `hadoop/blocking/BlockingJob.scala:561-566`, `:572`, `:619`, `:400`, `:410` |
++| Configuration | policy `scholarchain.blocking.policyVersion` (`blocking/2+author-name-key/1`, not changed by R3); reducers `scholarchain.blocking.reducers` (4); `keyFamilies`, `maxBlockSize` (200), `emitSingletons`; also reads `scholarchain.candidates.maxPairsPerBlock` (125000). R3 added no fingerprinted key and changed no default | `hadoop/blocking/BlockingJob.scala:545`, `:549`, `:553`; `defaults.xml:269-302`, `:350-366`, `:378-392` |
++| Tests and fixtures | `FallbackBlockingSuite` J05 (`test/FallbackBlockingSuite.scala:269`) on a generated corpus (`:244`); `BlockingDeterminismSuite` (`test/BlockingDeterminismSuite.scala:101`, `:127`); `OversizeBlockStrategySuite` on an inline 8-context fixture (`test/OversizeBlockStrategySuite.scala:148`, `:178`, `:187`, `:286`, `:366`, `:442`); contract `JobLevelBlockingSuite` (`contracts/JobLevelBlockingSuite.scala:116`, `:132`) and `OversizeBlockAdversarialSuite` (`contracts/OversizeBlockAdversarialSuite.scala:211`, `:228`, `:331`, `:530`, `:580`) | as cited |
++
++### 5.1 J05p block-size pre-pass
++
++Added in repair round R3 (check HADOOP-04): fixed in code, tested locally, not validated live on AWS; the recorded experiment results were produced by the earlier code.
++
++| Item | Contract | Source |
++|---|---|---|
++| Job name | `hadoop.j05p-block-sizes`, scope `dblp/snapshot=<id>`; runs just before J05 | `hadoop/blocking/BlockSizeJobs.scala:170`, `:187`; `hadoop/pipeline/BlockingChain.scala:58-65` |
++| Input | J07 `mentionContexts/` (the same input as J05), `BoundedLineInputFormat`; a malformed line is a `schema_failure` reject | `hadoop/blocking/BlockSizeJobs.scala:194-197`, `:214-221` |
++| Map output | `<family>\t<key>` → `1` for every configured family and key, the same groups J05 forms | `hadoop/blocking/BlockSizeJobs.scala:220` |
++| Combiner | `CountSumCombiner`: sums the decimal counts of a key, so after combining the shuffle carries one count per map task and key | `hadoop/blocking/BlockSizeJobs.scala:84-95`, `:199` |
++| Partitioner | the default `StableHashPartitioner` (the spec sets none) | `hadoop/common/JobRunner.scala:140` |
++| Reduce | sums the counts of each key (BLOCK_KEYS_COUNTED); a key over the effective J05 cap (`min(maxBlockSize, largest m whose pairs fit maxPairsPerBlock)`, 200 with the defaults) becomes one `OversizeKey` record (OVERSIZE_KEYS_FOUND). Stat `largestKeyGroup` | `hadoop/blocking/BlockSizeJobs.scala:108-156`, `:224-227` |
++| Outputs | `oversizeKeys/`, always present: job contract `scholarchain.hadoop.oversize-key` version 1, `OversizeKey(keyVersion, family, keyFields, blockKey, size, limit)`, where `size` counts member copies as the reducer would and `limit` is the effective cap | `hadoop/blocking/BlockSizeJobs.scala:15-42`, `:171-172`, `:189`, `:202` |
++| Read by J05 | `OversizeKeySet.load` fails the task on a line that is not a version-1 `OversizeKey` or that was counted for another effective cap. The set held per map task is at most V/(cap+1) keys for V map values (the code comment's example: about 30,000 keys for 3 million mention contexts in two families at cap 200) | `hadoop/blocking/BlockSizeJobs.scala:44-82` |
++| Classes | mapper `BlockSizeMapper`, combiner `CountSumCombiner`, reducer `PrimaryBlockSizeReducer` (base `BlockSizeReducer`) | `hadoop/blocking/BlockSizeJobs.scala:198-200`, `:206`, `:224`, `:111` |
++| Configuration | policy `scholarchain.blocking.policyVersion`; reducers `scholarchain.blocking.reducers` (4, shared with J05); cap keys `scholarchain.blocking.maxBlockSize` and `scholarchain.candidates.maxPairsPerBlock` | `hadoop/blocking/BlockSizeJobs.scala:184`, `:188`, `:193`; `defaults.xml:280-302`, `:355-366`, `:378-392` |
++| Tests and fixtures | `OversizeBlockStrategySuite` (`test/OversizeBlockStrategySuite.scala:133`, `:423`); contract `OversizeBlockAdversarialSuite` (`contracts/OversizeBlockAdversarialSuite.scala:191`, `:622`, `:631`, `:655`, `:668`) | as cited |
+ 
+ ## 6. J05b fallback blocking
+ 
+ | Item | Contract | Source |
+ |---|---|---|
+-| Job name | `hadoop.j05b-fallback-blocking`, scope `dblp/snapshot=<id>` | `hadoop/blocking/FallbackJobs.scala:107`, `:131` |
+-| Input | J05 `oversizeMembers/` (OversizeMember), `BoundedLineInputFormat` | `hadoop/blocking/FallbackJobs.scala:76-77`, `:138-141` |
+-| Map output | `<family>.<kind>\t<primary key>\t<value parts>` → `BlockMember` JSON, per configured secondary kind | `hadoop/blocking/FallbackJobs.scala:77-82` |
+-| Reduce | like J05, capped by the effective limit of `scholarchain.blocking.fallback.maxBlockSize` and `maxPairsPerBlock` | `hadoop/blocking/FallbackJobs.scala:84-93` |
+-| Outputs | `blocks/`, `fallbackOversizeBlocks/`, `coverage/`; `blocks/` and `coverage/` always exist | `hadoop/blocking/FallbackJobs.scala:108-110`, `:133`, `:145` |
+-| Classes | mapper `FallbackBlockingMapper`, reducer `FallbackBlockingReducer` | `hadoop/blocking/FallbackJobs.scala:142-143`, `:163`, `:198` |
+-| Configuration | policy `scholarchain.blocking.policyVersion`; reducers `scholarchain.blocking.fallback.reducers` (4); `fallback.families`, `fallback.secondaryKeys`, `fallback.maxBlockSize` (200) | `hadoop/blocking/FallbackJobs.scala:128`, `:132`; `defaults.xml:298-337` |
+-| Tests and fixtures | `FallbackBlockingSuite` J05b (`test/FallbackBlockingSuite.scala:319`, `:515`, `:594`); contract `FallbackPipelineEndToEndSuite` (`contracts/FallbackPipelineEndToEndSuite.scala:31`) | as cited |
++| Job name | `hadoop.j05b-fallback-blocking`, scope `dblp/snapshot=<id>` | `hadoop/blocking/FallbackJobs.scala:124`, `:157` |
++| Input | J05 `oversizeMembers/` (OversizeMember), `BoundedLineInputFormat`; and the `oversizeKeys/` list of the J05bp run (section 6.1), loaded once in each map task's `setup` (same path key as J05; without it the job runs without the pre-pass) | `hadoop/blocking/FallbackJobs.scala:138-170`, `:178-189`, `:199-209` |
++| Map output | FALLBACK_KEYS_EMITTED counts every fallback key value the mapper builds, per configured secondary kind and value, whether or not its group is on the list (`hadoop/blocking/FallbackJobs.scala:233`, before the list check at `:235`). For a fallback group not on the list: `<family>.<kind>\t<primary key>\t<value parts>` → `BlockMember` JSON. For a group on the list (still oversize): no member value is emitted; the mapper counts STILL_OVERSIZE_MEMBERS and, in `cleanup`, writes one size marker `#<count>` per such group under the group's key | `hadoop/blocking/FallbackJobs.scala:211-245`; key built by `FallbackKeys.reduceKey`, `hadoop/blocking/BlockingJob.scala:287-302` |
++| Partitioner | the default `StableHashPartitioner` (the spec sets none) | `hadoop/common/JobRunner.scala:140` |
++| Reduce | member values are buffered up to the effective cap of `scholarchain.blocking.fallback.maxBlockSize` and `maxPairsPerBlock`; marker values are summed. A group within the cap is emitted with coverage records or counted as a singleton (both REKEYED_BLOCKS). A group over the cap is counted (OVERSIZE_BLOCKS; STILL_OVERSIZE_BLOCKS when markers made its size, REDUCER_CAPPED_BLOCKS when members did, which happens only without the pre-pass) and listed in `fallbackOversizeBlocks/`. Still-oversize policy: [section 13.1](#131-j05-oversize-blocks-the-cap-is-enforced-before-the-reduce-step-check-hadoop-04-fixed) | `hadoop/blocking/FallbackJobs.scala:106-122`, `:270-358` |
++| Outputs | `blocks/`, `fallbackOversizeBlocks/`, `coverage/`; `blocks/` and `coverage/` always exist. Stats: `largestFallbackBlock` (before the cap, markers summed in), `largestEmittedFallbackBlock`, `largestReduceGroup` (member values only; marker-only groups are not offered) | `hadoop/blocking/FallbackJobs.scala:125-136`, `:159`, `:174`, `:254-260`, `:290-294` |
++| Classes | mapper `FallbackBlockingMapper`, reducer `FallbackBlockingReducer` | `hadoop/blocking/FallbackJobs.scala:171-172`, `:192`, `:247` |
++| Configuration | policy `scholarchain.blocking.policyVersion`; reducers `scholarchain.blocking.fallback.reducers` (4); `fallback.families`, `fallback.secondaryKeys`, `fallback.maxBlockSize` (200) | `hadoop/blocking/FallbackJobs.scala:154`, `:158`, `:163`; `defaults.xml:303-349`, `:355-361` |
++| Tests and fixtures | `FallbackBlockingSuite` J05b (`test/FallbackBlockingSuite.scala:319`, `:532`, `:614`); `OversizeBlockStrategySuite` (`test/OversizeBlockStrategySuite.scala:249`, `:366`); contract `FallbackPipelineEndToEndSuite` (`contracts/FallbackPipelineEndToEndSuite.scala:31`) and `OversizeBlockAdversarialSuite` (`contracts/OversizeBlockAdversarialSuite.scala:276`, `:435`, `:442`, `:580`) | as cited |
++
++### 6.1 J05bp fallback block-size pre-pass
++
++Added in repair round R3 (check HADOOP-04): fixed in code, tested locally, not validated live on AWS; the recorded experiment results were produced by the earlier code.
++
++| Item | Contract | Source |
++|---|---|---|
++| Job name | `hadoop.j05bp-fallback-block-sizes`, scope `dblp/snapshot=<id>`; runs after J05 and just before J05b | `hadoop/blocking/BlockSizeJobs.scala:241`, `:257`; `hadoop/pipeline/BlockingChain.scala:81-88` |
++| Input | J05 `oversizeMembers/` (the same input as J05b), `BoundedLineInputFormat`; a malformed line is a `schema_failure` reject | `hadoop/blocking/BlockSizeJobs.scala:264-267`, `:287-293` |
++| Map output | `<family>.<kind>\t<primary key>\t<value parts>` (`FallbackKeys.reduceKey`) → `1` for every configured fallback family, secondary kind and value, the same groups J05b forms | `hadoop/blocking/BlockSizeJobs.scala:292` |
++| Combiner | `CountSumCombiner` | `hadoop/blocking/BlockSizeJobs.scala:269` |
++| Partitioner | the default `StableHashPartitioner` (the spec sets none) | `hadoop/common/JobRunner.scala:140` |
++| Reduce | as J05p, against the effective J05b cap: every fallback group over it is a still-oversize group and becomes one `OversizeKey` record (BLOCK_KEYS_COUNTED, OVERSIZE_KEYS_FOUND, stat `largestKeyGroup`) | `hadoop/blocking/BlockSizeJobs.scala:108-156`, `:296-300` |
++| Outputs | `oversizeKeys/`, always present: `OversizeKey` version 1 with a fallback family `<primary>.<kind>`, `keyFields` the primary key followed by the secondary key parts, `blockKey` `FallbackKeys.blockKey` of them | `hadoop/blocking/BlockSizeJobs.scala:19-23`, `:242`, `:259`, `:272` |
++| Classes | mapper `FallbackBlockSizeMapper`, combiner `CountSumCombiner`, reducer `FallbackBlockSizeReducer` | `hadoop/blocking/BlockSizeJobs.scala:268-270`, `:276`, `:296` |
++| Configuration | policy `scholarchain.blocking.policyVersion`; reducers `scholarchain.blocking.fallback.reducers` (4, shared with J05b and J05c); fallback families, secondary keys and `fallback.maxBlockSize` with `maxPairsPerBlock` | `hadoop/blocking/BlockSizeJobs.scala:254`, `:258`, `:262-263`; `defaults.xml:303-349`, `:355-361`, `:378-392` |
++| Tests and fixtures | `OversizeBlockStrategySuite` (`test/OversizeBlockStrategySuite.scala:227`); contract `OversizeBlockAdversarialSuite` (`contracts/OversizeBlockAdversarialSuite.scala:256`, `:639`) | as cited |
+ 
+ ## 7. J05c fallback coverage
+ 
+ | Item | Contract | Source |
+ |---|---|---|
+-| Job name | `hadoop.j05c-fallback-coverage`, scope `dblp/snapshot=<id>` | `hadoop/blocking/FallbackJobs.scala:317`, `:335` |
+-| Input | J05 `oversizeMembers/` and J05b `coverage/`, through `MultipleInputs` | `hadoop/blocking/FallbackJobs.scala:303-304`, `:341-352` |
+-| Map output | `<family>\t<primary key>\t<mention ID>` → `M` + UncoveredMember JSON or `C` + fallback family | `hadoop/blocking/FallbackJobs.scala:304-306` |
+-| Partitioner | `TwoFieldPrefixPartitioner` (all members of one oversize block on one reduce task) | `hadoop/blocking/FallbackJobs.scala:305-306`, `:353` |
+-| Outputs | `uncoveredMembers/`, `oversizeKeySummary/` | `hadoop/blocking/FallbackJobs.scala:318-319`, `:337` |
+-| Classes | mappers `CoverageMemberMapper`, `CoverageRecordMapper`; reducer `FallbackCoverageReducer` | `hadoop/blocking/FallbackJobs.scala:345`, `:351`, `:354`, `:362`, `:382`, `:416` |
+-| Configuration | policy `scholarchain.blocking.policyVersion`; reducers `scholarchain.blocking.fallback.reducers` (4) | `hadoop/blocking/FallbackJobs.scala:332`, `:336`; `defaults.xml:333-337` |
+-| Tests and fixtures | `FallbackBlockingSuite` J05c (`test/FallbackBlockingSuite.scala:370`, `:716`) | as cited |
++| Job name | `hadoop.j05c-fallback-coverage`, scope `dblp/snapshot=<id>` | `hadoop/blocking/FallbackJobs.scala:384`, `:402` |
++| Input | J05 `oversizeMembers/` and J05b `coverage/`, through `MultipleInputs` | `hadoop/blocking/FallbackJobs.scala:370-371`, `:408-419` |
++| Map output | `<family>\t<primary key>\t<mention ID>` → `M` + UncoveredMember JSON or `C` + fallback family | `hadoop/blocking/FallbackJobs.scala:371-372`, `:425-426` |
++| Partitioner | `TwoFieldPrefixPartitioner` (all members of one oversize block on one reduce task) | `hadoop/blocking/FallbackJobs.scala:372-373`, `:420` |
++| Outputs | `uncoveredMembers/`, `oversizeKeySummary/` | `hadoop/blocking/FallbackJobs.scala:385-386`, `:404` |
++| Classes | mappers `CoverageMemberMapper`, `CoverageRecordMapper`; reducer `FallbackCoverageReducer` | `hadoop/blocking/FallbackJobs.scala:412`, `:418`, `:421`, `:429`, `:449`, `:483` |
++| Configuration | policy `scholarchain.blocking.policyVersion`; reducers `scholarchain.blocking.fallback.reducers` (4) | `hadoop/blocking/FallbackJobs.scala:399`, `:403`; `defaults.xml:345-349`, `:355-361` |
++| Tests and fixtures | `FallbackBlockingSuite` J05c (`test/FallbackBlockingSuite.scala:387`, `:736`); `OversizeBlockStrategySuite` (`test/OversizeBlockStrategySuite.scala:249`); contract `OversizeBlockAdversarialSuite` (`contracts/OversizeBlockAdversarialSuite.scala:308`) | as cited |
+ 
+ ## 8. J06 candidate features
+ 
+ | Item | Contract | Source |
+ |---|---|---|
+ | Job name | `hadoop.j06-candidate-features`, scope `dblp/snapshot=<id>` | `hadoop/candidates/CandidateFeatureJob.scala:193`, `:225` |
+-| Input | J05 and J05b `blocks/` (CandidateBlock v2), `BoundedLineInputFormat` | `hadoop/candidates/CandidateFeatureJob.scala:165`, `:211-235`; `hadoop/pipeline/Pipeline.scala:175-179` |
++| Input | J05 and J05b `blocks/` (CandidateBlock v2), `BoundedLineInputFormat` | `hadoop/candidates/CandidateFeatureJob.scala:165`, `:211-235`; `hadoop/pipeline/Pipeline.scala:161-165` |
+ | Map output | `<family>\t<blockKey>\t<shard>` → `BlockShard` for each of ceil(pairs / pairsPerShard) shards | `hadoop/candidates/CandidateFeatureJob.scala:160`, `:173-176` |
+ | Reduce | streams the shard's member pairs into `candidates/family=<family>/` as MatchCandidate records | `hadoop/candidates/CandidateFeatureJob.scala:178-184`, `:202` |
+ | Outputs | `candidates/`, `oversizeBlocks/`, `unexpandedMembers/` | `hadoop/candidates/CandidateFeatureJob.scala:194-200`, `:227` |
+ | Classes | mapper `BlockShardMapper`, reducer `CandidateFeatureReducer` | `hadoop/candidates/CandidateFeatureJob.scala:236-237`, `:252`, `:343` |
+-| Configuration | policy key `scholarchain.candidates.featureSet` (must equal the implemented set); reducers `scholarchain.candidates.reducers` (4); `maxPairsPerBlock` (125000), `pairsPerShard` (50000), `skipSameNumberedName` (true) | `hadoop/candidates/CandidateFeatureJob.scala:222`, `:226`, `:242-249`; `defaults.xml:357-403` |
+-| Tests and fixtures | `CandidateSuite` (`test/CandidateSuite.scala:298`, `:379`, `:456`); `FallbackBlockingSuite` (`test/FallbackBlockingSuite.scala:433`, `:764`); contract `JobLevelBlockingSuite` (`contracts/JobLevelBlockingSuite.scala:287`, `:308`) and `PairLimitAdversarialSuite` (`contracts/PairLimitAdversarialSuite.scala:32`) | as cited |
++| Configuration | policy key `scholarchain.candidates.featureSet` (must equal the implemented set); reducers `scholarchain.candidates.reducers` (4); `maxPairsPerBlock` (125000), `pairsPerShard` (50000), `skipSameNumberedName` (true) | `hadoop/candidates/CandidateFeatureJob.scala:222`, `:226`, `:242-249`; `defaults.xml:370-415` |
++| Tests and fixtures | `CandidateSuite` (`test/CandidateSuite.scala:298`, `:379`, `:456`); `FallbackBlockingSuite` (`test/FallbackBlockingSuite.scala:450`, `:784`); contract `JobLevelBlockingSuite` (`contracts/JobLevelBlockingSuite.scala:287`, `:308`) and `PairLimitAdversarialSuite` (`contracts/PairLimitAdversarialSuite.scala:32`) | as cited |
+ 
+ ## 9. J07 publication teams
+ 
+@@ -159,7 +197,7 @@ J02 did not run on EMR: the Phase 14 and 15 runs read DBLP only ([`docs/data-lin
+ | Outputs | `teams/` (PublicationTeam), `authorPapers/`, `mentionContexts/`, `oversizeTeams/` | `hadoop/teams/PublicationTeamJob.scala:24-27`, `:45` |
+ | Classes | mappers `TeamWorkMapper`, `TeamMentionMapper`; reducer `PublicationTeamReducer` | `hadoop/teams/PublicationTeamJob.scala:53`, `:59`, `:61`, `:101`, `:111`, `:121` |
+ | Configuration | policy `scholarchain.dblp.parsePolicyVersion`; reducers `scholarchain.teams.reducers` (4); `oversizeThreshold` (100), `hardLimit` (5000), `maxCoauthorContext` (50) | `hadoop/teams/PublicationTeamJob.scala:40`, `:44`; `defaults.xml:182-204` |
+-| Tests and fixtures | `DblpChainSuite` on [`datasets/samples/dblp/dblp-sample.xml`](../datasets/samples/dblp/dblp-sample.xml) (`test/DblpChainSuite.scala:26`, `:31`) and a generated giant team (`:202`); `PairsAndTeamsSuite` (`test/PairsAndTeamsSuite.scala:133`); contract `JobLevelTeamScaleSuite` (`contracts/JobLevelTeamScaleSuite.scala:48`, `:114`, `:129`) | as cited |
++| Tests and fixtures | `DblpChainSuite` on [`datasets/samples/dblp/dblp-sample.xml`](../datasets/samples/dblp/dblp-sample.xml) (`test/DblpChainSuite.scala:26`, `:31`) and a generated giant team (`:202`); `PairsAndTeamsSuite` (`test/PairsAndTeamsSuite.scala:133`); contract `JobLevelTeamScaleSuite` (`contracts/JobLevelTeamScaleSuite.scala:48`, `:114`, `:129`, `:148`) | as cited |
+ 
+ ## 10. J08a pair expansion
+ 
+@@ -191,30 +229,64 @@ J02 did not run on EMR: the Phase 14 and 15 runs read DBLP only ([`docs/data-lin
+ 
+ | Item | Contract | Source |
+ |---|---|---|
+-| Job name | `hadoop.j09-graph-export`, dataset `scholarchain-hadoop`, scope `linked/<label>` | `hadoop/graphexport/GraphExportJob.scala:83`, `:96`, `:101`; `hadoop/pipeline/Pipeline.scala:115`, `:220` |
+-| Input | works, venues (J01), authorPapers, teams (J07), pairs (J08b), links (J04), candidates (J06, `family=*`), institutions, topics (J02), each through its own mapper and `BoundedLineInputFormat`; missing inputs are left out | `hadoop/graphexport/GraphExportJob.scala:71-73`, `:107-109`; `hadoop/pipeline/Pipeline.scala:187-208` |
++| Job name | `hadoop.j09-graph-export`, dataset `scholarchain-hadoop`, scope `linked/<label>` | `hadoop/graphexport/GraphExportJob.scala:83`, `:96`, `:101`; `hadoop/pipeline/Pipeline.scala:130`, `:206` |
++| Input | works, venues (J01), authorPapers, teams (J07), pairs (J08b), links (J04), candidates (J06, `family=*`), institutions, topics (J02), each through its own mapper and `BoundedLineInputFormat`; missing inputs are left out | `hadoop/graphexport/GraphExportJob.scala:71-73`, `:107-109`; `hadoop/pipeline/Pipeline.scala:173-194` |
+ | Map output | `<entity>\t<year or empty>\t<record ID>` → record JSON | `hadoop/graphexport/GraphExportJob.scala:74`, `:174` |
+ | Reduce | one record per ID; identical copies collapse; links, institutions and topics merge when they agree on every fact; other disagreement is rejected | `hadoop/graphexport/GraphExportJob.scala:74-76`, `:129-130`, `:194-214` |
+ | Outputs | named output `exported`, written to `<entity>/year=<YYYY>/` for work, publication_team and coauthor_pair_candidate, `<entity>/` otherwise | `hadoop/graphexport/GraphExportJob.scala:78-80`, `:84`, `:196` |
+ | Entities | `work`, `author_mention`, `publication_team`, `coauthor_pair_candidate`, `external_id_link`, `institution`, `topic`, `venue`, `match_candidate` | `hadoop/graphexport/GraphExportJob.scala:25-64` |
+ | Classes | mappers `WorkExportMapper` … `CandidateExportMapper` (one per entity); reducer `GraphExportReducer` | `hadoop/graphexport/GraphExportJob.scala:114-124`, `:178-186`, `:188` |
+-| Configuration | policy `scholarchain.export.policyVersion`; reducers `scholarchain.export.reducers` (4) | `hadoop/graphexport/GraphExportJob.scala:98`, `:102`; `defaults.xml:406-416` |
+-| Tests and fixtures | `PipelineSuite` (`test/PipelineSuite.scala:14`); `CandidateSuite` (`test/CandidateSuite.scala:489`); `FallbackBlockingSuite` (`test/FallbackBlockingSuite.scala:433`); `LinkAndBlockSuite` export merge (`test/LinkAndBlockSuite.scala:194`) | as cited |
++| Configuration | policy `scholarchain.export.policyVersion`; reducers `scholarchain.export.reducers` (4) | `hadoop/graphexport/GraphExportJob.scala:98`, `:102`; `defaults.xml:418-428` |
++| Tests and fixtures | `PipelineSuite` (`test/PipelineSuite.scala:14`); `CandidateSuite` (`test/CandidateSuite.scala:489`); `FallbackBlockingSuite` (`test/FallbackBlockingSuite.scala:450`); `LinkAndBlockSuite` export merge (`test/LinkAndBlockSuite.scala:194`) | as cited |
+ 
+ ## 13. Known limitations and their rationale
+ 
+-Both items describe existing code. No code was changed; a change would belong to hadoop-engineer and is out of scope after the release candidate.
+-
+-### 13.1 J05 applies the block cap in the reducer (check HADOOP-04)
+-
+-- **What the code does.** `BlockingMapper` emits every member for every key of every configured family (`hadoop/blocking/BlockingJob.scala:401-406`, emit at `:405`). `BlockingReducer` counts the values of one block. Past the effective cap (200 with the defaults, `defaults.xml:281-297`) it stops buffering and streams every member to `oversizeMembers/` (`hadoop/blocking/BlockingJob.scala:444-456`; comment "The block is oversize: stream its members out instead of buffering them." at `:449`). The block is counted (OVERSIZE_BLOCKS) and listed in `oversizeBlocks/` (`:458-475`).
+-- **The limitation.** Memory per reduce call stays bounded by the cap. But the whole oversize group is still shuffled to one reducer and read in one reduce call. There is no pre-pass that counts key sizes, no key salting and no sampling.
+-- **Recorded size.** In Phase 15 experiment A, attempt 2, the largest J05 group had 5,127 members (stat `largestBlock`). The same run counted 590 oversize blocks with 323,113 oversize members ([`hadoop-job-counters.csv`](../experiments/raw/p15-a-hadoop/20261120T225632Z-eb786c5275a3-5c75/hadoop-job-counters.csv), lines 27, 28 and 30). The run completed.
+-- **Consequence.** The reduce task that holds the largest key does more work than the others (skew). Oversize members go on to the J05b fallback and the J05c coverage accounting (sections 6 and 7), so they are counted, not lost.
+-- **Tests.** `test/FallbackBlockingSuite.scala:269`; `contracts/JobLevelBlockingSuite.scala:116`.
++Both items were documented at step E12 as known limitations of the code then, with no code change. In Phase 17 session 3, repair round R3 (instructor-approved), they were handled differently:
++
++- 13.1 (finding B1, autograder V2 check HADOOP-04) was a genuine defect. It is fixed in code, tested locally, not validated live on AWS; the recorded experiment results were produced by the earlier code.
++- 13.2 (finding B3, autograder V2 check HADOOP-PAIRS-WRONG) is a deliberate safety bound, not a fixed defect. No code changed; the human kept the bound under instructor condition 4, and a contract test now pins it.
++
++Sources for this section, besides the code: hadoop-engineer's R3 reports (`agent-report-hadoop-R3.md`, `repair-hadoop-R3.md`), the R3 review (`review-report-R3-partB.md`, verdict APPROVE) and test-engineer's wave-closer report (`test-report-R3-2.md`). They are session reports that the human copies into `docs/agent-runs/phase-17/`.
++
++### 13.1 J05 oversize blocks: the cap is enforced before the reduce step (check HADOOP-04, fixed)
++
++- **Status.** Fixed in code, tested locally, not validated live on AWS; the recorded experiment results were produced by the earlier code.
++- **The defect (code before R3).** `BlockingMapper` emitted every member for every key of every configured family. `BlockingReducer` counted the values of one block and, past the effective cap (200 with the defaults), stopped buffering and streamed every member to `oversizeMembers/`. Memory per reduce call stayed bounded, but the whole oversize group was still shuffled to one reducer and read in one reduce call: there was no pre-pass that counted key sizes, no key salting and no sampling. J05b had the same pattern for oversize fallback groups. The course specification says: "A giant reducer group is a correctness and availability risk. The blocking design must include maximum block size, fallback keys, counters, and a policy for oversize groups. Simply allocating a larger reducer is not a strategy." (`docs/agent-runs/phase-17/course-specification.md:2245`).
++- **Recorded size (earlier code).** In Phase 15 experiment A, attempt 2, the largest J05 group had 5,127 members (stat `largestBlock`). The same run counted 590 oversize blocks with 323,113 oversize members ([`hadoop-job-counters.csv`](../experiments/raw/p15-a-hadoop/20261120T225632Z-eb786c5275a3-5c75/hadoop-job-counters.csv), lines 27, 28 and 30). The run completed. No run of the new code exists on EMR.
++- **What changed.**
++  1. A counting pre-pass runs before each blocking job: J05p before J05 ([section 5.1](#51-j05p-block-size-pre-pass)) and J05bp before J05b ([section 6.1](#61-j05bp-fallback-block-size-pre-pass)). Each sums one count per key with a combiner and lists the keys over the effective cap in `oversizeKeys/`.
++  2. The J05 mapper loads that list. A member of a listed key is re-keyed by its mention ID, and each map task adds one size marker per listed key it saw. `BlockingPartitioner` and `BlockingGroupingComparator` group re-keyed members per mention, markers per key, and normal block members per block, as in Phase 4 ([section 5](#5-j05-blocking); `hadoop/blocking/BlockingJob.scala:494-510`, `:564-565`, `:588-616`).
++  3. The documented fallback keys (`coauthor`, `venue`, `coauthor-venue`; `FallbackKeys`, `hadoop/blocking/BlockingJob.scala:287-302`) then re-key the oversize members in J05b, as before.
++  4. Wiring: `BlockingChain.run` runs J05p, J05, J05bp, J05b and J05c and is called from `Pipeline.run` (`hadoop/pipeline/BlockingChain.scala:49-118`; `hadoop/pipeline/Pipeline.scala:146-153`). The pre-pass runs are input runs of J05 and J05b (`hadoop/pipeline/BlockingChain.scala:69`, `:92`), so a rerun reuses every directory and a changed cap changes every later run ID. `PipelineResult` gains `blockSizes` and `fallbackBlockSizes` (`hadoop/pipeline/Pipeline.scala:45-46`).
++- **Still-oversize policy (J05b).** A fallback group that J05bp lists is still over the fallback cap after re-keying. It is not formed: the J05b mapper counts its values (STILL_OVERSIZE_MEMBERS) and never shuffles them, and sends one size marker `#<count>` per map task. The reducer sums the markers, counts the group (OVERSIZE_BLOCKS and STILL_OVERSIZE_BLOCKS) and lists it in `fallbackOversizeBlocks/` with its size, limits and reason. No further key is tried. Each of its members is covered by its other fallback blocks (other coauthors or kinds) or else counted and listed as uncovered by J05c (FALLBACK_UNCOVERED_MEMBERS, `uncoveredMembers/`, `oversizeKeySummary/`). The policy is deterministic because it depends only on group sizes (`hadoop/blocking/FallbackJobs.scala:106-122`, `:218-245`, `:270-315`; `defaults.xml:336-343`). A finer policy, such as a second fallback level, would change the candidate set; that is an entity-resolution policy decision and is on the proposed-later list.
++- **Same records as before.** With and without the pre-pass, the same input gives the same `blocks/`, `oversizeBlocks/`, `oversizeMembers/`, fallback `blocks/`, `fallbackOversizeBlocks/` and `coverage/`, and the same policy counters (`test/OversizeBlockStrategySuite.scala:187`; `contracts/OversizeBlockAdversarialSuite.scala:331`). So the candidate set on which `er-v2` was calibrated is unchanged, and the blocking `policyVersion` was not bumped.
++- **New counters** (group `scholarchain`, `hadoop/common/Counters.scala:75-102`):
++
++  | Counter | Job | Meaning |
++  |---|---|---|
++  | BLOCK_KEYS_COUNTED | J05p, J05bp | distinct keys counted |
++  | OVERSIZE_KEYS_FOUND | J05p, J05bp | keys over the effective cap, listed in `oversizeKeys/` |
++  | OVERSIZE_MEMBERS_REKEYED | J05 | member values re-keyed by mention ID; equals OVERSIZE_BLOCK_MEMBERS |
++  | REKEYED_BLOCKS | J05b | fallback groups within the cap |
++  | STILL_OVERSIZE_BLOCKS | J05b | fallback groups still over the cap; a subset of OVERSIZE_BLOCKS |
++  | STILL_OVERSIZE_MEMBERS | J05b | values of still-oversize groups, counted in the mapper and never shuffled |
++  | REDUCER_CAPPED_BLOCKS | J05, J05b | groups that reached one reduce call over the cap; 0 with the pre-pass, non-zero only for a run without it |
++
++  OVERSIZE_BLOCKS, PAIR_LIMIT_OVERSIZE_BLOCKS, OVERSIZE_BLOCK_MEMBERS and FALLBACK_KEYS_EMITTED keep their meaning. New stats: `largestKeyGroup` (J05p, J05bp) and `largestReduceGroup` (J05, J05b).
++- **The `largestReduceGroup` bound.** The stat is the most member values one reduce call read. Size-marker values are not counted, and a group of markers only is not offered, because its value count is the number of map tasks that saw the key, not a data size (`hadoop/blocking/BlockingJob.scala:518-527`, `:648-660`; `hadoop/blocking/FallbackJobs.scala:290-292`). With the pre-pass it is therefore at most the job's effective cap (200 with the defaults) and the same for every map-task layout. Without the pre-pass it is the size of the largest group. A reduce task that reads only marker groups writes no `largestReduceGroup` line. The first R3 version also counted marker groups, so the stat could exceed the cap when many map tasks carried one key; test-engineer's adversarial test found this, and hadoop-engineer repaired it in the same round (`repair-hadoop-R3.md`).
++- **Refusals.** `OversizeKeySet.load` fails the job on a malformed line, a `keyVersion` other than 1, or a list counted for another effective cap (`hadoop/blocking/BlockSizeJobs.scala:58-74`). A stale list from another input is not detected, but the reducer-side guard still keeps the records correct and counts REDUCER_CAPPED_BLOCKS (`contracts/OversizeBlockAdversarialSuite.scala:668`).
++- **Costs.** Two more jobs per pipeline run, each re-reading the input of the job it serves, so a malformed line is rejected by both jobs. `stats/` of J05 and J05b gains the `largestReduceGroup` line. Every J05, J05b, J05c, J06 and J09 run ID changes, so output directories of earlier runs are not reused.
++- **Tests.**
++  - `OversizeBlockStrategySuite` (new, 10 tests, `test/OversizeBlockStrategySuite.scala:133-484`): the J05p and J05bp listings; J05 re-keying with no reduce group above the cap; the defect reproduced without the pre-pass (`:178`); equal records with and without the pre-pass; the still-oversize policy and J05c coverage; byte determinism over three input layouts; `largestReduceGroup` within the cap and identical `stats/` when many map tasks carry one key (`:366`); refusal of a pre-pass for another cap; partitioner and grouping comparator.
++  - `OversizeBlockAdversarialSuite` (new, test-engineer, 18 tests, `contracts/OversizeBlockAdversarialSuite.scala:128-708`), including "largestReduceGroup stays within the cap and does not depend on the map-task layout" (`:580`) over four layouts.
++  - Changed: `FallbackBlockingSuite` (17 tests) and `LocalPipelineRunnerSuite` (4 tests, the job list now includes the two pre-passes).
++  - Recorded results: targeted runs after the repair, hadoop 52 of 52 and contract tests 30 of 30 (`repair-hadoop-R3.md`); a mutation that ignored the pre-pass made 2 of the 9 first-version tests fail (`agent-report-hadoop-R3.md`). Full `sbt check` as wave closer: exit 0; hadoop 17 suites, 124 tests, 0 failed; contract tests 35 suites, 418 of 418 passed (`test-report-R3-2.md`).
++- **Minor items fixed in the R3 minor repair pass (R3 review, `review-report-R3-partB.md`).** The `BlockingSort` and J05 scaladoc (`hadoop/blocking/BlockingJob.scala:321-331`, `:476-482`) now describes `BlockingPartitioner` and `BlockingGroupingComparator` instead of the Phase 4 partitioner and grouping (finding 1, hadoop-engineer, comment only; `repair-hadoop-R3-2.md`). The contract determinism test's byte comparison of `stats/` now includes the `largestReduceGroup` line, which the test at `contracts/OversizeBlockAdversarialSuite.scala:580` also checks (finding 6, test-engineer).
+ 
+ ### 13.2 Teams over the hard limit are rejected (check HADOOP-PAIRS-WRONG)
+ 
++- **Status.** A deliberate safety bound, not a fixed defect. No code changed in repair round R3 (finding B3); the human decided to keep the bound under instructor condition 4.
++
+ - **What the code does.** J07 rejects a team with more than `scholarchain.teams.hardLimit` authors (default 5000, `defaults.xml:188-193`) with reason `team_exceeds_hard_limit` (`hadoop/common/Disposition.scala:112`). It writes no team and therefore J08 makes no pairs (`hadoop/teams/TeamAssembler.scala:75-76`). The reducer also stops buffering mentions past `hardLimit + 1` and rejects the team (`hadoop/teams/PublicationTeamJob.scala:148-151`, `:159-165`).
+ - **How it is counted.** The rejection is deliberate and visible in three places:
+   - the counter OVERSIZE_AUTHOR_TEAMS (`hadoop/teams/PublicationTeamJob.scala:169`; `hadoop/common/Counters.scala:47`);
+@@ -223,5 +295,13 @@ Both items describe existing code. No code was changed; a change would belong to
+ 
+   OVERSIZE_AUTHOR_TEAMS also counts teams above the oversize threshold (100) that are still expanded (`hadoop/teams/PublicationTeamJob.scala:189-190`). The per-reason counter is therefore the exact count of rejected teams.
+ - **Why.** The defaults file gives the reason: 5,000 authors would expand to 12,497,500 pairs (`defaults.xml:191-192`). Teams of 101 to 5,000 authors are expanded in full, split into shards over the reducers (`defaults.xml:207-213`).
++- **Why the bound stays (R3 analysis).**
++  - Memory is not the risk. J08a already streams pairs in shards of 100,000 (`scholarchain.pairs.pairsPerShard`, `defaults.xml:208-212`): the mapper emits one shard record per shard, and the reducer expands one shard as it writes (`hadoop/pairs/PairJobs.scala:69-80`, `:96-138`). The risk is output size.
++  - Without the hard limit, only the DBLP record limit would bound a team. `scholarchain.dblp.maxRecordBytes` is 1,048,576 bytes (`defaults.xml:141-142`). An `<author>` element with a 3-character name is 20 bytes, so one record could hold about 52,000 distinct authors. At about 35 bytes per element (an assumed realistic size, not measured) it could hold about 30,000.
++  - Pairs: about 52,000 authors give 1,351,974,000 pairs and about 30,000 give 449,985,000. The hard limit bounds one record to 12,497,500 pairs.
++  - Bytes, as estimates only: about 693 bytes per pair record is a local measurement by hadoop-engineer with no committed record, so every volume that rests on it is an estimate. On that basis one such record would write about 937 GB (52,000 authors) or about 312 GB (30,000 authors) per pair stage; about 0.9 to 2.8 TB over the three written stages (J08a `pairInstances/`, J08b `pairs/`, the J09 export); about 1.25 to 3.75 TB with the J08b shuffle. Equal record size across the stages is also assumed.
++  - The specification lists decompression-bomb inputs among the threats (`docs/agent-runs/phase-17/course-specification.md:2718`) and requires bounded inputs and outputs (`:2729`). It also asks to "count and report unusually large author teams" (`:1155`). Teams above the limit are counted (OVERSIZE_AUTHOR_TEAMS) and rejected with reason `team_exceeds_hard_limit`, with a reject record, so they are reported, not silently dropped.
++  - Real data does not reach the bound: the largest team in the recorded run had 137 authors (next item).
++- **Alternative not built (option A).** Teams above the limit could be kept, and the materialized pairs replaced with an implicit clique handled in Spark: J08 would write one large-team record per team instead of n(n-1)/2 pair records, and Spark would derive per-researcher coauthor counts from team membership and use a work-hub representation for connectivity and bridges. This avoids the volume only if Spark never expands the clique into pairs. It needs a `core` contract, a Spark change and a Hadoop change; it is not implemented and is on the proposed-later list.
+ - **Recorded effect.** None in the recorded run. In Phase 15 experiment A, attempt 2, the largest team had 137 authors (stat `maxTeamSize`) and OVERSIZE_AUTHOR_TEAMS was 15. The J07 rows of that file have no reject counter ([`hadoop-job-counters.csv`](../experiments/raw/p15-a-hadoop/20261120T225632Z-eb786c5275a3-5c75/hadoop-job-counters.csv), lines 74-83). No team reached the hard limit.
+-- **Tests.** `contracts/JobLevelTeamScaleSuite.scala:114`, `:129`; `test/DblpChainSuite.scala:202`; `test/PairsAndTeamsSuite.scala:133`.
++- **Tests.** `contracts/JobLevelTeamScaleSuite.scala:114`, `:129`; `contracts/JobLevelTeamScaleSuite.scala:148` (added in R3 by test-engineer: with `hardLimit` 12, a team of exactly 12 expands to every pair once, teams of 13 and 25 are counted and rejected, and small teams beside them expand once); `test/DblpChainSuite.scala:202`; `test/PairsAndTeamsSuite.scala:133`.

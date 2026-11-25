@@ -12,7 +12,7 @@ Results in short: V1 had 8 FAIL and 9 WARN rows (17 A-items). V2 `hadoop_mapredu
 - It was used once in Phase 17 (session 3, step E12). It drafted this file. No other built-in subagent (general-purpose, Explore or any other) was used in Phase 17, and no earlier phase used one (the human checked the earlier phases; runbook-log row "E12 built-in subagent disclosure").
 - It has Claude Code's full default tool set, because it has no file under `.claude/agents/` that narrows its tools. It was instructed to work read-only, and it wrote only this draft, in the session scratchpad. It wrote nothing in the repository.
 - code-reviewer reviewed its draft (review-report-autograder.md: REQUEST_CHANGES, fixed; review-report-autograder-2.md: APPROVE).
-- The hooks still applied to it. The PreToolUse guard runs on every Bash, Read, Grep, Glob, Write, Edit, MultiEdit and NotebookEdit call (.claude/settings.json:211); other tools in its default set (for example WebFetch, WebSearch and MCP tools) are not matched by the guard. Its own transcript, checked by the orchestrator, shows only Bash (60 calls), Read (3) and Write (1, the scratchpad draft) calls, plus its hand-back, so every one of its tool calls went through the guard. The orchestrator also read its 60 Bash commands in that transcript. None wrote or deleted a file: the only redirection goes to `/dev/null`, and there is no `tee`, `cp`, `mv`, `touch`, `mkdir`, `chmod`, `ln`, in-place edit or file removal. None ran a git write command: the git subcommands are `log`, `show`, `ls-files`, `merge-base` and `grep`. None used the network (no `curl`, `wget`, URL, `ssh` or `nc`), and none ran an AWS command (the word appears only inside repository file paths). It ran no sbt, script, interpreter, Docker or Terraform command. Command kinds: `grep`, `head`, `tail -n`, `cut`, `wc`, `ls`, `cat`, `echo`, `sort`, `uniq`, `xargs` (only with `echo` and `basename`), one `sed -n`, the read-only git subcommands above, and shell loops and functions around them. It read the autograder reports, repository files (including the variable names in course.tfvars for A6) and one saved tool-output file of this session, and none of the off-limits files (Terraform state or plans, `evidence/`, `~/.aws/`, the phase-17 temporary logs). The stop hook does not exempt it: the self-test s38-unknown-agent-not-exempt uses `general-purpose` as the example of an unknown agent that is not exempt (docs/agent-runs/amendment-02/repair-01.md:802).
+- The hooks still applied to it. The PreToolUse guard runs on every Bash, Read, Grep, Glob, Write, Edit, MultiEdit and NotebookEdit call (.claude/settings.json:211); other tools in its default set (for example WebFetch, WebSearch and MCP tools) are not matched by the guard. Its own transcript shows only Bash (59 calls), Read (2) and Write (1, the scratchpad draft) calls, plus its hand-back, so every one of its tool calls went through the guard. The human checked the transcript (subagents/agent-ad5d56796221bda14.jsonl) and found these counts: every Bash call read-only (grep, git log, git show, jq, reading the autograder results), redirects only to `/dev/null`, no file write or removal, no git write command, no network or AWS command, and one Write, the scratchpad draft. (The orchestrator's first count, 60 Bash and 3 Read, was wrong: two tool calls appear twice in the transcript file and were counted twice.) The orchestrator also read its Bash commands in that transcript. None wrote or deleted a file: the only redirection goes to `/dev/null`, and there is no `tee`, `cp`, `mv`, `touch`, `mkdir`, `chmod`, `ln`, in-place edit or file removal. None ran a git write command: the git subcommands are `log`, `show`, `ls-files`, `merge-base` and `grep`. None used the network (no `curl`, `wget`, URL, `ssh` or `nc`), and none ran an AWS command (the word appears only inside repository file paths). It ran no sbt, script, interpreter, Docker or Terraform command. Command kinds (orchestrator's list): `grep`, `jq`, `head`, `tail -n`, `cut`, `wc`, `ls`, `cat`, `echo`, `sort`, `uniq`, `xargs` (only with `echo` and `basename`), one `sed -n`, the read-only git subcommands above, and shell loops and functions around them. It read the autograder reports, repository files (including the variable names in course.tfvars for A6) and one saved tool-output file of this session, and none of the off-limits files (Terraform state or plans, `evidence/`, `~/.aws/`, the phase-17 temporary logs). The stop hook does not exempt it: the self-test s38-unknown-agent-not-exempt uses `general-purpose` as the example of an unknown agent that is not exempt (docs/agent-runs/amendment-02/repair-01.md:802).
 - It owns no artifact. The 18 repository agents remain the only artifact owners (docs/agents.md). This use is an unplanned deviation, listed for the human gate. For the rest of Phase 17 only the 18 repository agents are used.
 
 ## Mapping
@@ -264,17 +264,23 @@ Found: "Block-size cap, oversize counters, fallback families and MatchCandidate 
 
 Answer: answered in docs (Phase 17 E12 autograder pass) as a known limitation. Target: docs/hadoop-job-contracts.md:208-214 (section 13.1); reports/final-report.md:618; docs/service-limits.md:120.
 
+Update: fixed in code in repair round R3 (see "Repair round R3", R3-B1). The known-limitation text above is superseded.
+
 ## B2 (V2 HADOOP-11): job contracts
 
 Found: "Job contracts are in Scaladoc, the defaults XML and agent reports … but no standalone per-job contract document with types, S3 prefixes, reducers, codec and fixture for each job was found."
 
 Answer: answered in docs (Phase 17 E12 autograder pass): a new per-job contract document, docs/hadoop-job-contracts.md, linked from the README index and docs/architecture.md (human decision, runbook-log row "E12 autograder results"). Target: docs/hadoop-job-contracts.md (227 lines, sections per job J01 to J09), linked from README.md:443 (D06 row) and docs/architecture.md:204.
 
+Update: after repair round R3 the file has 307 lines (new sections 5.1 J05p and 6.1 J05bp; section 13 rewritten; see R3-Docs). The links named above are still correct.
+
 ## B3 (V2 HADOOP-PAIRS-WRONG, minor)
 
 Found: "Teams over the hard limit (default 5000) are rejected with no pairs; teams of 100-5000 are expanded. The drop is deliberate, counted and rejected, so only minor." Cited: modules/hadoop/src/main/resources/scholarchain-hadoop-defaults.xml:191-192.
 
 Answer: answered in docs (Phase 17 E12 autograder pass) as a known limitation. Target: docs/hadoop-job-contracts.md:216-227 (section 13.2); reports/final-report.md:619; docs/service-limits.md:121.
+
+Update: in repair round R3 the human classed the hard limit as a deliberate safety bound, not a defect (condition 4), after hadoop-engineer's analysis. See "Repair round R3", R3-B3. The line targets above are from the second run; after R3, section 13.2 of docs/hadoop-job-contracts.md is at :286-307 (the file now has 307 lines), and the other targets are listed under R3-Docs.
 
 ## C1 (V3 FACTORY-07): phase records
 
@@ -318,6 +324,8 @@ Answer: this file now calls it "the tutorial's sample application" (A11 and the 
 
 Found (as the human summarised the V2 report): the Crossref manifest entry lacks a schema version, a real snapshot date and an observed size; the OpenAlex and Crossref schema notes have no schema version; the ORCID notes give few types.
 
+Update: superseded in repair round R3. The human then classed N4 as a genuine defect, and dataset-engineer added the missing fields (see "Repair round R3", R3-N4). The answer below is the second-run answer, kept as it was.
+
 Answer: `datasets/**` is an input of these checks and is not changed after the release candidate (human decision). Recorded as a known limitation: reports/final-report.md:615 (section 23.1, "Dataset records are incomplete for the enrichment sources"), with the sources datasets/dataset-manifest.yaml:540-563 and datasets/schemas/openalex.md, crossref.md and orcid.md:26-53.
 
 ### N5 (V2 SPARK-09: met -> partial)
@@ -325,3 +333,202 @@ Answer: `datasets/**` is an input of these checks and is not changed after the r
 Found (as the human summarised the V2 report): shortest paths and the diameter estimate are computed only on the full window, not per configured window.
 
 Answer: a code limitation, not changed after the release candidate. Only the Spark-precomputed path evidence and the effective-diameter estimate are limited to the full window; runtime path questions in other windows use the bounded live path search (modules/rag/src/main/scala/org/scholarchain/rag/runtime/Stages.scala:617). Recorded as a known limitation: reports/final-report.md:621 (section 23.1, "Spark-precomputed path evidence and the effective-diameter estimate cover the full window only"), with the sources modules/spark/src/main/scala/org/scholarchain/spark/Pipeline.scala:609 (window loop) and :815-843 (paths and diameter on the full window).
+
+## Third run (62de5e5)
+
+The human ran the autograder a third time: V1 1.0.8, V2 2.3.5, V3 3.0.5 and V4 4.0.0, all labelled with commit 62de5e5942137510a21587693600e6008ffa3354. Folder names are dated 2026-11-24, which is local time. The recorded run times are 2026-11-25 in UTC: V2 rows 02:24:13 to 02:29:44 (dataset_engineering, hadoop_mapreduce, spark_analytics), V3 rows 02:31:39, and V1 `run_date` 2026-11-25 (runbook-log row "E12 plan change: repair round R3 (human)").
+
+Caution about what was graded: the V2 and V3 judges cite text that is not in 62de5e5. V3 FACTORY-AGENTS-NOT-SUBMITTED cites README.md:90 ("Built-in subagents"), and the V2 `dataset_engineering` integrity note cites reports/final-report.md:615 ("Dataset records are incomplete …"). `git show 62de5e5:README.md` and `git show 62de5e5:reports/final-report.md` contain neither text. Both appear first in cdd36c8, committed 2026-11-24 20:53 local time, after these runs (the V3 rows are stamped 20:31 local time). So the V2 and V3 judges read a working tree that already held the uncommitted N1-N5 edits. V1 C03 still counts 3 mentions of the tutorial's sample application in this file, which matches the committed 62de5e5 text (N3 removed them in cdd36c8), so V1 appears to read committed content. This is inferred from what each checker cites, not from its code. The human re-runs the autograder on the new release candidate before the gate.
+
+| Result | Checks |
+|---|---|
+| Improved (since the first run, V1 1.0.3 on d8b49fa) | V1 K01 FAIL -> WARN: AWS documentation-example keys are now "ignored as placeholders"; only ErRepairRegressionSuite.scala:454 is left. V1 K02 FAIL -> PASS. V1 E01 FAIL -> WARN: only phase-00 is left, and phase-02 is no longer flagged. V1 E03 items 352 -> 120, and "never existed" 295 -> 53 (X1). |
+| Improved (since the second run, V2 2.3.0 / V3 3.0.0 on 62de5e5) | V2 SPARK-09 partial -> met. The judge still notes that "Paths and the diameter estimate run only on the configured full window … which a reviewer may weigh", the N5 limitation. Whether the change comes from the working-tree N5 text or from judge variance was not determined. V2 DATA-02 and SPARK-11: `needs_human` yes -> no. V2 pre-scan "tries to set marks": 34 hits -> 0 in hadoop_mapreduce/prescan.json. Two of the 34 were the docs/evaluation.md ratios (N2). The other 32 are in frozen phase records that did not change, so that drop is probably the checker version (not verified). |
+| Unchanged | V1 FAIL: P01, G02, G03, E03, R03. V1 WARN: K03, E04, E05, C03, O02, O03, V01, A01, U01 (A1 to A17). V2 HADOOP-04 partial (B1), HADOOP-PAIRS-WRONG yes/minor (B3), DATA-02 and DATA-05 partial (N4). V3: all 14 rows the same as the second run, including FACTORY-07 met (C1), FACTORY-05 met but queued for a human, and FACTORY-AGENTS-NOT-SUBMITTED yes/minor (N1). |
+| New | V4 4.0.0, the first V4 run. It has three rows pending an instructor decision (X1 to X3, below). X4: the V2 `dataset_engineering` integrity note on the eval-set injection question. |
+
+V4 score (bwilk26.md, phases.csv): "Points gained: 8.78 of 9.0 (automatic categories only)", "Points deducted: 1.00", "Score (gained - deducted): 7.78". It reports "pending human: 3 row(s), 0.00 gain points at stake" and "marked CHECK: 2" (FACTORY-05 and HADOOP-12). This matches the human's 7.78. 9.0 is the maximum of the gained points, so the score is 7.78 (8.78 gained minus 1.00 deducted), before the pending decisions.
+
+Applied deductions (0.50 each, each "up to 2"):
+- N1, V3 FACTORY-AGENTS-NOT-SUBMITTED, yes/minor, phase 01. The judge's reason (V3 run-1.answer.json:466; V4 bwilk26.md row): "The README and a Phase 17 record name a built-in general-purpose research agent with no file in .claude/agents/. Its use was disclosed, read-only and contained. A human may decide built-ins are exempt. All 18 project agents are submitted." Evidence: README.md:90. Answer: "Built-in subagent disclosure" and N1.
+- B3, V2 HADOOP-PAIRS-WRONG, yes/minor, phase 04. The judge's reason (V2 hadoop_mapreduce/run-1.answer.json:468; V4 bwilk26.md row): "Teams above hardLimit (default 5000) are rejected, so they get no pairs. The effect is confined to that extreme tail; it is counted and written to rejects, and smaller large teams are expanded fully in shards. The recorded largest team was 137 authors." Evidence: modules/hadoop/src/main/scala/org/scholarchain/hadoop/teams/TeamAssembler.scala:75-76. Answer: B3 and "Repair round R3", R3-B3 (the hard limit kept as a deliberate safety bound, human decision under condition 4).
+
+Pending instructor decisions (V4 status PENDING, 0.00 deducted so far):
+- X1, V1 `CLAIMS_NOT_DONE` (row "multiple", up to 2, "never automatic (integrity)"): the 53 "never existed" items. Answer: A8 and "X1" below (0 real mismatches). V4 also notes: "E01: 1 report(s) in a style V1 cannot read: E03 did NOT check their claims (read them first)". That report is the phase-00 one (A7).
+- X2, V1 `SECRETS` (row "—", up to 4): "tests/contracts/src/test/scala/org/scholarchain/contracts/er/ErRepairRegressionSuite.scala:454: possible hard-coded Secret" and "infra/terraform/environments/course/course.tfvars: Terraform variables file: make sure it holds no secrets". Answer: A4/A5 (:454 is a made-up marker constant in a leak test, checked by the human) and A6 (course.tfvars reviewed by the human, no secrets). Not a defect: the test value is not renamed (human decision, condition 4).
+- X3, V1 `HARDCODED` (phase 04, up to 1): "EmbeddingModelSpec.scala:55: model ID / Llm.scala:638: model ID". Answer: A15 (rationale in docs/architecture.md section 7.1). Not a defect: no code change (human decision, condition 4).
+
+## X1 (V1 E03, CLAIMS_NOT_DONE): paths that never existed
+
+Found: V1 1.0.8 on 62de5e5 (check E03, status FAIL) lists 120 items "phase-NN: report claims PATH, but no phase-NN commit changed it". 53 of them add "(this path never existed in the repo)". On the first run (V1 1.0.3, d8b49fa) the counts were 352 and 295 (A8). V4 4.0.0 carries the same 53 as the pending row `CLAIMS_NOT_DONE` ("never automatic (integrity)", phases 01, 03, 05, 07, 09, 11, 12, 15, 16, 17, up to 2 points).
+
+Method (documentation-engineer, read-only; agent-report-docs-R3-partA.md): for every one of the 53 items, the phase's records under docs/agent-runs/phase-NN/ were searched for the quoted path. The candidate files were then checked in git history (`git log --all`, `git show --name-status` on the commits in that phase's commit.txt, or on commits whose subject starts with `phase-NN`). No agent report was edited.
+
+**Real mismatches (d): none found.** Every one of the 53 items is backed by a record line that explains it.
+
+Categories:
+- (a) A probe file the specification requires, created and removed within the phase.
+- (b) A shortened, module-relative or template path that resolves to a real file changed by that phase's commits.
+- (c) A planned file that was never created. None found.
+- (d) A real mismatch. None found.
+- (e) **The report names the path, but not as a claim that a committed file changed.** In each (e) row, the report itself says what the path is: a generated output under a gitignored `target/` folder, a session-scratchpad path, a temporary helper that was deleted, or a field-name template. This category was added (human decision, runbook-log row "E12 R3 X1 category (e) (human)") because 19 items fit none of (a) to (d). A8 classes the same kind of item as "not a claim" (A8, item 331).
+
+| # | Phase | Path as the checker quotes it | Cat. | What it actually is | Record (file:line) and evidence |
+|---|---|---|---|---|---|
+| 1 | 01 | modules/core/src/main/scala/Probe.scala | a | The spec's required Stop-hook probe sample, created and deleted in the phase | docs/agent-runs/phase-01/course-specification.md:972; human-gate.md:19-31; agent-report.md:396 ("Delete the sample afterwards"; also orchestrator-report.md:100). `git log --all` for any Probe.scala returns nothing; the phase commit 684c610 does not contain it. |
+| 2 | 03 | test/scala/.../TmpGenerateWire.scala | e | A temporary generator that wrote the frozen wire JSON, then was deleted | docs/agent-runs/phase-03/agent-report-domain.md:30, :34 ("was created to emit the frozen JSON and then deleted"). Not a spec probe. `git log --all` returns nothing for it. |
+| 3 | 05 | .../eval/metrics.json | e | A generated evaluation output under a gitignored `target/` run folder | docs/agent-runs/phase-05/agent-report-er-eval.md:21 ("Generated outputs (under target/, not in git)": modules/entity-resolution/target/phase-05-real/attempt-02/run=…/eval/metrics.json) and :25 (the checker's string, under FILES MODIFIED: "I overwrote .../eval/metrics.json and .../eval/summary.md", where "..." refers back to that target/ run folder). Gitignored (`.gitignore:2`, `target/`). |
+| 4 | 05 | .../eval/summary.md | e | A generated evaluation output in the same `target/` run folder | docs/agent-runs/phase-05/agent-report-er-eval.md:21 |
+| 5 | 05 | clusters/clusters.jsonl | e | A generated entity-resolution output under `target/` | docs/agent-runs/phase-05/agent-report-er.md:198 (heading "FILES CREATED (generated run output only, all under target/ and none in git)"), :205; :534 ("All of it is under target/; no real data is in git paths.") |
+| 6 | 05 | decisions/identity_assignment/part-00000.jsonl | e | A generated entity-resolution output under `target/` | docs/agent-runs/phase-05/agent-report-er.md:198, :204; :534 |
+| 7 | 05 | eval/summary.md | e | A generated evaluation output under `target/` (the file of row 4) | docs/agent-runs/phase-05/repair-08.md:17 ("Generated outputs, not source"); agent-report-er-eval.md:565 |
+| 8 | 05 | llm/adjudications.jsonl | e | A generated adjudication output under `target/` | docs/agent-runs/phase-05/agent-report-er.md:198, :206; :534 |
+| 9 | 05 | llm/rejected-replies.jsonl | e | A generated rejected-reply output under `target/` | docs/agent-runs/phase-05/agent-report-er.md:198, :206; :534 |
+| 10 | 05 | work_resolution/decisions.jsonl | e | A generated work-resolution output under `target/` | docs/agent-runs/phase-05/agent-report-er.md:198, :207; :534 |
+| 11 | 05 | work_resolution/summary.json | e | A generated work-resolution output under `target/` | docs/agent-runs/phase-05/agent-report-er.md:198, :207; :534 |
+| 12 | 07 | vector-queue/run-1.jsonl | e | A generated storage run output under `target/` | docs/agent-runs/phase-07/agent-report-storage.md:30, :32 ("Generated, untracked: target/phase-07-real/attempt-01/"). `git log --all` returns nothing for it. |
+| 13 | 09 | main/.../storage/StorageConfig.scala | b | modules/storage/src/main/scala/org/scholarchain/storage/StorageConfig.scala | docs/agent-runs/phase-09/agent-report-storage.md:16, :17 (the heading at :16 gives the prefix "all under …/modules/storage/src/"). Changed in 9a9174d (phase-09/commit.txt), which covers rows 13-25. |
+| 14 | 09 | main/.../storage/aws/AwsSupport.scala | b | modules/storage/src/main/scala/org/scholarchain/storage/aws/AwsSupport.scala | agent-report-storage.md:18 (9a9174d) |
+| 15 | 09 | main/.../storage/aws/NeptuneAdapters.scala | b | modules/storage/src/main/scala/org/scholarchain/storage/aws/NeptuneAdapters.scala | agent-report-storage.md:19 (9a9174d) |
+| 16 | 09 | main/.../storage/dynamo/DynamoLoader.scala | b | modules/storage/src/main/scala/org/scholarchain/storage/dynamo/DynamoLoader.scala | agent-report-storage.md:24 (9a9174d) |
+| 17 | 09 | main/.../storage/dynamo/ItemBuilders.scala | b | modules/storage/src/main/scala/org/scholarchain/storage/dynamo/ItemBuilders.scala | agent-report-storage.md:25 (9a9174d; also A8's example) |
+| 18 | 09 | main/.../storage/dynamo/LedgerAndRegistry.scala | b | modules/storage/src/main/scala/org/scholarchain/storage/dynamo/LedgerAndRegistry.scala | agent-report-storage.md:27 (9a9174d) |
+| 19 | 09 | main/.../storage/dynamo/TableSpecs.scala | b | modules/storage/src/main/scala/org/scholarchain/storage/dynamo/TableSpecs.scala | agent-report-storage.md:26 (9a9174d) |
+| 20 | 09 | main/.../storage/local/InMemoryGraph.scala | b | modules/storage/src/main/scala/org/scholarchain/storage/local/InMemoryGraph.scala | agent-report-storage.md:23 (9a9174d) |
+| 21 | 09 | main/.../storage/neptune/BulkLoadRequests.scala | b | modules/storage/src/main/scala/org/scholarchain/storage/neptune/BulkLoadRequests.scala | agent-report-storage.md:22 (9a9174d) |
+| 22 | 09 | main/.../storage/neptune/NeptuneModel.scala | b | modules/storage/src/main/scala/org/scholarchain/storage/neptune/NeptuneModel.scala | agent-report-storage.md:21 (9a9174d) |
+| 23 | 09 | main/.../storage/ports/GraphPorts.scala | b | modules/storage/src/main/scala/org/scholarchain/storage/ports/GraphPorts.scala | agent-report-storage.md:20 (9a9174d) |
+| 24 | 09 | test/.../AwsAdaptersAwsSuite.scala | b | modules/storage/src/test/scala/org/scholarchain/storage/AwsAdaptersAwsSuite.scala | agent-report-storage.md:28 (9a9174d) |
+| 25 | 09 | test/.../DynamoSuite.scala | b | modules/storage/src/test/scala/org/scholarchain/storage/DynamoSuite.scala | agent-report-storage.md:29 (9a9174d) |
+| 26 | 11 | wire/v1/QueryAudit.json | b | modules/storage/src/test/resources/wire/v1/QueryAudit.json | docs/agent-runs/phase-11/repair-05-storage.md:5; added in 29661e9 (phase-11/commit.txt). The core file with the same suffix dates from phase 09; E03 lists that one separately. |
+| 27 | 11 | wire/v2/QueryAudit.json | b | modules/storage/src/test/resources/wire/v2/QueryAudit.json | docs/agent-runs/phase-11/repair-05-storage.md:6; added in 29661e9 (the core v2 file too; repair-04-domain.md:7) |
+| 28 | 12 | runtime/workflow/observability/COSTS.md | b | A slash list naming infra/terraform/COSTS.md and the modules runtime/, workflow/, observability/ | docs/agent-runs/phase-12/agent-report-infra-2b.md:17 (and :7). All added in 80a3606 (phase-12/commit.txt). |
+| 29 | 15 | latency-/classes-/tasks-ATTEMPT.svg | b | A file-name template (ATTEMPT = attempt ID) for the derived load-level plots | docs/agent-runs/phase-15/agent-report-experiment-6a.md:114. Resolves to, for example, experiments/derived/out/p15-d-query-load/latency-20261120T235521Z-ff00cfa278c8-ca0c.svg and the classes- and tasks- files there and under p15-d-read-load/; added in 08bbb9d. |
+| 30 | 15 | metrics/metric-data.json | b | A brace-list member: metrics/metric-data.json in the "a001" fixture run folder under experiments/derived/fixtures/raw/p15-a-spark/ (folder name not copied here: it holds a run of zeros in its account field) | docs/agent-runs/phase-15/agent-report-experiment-6a.md:20-25; added in 684636e (phase-15/commit.txt) |
+| 31 | 15 | metrics/queries.json | b | A brace-list member: the same fixture folder's metrics/queries.json | docs/agent-runs/phase-15/agent-report-experiment-6a.md:20-25 (684636e) |
+| 32 | 15 | recall-/mrr-ATTEMPT.svg | b | A file-name template for the derived retrieval-mode plots | docs/agent-runs/phase-15/agent-report-experiment-6a.md:114. Resolves to experiments/derived/out/p15-e-retrieval-modes/recall-20261120T221402Z-6a6c31a06d60-b6c7.svg and mrr-…-b6c7.svg (08bbb9d). |
+| 33 | 16 | main/.../EmbeddingWorker.scala | b | modules/services/src/main/scala/org/scholarchain/services/EmbeddingWorker.scala | docs/agent-runs/phase-16/agent-report-service.md:11, :17 (the heading at :11 gives the prefix "all under …/modules/services/src/"). Changed in d37389b (phase-16/commit.txt), which covers rows 33-43. |
+| 34 | 16 | main/.../Errors.scala | b | modules/services/src/main/scala/org/scholarchain/services/Errors.scala | agent-report-service.md:19 (d37389b) |
+| 35 | 16 | main/.../HealthService.scala | b | modules/services/src/main/scala/org/scholarchain/services/HealthService.scala | agent-report-service.md:15 (d37389b) |
+| 36 | 16 | main/.../Main.scala | b | modules/services/src/main/scala/org/scholarchain/services/Main.scala | agent-report-service.md:18 (d37389b) |
+| 37 | 16 | main/.../QueryService.scala | b | modules/services/src/main/scala/org/scholarchain/services/QueryService.scala | agent-report-service.md:13 (d37389b) |
+| 38 | 16 | main/.../ReadServices.scala | b | modules/services/src/main/scala/org/scholarchain/services/ReadServices.scala | agent-report-service.md:14 (d37389b) |
+| 39 | 16 | main/.../ServiceLimits.scala | b | modules/services/src/main/scala/org/scholarchain/services/ServiceLimits.scala | agent-report-service.md:20 (d37389b) |
+| 40 | 16 | main/.../ServiceServer.scala | b | modules/services/src/main/scala/org/scholarchain/services/ServiceServer.scala | agent-report-service.md:16 (d37389b) |
+| 41 | 16 | main/.../Support.scala | b | modules/services/src/main/scala/org/scholarchain/services/Support.scala | agent-report-service.md:12 (d37389b) |
+| 42 | 16 | test/.../EmbeddingWorkerSuite.scala | b | modules/services/src/test/scala/org/scholarchain/services/EmbeddingWorkerSuite.scala | agent-report-service.md:22 (d37389b) |
+| 43 | 16 | test/.../ServiceTestKit.scala | b | modules/services/src/test/scala/org/scholarchain/services/ServiceTestKit.scala | agent-report-service.md:21 (d37389b) |
+| 44 | 17 | OUT_DIR/RC_SHA/release-manifest.json | b | The script's output template; resolves to releases/manifest/b4d8f1229fc145e1492e1a8cbb8a44a368d026af/release-manifest.json | docs/agent-runs/phase-17/agent-report-infra-I1a.md:98; agent-report-docs-W2.md:45; added in c6bbe14 (the human ran the script; A10, phase-17 row) |
+| 45 | 17 | OUT_DIR/RC_SHA/release-manifest.md | b | The same template's Markdown file (…/release-manifest.md) | agent-report-infra-I1a.md:98 (c6bbe14). Rows 44-45: A8 called this template "a placeholder, not a claim" (outside its sample); X1 classes it (b) because the template resolves to the two files the human's E10 run added. Both readings agree that no claim is false. |
+| 46 | 17 | phase17-reports/agent-report-docs-W1.md | e | The session-scratchpad path of the report itself | docs/agent-runs/phase-17/agent-report-docs-W1.md:17 ("(scratchpad) … (this report)"). The human's committed copy is docs/agent-runs/phase-17/agent-report-docs-W1.md (d8b23f2). |
+| 47 | 17 | phase17-reports/agent-report-docs-W2.md | e | The session-scratchpad path of the report itself | docs/agent-runs/phase-17/agent-report-docs-W2.md:13; committed copy (d8b23f2) |
+| 48 | 17 | phase17-reports/agent-report-docs-W3.md | e | The session-scratchpad path of the report itself | docs/agent-runs/phase-17/agent-report-docs-W3.md:9; committed copy (d8b23f2) |
+| 49 | 17 | phase17-reports/agent-report-docs-W4a.md | e | The session-scratchpad path of the report itself (A8's item 331) | docs/agent-runs/phase-17/agent-report-docs-W4a.md:9; committed copy (d8b23f2) |
+| 50 | 17 | phase17-reports/diff-E11-docs-2.txt | e | The session-scratchpad path of a diff file | docs/agent-runs/phase-17/repair-E11-docs.md:9, :73 ("FILES CREATED: none in the repository. In the scratchpad: …"); committed copy docs/agent-runs/phase-17/diff-E11-docs-2.txt (ade85aa) |
+| 51 | 17 | phase17-reports/diff-E12-docs.txt | e | The session-scratchpad path of a diff file | docs/agent-runs/phase-17/agent-report-docs-E12.md:6 ("FILES CREATED: none in the repository (… in the scratchpad only)"); committed copy (d8b49fa) |
+| 52 | 17 | phase17-reports/repair-E11-docs.md | e | The session-scratchpad path of the report itself | docs/agent-runs/phase-17/repair-E11-docs.md:9; committed copy (ade85aa) |
+| 53 | 17 | releases/course/FILE.json | e | A field description in the release-manifest schema, naming the input records the script reads | docs/agent-runs/phase-17/agent-report-infra-I1a.md:108 (`release_records[]` {source (releases/course/FILE.json), …}). No phase-17 commit changed releases/course/ (last change 9efdf76, phase 15), and the report does not claim one did. |
+
+Category counts (total 53, matching the human's count):
+
+| Category | Count | Phases |
+|---|---|---|
+| (a) spec-required probe, created and removed in the phase | 1 | 01 |
+| (b) shortened, module-relative or template path that resolves to a file changed by the phase's commits | 33 | 09 (13), 11 (2), 12 (1), 15 (4), 16 (11), 17 (2) |
+| (c) planned file never created | 0 | none |
+| (d) real mismatch | 0 | none |
+| (e) the report names the path, but not as a claim that a committed file changed (generated `target/` output 10, scratchpad path 7, deleted temporary helper 1, field template 1) | 19 | 03 (1), 05 (9), 07 (1), 17 (8) |
+| Total | 53 | |
+
+Why the checker reports "never existed": it matches the quoted text as a literal path. It does not expand `…`/`.../` prefixes, slash lists (row 28), brace lists (rows 30-31), file-name templates (rows 29, 32, 44-45, 53) or scratchpad prefixes. For gitignored generated paths it prints a different message when the path is written in full under `target/` (for example "modules/hadoop/target/phase-05-real/attempt-01/run-report.json, which was never committed (.gitignore excludes it)"), but not when the path is relative to a run folder, as in rows 3-12.
+
+## X4 (V2 pre-scan and integrity note): prompt-injection test data
+
+The line the checker flags, modules/rag/src/main/resources/org/scholarchain/rag/eval/benchmark-v1-eval-set.json:216, is the question text of item q30. Its category is `prompt_injection` (:214-215). It is deliberate test data: the Phase 9 work order required one benchmark question with "prompt injection in the question (1, expected: no plan change)" (docs/agent-runs/phase-09/prompt.md:187), and the gate "Prompt injection tests pass" was recorded as PASS, with q30 keeping its plan and all ten values in both runs (docs/agent-runs/phase-09/human-gate.md:10; docs/agent-runs/phase-09/review-report.md:58). The same question is in the Phase 9 benchmark, modules/rag/src/test/resources/benchmark/benchmark-v1.json:5562 (category `prompt_injection`). The eval-set resource is derived from it by code in Phase 15 and includes q30 (docs/agent-runs/phase-15/agent-report-rag.md:32, :99; added in 684636e).
+
+Two checks flagged it. The V2 pre-scan (prescan.json, in all three V2 categories, on both the second and third runs) records it with kind "override phrase", severity MEDIUM. On the third run only, the V2 `dataset_engineering` judge lists it under `integrity_notes`, type "override": "A prompt-injection string asking to disregard instructions and reveal secrets. It appears to be adversarial test data for the RAG system, with similar copies in tests. Not followed." No result row and no deduction depends on it. Prompts treat the question and retrieved text as data, never as instructions (reports/final-report.md:397). Not a defect: no change.
+
+## Repair round R3 (instructor-approved code and data fixes)
+
+The instructor approved code and documentation fixes in Phase 17 in writing (his Teams reply, recorded by the human in docs/agent-runs/instructor-approvals.md), on four conditions, which the human made binding (runbook-log row "E12 plan change: repair round R3 (human)"):
+1. changes are made by the owning agents, tested and reviewed;
+2. each change is documented with its rationale and autograder finding;
+3. the relevant tests are re-run and the whole project is verified from a fresh clone;
+4. genuine defects are kept apart from autograder false positives: correct code is never changed just to satisfy an incorrect check.
+
+Classification under condition 4 (human decisions, runbook-log rows "E12 plan change: repair round R3 (human)" and "E12 R3 decisions 2 (human)"):
+
+| Finding | Class | Action |
+|---|---|---|
+| B1 (V2 HADOOP-04) | genuine defect | fixed in code (R3-B1) |
+| N4 (V2 DATA-02, DATA-05) | genuine defect | fixed in the dataset records (R3-N4) |
+| B3 (V2 HADOOP-PAIRS-WRONG) | first classed a genuine defect; after the owner's analysis, a deliberate safety bound | no code change; documented (R3-B3) |
+| A1-A3, A7-A13, A14, A15/X3, A16, A17, X2 | not defects | the documented explanations above stand; no change |
+| X1 | records read literally by the checker | explained (X1); 0 real mismatches |
+| X4 | deliberate test data | explained (X4) |
+
+Verification (condition 3): every change was tested by its owner; test-engineer added adversarial tests and ran the full `sbt check` (R3-Tests); the whole project is verified again from a new fresh clone at the new release candidate (E2 to E5, after this round is committed). Status line for every code change: fixed in code, tested locally, not validated live on AWS; the recorded experiment results were produced by the earlier code.
+
+### R3-B1 (V2 HADOOP-04): oversize-block strategy (hadoop-engineer)
+
+- **Finding:** the cap was applied in the reducer: the mapper emitted every member, so a whole oversize group (recorded at up to 5,127 members) was shuffled to one reduce call (old BlockingJob.scala around :405 and :449). J05b had the same shape for oversize fallback groups.
+- **Why it is a genuine defect:** the specification requires that a giant reducer group never forms: "A giant reducer group is a correctness and availability risk. The blocking design must include maximum block size, fallback keys, counters, and a policy for oversize groups" (docs/agent-runs/phase-17/course-specification.md:2245). The old code bounded memory, not the group.
+- **Change** (agent-report-hadoop-R3.md, section B1):
+  - counting pre-passes J05p and J05bp (BlockSizeJobs.scala) count every block key with a combiner and list the keys over the configured cap (`maxBlockSize`, `fallback.maxBlockSize`, both 200) as OversizeKey v1 records, before J05 and J05b run;
+  - J05 re-keys each member of an oversize key by its mention ID and spreads those groups over all reducers (BlockingPartitioner, BlockingGroupingComparator), so no reduce group exceeds the cap; the oversize block is still listed and counted from per-map-task size markers;
+  - the documented fallback keys (coauthor, venue, coauthor-venue) re-key those members in J05b;
+  - still-oversize policy, deterministic: a fallback group still over the cap is never formed; it is counted (OVERSIZE_BLOCKS, STILL_OVERSIZE_BLOCKS, STILL_OVERSIZE_MEMBERS) and listed in fallbackOversizeBlocks/; its members are covered by their other fallback blocks, or counted and listed as uncovered by J05c;
+  - new counters BLOCK_KEYS_COUNTED, OVERSIZE_KEYS_FOUND, OVERSIZE_MEMBERS_REKEYED, REKEYED_BLOCKS, REDUCER_CAPPED_BLOCKS (0 when the pre-pass runs) and the stat `largestReduceGroup`;
+  - a pre-pass computed for a different cap fails the job;
+  - wiring: BlockingChain.run, called from Pipeline.run;
+  - the candidate output is unchanged (the er-v2 candidate set is the same, so the blocking policy version is not bumped); every run ID from J05 onward changes, so earlier outputs are not reused.
+- **Tests (hadoop-engineer):** OversizeBlockStrategySuite 9 of 9 (a mutation that ignores the pre-pass makes 2 fail), then 10 of 10 with the repair test; FallbackBlockingSuite 17 of 17; LocalPipelineRunnerSuite 4 of 4; the direct users all pass (hadoop 52 of 52 after the repair). test-engineer's tests: R3-Tests.
+- **Files:** modules/hadoop/src/main/scala/org/scholarchain/hadoop/blocking/BlockSizeJobs.scala (new), pipeline/BlockingChain.scala (new), blocking/BlockingJob.scala, blocking/FallbackJobs.scala, common/Counters.scala, common/Settings.scala, pipeline/Pipeline.scala, src/main/resources/scholarchain-hadoop-defaults.xml (descriptions only), and the tests OversizeBlockStrategySuite.scala (new), FallbackBlockingSuite.scala, LocalPipelineRunnerSuite.scala.
+
+### R3-B3 (V2 HADOOP-PAIRS-WRONG): the hard limit is a deliberate safety bound (no code change)
+
+- **Finding:** teams above `scholarchain.teams.hardLimit` (default 5000) are rejected as team_exceeds_hard_limit, so they get no pairs (TeamAssembler.scala:75-76).
+- **Owner's analysis** (hadoop-engineer, agent-report-hadoop-R3.md, section B3):
+  - pair expansion already streams (J08a shards of 100,000 pairs), so memory is not the risk; output size is;
+  - the only other bound on a team is the record limit `scholarchain.dblp.maxRecordBytes` (1,048,576 bytes): one record could list about 52,000 minimal author elements (20 bytes each, a 3-character name) or about 30,000 realistic ones (about 35 bytes, an assumed size);
+  - that is 1,351,974,000 or 449,985,000 pairs; at about 693 bytes per pair record (a local measurement by hadoop-engineer that no committed record holds), about 937 GB or 312 GB per pair stage; over the three written pair stages that is about 0.9 to 2.8 TB, and about 1.25 to 3.75 TB with the J08b shuffle, from one 1 MiB record, an amplification of about a million;
+  - the hard limit bounds one record to 12,497,500 pairs (5,000 authors);
+  - the recorded data peaks at 137 authors, with no team near the limit (Phase 15 experiment A).
+- **Why it is kept (human decision, condition 4):** the specification's security section lists "Malformed or decompression-bomb inputs" as a threat (course-specification.md:2718) and requires "Bounded inputs, outputs, retries, graph depth, and concurrency" (:2729). The limit is that bound. The specification also asks to "Count and report unusually large author teams because they can create quadratic pair expansion" (:1155): teams above the limit are counted and written to rejects with their reason, not dropped silently. The alternative (option A) would replace the materialized pairs with an implicit clique handled in Spark; it avoids the quadratic volume only as long as Spark never expands the pairs, and it would need new code in three modules.
+- **Verified by code-reviewer** (review-report-R3-partB.md, section 3): the hard limit (defaults XML :189-190, PublicationTeamJob.scala:133, TeamAssembler.scala:75-76), the record limit (defaults XML :141-142, DblpRecordScanner.scala:243, :308), the pair counts, the sharded streaming expansion (PairJobs.scala:73-80, :111-137), the reject reason and counter (Disposition.scala:112, PublicationTeamJob.scala:169) and the largest real team (137, Phase 15 experiment A counters). Not verifiable: the 693-byte figure and the volumes that rest on it.
+- **Change:** none in code. Documented in docs/hadoop-job-contracts.md, docs/service-limits.md and the final report's known limitations (R3-Docs).
+
+### R3-N4 (V2 DATA-02, DATA-05): dataset record fields (dataset-engineer)
+
+- **Finding:** the Crossref manifest entry had no schema version, no snapshot date and no observed size; the OpenAlex and Crossref schema notes had no schema version; the ORCID notes gave few field types.
+- **Why it is a genuine defect:** the dataset records must be explicit and versioned, with sizes recorded; several values already existed in committed records but were not fields of the dataset record, and no version was stated at all, not even as unknown.
+- **Change** (agent-report-dataset-R3.md, section N4; every value from a committed record or the committed sample, with its source next to it):
+  - datasets/dataset-manifest.yaml, Crossref: `snapshot.snapshot_date` 2026-11-12 (the sample's API retrieval date, with four committed sources and a consistency check); `size_estimate.observed` (sample bytes 9617, records 4, sha256, each equal to the samples[] entry); `schema.projection_schema_version` 1 (ScholarChain's own field selection); "not recorded", with the reason, for the Crossref source schema version, the bounded-corpus retrieval date, the subset bytes and the public data file bytes; `manifest_version` stays 1 (additive keys);
+  - datasets/schemas/crossref.md and openalex.md: a "Schema version" section (projection version 1; the source schema version "not recorded", with the reason);
+  - datasets/schemas/orcid.md: "Field types (committed sample projection)", 26 projected paths with the JSON types observed in the one committed record; types never observed are not claimed.
+- **Tests:** hadoop DblpParsingSuite 11 of 11 and NormalizerSuite 6 of 6 (they locate the repository root through the manifest). No sbt test reads the manifest's content. The content validator, datasets/scripts/validate.sh, was not run: agents may not run anything under datasets/scripts/, and the human has not run it yet (the manifest is checked statically: it parses as YAML, and every "unknown" has a reason).
+- **Files:** datasets/dataset-manifest.yaml, datasets/schemas/crossref.md, datasets/schemas/openalex.md, datasets/schemas/orcid.md.
+
+### R3-Tests (test-engineer)
+
+- **Counting-pass coverage:** the contract harness (tests/contracts/.../hadoop/JobHarness.scala) now runs J05p and J05bp before J05 and J05b for every harness user, and checks on every run that REDUCER_CAPPED_BLOCKS is 0 and that the pre-pass and job counters agree (test-report-R3.md).
+- **Adversarial tests:** OversizeBlockAdversarialSuite (new, 18 tests): a skewed key 24 times the cap; keys exactly at the cap and one above, for both caps; 16 primary and 19 fallback oversize keys at once; still-oversize groups counted, listed and never formed, with their members covered or listed as uncovered; records equal to the old path; byte-identical output across four input layouts (including 8 KiB splits); refusal of a pre-pass made for another cap, a corrupt list or an unknown key version; counter identities.
+- **Defect found and repaired in this round:** the `largestReduceGroup` stat counted per-map-task size markers, so it could exceed the cap (23 against 5) and the stats/ files changed with the input layout. hadoop-engineer repaired it (the stat counts member values only; records and counters unchanged; repair-hadoop-R3.md), and the test passes.
+- **B3 boundary (no production change):** JobLevelTeamScaleSuite, one new test with a hard limit of 12: a team of 12 gives all 66 pairs once each; teams of 13 and 25 are rejected with their reason and counted.
+- **Full `sbt check`** after the last source change (test-report-R3-2.md): exit 0; module tests 151 suites, 2367 tests (2362 run, 0 failed, 5 skipped: the live AWS tests); contract tests 35 suites, 418 run, 418 passed.
+
+### R3-Docs (documentation-engineer)
+
+agent-report-docs-R3.md, diff-docs-R3.txt; repair repair-docs-R3.md, diff-docs-R3-2.txt. Each passage that describes the R3 code change carries the status line "fixed in code, tested locally, not validated live on AWS; the recorded experiment results were produced by the earlier code."
+- **B1:** docs/hadoop-job-contracts.md (run order, partitioner and combiner rows, the J05 and J05b tables, new sections 5.1 J05p and 6.1 J05bp, section 13.1 now "fixed": change, still-oversize policy, counters, the `largestReduceGroup` bound, tests); docs/data-lineage.md (graph, job table, partitioning; the Phase 14 counts marked as produced by the earlier code); docs/service-limits.md:120; reports/final-report.md:5, :169, :611 and :618 (now a "Fixed:" entry); README.md:276, docs/runbook.md:85 and docs/demo-script.md:117 (the E5.13 replay ran the earlier code).
+- **B3:** docs/hadoop-job-contracts.md section 13.2, docs/service-limits.md:121, reports/final-report.md:619: a deliberate safety bound, not a fixed defect, with the analysis above and the volumes labelled as estimates.
+- **N4:** reports/final-report.md:615 (what was added, what is still not recorded, the validator not yet run); manifest line citations moved by the N4 edit updated in final-report.md:99 and :101, data-lineage.md:62-65, runbook.md:96 and threat-model.md:45.
+
+### R3-Review (code-reviewer)
+
+- **Part A** (Third run, X1, X4): APPROVE (review-report-R3-partA.md); all 19 (e) rows fit the definition, no hidden real mismatch; five minor wording points fixed in this file.
+- **Part B** (B1 code and tests, N4 records, B3 numbers): APPROVE (review-report-R3-partB.md); B1 correct against the specification; every B3 number checked against the code, the unverifiable ones labelled. Six minors. Four were fixed in a minor repair pass the human authorized (below): the stale J05 scaladoc in BlockingJob.scala (hadoop-engineer); a manifest citation that read more into its source than it says and a manifest cause note that no record supports (dataset-engineer); one stats/ comparison exclusion in a contract test (test-engineer). Two wording points in hadoop-engineer's own report stay as they are (the report is a record; the docs use the corrected wording).
+- **Docs and this section:** REQUEST_CHANGES with 1 major (docs/architecture.md:204 and README.md:443 still stated the old cap) (review-report-R3-docs.md); repaired in one pass (repair-docs-R3.md); focused re-check APPROVE (review-report-R3-docs-2.md). Minors: a grammar slip at docs/architecture.md:204 ("are" for "is"), fixed in the minor repair pass; two wording points in this file, fixed.
+- **Minor repair pass** (authorized by the human; runbook-log row "E12 R3 minor repair pass (human)"): BlockingJob.scala scaladoc at :321-331 and :476-482 (comments only; repair-hadoop-R3-2.md); datasets/dataset-manifest.yaml:558 and :581 (the citation says only what its source says; the cause of the byte difference is "not recorded", with the reason; repair-dataset-R3.md); OversizeBlockAdversarialSuite compares every stats/ file byte for byte, the `largestReduceGroup` line included (test-report-R3-3.md); docs updated to match (repair-docs-R3-2.md). Focused re-check: APPROVE (review-report-R3-minor.md), with one minor: citations in docs/hadoop-job-contracts.md that point into OversizeBlockAdversarialSuite.scala were 2 lines off after the test edit. At the human's request documentation-engineer moved them to the current test lines (repair-docs-R3-3.md, repair-docs-R3-4.md); code-reviewer re-checked every citation in that file (about 330; review-report-R3-citations.md, REQUEST_CHANGES for one missed line and four incomplete defaults.xml ranges; review-report-R3-citations-2.md, APPROVE after the repair).
+- **Pre-release-candidate decisions** (the human, runbook-log row "E12 R3 human decisions on the pre-RC list"): the human ran `datasets/scripts/validate.sh` on the edited manifest: `RESULT: PASS`, exit 0. Open minor P17-M-04 is closed: infra-engineer changed scripts/README.md:59 to record the release-manifest.sh runs at E5.40 (dry run) and E10, both exit 0 (repair-infra-R3.md). documentation-engineer named the file at docs/hadoop-job-contracts.md:107 (repair-docs-R3-5.md) and updated README.md:327, reports/final-report.md:612 and docs/runbook.md:191, which still called P17-M-04 open (repair-docs-R3-6.md). code-reviewer: APPROVE (review-report-R3-final.md, review-report-R3-final-2.md), with three minors, all fixed at the human's decision: scripts/README.md:5 and the release-manifest.sh header comment and `--help` status line now record the same runs (text only, no logic; shellcheck clean; no check.sh probe depends on the text; repair-infra-R3-2.md), and README.md:327 and docs/runbook.md:189 now say "`scripts/README.md` does not record this run" (repair-docs-R3-7.md). Focused re-check: APPROVE (review-report-R3-final-3.md).
+- **Full `sbt check`** after the last source change (test-report-R3-3.md): exit 0; module tests 151 suites, 2362 run and passed, 5 skipped; contract tests 35 suites, 418 of 418. The documentation changes after the earlier check are Markdown only.
