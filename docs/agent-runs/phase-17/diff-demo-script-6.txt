@@ -1,0 +1,33 @@
+diff --git a/README.md b/README.md
+index 3ad9006..29452c1 100644
+--- a/README.md
++++ b/README.md
+@@ -397,7 +397,7 @@ The Phase 16 evaluation tool ([`experiments/evaluation/evaluate.py`](experiments
+ ## Final report and video
+ 
+ - **Final report:** [`reports/final-report.md`](reports/final-report.md) (the specification's 25 sections; written in Phase 17 steps W4a and W4b, reconciled in step W5).
+-- **Demonstration video:** `VIDEO LINK: added after the tag`. The video was not published at tag time; it is due Nov 30, 8 PM CST (instructor-approved deadline; [`docs/agent-runs/instructor-approvals.md`](docs/agent-runs/instructor-approvals.md#2026-11-24-deadline-extension-demonstration-video-due-nov-30-8-pm), "2026-11-24: Deadline extension; demonstration video due Nov 30, 8 PM").
++- **Demonstration video:** The video link is in the course submission, not in this repository: the video was not published at tag time; it is due Nov 30, 8 PM CST (instructor-approved deadline; [`docs/agent-runs/instructor-approvals.md`](docs/agent-runs/instructor-approvals.md#2026-11-24-deadline-extension-demonstration-video-due-nov-30-8-pm), "2026-11-24: Deadline extension; demonstration video due Nov 30, 8 PM").
+ - **Demonstration script:** [`docs/demo-script.md`](docs/demo-script.md) (the 22 demonstration items, each with its clip, command or screen, what to blur and its replay line).
+ 
+ ## Cleanup
+@@ -453,5 +453,5 @@ The course specification's "Required deliverables" table (D01 to D20): the ID, D
+ | D16 | Evaluation package | Entity, graph, retrieval, answer, performance, factory, and reproducibility evaluations | [`docs/evaluation.md`](docs/evaluation.md) (groups 1 to 7), raw outputs under [`experiments/evaluation/`](experiments/evaluation/); the AWS Emulator results [`docs/emulator.md`](docs/emulator.md) |
+ | D17 | Documentation package | README, architecture, data lineage, threat model, limits, runbook, evaluation, and API reference | this README, [`docs/architecture.md`](docs/architecture.md), [`docs/data-lineage.md`](docs/data-lineage.md), [`docs/threat-model.md`](docs/threat-model.md), [`docs/service-limits.md`](docs/service-limits.md), [`docs/runbook.md`](docs/runbook.md), [`docs/evaluation.md`](docs/evaluation.md), [`docs/api.md`](docs/api.md); demo script [`docs/demo-script.md`](docs/demo-script.md); incident report [`docs/incidents/INC-P15-F-poison-message.md`](docs/incidents/INC-P15-F-poison-message.md); tool versions [`docs/tool-versions.md`](docs/tool-versions.md); final state [`docs/final-state.md`](docs/final-state.md); the AWS Emulator results [`docs/emulator.md`](docs/emulator.md) |
+ | D18 | Final report | Complete technical and experimental report in Markdown or instructor-approved format | [`reports/final-report.md`](reports/final-report.md) (the specification's 25 sections; known limitations and open review findings in [section 23](reports/final-report.md#23-limitations)) |
+-| D19 | Demonstration video | Narrated system demonstration with required evidence | `VIDEO LINK: added after the tag` (the video was not published at tag time; it is due Nov 30, 8 PM CST, instructor-approved deadline, [`docs/agent-runs/instructor-approvals.md`](docs/agent-runs/instructor-approvals.md#2026-11-24-deadline-extension-demonstration-video-due-nov-30-8-pm), "2026-11-24: Deadline extension; demonstration video due Nov 30, 8 PM"); the script of the narration, the 22 demonstration items and which clips exist: [`docs/demo-script.md`](docs/demo-script.md) |
++| D19 | Demonstration video | Narrated system demonstration with required evidence | The video link is in the course submission, not in this repository (the video was not published at tag time; it is due Nov 30, 8 PM CST, instructor-approved deadline, [`docs/agent-runs/instructor-approvals.md`](docs/agent-runs/instructor-approvals.md#2026-11-24-deadline-extension-demonstration-video-due-nov-30-8-pm), "2026-11-24: Deadline extension; demonstration video due Nov 30, 8 PM"); the script of the narration, the 22 demonstration items and which clips exist: [`docs/demo-script.md`](docs/demo-script.md) |
+ | D20 | Cleanup evidence | Resource inventory before and after cleanup, with retained-state explanation | [`docs/final-state.md`](docs/final-state.md) (cleanup categories, retained items, Terraform freeze); Phase 15 cleanup records: [`docs/agent-runs/phase-15/cleanup/`](docs/agent-runs/phase-15/cleanup/) and `docs/agent-runs/phase-15/runbook-log.md` (rows D24 to D28); the state after Phase 17: [`docs/final-state.md`, section 9](docs/final-state.md#9-after-phase-17) |
+diff --git a/docs/demo-script.md b/docs/demo-script.md
+index 2496960..a15ad9e 100644
+--- a/docs/demo-script.md
++++ b/docs/demo-script.md
+@@ -281,6 +281,6 @@ The video runs 9:45 in 11 segments (plan). Segments B (title and architecture ca
+ 
+ ## After recording
+ 
+-- The video was not published at tag time; it is due Nov 30, 8 PM CST (the instructor's deadline extension: [`docs/agent-runs/instructor-approvals.md`](agent-runs/instructor-approvals.md#2026-11-24-deadline-extension-demonstration-video-due-nov-30-8-pm), "2026-11-24: Deadline extension; demonstration video due Nov 30, 8 PM"). The link goes into the README's "Final report and video" section and deliverable D19 after the tag; both carry the marker `VIDEO LINK: added after the tag` until then. No link is written here before the human gives it.
++- The video link is in the course submission, not in this repository: the video was not published at tag time; it is due Nov 30, 8 PM CST (the instructor's deadline extension: [`docs/agent-runs/instructor-approvals.md`](agent-runs/instructor-approvals.md#2026-11-24-deadline-extension-demonstration-video-due-nov-30-8-pm), "2026-11-24: Deadline extension; demonstration video due Nov 30, 8 PM").
+ - Clip 27 holds, in one fresh clone of `4feef0f`: item 7's `check.sh` run, item 17's chained bounded run and item 16's G7 test and display line.
+-- When clips 22 to 28 are recorded, their status here changes from "to record" to "recorded", with the runbook-log row of each recording; until then nothing in this script claims that they exist.
++- The status of clips 22 to 28 changes here from "to record" to "recorded" only after the human reports each one recorded, in the gate commit, before the tag, with the runbook-log row of each recording; until then nothing in this script claims that they exist.

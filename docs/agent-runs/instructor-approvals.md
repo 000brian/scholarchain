@@ -118,6 +118,25 @@ Vardekar, Rohan C plz take a note. I will consider this deduction a candidate fa
 
 **How it is applied:** the cap is kept. docs/hadoop-job-contracts.md §13.2 and autograder-response.md document each of the instructor's conditions with file:line evidence: detection, counters and reporting; the rationale and computational implications; and the real-data evidence (largest recorded team 137; no team rejected on the real data).
 
+
+## 2026-11-24: Deadline extension; demonstration video due Nov 30, 8 PM
+
+**Received by:** Entire class, Microsoft Teams
+
+**Announcement (verbatim):**
+
+> ScholarChain Project Submission Deadline Extended
+O365-CS441-Fall2026-Cloud Computing: the deadline for submitting your ScholarChain course project has been changed to November 30, 2026, at 8:00 PM CST. Please keep the following in mind.
+You have had more than 2.5 months to complete this project. Throughout the semester, I have repeatedly emphasized the importance of working on it consistently and continuously rather than postponing substantial work until the last moment.
+This extension should not be interpreted as an opportunity to delay your work further. You are expected to use the additional time to complete your implementation, validate its functionality, and prepare a thorough submission.
+Only the last commit made to your repository BEFORE the submission deadline will be pulled for grading. Any changes committed after the deadline will not be considered unless explicitly authorized.
+Make sure you submit your repository link through the designated Teams assignment. Failing to submit the link through Teams will result in a zero for the project.
+Before submission, clone your repository into a fresh directory and verify that your project builds, runs, and contains all required files, documentation, and experimental evidence.
+You have been given ample time, detailed instructions, and considerable flexibility regarding AWS resource limitations and experimental scales. I expect you to take responsibility for completing and submitting your work properly. Please plan accordingly. Do not leave your final commits and submission until the last few minutes.
+ 
+
+**How it is applied:** the repository is tagged v1.0-submission before the video is published; the README (D19) and docs/demo-script.md say the video was not published at tag time and is due Nov 30, 8 PM CST, and the video link goes with the course submission.
+
 ## Earlier approvals 
 
 - Scala 2.13 for sparkAnalytics, core cross-built (Microsoft Teams; see docs/agent-runs/phase-02/prompt.md, decision 1).
