@@ -45,7 +45,7 @@ Questions:
 
 > Yes.
 
-**How it is applied:** documentation-only fixes and explanations, with no change to code, scripts, hooks, tests or Terraform, so the tested release candidate is unchanged. Every finding and its answer is in docs/agent-runs/phase-17/autograder-response.md.
+**How it is applied:** documentation-only fixes and explanations, with no change to code, scripts, hooks, tests or Terraform, so the tested release candidate is unchanged. Every finding and its answer is in docs/agent-runs/phase-17/autograder-response.md. The written confirmation below (2026-11-24, Microsoft Teams) supersedes this for the code changes of repair round R3.
 
 ## 2026-11-24: Repository made public before the deadline
 
@@ -135,7 +135,7 @@ Before submission, clone your repository into a fresh directory and verify that 
 You have been given ample time, detailed instructions, and considerable flexibility regarding AWS resource limitations and experimental scales. I expect you to take responsibility for completing and submitting your work properly. Please plan accordingly. Do not leave your final commits and submission until the last few minutes.
  
 
-**How it is applied:** the repository is tagged v1.0-submission before the video is published; the README (D19) and docs/demo-script.md say the video was not published at tag time and is due Nov 30, 8 PM CST, and the video link goes with the course submission.
+**How it is applied:** the video was published (unlisted) before the tag; its link is in README.md (D19), docs/demo-script.md and reports/final-report.md, and in the course submission. The tag v1.0-submission is made by Nov 29, 8 PM CST, before the Nov 30, 8 PM CST deadline.
 
 ## Earlier approvals 
 
